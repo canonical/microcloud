@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -11,12 +12,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/version"
+	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/state"
+
+	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // Debug indicates whether to log debug messages or not.
@@ -89,7 +95,107 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return m.Start(api.Endpoints, nil, nil)
+	name := args[0]
+	addr := args[1]
+	var tokenCancel context.CancelFunc
+	var server *mdns.Server
+	defer func() {
+		if server != nil {
+			server.Shutdown()
+		}
+	}()
+
+	hooks := &config.Hooks{
+		// Collect all mDNS records, and create join tokens for each one.
+		OnBootstrap: func(s *state.State) error {
+			tokenCancel()
+
+			peers, err := cloudMDNS.LookupPeers(s)
+			if err != nil {
+				return err
+			}
+
+			tokensByName := make(map[string]string, len(peers))
+			for _, peer := range peers {
+				token, err := m.NewJoinToken(peer)
+				if err != nil {
+					return err
+				}
+
+				tokensByName[peer] = token
+			}
+
+			err = server.Shutdown()
+			if err != nil {
+				return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
+			}
+
+			bytes, err := json.Marshal(tokensByName)
+			if err != nil {
+				return fmt.Errorf("Failed to marshal list of tokens: %w", err)
+			}
+
+			server, err = cloudMDNS.NewBroadcast(cloudMDNS.TokenService, name, addr, bytes)
+			if err != nil {
+				return fmt.Errorf("Failed to begin join token broadcast: %w", err)
+			}
+
+			// Shutdown the server after 30 seconds.
+			timeAfter := time.After(time.Second * 30)
+			go func() {
+				for {
+					select {
+					case <-timeAfter:
+						logger.Info("Shutting down broadcast")
+						err := server.Shutdown()
+						if err != nil {
+							logger.Error("Failed to shutdown mDNS server after timeout")
+						}
+
+						return
+					case <-s.Context.Done():
+						return
+					default:
+						// Sleep a bit so the loop doesn't push the CPU as hard.
+						time.Sleep(100 * time.Millisecond)
+					}
+				}
+			}()
+
+			return nil
+		},
+
+		// Start a broadcast informing other cluster members that we are willing to join.
+		// Simultaneously lookup any join tokens being issued by a server that as initiated the cluster.
+		OnStart: func(s *state.State) error {
+			var ctx context.Context
+			ctx, tokenCancel = context.WithCancel(s.Context)
+
+			var err error
+			server, err = cloudMDNS.NewBroadcast(cloudMDNS.ClusterService, name, addr, nil)
+			if err != nil {
+				return err
+			}
+
+			cloudMDNS.LookupJoinToken(ctx, name, func(token string) error {
+				return m.JoinCluster(name, addr, token, time.Second*30)
+			})
+
+			return nil
+		},
+
+		// OnJoin is run after the daemon is initialized and joins a cluster.
+		OnJoin: func(s *state.State) error {
+			err = server.Shutdown()
+			if err != nil {
+				return fmt.Errorf("Failed to shutdown mdns server after joining the cluster: %w", err)
+			}
+
+			return nil
+		},
+	}
+
+	return m.Start(api.Endpoints, nil, hooks)
 }
 
 func init() {
