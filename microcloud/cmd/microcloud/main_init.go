@@ -21,8 +21,8 @@ func (c *cmdInit) Command() *cobra.Command {
 		Use:   "init <name> <address>",
 		Short: "Initialize the network endpoint and create or join a new cluster",
 		RunE:  c.Run,
-		Example: `  microctl init member1 127.0.0.1:8443 --bootstrap
-    microctl init member1 127.0.0.1:8443 --token <token>`,
+		Example: `  microcloud init member1 127.0.0.1:8443 --bootstrap
+    microcloud init member1 127.0.0.1:8443 --token <token>`,
 	}
 
 	cmd.Flags().BoolVar(&c.flagBootstrap, "bootstrap", false, "Configure a new cluster with this daemon")
