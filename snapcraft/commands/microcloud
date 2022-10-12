@@ -1,0 +1,2 @@
+#!/bin/sh
+exec microcloud --state-dir "${SNAP_COMMON}/state" "$@"
