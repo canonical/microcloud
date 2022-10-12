@@ -3,7 +3,7 @@ module github.com/canonical/microcloud/microcloud
 go 1.18
 
 require (
-	github.com/canonical/microcluster v0.0.0-20221011200002-813eda8412c3
+	github.com/canonical/microcluster v0.0.0-20221012211856-fd33137ea536
 	github.com/hashicorp/mdns v1.0.5
 	github.com/lxc/lxd v0.0.0-20221012194334-c30459f05309
 	github.com/olekukonko/tablewriter v0.0.5

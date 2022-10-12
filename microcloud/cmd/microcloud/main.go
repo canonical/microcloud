@@ -1,4 +1,4 @@
-// Package microctl provides the main client tool.
+// Package microcloud provides the main client tool.
 package main
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
-// CmdControl has functions that are common to the microctl commands.
+// CmdControl has functions that are common to the microcloud commands.
 // command line tools.
 type CmdControl struct {
 	cmd *cobra.Command //nolint:structcheck,unused // FIXME: Remove the nolint flag when this is in use.
@@ -26,7 +26,7 @@ func main() {
 	commonCmd := CmdControl{}
 
 	app := &cobra.Command{
-		Use:               "microctl",
+		Use:               "microcloud",
 		Short:             "Command for managing the MicroCloud daemon",
 		Version:           version.Version,
 		SilenceUsage:      true,

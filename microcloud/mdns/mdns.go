@@ -3,8 +3,6 @@ package mdns
 import (
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 
 	"github.com/hashicorp/mdns"
 )
@@ -18,17 +16,13 @@ const ClusterService = "_microcloud"
 // clusterSize is the maximum number of cluster members we can find.
 const clusterSize = 30
 
-func NewBroadcast(service string, name string, addr string, txt []byte) (*mdns.Server, error) {
-	i, p, _ := strings.Cut(addr, ":")
-	port, _ := strconv.Atoi(p)
-	ip := net.ParseIP(i)
-
+func NewBroadcast(service string, name string, addr string, port int, txt []byte) (*mdns.Server, error) {
 	var sendTXT []string
 	if txt != nil {
 		sendTXT = dnsTXTSlice(txt)
 	}
 
-	config, err := mdns.NewMDNSService(name, service, "", "", port, []net.IP{ip}, sendTXT)
+	config, err := mdns.NewMDNSService(name, service, "", "", port, []net.IP{net.ParseIP(addr)}, sendTXT)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create configuration for broadcast: %w", err)
 	}

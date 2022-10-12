@@ -1,4 +1,4 @@
-// Package microd provides the daemon.
+// Package microcloudd provides the daemon.
 package main
 
 import (
@@ -8,11 +8,14 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/mdns"
+	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
@@ -74,7 +77,7 @@ type cmdDaemon struct {
 
 func (c *cmdDaemon) Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "microd",
+		Use:     "microcloudd",
 		Short:   "MicroCloud daemon",
 		Version: version.Version,
 	}
@@ -86,7 +89,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 }
 
 func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
-	if len(args) != 2 {
+	if len(args) != 0 {
 		return cmd.Help()
 	}
 
@@ -95,8 +98,13 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	name := args[0]
-	addr := args[1]
+	addr := util.NetworkInterfaceAddress()
+	port := 7001
+	name, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
+	}
+
 	var tokenCancel context.CancelFunc
 	var server *mdns.Server
 	defer func() {
@@ -135,7 +143,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("Failed to marshal list of tokens: %w", err)
 			}
 
-			server, err = cloudMDNS.NewBroadcast(cloudMDNS.TokenService, name, addr, bytes)
+			server, err = cloudMDNS.NewBroadcast(cloudMDNS.TokenService, name, addr, port, bytes)
 			if err != nil {
 				return fmt.Errorf("Failed to begin join token broadcast: %w", err)
 			}
@@ -172,13 +180,13 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 			ctx, tokenCancel = context.WithCancel(s.Context)
 
 			var err error
-			server, err = cloudMDNS.NewBroadcast(cloudMDNS.ClusterService, name, addr, nil)
+			server, err = cloudMDNS.NewBroadcast(cloudMDNS.ClusterService, name, addr, port, nil)
 			if err != nil {
 				return err
 			}
 
 			cloudMDNS.LookupJoinToken(ctx, name, func(token string) error {
-				return m.JoinCluster(name, addr, token, time.Second*30)
+				return m.JoinCluster(name, net.JoinHostPort(addr, strconv.Itoa(port)), token, time.Second*30)
 			})
 
 			return nil
