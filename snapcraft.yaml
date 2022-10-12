@@ -1,0 +1,120 @@
+name: microcloud
+base: core22
+version: git
+grade: devel
+source-code: https://github.com/canonical/microcloud.git
+summary: Fully automated private clouds
+description: |-
+ Fully automated private clouds.
+
+confinement: strict
+
+apps:
+  # Service
+  daemon:
+    command: commands/daemon.start
+    daemon: simple
+    plugs:
+      - lxd
+      - microceph
+      - network
+      - network-bind
+
+  # Commands
+  microcloud:
+    command: commands/microcloud
+    plugs:
+      - network
+
+parts:
+  dqlite:
+    build-attributes: [core22-step-dependencies]
+    after:
+      - raft
+      - sqlite
+    source: https://github.com/canonical/dqlite
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+    stage-packages:
+      - libuv1
+    build-packages:
+      - libuv1-dev
+      - pkg-config
+    organize:
+      usr/lib/: lib/
+    prime:
+      - lib/libdqlite*so*
+      - lib/*/libuv*
+
+  raft:
+    build-attributes: [core22-step-dependencies]
+    source: https://github.com/canonical/raft
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+    stage-packages:
+      - libuv1
+      - liblz4-1
+    build-packages:
+      - libuv1-dev
+      - liblz4-dev
+      - pkg-config
+    organize:
+      usr/lib/: lib/
+    prime:
+      - lib/libraft*so*
+      - lib/*/libuv.so*
+
+  sqlite:
+    build-attributes: [core22-step-dependencies]
+    source: https://github.com/sqlite/sqlite
+    source-type: git
+    source-depth: 1
+    source-tag: version-3.39.2
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+    build-packages:
+      - pkg-config
+      - tcl
+    prime:
+      - bin/sqlite3
+      - lib/libsqlite3*so*
+
+  microcloud:
+    build-attributes: [core22-step-dependencies]
+    source: microcloud/
+    after:
+      - dqlite
+    build-snaps:
+      - go
+    plugin: nil
+    override-pull: |
+      snapcraftctl pull
+      set -ex
+
+      # Download the dependencies
+      go get -d -v ./...
+    override-build: |
+      set -ex
+
+      # Setup build environment
+      export CGO_CFLAGS="-I${SNAPCRAFT_STAGE}/include/ -I${SNAPCRAFT_STAGE}/usr/local/include/"
+      export CGO_LDFLAGS="-L${SNAPCRAFT_STAGE}/lib/ -L${SNAPCRAFT_STAGE}/usr/local/lib/"
+      export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
+      # Build the binaries
+      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloud" ./cmd/microcloud
+      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloudd" -tags=libsqlite3 ./cmd/microcloudd
+    prime:
+      - bin/microcloud
+      - bin/microcloudd
+
+  wrappers:
+    plugin: dump
+    source: snapcraft/

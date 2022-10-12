@@ -4,8 +4,8 @@ default: build
 # Build targets.
 .PHONY: build
 build:
-	go install -v ./cmd/microctl
-	go install -v ./cmd/microd
+	go install -v ./cmd/microcloud
+	go install -v ./cmd/microcloudd
 
 # Testing targets.
 .PHONY: check
