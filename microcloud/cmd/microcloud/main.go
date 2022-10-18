@@ -14,11 +14,11 @@ import (
 type CmdControl struct {
 	cmd *cobra.Command //nolint:structcheck,unused // FIXME: Remove the nolint flag when this is in use.
 
-	FlagHelp       bool
-	FlagVersion    bool
-	FlagLogDebug   bool
-	FlagLogVerbose bool
-	FlagStateDir   string
+	FlagHelp          bool
+	FlagVersion       bool
+	FlagLogDebug      bool
+	FlagLogVerbose    bool
+	FlagMicroCloudDir string
 }
 
 func main() {
@@ -33,7 +33,7 @@ func main() {
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 	}
 
-	app.PersistentFlags().StringVar(&commonCmd.FlagStateDir, "state-dir", "", "Path to store state information"+"``")
+	app.PersistentFlags().StringVar(&commonCmd.FlagMicroCloudDir, "cloud-dir", "", "Path to store MicroCloud state information"+"``")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagHelp, "help", "h", false, "Print help")
 	app.PersistentFlags().BoolVar(&commonCmd.FlagVersion, "version", false, "Print version number")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagLogDebug, "debug", "d", false, "Show all debug messages")
