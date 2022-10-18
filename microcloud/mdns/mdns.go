@@ -14,7 +14,7 @@ const TokenService = "_microcloud_token"
 const ClusterService = "_microcloud"
 
 // clusterSize is the maximum number of cluster members we can find.
-const clusterSize = 30
+const clusterSize = 1000
 
 func NewBroadcast(service string, name string, addr string, port int, txt []byte) (*mdns.Server, error) {
 	var sendTXT []string
