@@ -10,6 +10,9 @@ import (
 // TokenService is the service name used for broadcasting the list of tokens.
 const TokenService = "_microcloud_token"
 
+// JoinedService is the service name used for broadcasting the list of tokens.
+const JoinedService = "_microcloud_joined"
+
 // ClusterService is the service name used for broadcasting willingness to join a cluster.
 const ClusterService = "_microcloud"
 

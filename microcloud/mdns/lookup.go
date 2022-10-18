@@ -4,41 +4,64 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
 )
 
+// forwardingWriter forwards the mdns log message to LXD's logger package.
+type forwardingWriter struct {
+	w io.Writer
+}
+
+func (f forwardingWriter) Write(p []byte) (int, error) {
+	logMsg := string(p)
+
+	if strings.Contains(logMsg, "[INFO]") {
+		_, after, _ := strings.Cut(logMsg, "[INFO]")
+		logger.Infof(after)
+	} else if strings.Contains(logMsg, "[ERR]") {
+		_, after, _ := strings.Cut(logMsg, "[ERR]")
+		logger.Errorf(after)
+	} else {
+		return 0, fmt.Errorf("Invalid log %q", logMsg)
+	}
+
+	return len(logMsg), nil
+}
+
 // LookupPeers finds any broadcasting peers and returns a list of their names.
-func LookupPeers(s *state.State) ([]string, error) {
-	entries, err := Lookup(s.Context, ClusterService, clusterSize)
+func LookupPeers(ctx context.Context, service string, localPeer string) (map[string]string, error) {
+	entries, err := Lookup(ctx, service, clusterSize)
 	if err != nil {
 		return nil, err
 	}
 
-	peers := make([]string, 0, clusterSize)
+	peers := map[string]string{}
 	for _, entry := range entries {
-		if !s.Database.IsOpen() {
-			return nil, fmt.Errorf("Daemon is uninitialized")
-		}
-
 		if entry == nil {
 			return nil, fmt.Errorf("Received empty record")
 		}
 
-		parts := strings.SplitN(entry.Name, fmt.Sprintf(".%s.local.", ClusterService), 2)
+		parts := strings.SplitN(entry.Name, fmt.Sprintf(".%s.local.", service), 2)
 		peerName := parts[0]
 
 		// Skip a response from ourselves.
-		if s.Name() == peerName {
+		if localPeer == peerName {
 			continue
 		}
 
-		peers = append(peers, peerName)
+		if entry.AddrV6 != nil {
+			peers[peerName] = entry.AddrV6.String()
+
+		} else {
+			peers[peerName] = entry.AddrV4.String()
+		}
 
 	}
 
@@ -46,7 +69,7 @@ func LookupPeers(s *state.State) ([]string, error) {
 }
 
 // Lookup any records with join tokens matching the peer name. Accepts a function for acting on the token.
-func LookupJoinToken(ctx context.Context, peer string, f func(token string) error) {
+func LookupJoinToken(ctx context.Context, peer string, f func(token map[string]string) error) {
 	go func() {
 		for {
 			select {
@@ -84,29 +107,28 @@ func LookupJoinToken(ctx context.Context, peer string, f func(token string) erro
 	}()
 }
 
-func parseJoinToken(peer string, entry *mdns.ServiceEntry) (string, error) {
-	var tokensByName map[string]string
+func parseJoinToken(peer string, entry *mdns.ServiceEntry) (map[string]string, error) {
+	var tokensByName map[string]map[string]string
 	unquoted, err := strconv.Unquote("\"" + strings.Join(entry.InfoFields, "") + "\"")
 	if err != nil {
-		return "", fmt.Errorf("Failed to format DNS TXT record: %w", err)
+		return nil, fmt.Errorf("Failed to format DNS TXT record: %w", err)
 	}
 
 	err = json.Unmarshal([]byte(unquoted), &tokensByName)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse token map: %w", err)
+		return nil, fmt.Errorf("Failed to parse token map: %w", err)
 	}
 
 	record, ok := tokensByName[peer]
 	if !ok {
-		return "", fmt.Errorf("Found no token matching the peer %q", peer)
+		return nil, fmt.Errorf("Found no token matching the peer %q", peer)
 	}
 
 	return record, nil
 }
 
 func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry, error) {
-	// Start the lookup
-
+	log.SetOutput(forwardingWriter{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	entriesCh := make(chan *mdns.ServiceEntry, size)
