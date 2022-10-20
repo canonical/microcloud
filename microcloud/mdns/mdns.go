@@ -10,11 +10,14 @@ import (
 // TokenService is the service name used for broadcasting the list of tokens.
 const TokenService = "_microcloud_token"
 
+// JoinedService is the service name used for broadcasting the list of tokens.
+const JoinedService = "_microcloud_joined"
+
 // ClusterService is the service name used for broadcasting willingness to join a cluster.
 const ClusterService = "_microcloud"
 
 // clusterSize is the maximum number of cluster members we can find.
-const clusterSize = 30
+const clusterSize = 1000
 
 func NewBroadcast(service string, name string, addr string, port int, txt []byte) (*mdns.Server, error) {
 	var sendTXT []string
