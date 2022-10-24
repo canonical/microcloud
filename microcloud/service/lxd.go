@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/lxd/cluster"
 	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared/api"
@@ -99,7 +98,7 @@ func (s LXDService) Join(token string) error {
 		return err
 	}
 
-	err = cluster.SetupTrust(serverCert, config.ServerName, config.ClusterAddress, config.ClusterCertificate, token)
+	err = SetupTrust(serverCert, config.ServerName, config.ClusterAddress, config.ClusterCertificate, token)
 	if err != nil {
 		return fmt.Errorf("Failed to setup trust relationship with cluster: %w", err)
 	}
