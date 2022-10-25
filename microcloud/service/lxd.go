@@ -45,13 +45,18 @@ func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
 
 	server := api.ServerPut{Config: map[string]any{"core.https_address": addr, "cluster.https_address": addr}}
-	rootDisk := map[string]map[string]string{"root": {"path": "/", "pool": "local", "type": "disk"}}
-	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: rootDisk}, Name: "default"}
-	storage := api.StoragePoolsPost{Name: "local", Driver: "dir"}
+	storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
+	network := api.NetworksPost{NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}}, Name: "lxdfan0", Type: "bridge"}
+	devices := map[string]map[string]string{
+		"root": {"path": "/", "pool": "local", "type": "disk"},
+		"eth0": {"name": "eth0", "network": "lxdfan0", "type": "nic"},
+	}
 
-	initData := initDataNode{
+	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: devices}, Name: "default"}
+	initData := api.InitLocalPreseed{
 		ServerPut:    server,
 		StoragePools: []api.StoragePoolsPost{storage},
+		Networks:     []api.InitNetworksProjectPost{{NetworksPost: network}},
 		Profiles:     []api.ProfilesPost{profile},
 	}
 
