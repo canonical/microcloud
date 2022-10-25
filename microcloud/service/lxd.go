@@ -48,29 +48,24 @@ func (s LXDService) Bootstrap() error {
 	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: rootDisk}, Name: "default"}
 	storage := api.StoragePoolsPost{Name: "local", Driver: "dir"}
 
-	initData := api.InitPreseed{
-		Node: api.InitLocalPreseed{
-			ServerPut:    server,
-			StoragePools: []api.StoragePoolsPost{storage},
-			Profiles:     []api.ProfilesPost{profile},
-		},
+	initData := initDataNode{
+		ServerPut:    server,
+		StoragePools: []api.StoragePoolsPost{storage},
+		Profiles:     []api.ProfilesPost{profile},
 	}
 
-	data, err := yaml.Marshal(initData)
+	revert := revert.New()
+	defer revert.Fail()
+
 	if err != nil {
-		return fmt.Errorf("Failed to parse preseed configuration as yaml: %w", err)
 	}
 
-	stdin := bytes.Buffer{}
-	_, err = stdin.Write(data)
+	revertFunc, err := initDataNodeApply(s.client, initData)
 	if err != nil {
-		return fmt.Errorf("Failed to write preseed configuration: %w", err)
+		return fmt.Errorf("Failed to initialize locel LXD: %w", err)
 	}
 
-	err = shared.RunCommandWithFds(context.Background(), &stdin, nil, "lxd", "init", "--preseed")
-	if err != nil {
-		return fmt.Errorf("Failed to initialize LXD: %w", err)
-	}
+	revert.Add(revertFunc)
 
 	currentCluster, etag, err := s.client.GetCluster()
 	if err != nil {
