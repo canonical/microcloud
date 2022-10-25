@@ -1,13 +1,16 @@
 package service
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+	"gopkg.in/yaml.v2"
 )
 
 // LXDService is a LXD service.
@@ -45,21 +48,29 @@ func (s LXDService) Bootstrap() error {
 	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: rootDisk}, Name: "default"}
 	storage := api.StoragePoolsPost{Name: "local", Driver: "dir"}
 
-	initData := initDataNode{
-		ServerPut:    server,
-		StoragePools: []api.StoragePoolsPost{storage},
-		Profiles:     []api.ProfilesPost{profile},
+	initData := api.InitPreseed{
+		Node: api.InitLocalPreseed{
+			ServerPut:    server,
+			StoragePools: []api.StoragePoolsPost{storage},
+			Profiles:     []api.ProfilesPost{profile},
+		},
 	}
 
-	revert := revert.New()
-	defer revert.Fail()
-
-	revertFunc, err := initDataNodeApply(s.client, initData)
+	data, err := yaml.Marshal(initData)
 	if err != nil {
-		return fmt.Errorf("Failed to initialize locel LXD: %w", err)
+		return fmt.Errorf("Failed to parse preseed configuration as yaml: %w", err)
 	}
 
-	revert.Add(revertFunc)
+	stdin := bytes.Buffer{}
+	_, err = stdin.Write(data)
+	if err != nil {
+		return fmt.Errorf("Failed to write preseed configuration: %w", err)
+	}
+
+	err = shared.RunCommandWithFds(context.Background(), &stdin, nil, "lxd", "init", "--preseed")
+	if err != nil {
+		return fmt.Errorf("Failed to initialize LXD: %w", err)
+	}
 
 	currentCluster, etag, err := s.client.GetCluster()
 	if err != nil {
@@ -79,8 +90,6 @@ func (s LXDService) Bootstrap() error {
 	if err != nil {
 		return fmt.Errorf("Failed to configure cluster :%w", err)
 	}
-
-	revert.Success()
 
 	return nil
 }
