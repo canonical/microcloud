@@ -9,19 +9,13 @@ import (
 	"github.com/lxc/lxd/shared/api"
 )
 
-type initDataNode struct {
-	api.ServerPut `yaml:",inline"`
-	StoragePools  []api.StoragePoolsPost `json:"storage_pools" yaml:"storage_pools"`
-	Profiles      []api.ProfilesPost     `json:"profiles" yaml:"profiles"`
-}
-
 // Helper to initialize node-specific entities on a LXD instance using the
-// definitions from the given initDataNode object.
+// definitions from the given api.InitLocalPreseed object.
 //
 // It's used both by the 'lxd init' command and by the PUT /1.0/cluster API.
 //
 // In case of error, the returned function can be used to revert the changes.
-func initDataNodeApply(d lxd.InstanceServer, config initDataNode) (func(), error) {
+func initDataNodeApply(d lxd.InstanceServer, config api.InitLocalPreseed) (func(), error) {
 	revert := revert.New()
 	defer revert.Fail()
 
@@ -133,6 +127,68 @@ func initDataNodeApply(d lxd.InstanceServer, config initDataNode) (func(), error
 			if err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	// Apply network configuration function.
+	applyNetwork := func(network api.InitNetworksProjectPost) error {
+		currentNetwork, etag, err := d.UseProject(network.Project).GetNetwork(network.Name)
+		if err != nil {
+			// Create the network if doesn't exist.
+			err := d.UseProject(network.Project).CreateNetwork(network.NetworksPost)
+			if err != nil {
+				return fmt.Errorf("Failed to create local member network %q in project %q: %w", network.Name, network.Project, err)
+			}
+
+			// Setup reverter.
+			revert.Add(func() { _ = d.UseProject(network.Project).DeleteNetwork(network.Name) })
+		} else {
+			// Prepare the update.
+			newNetwork := api.NetworkPut{}
+			err = shared.DeepCopy(currentNetwork.Writable(), &newNetwork)
+			if err != nil {
+				return fmt.Errorf("Failed to copy configuration of network %q in project %q: %w", network.Name, network.Project, err)
+			}
+
+			// Description override.
+			if network.Description != "" {
+				newNetwork.Description = network.Description
+			}
+
+			// Config overrides.
+			for k, v := range network.Config {
+				newNetwork.Config[k] = fmt.Sprintf("%v", v)
+			}
+
+			// Apply it.
+			err = d.UseProject(network.Project).UpdateNetwork(currentNetwork.Name, newNetwork, etag)
+			if err != nil {
+				return fmt.Errorf("Failed to update local member network %q in project %q: %w", network.Name, network.Project, err)
+			}
+
+			// Setup reverter.
+			revert.Add(func() {
+				_ = d.UseProject(network.Project).UpdateNetwork(currentNetwork.Name, currentNetwork.Writable(), "")
+			})
+		}
+
+		return nil
+	}
+
+	for i := range config.Networks {
+		// Populate default project if not specified for backwards compatbility with earlier
+		// preseed dump files.
+		if config.Networks[i].Project == "" {
+			config.Networks[i].Project = "default"
+		}
+
+		if config.Networks[i].Project != "default" {
+			continue
+		}
+
+		err := applyNetwork(config.Networks[i])
+		if err != nil {
+			return nil, err
 		}
 	}
 
