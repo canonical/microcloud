@@ -1,22 +1,18 @@
 package service
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
-	"gopkg.in/yaml.v2"
 )
 
 // LXDService is a LXD service.
 type LXDService struct {
-	client lxd.InstanceServer
-	dir    string
+	dir string
 
 	name    string
 	address string
@@ -25,18 +21,23 @@ type LXDService struct {
 
 // NewLXDService creates a new LXD service with a client attached.
 func NewLXDService(name string, addr string, dir string) (*LXDService, error) {
-	client, err := lxd.ConnectLXDUnix(filepath.Join(dir, "unix.socket"), nil)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to local LXD: %w", err)
-	}
 
 	return &LXDService{
-		client:  client,
 		dir:     dir,
 		name:    name,
 		address: addr,
 		port:    LXDPort,
 	}, nil
+}
+
+// client returns a client to the LXD unix socket.
+func (s LXDService) client() (lxd.InstanceServer, error) {
+	client, err := lxd.ConnectLXDUnix(filepath.Join(s.dir, "unix.socket"), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to local LXD: %w", err)
+	}
+
+	return client, nil
 }
 
 // Bootstrap bootstraps the LXD daemon on the default port.
@@ -57,17 +58,19 @@ func (s LXDService) Bootstrap() error {
 	revert := revert.New()
 	defer revert.Fail()
 
+	client, err := s.client()
 	if err != nil {
+		return err
 	}
 
-	revertFunc, err := initDataNodeApply(s.client, initData)
+	revertFunc, err := initDataNodeApply(client, initData)
 	if err != nil {
-		return fmt.Errorf("Failed to initialize locel LXD: %w", err)
+		return fmt.Errorf("Failed to initialize local LXD: %w", err)
 	}
 
 	revert.Add(revertFunc)
 
-	currentCluster, etag, err := s.client.GetCluster()
+	currentCluster, etag, err := client.GetCluster()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve current cluster config: %w", err)
 	}
@@ -76,7 +79,7 @@ func (s LXDService) Bootstrap() error {
 		return fmt.Errorf("This LXD server is already clustered")
 	}
 
-	op, err := s.client.UpdateCluster(api.ClusterPut{Cluster: api.Cluster{ServerName: s.name, Enabled: true}}, etag)
+	op, err := client.UpdateCluster(api.ClusterPut{Cluster: api.Cluster{ServerName: s.name, Enabled: true}}, etag)
 	if err != nil {
 		return fmt.Errorf("Failed to enable clustering on local LXD: %w", err)
 	}
@@ -85,6 +88,8 @@ func (s LXDService) Bootstrap() error {
 	if err != nil {
 		return fmt.Errorf("Failed to configure cluster :%w", err)
 	}
+
+	revert.Success()
 
 	return nil
 }
@@ -107,7 +112,12 @@ func (s LXDService) Join(token string) error {
 		return fmt.Errorf("Failed to setup trust relationship with cluster: %w", err)
 	}
 
-	op, err := s.client.UpdateCluster(*config, "")
+	client, err := s.client()
+	if err != nil {
+		return err
+	}
+
+	op, err := client.UpdateCluster(*config, "")
 	if err != nil {
 		return fmt.Errorf("Failed to join cluster: %w", err)
 	}
@@ -122,7 +132,12 @@ func (s LXDService) Join(token string) error {
 
 // IssueToken issues a token for the given peer.
 func (s LXDService) IssueToken(peer string) (string, error) {
-	op, err := s.client.CreateClusterMember(api.ClusterMembersPost{ServerName: peer})
+	client, err := s.client()
+	if err != nil {
+		return "", err
+	}
+
+	op, err := client.CreateClusterMember(api.ClusterMembersPost{ServerName: peer})
 	if err != nil {
 		return "", err
 	}
