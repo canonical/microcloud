@@ -266,12 +266,12 @@ func askDisks(localName string, s service.CephService) error {
 		return nil
 	}
 
-	lc, err := s.Client.LocalClient()
+	localCeph, err := s.Client.LocalClient()
 	if err != nil {
 		return err
 	}
 
-	peers, err := lc.GetClusterMembers(context.Background())
+	peers, err := localCeph.GetClusterMembers(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get list of current peers: %w", err)
 	}
@@ -296,11 +296,9 @@ func askDisks(localName string, s service.CephService) error {
 			return err
 		}
 
+		lc := localCeph
 		if target != localName {
-			lc, err = s.Client.RemoteClient(peerAddrs[target])
-			if err != nil {
-				return err
-			}
+			lc = lc.UseTarget(target)
 		}
 
 		err = listLocalDisks(lc)
