@@ -106,17 +106,6 @@ func (s LXDService) Join(token string) error {
 		return err
 	}
 
-	// Connect to existing cluster
-	serverCert, err := util.LoadServerCert(s.dir)
-	if err != nil {
-		return err
-	}
-
-	err = SetupTrust(serverCert, config.ServerName, config.ClusterAddress, config.ClusterCertificate, token)
-	if err != nil {
-		return fmt.Errorf("Failed to setup trust relationship with cluster: %w", err)
-	}
-
 	client, err := s.client()
 	if err != nil {
 		return err

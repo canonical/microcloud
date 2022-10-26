@@ -344,7 +344,7 @@ func askDisks(localName string, s service.CephService) error {
 			}
 		}
 
-		moreDisks, err := cli.AskBool("Would you like to add disks on another peer? [default=yes]: ", "no")
+		moreDisks, err := cli.AskBool("Would you like to add disks on another peer? [default=yes]: ", "yes")
 		if err != nil {
 			return err
 		}
