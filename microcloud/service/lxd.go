@@ -1,10 +1,11 @@
 package service
 
 import (
+	"context"
 	"fmt"
-	"path/filepath"
 
-	"github.com/lxc/lxd/client"
+	"github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared/api"
@@ -12,7 +13,7 @@ import (
 
 // LXDService is a LXD service.
 type LXDService struct {
-	dir string
+	m *microcluster.MicroCluster
 
 	name    string
 	address string
@@ -20,10 +21,14 @@ type LXDService struct {
 }
 
 // NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(name string, addr string, dir string) (*LXDService, error) {
+func NewLXDService(ctx context.Context, name string, addr string, cloudDir string) (*LXDService, error) {
+	client, err := microcluster.App(ctx, cloudDir, false, false)
+	if err != nil {
+		return nil, err
+	}
 
 	return &LXDService{
-		dir:     dir,
+		m:       client,
 		name:    name,
 		address: addr,
 		port:    LXDPort,
@@ -31,13 +36,13 @@ func NewLXDService(name string, addr string, dir string) (*LXDService, error) {
 }
 
 // client returns a client to the LXD unix socket.
-func (s LXDService) client() (lxd.InstanceServer, error) {
-	client, err := lxd.ConnectLXDUnix(filepath.Join(s.dir, "unix.socket"), nil)
+func (s LXDService) client() (*client.LXDClient, error) {
+	c, err := s.m.LocalClient()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to local LXD: %w", err)
+		return nil, err
 	}
 
-	return client, nil
+	return client.NewLXDClient(c), nil
 }
 
 // Bootstrap bootstraps the LXD daemon on the default port.
@@ -84,14 +89,9 @@ func (s LXDService) Bootstrap() error {
 		return fmt.Errorf("This LXD server is already clustered")
 	}
 
-	op, err := client.UpdateCluster(api.ClusterPut{Cluster: api.Cluster{ServerName: s.name, Enabled: true}}, etag)
+	err = client.UpdateCluster(api.ClusterPut{Cluster: api.Cluster{ServerName: s.name, Enabled: true}}, etag)
 	if err != nil {
 		return fmt.Errorf("Failed to enable clustering on local LXD: %w", err)
-	}
-
-	err = op.Wait()
-	if err != nil {
-		return fmt.Errorf("Failed to configure cluster :%w", err)
 	}
 
 	revert.Success()
@@ -111,12 +111,7 @@ func (s LXDService) Join(token string) error {
 		return err
 	}
 
-	op, err := client.UpdateCluster(*config, "")
-	if err != nil {
-		return fmt.Errorf("Failed to join cluster: %w", err)
-	}
-
-	err = op.Wait()
+	err = client.UpdateCluster(*config, "")
 	if err != nil {
 		return fmt.Errorf("Failed to join cluster: %w", err)
 	}
@@ -131,15 +126,9 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 		return "", err
 	}
 
-	op, err := client.CreateClusterMember(api.ClusterMembersPost{ServerName: peer})
+	joinToken, err := client.CreateClusterMember(api.ClusterMembersPost{ServerName: peer})
 	if err != nil {
 		return "", err
-	}
-
-	opAPI := op.Get()
-	joinToken, err := opAPI.ToClusterJoinToken()
-	if err != nil {
-		return "", fmt.Errorf("Failed converting token operation to join token: %w", err)
 	}
 
 	return joinToken.String(), nil

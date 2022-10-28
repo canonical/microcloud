@@ -6,7 +6,10 @@ import (
 
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/util"
+
+	"github.com/canonical/microcloud/microcloud/api"
 )
 
 // CloudService is a MicroCloud service.

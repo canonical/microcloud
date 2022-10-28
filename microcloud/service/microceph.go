@@ -4,13 +4,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
 )
 
 // CephService is a MicroCeph service.
 type CephService struct {
-	Client *microcluster.MicroCluster
+	m *microcluster.MicroCluster
 
 	name    string
 	address string
@@ -18,33 +19,58 @@ type CephService struct {
 }
 
 // NewCephService creates a new MicroCeph service with a client attached.
-func NewCephService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CephService, error) {
-	client, err := microcluster.App(ctx, dir, verbose, debug)
+func NewCephService(ctx context.Context, name string, addr string, cloudDir string) (*CephService, error) {
+	client, err := microcluster.App(ctx, cloudDir, false, false)
 	if err != nil {
 		return nil, err
 	}
 
 	return &CephService{
-		Client:  client,
+		m:       client,
 		name:    name,
 		address: addr,
 		port:    CephPort,
 	}, nil
 }
 
+// client returns a client to the Ceph unix socket.
+func (s CephService) Client() (*client.CephClient, error) {
+	c, err := s.m.LocalClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return client.NewCephClient(c), nil
+}
+
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap() error {
-	return s.Client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), time.Second*30)
+	client, err := s.Client()
+	if err != nil {
+		return err
+	}
+
+	return client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), time.Second*30)
 }
 
 // IssueToken issues a token for the given peer.
 func (s CephService) IssueToken(peer string) (string, error) {
-	return s.Client.NewJoinToken(peer)
+	client, err := s.Client()
+	if err != nil {
+		return "", err
+	}
+
+	return client.NewJoinToken(peer)
 }
 
 // Join joins a cluster with the given token.
 func (s CephService) Join(token string) error {
-	return s.Client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, time.Second*30)
+	client, err := s.Client()
+	if err != nil {
+		return err
+	}
+
+	return client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, time.Second*30)
 }
 
 // Type returns the type of Service.
