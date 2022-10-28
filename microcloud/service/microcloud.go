@@ -53,7 +53,6 @@ func (s *CloudService) StartCloud(service *ServiceHandler) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
 		OnBootstrap: service.Bootstrap,
 		OnStart:     service.Start,
-		OnJoin:      service.Join,
 	})
 }
 
