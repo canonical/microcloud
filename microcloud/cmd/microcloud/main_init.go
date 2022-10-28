@@ -219,7 +219,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	}
 
 	// Shutdown the server after 30 seconds.
-	timeAfter := time.After(time.Second * 30)
+	timeAfter := time.After(time.Minute)
 	bootstrapDoneCh := make(chan struct{})
 	var bootstrapDone bool
 	for {
