@@ -35,8 +35,6 @@ type cmdDaemon struct {
 	global *cmdGlobal
 
 	flagMicroCloudDir string
-	flagMicroCephDir  string
-	flagLXDDir        string
 }
 
 func (c *cmdDaemon) Command() *cobra.Command {
@@ -67,12 +65,12 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ceph, err := service.NewCephService(context.Background(), name, addr, c.flagMicroCephDir, c.global.flagLogVerbose, c.global.flagLogDebug)
+	ceph, err := service.NewCephService(context.Background(), name, addr, c.flagMicroCloudDir)
 	if err != nil {
 		return err
 	}
 
-	lxd, err := service.NewLXDService(name, addr, c.flagLXDDir)
+	lxd, err := service.NewLXDService(context.Background(), name, addr, c.flagMicroCloudDir)
 	if err != nil {
 		return err
 	}
@@ -96,9 +94,7 @@ func main() {
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogDebug, "debug", "d", false, "Show all debug messages")
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogVerbose, "verbose", "v", false, "Show all information messages")
 
-	app.PersistentFlags().StringVar(&daemonCmd.flagMicroCloudDir, "cloud-dir", "", "Path to store state information for MicroCloud"+"``")
-	app.PersistentFlags().StringVar(&daemonCmd.flagMicroCephDir, "ceph-dir", "", "Path to store state information for MicroCeph"+"``")
-	app.PersistentFlags().StringVar(&daemonCmd.flagLXDDir, "lxd-dir", "", "Path to store state information for LXD"+"``")
+	app.PersistentFlags().StringVar(&daemonCmd.flagMicroCloudDir, "state-dir", "", "Path to store state information for MicroCloud"+"``")
 
 	app.SetVersionTemplate("{{.Version}}\n")
 

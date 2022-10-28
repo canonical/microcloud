@@ -33,7 +33,7 @@ func main() {
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 	}
 
-	app.PersistentFlags().StringVar(&commonCmd.FlagMicroCloudDir, "cloud-dir", "", "Path to store MicroCloud state information"+"``")
+	app.PersistentFlags().StringVar(&commonCmd.FlagMicroCloudDir, "state-dir", "", "Path to store MicroCloud state information"+"``")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagHelp, "help", "h", false, "Print help")
 	app.PersistentFlags().BoolVar(&commonCmd.FlagVersion, "version", false, "Print version number")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagLogDebug, "debug", "d", false, "Show all debug messages")
