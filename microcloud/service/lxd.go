@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/canonical/microcloud/microcloud/client"
 )
 
 // LXDService is a LXD service.

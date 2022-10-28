@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
+
+	"github.com/canonical/microcloud/microcloud/client"
 )
 
 // CephService is a MicroCeph service.

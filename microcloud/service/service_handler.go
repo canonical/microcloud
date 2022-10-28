@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
 
 	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
-	"github.com/canonical/microcluster/state"
 )
 
 const (

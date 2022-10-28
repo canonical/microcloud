@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/canonical/microceph/microceph/api/types"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/lxd/util"
 	cli "github.com/lxc/lxd/shared/cmd"
@@ -16,7 +17,6 @@ import (
 	"github.com/lxc/lxd/shared/units"
 	"github.com/spf13/cobra"
 
-	"github.com/canonical/microceph/microceph/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
