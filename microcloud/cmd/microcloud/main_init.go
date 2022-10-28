@@ -164,8 +164,25 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 
 func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	fmt.Println("Initializing a new cluster")
-	for serviceType, service := range sh.Services {
-		err := service.Bootstrap()
+
+	// Bootstrap MicroCloud first.
+	cloudService, ok := sh.Services[service.MicroCloud]
+	if !ok {
+		return fmt.Errorf("Missing MicroCloud service")
+	}
+
+	err := cloudService.Bootstrap()
+	if err != nil {
+		return fmt.Errorf("Failed to bootstrap local %s: %w", service.MicroCloud, err)
+	}
+
+	fmt.Printf(" Local %s has been bootstrapped\n", service.MicroCloud)
+	for serviceType, s := range sh.Services {
+		if serviceType == service.MicroCloud {
+			continue
+		}
+
+		err := s.Bootstrap()
 		if err != nil {
 			return fmt.Errorf("Failed to bootstrap local %s: %w", serviceType, err)
 		}

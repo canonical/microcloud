@@ -76,7 +76,27 @@ func (s *ServiceHandler) Start(state *state.State) error {
 	}
 
 	cloudMDNS.LookupJoinToken(ctx, s.Name, func(tokens map[string]string) error {
+		// Join MicroCloud first.
+		service, ok := s.Services[MicroCloud]
+		if !ok {
+			return fmt.Errorf("Missing MicroCloud service")
+		}
+
+		token, ok := tokens[string(service.Type())]
+		if !ok {
+			return fmt.Errorf("Invalid service type %q", service.Type())
+		}
+
+		err := service.Join(token)
+		if err != nil {
+			return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
+		}
+
 		for _, service := range s.Services {
+			if service.Type() == MicroCloud {
+				continue
+			}
+
 			token, ok := tokens[string(service.Type())]
 			if !ok {
 				return fmt.Errorf("Invalid service type %q", service.Type())
@@ -85,7 +105,6 @@ func (s *ServiceHandler) Start(state *state.State) error {
 			err := service.Join(token)
 			if err != nil {
 				return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
-
 			}
 		}
 
