@@ -29,9 +29,10 @@ type cmdInit struct {
 
 func (c *cmdInit) Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "bootstrap",
-		Short: "Initialize the network endpoint and create or join a new cluster",
-		RunE:  c.Run,
+		Use:     "init",
+		Aliases: []string{"bootstrap"},
+		Short:   "Initialize the network endpoint and create or join a new cluster",
+		RunE:    c.Run,
 	}
 
 	cmd.Flags().BoolVar(&c.flagAuto, "auto", false, "Automatic setup with default configuration")
