@@ -17,7 +17,6 @@ import (
 	"github.com/lxc/lxd/shared/units"
 	"github.com/spf13/cobra"
 
-	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -289,135 +288,100 @@ func askDisks(localName string, s service.CephService) error {
 		return fmt.Errorf("Failed to get list of current peers: %w", err)
 	}
 
-	peerAddrs := make(map[string]string, len(peers))
+	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
+	data := [][]string{}
 	for _, peer := range peers {
-		peerAddrs[peer.Name] = peer.Address.String()
-	}
-
-	validator := func(input string) error {
-		_, ok := peerAddrs[input]
-		if !ok {
-			return fmt.Errorf("Invalid peer name %q", input)
+		lc := localCeph
+		if peer.Name != localName {
+			lc = lc.UseTarget(peer.Name)
 		}
 
-		return nil
-	}
-
-	for {
-		target, err := cli.AskString(fmt.Sprintf("Which peer would like to add additional local disks on? [default=%s]: ", localName), localName, validator)
+		// List configured disks.
+		disks, err := lc.GetDisks(context.Background())
 		if err != nil {
 			return err
 		}
 
+		// List physical disks.
+		resources, err := lc.GetResources(context.Background())
+		if err != nil {
+			return err
+		}
+
+		for _, disk := range resources.Disks {
+			if len(disk.Partitions) > 0 {
+				continue
+			}
+
+			devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+
+			found := false
+			for _, entry := range disks {
+				if entry.Location != peer.Name {
+					continue
+				}
+
+				if entry.Path == devicePath {
+					found = true
+					break
+				}
+			}
+
+			if found {
+				continue
+			}
+
+			data = append(data, []string{peer.Name, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
+		}
+	}
+
+	sort.Sort(utils.ByName(data))
+	table := NewSelectableTable(header, data)
+
+	// map the rows (as strings) to the associated row.
+	rowMap := make(map[string][]string, len(data))
+	for i, r := range table.rows {
+		rowMap[r] = data[i]
+	}
+
+	fmt.Println("Select from the available unpartitioned disks:")
+	selected, err := table.Render(table.rows)
+	if err != nil {
+		return fmt.Errorf("Failed to confirm disk selection: %w", err)
+	}
+
+	var toWipe []string
+	if len(selected) > 0 {
+		fmt.Println("Select which disks to wipe:")
+		toWipe, err = table.Render(selected)
+		if err != nil {
+			return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+		}
+	}
+
+	diskMap := make(map[string]types.DisksPost, len(selected))
+	for _, entry := range selected {
+		diskMap[entry] = types.DisksPost{Path: rowMap[entry][4]}
+	}
+
+	for _, entry := range toWipe {
+		req := diskMap[entry]
+		req.Wipe = true
+
+		diskMap[entry] = req
+	}
+
+	for key, req := range diskMap {
+		target := rowMap[key][0]
 		lc := localCeph
 		if target != localName {
 			lc = lc.UseTarget(target)
 		}
 
-		err = listLocalDisks(target, lc)
+		err = lc.AddDisk(context.Background(), &req)
 		if err != nil {
 			return err
 		}
-
-		for {
-			diskPath, err := cli.AskString("What's the disk path? (empty to exit): ", "", func(input string) error { return nil })
-			if err != nil {
-				return err
-			}
-
-			if diskPath == "" {
-				break
-			}
-
-			diskWipe, err := cli.AskBool("Would you like the disk to be wiped? [default=no]: ", "no")
-			if err != nil {
-				return err
-			}
-
-			// Add the disk.
-			req := &types.DisksPost{
-				Path: diskPath,
-				Wipe: diskWipe,
-			}
-
-			err = lc.AddDisk(context.Background(), req)
-			if err != nil {
-				return err
-			}
-
-			moreDisks, err := cli.AskBool("Would you like to add another disk on this peer? [default=no]: ", "no")
-			if err != nil {
-				return err
-			}
-
-			if !moreDisks {
-				break
-			}
-		}
-
-		moreDisks, err := cli.AskBool("Would you like to add disks on another peer? [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
-
-		if !moreDisks {
-			break
-		}
-	}
-
-	return nil
-}
-
-func listLocalDisks(name string, c *client.CephClient) error {
-	// List configured disks.
-	disks, err := c.GetDisks(context.Background())
-	if err != nil {
-		return err
-	}
-
-	// List physical disks.
-	resources, err := c.GetResources(context.Background())
-	if err != nil {
-		return err
-	}
-
-	// Prepare the table.
-	data := [][]string{}
-	for _, disk := range resources.Disks {
-		if len(disk.Partitions) > 0 {
-			continue
-		}
-
-		devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
-
-		found := false
-		for _, entry := range disks {
-			if entry.Location != name {
-				continue
-			}
-
-			if entry.Path == devicePath {
-				found = true
-				break
-			}
-		}
-
-		if found {
-			continue
-		}
-
-		data = append(data, []string{disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
-	}
-
-	fmt.Println("")
-	fmt.Println("Available unpartitioned disks on this system:")
-
-	header := []string{"MODEL", "CAPACITY", "TYPE", "PATH"}
-	sort.Sort(utils.ByName(data))
-
-	err = utils.RenderTable(utils.TableFormatTable, header, data, disks)
-	if err != nil {
-		return err
 	}
 
 	return nil
