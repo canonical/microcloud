@@ -7,6 +7,7 @@ import (
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxc/utils"
+	"github.com/lxc/lxd/shared"
 	"github.com/spf13/cobra"
 )
 
@@ -81,10 +82,15 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 
 	data := make([][]string, len(clusterMembers))
 	for i, clusterMember := range clusterMembers {
-		data[i] = []string{clusterMember.Name, clusterMember.Address.String(), clusterMember.Role, clusterMember.Certificate.String(), string(clusterMember.Status)}
+		fingerprint, err := shared.CertFingerprintStr(clusterMember.Certificate.String())
+		if err != nil {
+			continue
+		}
+
+		data[i] = []string{clusterMember.Name, clusterMember.Address.String(), clusterMember.Role, fingerprint, string(clusterMember.Status)}
 	}
 
-	header := []string{"NAME", "ADDRESS", "ROLE", "CERTIFICATE", "STATUS"}
+	header := []string{"NAME", "ADDRESS", "ROLE", "FINGERPRINT", "STATUS"}
 	sort.Sort(utils.ByName(data))
 
 	return utils.RenderTable(utils.TableFormatTable, header, data, clusterMembers)

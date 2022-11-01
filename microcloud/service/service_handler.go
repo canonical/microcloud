@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
 
 	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
-	"github.com/canonical/microcluster/state"
 )
 
 const (
@@ -76,7 +76,27 @@ func (s *ServiceHandler) Start(state *state.State) error {
 	}
 
 	cloudMDNS.LookupJoinToken(ctx, s.Name, func(tokens map[string]string) error {
+		// Join MicroCloud first.
+		service, ok := s.Services[MicroCloud]
+		if !ok {
+			return fmt.Errorf("Missing MicroCloud service")
+		}
+
+		token, ok := tokens[string(service.Type())]
+		if !ok {
+			return fmt.Errorf("Invalid service type %q", service.Type())
+		}
+
+		err := service.Join(token)
+		if err != nil {
+			return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
+		}
+
 		for _, service := range s.Services {
+			if service.Type() == MicroCloud {
+				continue
+			}
+
 			token, ok := tokens[string(service.Type())]
 			if !ok {
 				return fmt.Errorf("Invalid service type %q", service.Type())
@@ -85,44 +105,38 @@ func (s *ServiceHandler) Start(state *state.State) error {
 			err := service.Join(token)
 			if err != nil {
 				return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
-
 			}
 		}
+
+		err = s.server.Shutdown()
+		if err != nil {
+			return fmt.Errorf("Failed to shutdown mdns server after joining the cluster: %w", err)
+		}
+
+		s.server, err = cloudMDNS.NewBroadcast(cloudMDNS.JoinedService, s.Name, s.Address, s.Port, nil)
+		if err != nil {
+			return err
+		}
+
+		timeAfter := time.After(time.Second * 5)
+		go func() {
+			for {
+				select {
+				case <-timeAfter:
+					err := s.server.Shutdown()
+					if err != nil {
+						logger.Error("Failed to shutdown mdns server after joining the cluster", logger.Ctx{"error": err})
+						return
+					}
+				default:
+					// Sleep a bit so the loop doesn't push the CPU as hard.
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
+		}()
 
 		return nil
 	})
-
-	return nil
-}
-
-// Join starts a short-lived mDNS broadcast, informing peers that we have joined the cluster.
-func (s *ServiceHandler) Join(state *state.State) error {
-	err := s.server.Shutdown()
-	if err != nil {
-		return fmt.Errorf("Failed to shutdown mdns server after joining the cluster: %w", err)
-	}
-
-	s.server, err = cloudMDNS.NewBroadcast(cloudMDNS.JoinedService, s.Name, s.Address, s.Port, nil)
-	if err != nil {
-		return err
-	}
-
-	timeAfter := time.After(time.Second * 5)
-	go func() {
-		for {
-			select {
-			case <-timeAfter:
-				err := s.server.Shutdown()
-				if err != nil {
-					logger.Error("Failed to shutdown mdns server after joining the cluster", logger.Ctx{"error": err})
-					return
-				}
-			default:
-				// Sleep a bit so the loop doesn't push the CPU as hard.
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-	}()
 
 	return nil
 }

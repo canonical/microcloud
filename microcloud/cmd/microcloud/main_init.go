@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/canonical/microceph/microceph/api/types"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/lxd/util"
 	cli "github.com/lxc/lxd/shared/cmd"
@@ -16,20 +17,15 @@ import (
 	"github.com/lxc/lxd/shared/units"
 	"github.com/spf13/cobra"
 
-	"github.com/canonical/microceph/microceph/api/types"
-	cephClient "github.com/canonical/microceph/microceph/client"
+	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
-	"github.com/canonical/microcluster/client"
 )
 
 type cmdInit struct {
 	common *CmdControl
 
 	flagAuto bool
-
-	flagMicroCephDir string
-	flagLXDDir       string
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -40,8 +36,6 @@ func (c *cmdInit) Command() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&c.flagAuto, "auto", false, "Automatic setup with default configuration")
-	cmd.PersistentFlags().StringVar(&c.flagMicroCephDir, "ceph-dir", "", "Path to store state information for MicroCeph"+"``")
-	cmd.PersistentFlags().StringVar(&c.flagLXDDir, "lxd-dir", "", "Path to store state information for LXD"+"``")
 
 	return cmd
 }
@@ -75,12 +69,12 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ceph, err := service.NewCephService(context.Background(), name, addr, c.flagMicroCephDir, c.common.FlagLogVerbose, c.common.FlagLogDebug)
+	ceph, err := service.NewCephService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
 	if err != nil {
 		return err
 	}
 
-	lxd, err := service.NewLXDService(name, addr, c.flagLXDDir)
+	lxd, err := service.NewLXDService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
 	if err != nil {
 		return err
 	}
@@ -125,6 +119,8 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 			} else {
 				close(doneCh)
 			}
+
+			fmt.Println("Ending scan")
 		}()
 	}
 
@@ -164,8 +160,25 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 
 func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	fmt.Println("Initializing a new cluster")
-	for serviceType, service := range sh.Services {
-		err := service.Bootstrap()
+
+	// Bootstrap MicroCloud first.
+	cloudService, ok := sh.Services[service.MicroCloud]
+	if !ok {
+		return fmt.Errorf("Missing MicroCloud service")
+	}
+
+	err := cloudService.Bootstrap()
+	if err != nil {
+		return fmt.Errorf("Failed to bootstrap local %s: %w", service.MicroCloud, err)
+	}
+
+	fmt.Printf(" Local %s has been bootstrapped\n", service.MicroCloud)
+	for serviceType, s := range sh.Services {
+		if serviceType == service.MicroCloud {
+			continue
+		}
+
+		err := s.Bootstrap()
 		if err != nil {
 			return fmt.Errorf("Failed to bootstrap local %s: %w", serviceType, err)
 		}
@@ -202,7 +215,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	}
 
 	// Shutdown the server after 30 seconds.
-	timeAfter := time.After(time.Second * 30)
+	timeAfter := time.After(time.Minute)
 	bootstrapDoneCh := make(chan struct{})
 	var bootstrapDone bool
 	for {
@@ -266,7 +279,7 @@ func askDisks(localName string, s service.CephService) error {
 		return nil
 	}
 
-	localCeph, err := s.Client.LocalClient()
+	localCeph, err := s.Client()
 	if err != nil {
 		return err
 	}
@@ -301,7 +314,7 @@ func askDisks(localName string, s service.CephService) error {
 			lc = lc.UseTarget(target)
 		}
 
-		err = listLocalDisks(lc)
+		err = listLocalDisks(target, lc)
 		if err != nil {
 			return err
 		}
@@ -327,7 +340,7 @@ func askDisks(localName string, s service.CephService) error {
 				Wipe: diskWipe,
 			}
 
-			err = cephClient.AddDisk(context.Background(), lc, req)
+			err = lc.AddDisk(context.Background(), req)
 			if err != nil {
 				return err
 			}
@@ -355,21 +368,15 @@ func askDisks(localName string, s service.CephService) error {
 	return nil
 }
 
-func listLocalDisks(cli *client.Client) error {
+func listLocalDisks(name string, c *client.CephClient) error {
 	// List configured disks.
-	disks, err := cephClient.GetDisks(context.Background(), cli)
+	disks, err := c.GetDisks(context.Background())
 	if err != nil {
 		return err
 	}
 
 	// List physical disks.
-	resources, err := cephClient.GetResources(context.Background(), cli)
-	if err != nil {
-		return err
-	}
-
-	// Get local hostname.
-	hostname, err := os.Hostname()
+	resources, err := c.GetResources(context.Background())
 	if err != nil {
 		return err
 	}
@@ -385,7 +392,7 @@ func listLocalDisks(cli *client.Client) error {
 
 		found := false
 		for _, entry := range disks {
-			if entry.Location != hostname {
+			if entry.Location != name {
 				continue
 			}
 

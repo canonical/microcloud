@@ -3,10 +3,11 @@ package service
 import (
 	"fmt"
 
-	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/canonical/microcloud/microcloud/client"
 )
 
 // Helper to initialize node-specific entities on a LXD instance using the
@@ -15,7 +16,7 @@ import (
 // It's used both by the 'lxd init' command and by the PUT /1.0/cluster API.
 //
 // In case of error, the returned function can be used to revert the changes.
-func initDataNodeApply(d lxd.InstanceServer, config api.InitLocalPreseed) (func(), error) {
+func initDataNodeApply(d *client.LXDClient, config api.InitLocalPreseed) (func(), error) {
 	revert := revert.New()
 	defer revert.Fail()
 
@@ -132,16 +133,16 @@ func initDataNodeApply(d lxd.InstanceServer, config api.InitLocalPreseed) (func(
 
 	// Apply network configuration function.
 	applyNetwork := func(network api.InitNetworksProjectPost) error {
-		currentNetwork, etag, err := d.UseProject(network.Project).GetNetwork(network.Name)
+		currentNetwork, etag, err := d.GetNetwork(network.Name)
 		if err != nil {
 			// Create the network if doesn't exist.
-			err := d.UseProject(network.Project).CreateNetwork(network.NetworksPost)
+			err := d.CreateNetwork(network.NetworksPost)
 			if err != nil {
 				return fmt.Errorf("Failed to create local member network %q in project %q: %w", network.Name, network.Project, err)
 			}
 
 			// Setup reverter.
-			revert.Add(func() { _ = d.UseProject(network.Project).DeleteNetwork(network.Name) })
+			revert.Add(func() { _ = d.DeleteNetwork(network.Name) })
 		} else {
 			// Prepare the update.
 			newNetwork := api.NetworkPut{}
@@ -161,14 +162,14 @@ func initDataNodeApply(d lxd.InstanceServer, config api.InitLocalPreseed) (func(
 			}
 
 			// Apply it.
-			err = d.UseProject(network.Project).UpdateNetwork(currentNetwork.Name, newNetwork, etag)
+			err = d.UpdateNetwork(currentNetwork.Name, newNetwork, etag)
 			if err != nil {
 				return fmt.Errorf("Failed to update local member network %q in project %q: %w", network.Name, network.Project, err)
 			}
 
 			// Setup reverter.
 			revert.Add(func() {
-				_ = d.UseProject(network.Project).UpdateNetwork(currentNetwork.Name, currentNetwork.Writable(), "")
+				_ = d.UpdateNetwork(currentNetwork.Name, currentNetwork.Writable(), "")
 			})
 		}
 
