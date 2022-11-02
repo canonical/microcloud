@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path/filepath"
 
 	"github.com/canonical/microcluster/rest"
@@ -46,6 +47,17 @@ var LXDProfilesCmd = rest.Endpoint{
 	Post:   LXDProxy.Post,
 	Put:    LXDProxy.Put,
 	Patch:  LXDProxy.Patch,
+	Delete: LXDProxy.Delete,
+}
+
+// LXDStoragePoolsCmd contains any alternatively handled methods on `/1.0/storage-pools` for LXD.
+var LXDStoragePoolsCmd = rest.Endpoint{
+	Path: "services/lxd/1.0/storage-pools",
+
+	Post:   rest.EndpointAction{Handler: storagePoolsPost, AllowUntrusted: true},
+	Put:    LXDProxy.Put,
+	Patch:  LXDProxy.Patch,
+	Get:    LXDProxy.Get,
 	Delete: LXDProxy.Delete,
 }
 
@@ -112,4 +124,38 @@ func profilesGet(state *state.State, r *http.Request) response.Response {
 	}
 
 	return response.SyncResponse(true, names)
+}
+
+func storagePoolsPost(state *state.State, r *http.Request) response.Response {
+	client, err := lxd.ConnectLXDUnix(filepath.Join(LXDDir, "unix.socket"), nil)
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	var storage api.StoragePoolsPost
+	err = json.NewDecoder(r.Body).Decode(&storage)
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	params, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		return response.SmartError(fmt.Errorf("Failed to parse query string %q: %w", r.URL.RawQuery, err))
+	}
+
+	var target string
+	if params != nil {
+		target = params.Get("target")
+	}
+
+	if target != "" {
+		client = client.UseTarget(target)
+	}
+
+	err = client.CreateStoragePool(storage)
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	return response.EmptySyncResponse
 }

@@ -45,6 +45,7 @@ func (s *CloudService) StartCloud(service *ServiceHandler) error {
 		api.LXDClusterMemberCmd,
 		api.LXDClusterCmd,
 		api.LXDProfilesCmd,
+		api.LXDStoragePoolsCmd,
 
 		api.LXDProxy,
 		api.CephProxy,
