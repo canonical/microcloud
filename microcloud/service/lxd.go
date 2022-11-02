@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/client"
@@ -49,37 +49,44 @@ func (s LXDService) client() (*client.LXDClient, error) {
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
-
 	server := api.ServerPut{Config: map[string]any{"core.https_address": addr, "cluster.https_address": addr}}
-	storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
-	network := api.NetworksPost{NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}}, Name: "lxdfan0", Type: "bridge"}
-	devices := map[string]map[string]string{
-		"root": {"path": "/", "pool": "local", "type": "disk"},
-		"eth0": {"name": "eth0", "network": "lxdfan0", "type": "nic"},
-	}
-
-	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: devices}, Name: "default"}
-	initData := api.InitLocalPreseed{
-		ServerPut:    server,
-		StoragePools: []api.StoragePoolsPost{storage},
-		Networks:     []api.InitNetworksProjectPost{{NetworksPost: network}},
-		Profiles:     []api.ProfilesPost{profile},
-	}
-
-	revert := revert.New()
-	defer revert.Fail()
-
 	client, err := s.client()
 	if err != nil {
 		return err
 	}
 
-	revertFunc, err := initDataNodeApply(client, initData)
+	currentServer, etag, err := client.GetServer()
 	if err != nil {
-		return fmt.Errorf("Failed to initialize local LXD: %w", err)
+		return fmt.Errorf("Failed to retrieve current server configuration: %w", err)
 	}
 
-	revert.Add(revertFunc)
+	// Prepare the update.
+	newServer := api.ServerPut{}
+	err = shared.DeepCopy(currentServer.Writable(), &newServer)
+	if err != nil {
+		return fmt.Errorf("Failed to copy server configuration: %w", err)
+	}
+
+	for k, v := range server.Config {
+		newServer.Config[k] = fmt.Sprintf("%v", v)
+	}
+
+	// Apply it.
+	err = client.UpdateServer(newServer, etag)
+	if err != nil {
+		return fmt.Errorf("Failed to update server configuration: %w", err)
+	}
+
+	network := api.NetworksPost{
+		NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}},
+		Name:       "lxdfan0",
+		Type:       "bridge",
+	}
+
+	err = client.CreateNetwork(network)
+	if err != nil {
+		return err
+	}
 
 	currentCluster, etag, err := client.GetCluster()
 	if err != nil {
@@ -94,8 +101,6 @@ func (s LXDService) Bootstrap() error {
 	if err != nil {
 		return fmt.Errorf("Failed to enable clustering on local LXD: %w", err)
 	}
-
-	revert.Success()
 
 	return nil
 }
