@@ -159,3 +159,59 @@ func (s LXDService) Address() string {
 func (s LXDService) Port() int {
 	return s.port
 }
+
+// AddPendingPools adds pending Ceph storage pools for each of the target peers.
+func (s *LXDService) AddPendingPools(targets []string) error {
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+
+	for _, target := range targets {
+		err = c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
+			Name:   "remote",
+			Driver: "ceph",
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
+// the default profile.
+func (s *LXDService) Configure(addPool bool) error {
+	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+
+	if addPool {
+		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
+		storage := api.StoragePoolsPost{Name: "remote", Driver: "ceph"}
+		err = c.CreateStoragePool(storage)
+		if err != nil {
+			return err
+		}
+	}
+
+	profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
+	profiles, err := c.GetProfileNames()
+	if err != nil {
+		return err
+	}
+	if !shared.StringInSlice(profile.Name, profiles) {
+		err = c.CreateProfile(profile)
+	} else {
+		err = c.UpdateProfile("default", profile.ProfilePut, "")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

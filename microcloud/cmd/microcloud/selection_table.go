@@ -112,15 +112,14 @@ const multiSelectQuestionTemplate = `
 func (t *SelectableTable) Render(entries []string) ([]string, error) {
 	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header, t.border)
 	prompt := &survey.MultiSelect{
-		Message:  "(Space to select; Up/Down to move; Enter to confirm; Esc to exit; Type to filter results)",
+		Message: `Space to select; Enter to confirm; Esc to exit; Type to filter results.
+Up/Down to move; Right to select all; Left to select none.`,
 		Options:  entries,
 		PageSize: 15,
 	}
 
 	selected := []string{}
 	err := survey.AskOne(prompt, &selected,
-		survey.WithRemoveSelectAll(),
-		survey.WithRemoveSelectNone(),
 		survey.WithIcons(func(is *survey.IconSet) {
 			is.Question.Text = ""
 		}),
