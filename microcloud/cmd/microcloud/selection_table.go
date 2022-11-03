@@ -88,20 +88,22 @@ const multiSelectQuestionTemplate = `
     {{- range $i, $o := .Options}}
       {{- if $i}} {{- $size = $i}}{{- end}}
     {{- end}}
-    {{- if and (eq .CurrentOpt.Index $size) (gt $size 0)}}
+    {{- if or (and (eq .CurrentOpt.Index $size) (gt $size 0)) .FilterMessage}}
     {{- "\n%s"}}
     {{- end}}
 {{end}}
-{{- if .ShowHelp }}{{- color .Config.Icons.Help.Format }}{{ .Config.Icons.Help.Text }} {{ .Help }}{{color "reset"}}{{"\n"}}{{end}}
-{{- color .Config.Icons.Question.Format }}{{ .Config.Icons.Question.Text }} {{color "reset"}}
-{{- color "default+hb"}}{{ .Message }}{{color "reset"}}
-{{- "\n"}}
-{{- "%s\n"}}
-{{- "%s\n"}}
-{{- "%s\n"}}
+{{- if gt (len .PageEntries) 0 }}
+  {{- color "default+hb"}}{{ .Message }}{{color "reset"}}
+  {{- "\n"}}
+{{- end}}
 {{- if .FilterMessage}}
   {{- "Filter: "}}{{- color "default+hb"}}{{ .FilterMessage }}{{color "reset"}}
   {{- "\n"}}
+{{- end}}
+{{- if gt (len .PageEntries) 0 }}
+      {{- "%s\n"}}
+      {{- "%s\n"}}
+      {{- "%s\n"}}
 {{- end}}
 {{- range $ix, $option := .PageEntries}}
   {{- template "option" $.IterateOption $ix $option}}
@@ -119,11 +121,7 @@ Up/Down to move; Right to select all; Left to select none.`,
 	}
 
 	selected := []string{}
-	err := survey.AskOne(prompt, &selected,
-		survey.WithIcons(func(is *survey.IconSet) {
-			is.Question.Text = ""
-		}),
-	)
+	err := survey.AskOne(prompt, &selected)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to confirm selection: %w", err)
 	}
