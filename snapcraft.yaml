@@ -24,8 +24,6 @@ apps:
   microcloud:
     command: commands/microcloud
     plugs:
-      - lxd
-      - microceph
       - network
 
 parts:
