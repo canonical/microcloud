@@ -3,14 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
-
-	"github.com/canonical/microcloud/microcloud/client"
 )
 
 // LXDService is a LXD service.
@@ -24,7 +25,7 @@ type LXDService struct {
 
 // NewLXDService creates a new LXD service with a client attached.
 func NewLXDService(ctx context.Context, name string, addr string, cloudDir string) (*LXDService, error) {
-	client, err := microcluster.App(ctx, cloudDir, false, false)
+	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,16 @@ func (s LXDService) client() (lxd.InstanceServer, error) {
 		return nil, err
 	}
 
-	return client.NewLXDClient(s.m.FileSystem.ControlSocket().URL.Host, c)
+	return lxd.ConnectLXDUnix(s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
+		HTTPClient: c.Client.Client,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
+				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
+			}
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	})
 }
 
 // Bootstrap bootstraps the LXD daemon on the default port.
