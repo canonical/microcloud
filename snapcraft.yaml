@@ -86,7 +86,7 @@ parts:
       set -ex
 
       # Download the dependencies
-      go get -d -v ./...
+      go get -d -v -tags=agent ./...
     override-build: |
       set -ex
 
@@ -96,8 +96,8 @@ parts:
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
       # Build the binaries
-      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloud" ./cmd/microcloud
-      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloudd" -tags=libsqlite3 ./cmd/microcloudd
+      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloud" -tags=agent ./cmd/microcloud
+      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloudd" -tags=agent,libsqlite3 ./cmd/microcloudd
     prime:
       - bin/microcloud
       - bin/microcloudd
