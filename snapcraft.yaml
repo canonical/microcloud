@@ -24,6 +24,8 @@ apps:
   microcloud:
     command: commands/microcloud
     plugs:
+      - lxd
+      - microceph
       - network
 
 parts:
@@ -31,7 +33,6 @@ parts:
     build-attributes: [core22-step-dependencies]
     after:
       - raft
-      - sqlite
     source: https://github.com/canonical/dqlite
     source-type: git
     source-depth: 1
@@ -39,8 +40,10 @@ parts:
     autotools-configure-parameters:
       - --prefix=
     stage-packages:
+      - libsqlite3-0
       - libuv1
     build-packages:
+      - libsqlite3-dev
       - libuv1-dev
       - pkg-config
     organize:
@@ -70,22 +73,6 @@ parts:
       - lib/libraft*so*
       - lib/*/libuv.so*
 
-  sqlite:
-    build-attributes: [core22-step-dependencies]
-    source: https://github.com/sqlite/sqlite
-    source-type: git
-    source-depth: 1
-    source-tag: version-3.39.2
-    plugin: autotools
-    autotools-configure-parameters:
-      - --prefix=
-    build-packages:
-      - pkg-config
-      - tcl
-    prime:
-      - bin/sqlite3
-      - lib/libsqlite3*so*
-
   microcloud:
     build-attributes: [core22-step-dependencies]
     source: microcloud/
@@ -99,7 +86,7 @@ parts:
       set -ex
 
       # Download the dependencies
-      go get -d -v ./...
+      go get -d -v -tags=agent ./...
     override-build: |
       set -ex
 
@@ -109,8 +96,8 @@ parts:
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
       # Build the binaries
-      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloud" ./cmd/microcloud
-      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloudd" -tags=libsqlite3 ./cmd/microcloudd
+      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloud" -tags=agent ./cmd/microcloud
+      go build -o "${SNAPCRAFT_PART_INSTALL}/bin/microcloudd" -tags=agent,libsqlite3 ./cmd/microcloudd
     prime:
       - bin/microcloud
       - bin/microcloudd
