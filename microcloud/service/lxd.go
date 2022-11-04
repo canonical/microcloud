@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/lxd/revert"
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/client"
@@ -49,37 +49,44 @@ func (s LXDService) client() (*client.LXDClient, error) {
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
-
 	server := api.ServerPut{Config: map[string]any{"core.https_address": addr, "cluster.https_address": addr}}
-	storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
-	network := api.NetworksPost{NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}}, Name: "lxdfan0", Type: "bridge"}
-	devices := map[string]map[string]string{
-		"root": {"path": "/", "pool": "local", "type": "disk"},
-		"eth0": {"name": "eth0", "network": "lxdfan0", "type": "nic"},
-	}
-
-	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: devices}, Name: "default"}
-	initData := api.InitLocalPreseed{
-		ServerPut:    server,
-		StoragePools: []api.StoragePoolsPost{storage},
-		Networks:     []api.InitNetworksProjectPost{{NetworksPost: network}},
-		Profiles:     []api.ProfilesPost{profile},
-	}
-
-	revert := revert.New()
-	defer revert.Fail()
-
 	client, err := s.client()
 	if err != nil {
 		return err
 	}
 
-	revertFunc, err := initDataNodeApply(client, initData)
+	currentServer, etag, err := client.GetServer()
 	if err != nil {
-		return fmt.Errorf("Failed to initialize local LXD: %w", err)
+		return fmt.Errorf("Failed to retrieve current server configuration: %w", err)
 	}
 
-	revert.Add(revertFunc)
+	// Prepare the update.
+	newServer := api.ServerPut{}
+	err = shared.DeepCopy(currentServer.Writable(), &newServer)
+	if err != nil {
+		return fmt.Errorf("Failed to copy server configuration: %w", err)
+	}
+
+	for k, v := range server.Config {
+		newServer.Config[k] = fmt.Sprintf("%v", v)
+	}
+
+	// Apply it.
+	err = client.UpdateServer(newServer, etag)
+	if err != nil {
+		return fmt.Errorf("Failed to update server configuration: %w", err)
+	}
+
+	network := api.NetworksPost{
+		NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}},
+		Name:       "lxdfan0",
+		Type:       "bridge",
+	}
+
+	err = client.CreateNetwork(network)
+	if err != nil {
+		return err
+	}
 
 	currentCluster, etag, err := client.GetCluster()
 	if err != nil {
@@ -94,8 +101,6 @@ func (s LXDService) Bootstrap() error {
 	if err != nil {
 		return fmt.Errorf("Failed to enable clustering on local LXD: %w", err)
 	}
-
-	revert.Success()
 
 	return nil
 }
@@ -153,4 +158,60 @@ func (s LXDService) Address() string {
 // Port returns the port of this Service instance.
 func (s LXDService) Port() int {
 	return s.port
+}
+
+// AddPendingPools adds pending Ceph storage pools for each of the target peers.
+func (s *LXDService) AddPendingPools(targets []string) error {
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+
+	for _, target := range targets {
+		err = c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
+			Name:   "remote",
+			Driver: "ceph",
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
+// the default profile.
+func (s *LXDService) Configure(addPool bool) error {
+	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+
+	if addPool {
+		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
+		storage := api.StoragePoolsPost{Name: "remote", Driver: "ceph"}
+		err = c.CreateStoragePool(storage)
+		if err != nil {
+			return err
+		}
+	}
+
+	profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
+	profiles, err := c.GetProfileNames()
+	if err != nil {
+		return err
+	}
+	if !shared.StringInSlice(profile.Name, profiles) {
+		err = c.CreateProfile(profile)
+	} else {
+		err = c.UpdateProfile("default", profile.ProfilePut, "")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

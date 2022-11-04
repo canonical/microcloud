@@ -88,20 +88,22 @@ const multiSelectQuestionTemplate = `
     {{- range $i, $o := .Options}}
       {{- if $i}} {{- $size = $i}}{{- end}}
     {{- end}}
-    {{- if and (eq .CurrentOpt.Index $size) (gt $size 0)}}
+    {{- if or (and (eq .CurrentOpt.Index $size) (gt $size 0)) .FilterMessage}}
     {{- "\n%s"}}
     {{- end}}
 {{end}}
-{{- if .ShowHelp }}{{- color .Config.Icons.Help.Format }}{{ .Config.Icons.Help.Text }} {{ .Help }}{{color "reset"}}{{"\n"}}{{end}}
-{{- color .Config.Icons.Question.Format }}{{ .Config.Icons.Question.Text }} {{color "reset"}}
-{{- color "default+hb"}}{{ .Message }}{{color "reset"}}
-{{- "\n"}}
-{{- "%s\n"}}
-{{- "%s\n"}}
-{{- "%s\n"}}
+{{- if gt (len .PageEntries) 0 }}
+  {{- color "default+hb"}}{{ .Message }}{{color "reset"}}
+  {{- "\n"}}
+{{- end}}
 {{- if .FilterMessage}}
   {{- "Filter: "}}{{- color "default+hb"}}{{ .FilterMessage }}{{color "reset"}}
   {{- "\n"}}
+{{- end}}
+{{- if gt (len .PageEntries) 0 }}
+      {{- "%s\n"}}
+      {{- "%s\n"}}
+      {{- "%s\n"}}
 {{- end}}
 {{- range $ix, $option := .PageEntries}}
   {{- template "option" $.IterateOption $ix $option}}
@@ -112,19 +114,14 @@ const multiSelectQuestionTemplate = `
 func (t *SelectableTable) Render(entries []string) ([]string, error) {
 	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header, t.border)
 	prompt := &survey.MultiSelect{
-		Message:  "(Space to select; Up/Down to move; Enter to confirm; Esc to exit; Type to filter results)",
+		Message: `Space to select; Enter to confirm; Esc to exit; Type to filter results.
+Up/Down to move; Right to select all; Left to select none.`,
 		Options:  entries,
 		PageSize: 15,
 	}
 
 	selected := []string{}
-	err := survey.AskOne(prompt, &selected,
-		survey.WithRemoveSelectAll(),
-		survey.WithRemoveSelectNone(),
-		survey.WithIcons(func(is *survey.IconSet) {
-			is.Question.Text = ""
-		}),
-	)
+	err := survey.AskOne(prompt, &selected)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to confirm selection: %w", err)
 	}

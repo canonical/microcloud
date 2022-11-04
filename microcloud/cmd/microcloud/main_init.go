@@ -25,6 +25,7 @@ type cmdInit struct {
 	common *CmdControl
 
 	flagAuto bool
+	flagWipe bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -36,6 +37,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&c.flagAuto, "auto", false, "Automatic setup with default configuration")
+	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
 
 	return cmd
 }
@@ -90,13 +92,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if !c.flagAuto {
-		// FIXME: Add disks to LXD.
-		return askDisks(s.Name, *ceph)
-	}
-
-	return nil
-
+	return askDisks(c.flagAuto, c.flagWipe, s.Name, *ceph, *lxd)
 }
 
 func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error) {
@@ -172,7 +168,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 		return fmt.Errorf("Failed to bootstrap local %s: %w", service.MicroCloud, err)
 	}
 
-	fmt.Printf(" Local %s has been bootstrapped\n", service.MicroCloud)
+	fmt.Printf(" Local %s is ready\n", service.MicroCloud)
 	for serviceType, s := range sh.Services {
 		if serviceType == service.MicroCloud {
 			continue
@@ -183,7 +179,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 			return fmt.Errorf("Failed to bootstrap local %s: %w", serviceType, err)
 		}
 
-		fmt.Printf(" Local %s has been bootstrapped\n", serviceType)
+		fmt.Printf(" Local %s is ready\n", serviceType)
 	}
 
 	tokensByName := make(map[string]map[string]string, len(peers))
@@ -268,18 +264,24 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	return nil
 }
 
-func askDisks(localName string, s service.CephService) error {
-	// Add some disks.
-	wantsDisks, err := cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
-	if err != nil {
-		return err
+func askDisks(auto bool, wipe bool, localName string, ceph service.CephService, lxd service.LXDService) error {
+	if !auto {
+		wantsDisks, err := cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
+
+		if !wantsDisks {
+			err = lxd.Configure(false)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("MicroCloud is ready")
+		}
 	}
 
-	if !wantsDisks {
-		return nil
-	}
-
-	localCeph, err := s.Client()
+	localCeph, err := ceph.Client()
 	if err != nil {
 		return err
 	}
@@ -338,6 +340,11 @@ func askDisks(localName string, s service.CephService) error {
 
 	sort.Sort(utils.ByName(data))
 	table := NewSelectableTable(header, data)
+	selected := table.rows
+	var toWipe []string
+	if wipe {
+		toWipe = selected
+	}
 
 	// map the rows (as strings) to the associated row.
 	rowMap := make(map[string][]string, len(data))
@@ -345,45 +352,78 @@ func askDisks(localName string, s service.CephService) error {
 		rowMap[r] = data[i]
 	}
 
-	fmt.Println("Select from the available unpartitioned disks:")
-	selected, err := table.Render(table.rows)
-	if err != nil {
-		return fmt.Errorf("Failed to confirm disk selection: %w", err)
-	}
-
-	var toWipe []string
-	if len(selected) > 0 {
-		fmt.Println("Select which disks to wipe:")
-		toWipe, err = table.Render(selected)
+	if !auto {
+		fmt.Println("Select from the available unpartitioned disks:")
+		selected, err = table.Render(table.rows)
 		if err != nil {
-			return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+			return fmt.Errorf("Failed to confirm disk selection: %w", err)
+		}
+
+		if len(selected) > 0 && !wipe {
+			fmt.Println("Select which disks to wipe:")
+			toWipe, err = table.Render(selected)
+			if err != nil {
+				return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+			}
 		}
 	}
 
-	diskMap := make(map[string]types.DisksPost, len(selected))
-	for _, entry := range selected {
-		diskMap[entry] = types.DisksPost{Path: rowMap[entry][4]}
-	}
-
+	wipeMap := make(map[string]bool, len(toWipe))
 	for _, entry := range toWipe {
-		req := diskMap[entry]
-		req.Wipe = true
-
-		diskMap[entry] = req
+		_, ok := rowMap[entry]
+		if ok {
+			wipeMap[entry] = true
+		}
 	}
 
-	for key, req := range diskMap {
-		target := rowMap[key][0]
+	diskMap := map[string][]types.DisksPost{}
+	for _, entry := range selected {
+		target := rowMap[entry][0]
+		path := rowMap[entry][4]
+
+		_, ok := diskMap[target]
+		if !ok {
+			diskMap[target] = []types.DisksPost{}
+		}
+
+		diskMap[target] = append(diskMap[target], types.DisksPost{Path: path, Wipe: wipeMap[entry]})
+	}
+
+	fmt.Printf("Adding %d disks to MicroCeph\n", len(selected))
+	targets := make([]string, 0, len(peers))
+	for target, reqs := range diskMap {
 		lc := localCeph
 		if target != localName {
 			lc = lc.UseTarget(target)
 		}
 
-		err = lc.AddDisk(context.Background(), &req)
+		for _, req := range reqs {
+			err = lc.AddDisk(context.Background(), &req)
+			if err != nil {
+				return err
+			}
+		}
+
+		targets = append(targets, target)
+	}
+
+	var addPool bool
+	if len(targets) == len(peers) && len(targets) >= 3 {
+		addPool = true
+		err = lxd.AddPendingPools(targets)
 		if err != nil {
 			return err
 		}
+	} else {
+		fmt.Println("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 	}
+
+	err = lxd.Configure(addPool)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("MicroCloud is ready")
 
 	return nil
 }

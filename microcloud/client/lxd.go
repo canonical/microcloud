@@ -219,3 +219,10 @@ func (c *LXDClient) CreateClusterMember(cluster api.ClusterMembersPost) (*api.Cl
 
 	return &token, nil
 }
+
+// UseTarget returns a new client with the query "?target=name" set.
+func (c *LXDClient) UseTarget(name string) *LXDClient {
+	newClient := c.Client.UseTarget(name)
+
+	return &LXDClient{Client: newClient}
+}
