@@ -39,10 +39,6 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(service *ServiceHandler) error {
 	endpoints := []rest.Endpoint{
-		api.CephClusterCmd,
-		api.CephControlCmd,
-		api.CephTokensCmd,
-
 		api.LXDProxy,
 		api.CephProxy,
 	}

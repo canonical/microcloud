@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/canonical/microceph/microceph/api/types"
+	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/lxd/util"
 	cli "github.com/lxc/lxd/shared/cmd"
@@ -300,13 +301,13 @@ func askDisks(auto bool, wipe bool, localName string, ceph service.CephService, 
 		}
 
 		// List configured disks.
-		disks, err := lc.GetDisks(context.Background())
+		disks, err := cephClient.GetDisks(context.Background(), lc)
 		if err != nil {
 			return err
 		}
 
 		// List physical disks.
-		resources, err := lc.GetResources(context.Background())
+		resources, err := cephClient.GetResources(context.Background(), lc)
 		if err != nil {
 			return err
 		}
@@ -398,7 +399,7 @@ func askDisks(auto bool, wipe bool, localName string, ceph service.CephService, 
 		}
 
 		for _, req := range reqs {
-			err = lc.AddDisk(context.Background(), &req)
+			err = cephClient.AddDisk(context.Background(), lc, &req)
 			if err != nil {
 				return err
 			}
