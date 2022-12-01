@@ -55,7 +55,8 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get all state information for MicroCluster.
-	m, err := microcluster.App(context.Background(), c.common.FlagMicroCloudDir, c.common.FlagLogVerbose, c.common.FlagLogDebug)
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	m, err := microcluster.App(context.Background(), options)
 	if err != nil {
 		return err
 	}
@@ -119,7 +120,8 @@ func (c *cmdClusterMemberRemove) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	m, err := microcluster.App(context.Background(), c.common.FlagMicroCloudDir, c.common.FlagLogVerbose, c.common.FlagLogDebug)
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	m, err := microcluster.App(context.Background(), options)
 	if err != nil {
 		return err
 	}

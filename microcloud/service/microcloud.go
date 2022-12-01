@@ -23,7 +23,7 @@ type CloudService struct {
 
 // NewCloudService creates a new MicroCloud service with a client attached.
 func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(ctx, dir, verbose, debug)
+	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir})
 	if err != nil {
 		return nil, err
 	}
@@ -39,14 +39,6 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(service *ServiceHandler) error {
 	endpoints := []rest.Endpoint{
-		api.CephClusterCmd,
-		api.CephControlCmd,
-		api.CephTokensCmd,
-		api.LXDClusterMemberCmd,
-		api.LXDClusterCmd,
-		api.LXDProfilesCmd,
-		api.LXDStoragePoolsCmd,
-
 		api.LXDProxy,
 		api.CephProxy,
 	}
