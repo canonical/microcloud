@@ -93,20 +93,25 @@ func (s *ServiceHandler) Start(state *state.State) error {
 			return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
 		}
 
-		for _, service := range s.Services {
-			if service.Type() == MicroCloud {
-				continue
+		err = s.RunAsync(func(s Service) error {
+			if s.Type() == MicroCloud {
+				return nil
 			}
 
-			token, ok := tokens[string(service.Type())]
+			token, ok := tokens[string(s.Type())]
 			if !ok {
-				return fmt.Errorf("Invalid service type %q", service.Type())
+				return fmt.Errorf("Invalid service type %q", s.Type())
 			}
 
-			err := service.Join(token)
+			err := s.Join(token)
 			if err != nil {
-				return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
+				return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
 			}
+
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 
 		err = s.server.Shutdown()
