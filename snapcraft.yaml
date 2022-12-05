@@ -1,7 +1,7 @@
 name: microcloud
 base: core22
 version: git
-grade: devel
+grade: stable
 source-code: https://github.com/canonical/microcloud.git
 summary: Fully automated private clouds
 description: |-
