@@ -151,8 +151,6 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 			time.Sleep(5 * time.Second)
 		}
 	}
-
-	return totalPeers, nil
 }
 
 func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
@@ -170,33 +168,59 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	}
 
 	fmt.Printf(" Local %s is ready\n", service.MicroCloud)
-	for serviceType, s := range sh.Services {
-		if serviceType == service.MicroCloud {
-			continue
+	err = sh.RunAsync(func(s service.Service) error {
+		if s.Type() == service.MicroCloud {
+			return nil
 		}
 
 		err := s.Bootstrap()
 		if err != nil {
-			return fmt.Errorf("Failed to bootstrap local %s: %w", serviceType, err)
+			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 		}
 
-		fmt.Printf(" Local %s is ready\n", serviceType)
+		fmt.Printf(" Local %s is ready\n", s.Type())
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	tokens := map[service.ServiceType][]string{}
+	for serviceType := range sh.Services {
+		tokens[serviceType] = make([]string, len(peers))
+	}
+
+	err = sh.RunAsync(func(s service.Service) error {
+		i := 0
+		for peer := range peers {
+			token, err := s.IssueToken(peer)
+			if err != nil {
+				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
+			}
+
+			tokens[s.Type()][i] = token
+			i++
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	tokensByName := make(map[string]map[string]string, len(peers))
 	for serviceType, s := range sh.Services {
+		i := 0
 		for peer := range peers {
-			token, err := s.IssueToken(peer)
-			if err != nil {
-				return fmt.Errorf("Failed to issue %s token for peer %q: %w", serviceType, peer, err)
-			}
-
+			token := tokens[serviceType][i]
 			_, ok := tokensByName[peer]
 			if !ok {
 				tokensByName[peer] = make(map[string]string, len(sh.Services))
 			}
 
-			tokensByName[peer][string(serviceType)] = token
+			tokensByName[peer][string(s.Type())] = token
+			i++
 		}
 	}
 

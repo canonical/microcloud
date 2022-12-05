@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/canonical/microcluster/state"
@@ -92,20 +93,25 @@ func (s *ServiceHandler) Start(state *state.State) error {
 			return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
 		}
 
-		for _, service := range s.Services {
-			if service.Type() == MicroCloud {
-				continue
+		err = s.RunAsync(func(s Service) error {
+			if s.Type() == MicroCloud {
+				return nil
 			}
 
-			token, ok := tokens[string(service.Type())]
+			token, ok := tokens[string(s.Type())]
 			if !ok {
-				return fmt.Errorf("Invalid service type %q", service.Type())
+				return fmt.Errorf("Invalid service type %q", s.Type())
 			}
 
-			err := service.Join(token)
+			err := s.Join(token)
 			if err != nil {
-				return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
+				return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
 			}
+
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 
 		err = s.server.Shutdown()
@@ -147,6 +153,36 @@ func (s *ServiceHandler) Bootstrap(state *state.State) error {
 	err := s.server.Shutdown()
 	if err != nil {
 		return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
+	}
+
+	return nil
+}
+
+// RunAsync runs the given hook asynchronously across all services.
+func (s *ServiceHandler) RunAsync(f func(s Service) error) error {
+	errors := make([]error, 0, len(s.Services))
+	mut := sync.Mutex{}
+	wg := sync.WaitGroup{}
+	for _, s := range s.Services {
+		wg.Add(1)
+		go func(s Service) {
+			defer wg.Done()
+			err := f(s)
+			if err != nil {
+				mut.Lock()
+				errors = append(errors, err)
+				mut.Unlock()
+				return
+			}
+		}(s)
+	}
+
+	// Wait for all queries to complete and check for any errors.
+	wg.Wait()
+	for _, err := range errors {
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
