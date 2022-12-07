@@ -65,6 +65,26 @@ func (s CephService) Join(token string) error {
 	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, time.Second*30)
 }
 
+// ClusterMembers returns a map of cluster member names and addresses.
+func (s CephService) ClusterMembers() (map[string]string, error) {
+	client, err := s.Client()
+	if err != nil {
+		return nil, err
+	}
+
+	members, err := client.GetClusterMembers(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	genericMembers := make(map[string]string, len(members))
+	for _, member := range members {
+		genericMembers[member.Name] = member.Address.String()
+	}
+
+	return genericMembers, nil
+}
+
 // Type returns the type of Service.
 func (s CephService) Type() ServiceType {
 	return MicroCeph

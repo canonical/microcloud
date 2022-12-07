@@ -167,6 +167,26 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 	return joinToken.String(), nil
 }
 
+// ClusterMembers returns a map of cluster member names and addresses.
+func (s LXDService) ClusterMembers() (map[string]string, error) {
+	client, err := s.client()
+	if err != nil {
+		return nil, err
+	}
+
+	members, err := client.GetClusterMembers()
+	if err != nil {
+		return nil, err
+	}
+
+	genericMembers := make(map[string]string, len(members))
+	for _, member := range members {
+		genericMembers[member.ServerName] = member.URL
+	}
+
+	return genericMembers, nil
+}
+
 // Type returns the type of Service.
 func (s LXDService) Type() ServiceType {
 	return LXD
