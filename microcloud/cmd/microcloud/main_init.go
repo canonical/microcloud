@@ -286,6 +286,31 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 		}
 	}
 
+	cloudCluster, err := cloudService.ClusterMembers()
+	if err != nil {
+		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
+	}
+
+	err = sh.RunAsync(func(s service.Service) error {
+		if s.Type() == service.MicroCloud {
+			return nil
+		}
+
+		cluster, err := s.ClusterMembers()
+		if err != nil {
+			return fmt.Errorf("Failed to get %s service cluster members: %w", s.Type(), err)
+		}
+
+		if len(cloudCluster) != len(cluster) {
+			return fmt.Errorf("%s service cluster does not match %s", s.Type(), cloudService.Type())
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
