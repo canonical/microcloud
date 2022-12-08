@@ -235,8 +235,8 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 		return fmt.Errorf("Failed to begin join token broadcast: %w", err)
 	}
 
-	// Shutdown the server after 30 seconds.
-	timeAfter := time.After(time.Minute)
+	// Shutdown the server after 5 minutes.
+	timeAfter := time.After(5 * time.Minute)
 	bootstrapDoneCh := make(chan struct{})
 	var bootstrapDone bool
 	for {
@@ -251,6 +251,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 
 			bootstrapDone = true
 		case <-timeAfter:
+			fmt.Println("Timed out waiting for a response from all cluster members")
 			logger.Info("Shutting down broadcast")
 			err := server.Shutdown()
 			if err != nil {

@@ -62,7 +62,7 @@ func (s CephService) IssueToken(peer string) (string, error) {
 
 // Join joins a cluster with the given token.
 func (s CephService) Join(token string) error {
-	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, time.Second*30)
+	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, 5*time.Minute)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
