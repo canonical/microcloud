@@ -5,6 +5,7 @@ type Service interface {
 	Bootstrap() error
 	IssueToken(peer string) (string, error)
 	Join(token string) error
+	ClusterMembers() (map[string]string, error)
 
 	Type() ServiceType
 	Name() string

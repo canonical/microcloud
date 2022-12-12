@@ -61,7 +61,27 @@ func (s CloudService) IssueToken(peer string) (string, error) {
 
 // Join joins a cluster with the given token.
 func (s CloudService) Join(token string) error {
-	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, time.Second*30)
+	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, 5*time.Minute)
+}
+
+// ClusterMembers returns a map of cluster member names and addresses.
+func (s CloudService) ClusterMembers() (map[string]string, error) {
+	client, err := s.client.LocalClient()
+	if err != nil {
+		return nil, err
+	}
+
+	members, err := client.GetClusterMembers(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	genericMembers := make(map[string]string, len(members))
+	for _, member := range members {
+		genericMembers[member.Name] = member.Address.String()
+	}
+
+	return genericMembers, nil
 }
 
 // Type returns the type of Service.
