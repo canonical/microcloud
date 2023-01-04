@@ -373,6 +373,8 @@ func askDisks(auto bool, wipe bool, localName string, ceph service.CephService, 
 			}
 
 			fmt.Println("MicroCloud is ready")
+
+			return nil
 		}
 	}
 
