@@ -95,6 +95,11 @@ func LookupJoinToken(ctx context.Context, peer string, f func(token map[string]s
 					return
 				}
 
+				if token == nil {
+					logger.Warnf("Peer %q was not found in the token broadcast", peer)
+					continue
+				}
+
 				err = f(token)
 				if err != nil {
 					logger.Error("Failed to handle join token", logger.Ctx{"name": peer, "error": err})
@@ -121,7 +126,7 @@ func parseJoinToken(peer string, entry *mdns.ServiceEntry) (map[string]string, e
 
 	record, ok := tokensByName[peer]
 	if !ok {
-		return nil, fmt.Errorf("Found no token matching the peer %q", peer)
+		return nil, nil
 	}
 
 	return record, nil
