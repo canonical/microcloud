@@ -209,82 +209,61 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 		return err
 	}
 
-	tokensByName := make(map[string]map[string]string, len(peers))
+	// Initially add just 2 peers for each dqlite service to handle issues with role reshuffling while another
+	// node is joining the cluster.
+	initialSize := 2
+	var initialTokens map[string]map[string]string
+	var tokensByName map[string]map[string]string
+	if len(peers) > initialSize {
+		initialTokens = make(map[string]map[string]string, initialSize)
+		for peer := range peers {
+			if len(initialTokens) < initialSize {
+				initialTokens[peer] = make(map[string]string, len(sh.Services))
+			}
+		}
+		tokensByName = make(map[string]map[string]string, len(peers)-initialSize)
+	} else {
+		tokensByName = make(map[string]map[string]string, len(peers))
+	}
+
 	for serviceType, s := range sh.Services {
 		i := 0
 		for peer := range peers {
 			token := tokens[serviceType][i]
-			_, ok := tokensByName[peer]
-			if !ok {
-				tokensByName[peer] = make(map[string]string, len(sh.Services))
+			_, ok := initialTokens[peer]
+			if ok {
+				initialTokens[peer][string(s.Type())] = token
+			} else {
+				_, ok := tokensByName[peer]
+				if !ok {
+					tokensByName[peer] = make(map[string]string, len(sh.Services))
+				}
+
+				tokensByName[peer][string(s.Type())] = token
 			}
 
-			tokensByName[peer][string(s.Type())] = token
 			i++
 		}
 	}
 
-	bytes, err := json.Marshal(tokensByName)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal list of tokens: %w", err)
-	}
-
 	fmt.Println("Awaiting cluster formation...")
-	server, err := mdns.NewBroadcast(mdns.TokenService, sh.Name, sh.Address, sh.Port, bytes)
-	if err != nil {
-		return fmt.Errorf("Failed to begin join token broadcast: %w", err)
+	if initialSize > 0 {
+		_, err = waitForCluster(sh, initialTokens)
+		if err != nil {
+			return err
+		}
+
+		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
+		time.Sleep(3 * time.Second)
 	}
 
-	// Shutdown the server after 5 minutes.
-	timeAfter := time.After(5 * time.Minute)
-	bootstrapDoneCh := make(chan struct{})
-	var bootstrapDone bool
-	for {
-		select {
-		case <-bootstrapDoneCh:
-			fmt.Println("Cluster initialization is complete")
-			logger.Info("Shutting down broadcast")
-			err := server.Shutdown()
-			if err != nil {
-				return fmt.Errorf("Failed to shutdown mDNS server after timeout: %w", err)
-			}
+	timedOut, err := waitForCluster(sh, tokensByName)
+	if err != nil {
+		return err
+	}
 
-			bootstrapDone = true
-		case <-timeAfter:
-			fmt.Println("Timed out waiting for a response from all cluster members")
-			logger.Info("Shutting down broadcast")
-			err := server.Shutdown()
-			if err != nil {
-				return fmt.Errorf("Failed to shutdown mDNS server after timeout: %w", err)
-			}
-
-			bootstrapDone = true
-		default:
-			// Sleep a bit so the loop doesn't push the CPU as hard.
-			time.Sleep(100 * time.Millisecond)
-
-			peers, err := mdns.LookupPeers(context.Background(), mdns.JoinedService, sh.Name)
-			if err != nil {
-				return fmt.Errorf("Failed to lookup records from new cluster members: %w", err)
-			}
-
-			for peer := range peers {
-				_, ok := tokensByName[peer]
-				if ok {
-					fmt.Printf(" Peer %q has joined the cluster\n", peer)
-				}
-
-				delete(tokensByName, peer)
-			}
-
-			if len(tokensByName) == 0 {
-				close(bootstrapDoneCh)
-			}
-		}
-
-		if bootstrapDone {
-			break
-		}
+	if !timedOut {
+		fmt.Println("Cluster initialization is complete")
 	}
 
 	cloudCluster, err := cloudService.ClusterMembers()
@@ -313,6 +292,71 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	}
 
 	return nil
+}
+
+// waitForCluster will loop until the timeout has passed, or all cluster members for all services have reported that
+// their join process is complete.
+func waitForCluster(sh *service.ServiceHandler, tokensByName map[string]map[string]string) (bool, error) {
+	bytes, err := json.Marshal(tokensByName)
+	if err != nil {
+		return false, fmt.Errorf("Failed to marshal list of tokens: %w", err)
+	}
+
+	server, err := mdns.NewBroadcast(mdns.TokenService, sh.Name, sh.Address, sh.Port, bytes)
+	if err != nil {
+		return false, fmt.Errorf("Failed to begin join token broadcast: %w", err)
+	}
+	timeAfter := time.After(5 * time.Minute)
+	bootstrapDoneCh := make(chan struct{})
+	var bootstrapDone bool
+	for {
+		select {
+		case <-bootstrapDoneCh:
+			logger.Info("Shutting down broadcast")
+			err := server.Shutdown()
+			if err != nil {
+				return false, fmt.Errorf("Failed to shutdown mDNS server after timeout: %w", err)
+			}
+
+			bootstrapDone = true
+		case <-timeAfter:
+			fmt.Println("Timed out waiting for a response from all cluster members")
+			logger.Info("Shutting down broadcast")
+			err := server.Shutdown()
+			if err != nil {
+				return true, fmt.Errorf("Failed to shutdown mDNS server after timeout: %w", err)
+			}
+
+			bootstrapDone = true
+		default:
+			// Sleep a bit so the loop doesn't push the CPU as hard.
+			time.Sleep(100 * time.Millisecond)
+
+			peers, err := mdns.LookupPeers(context.Background(), mdns.JoinedService, sh.Name)
+			if err != nil {
+				return false, fmt.Errorf("Failed to lookup records from new cluster members: %w", err)
+			}
+
+			for peer := range peers {
+				_, ok := tokensByName[peer]
+				if ok {
+					fmt.Printf(" Peer %q has joined the cluster\n", peer)
+				}
+
+				delete(tokensByName, peer)
+			}
+
+			if len(tokensByName) == 0 {
+				close(bootstrapDoneCh)
+			}
+		}
+
+		if bootstrapDone {
+			break
+		}
+	}
+
+	return false, nil
 }
 
 func askDisks(auto bool, wipe bool, localName string, ceph service.CephService, lxd service.LXDService) error {
