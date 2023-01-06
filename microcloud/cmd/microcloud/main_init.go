@@ -449,69 +449,74 @@ func askDisks(auto bool, wipe bool, localName string, ceph service.CephService, 
 		rowMap[r] = data[i]
 	}
 
-	if !auto {
-		fmt.Println("Select from the available unpartitioned disks:")
-		selected, err = table.Render(table.rows)
-		if err != nil {
-			return fmt.Errorf("Failed to confirm disk selection: %w", err)
-		}
-
-		if len(selected) > 0 && !wipe {
-			fmt.Println("Select which disks to wipe:")
-			toWipe, err = table.Render(selected)
+	var addPool = len(table.rows) > 0
+	if addPool {
+		if !auto {
+			fmt.Println("Select from the available unpartitioned disks:")
+			selected, err = table.Render(table.rows)
 			if err != nil {
-				return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+				return fmt.Errorf("Failed to confirm disk selection: %w", err)
+			}
+
+			if len(selected) > 0 && !wipe {
+				fmt.Println("Select which disks to wipe:")
+				toWipe, err = table.Render(selected)
+				if err != nil {
+					return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+				}
 			}
 		}
-	}
 
-	wipeMap := make(map[string]bool, len(toWipe))
-	for _, entry := range toWipe {
-		_, ok := rowMap[entry]
-		if ok {
-			wipeMap[entry] = true
-		}
-	}
-
-	diskMap := map[string][]types.DisksPost{}
-	for _, entry := range selected {
-		target := rowMap[entry][0]
-		path := rowMap[entry][4]
-
-		_, ok := diskMap[target]
-		if !ok {
-			diskMap[target] = []types.DisksPost{}
+		wipeMap := make(map[string]bool, len(toWipe))
+		for _, entry := range toWipe {
+			_, ok := rowMap[entry]
+			if ok {
+				wipeMap[entry] = true
+			}
 		}
 
-		diskMap[target] = append(diskMap[target], types.DisksPost{Path: path, Wipe: wipeMap[entry]})
-	}
+		diskMap := map[string][]types.DisksPost{}
+		for _, entry := range selected {
+			target := rowMap[entry][0]
+			path := rowMap[entry][4]
 
-	fmt.Printf("Adding %d disks to MicroCeph\n", len(selected))
-	targets := make([]string, 0, len(peers))
-	for target, reqs := range diskMap {
-		lc := localCeph
-		if target != localName {
-			lc = lc.UseTarget(target)
+			_, ok := diskMap[target]
+			if !ok {
+				diskMap[target] = []types.DisksPost{}
+			}
+
+			diskMap[target] = append(diskMap[target], types.DisksPost{Path: path, Wipe: wipeMap[entry]})
 		}
 
-		for _, req := range reqs {
-			err = cephClient.AddDisk(context.Background(), lc, &req)
+		fmt.Printf("Adding %d disks to MicroCeph\n", len(selected))
+		targets := make([]string, 0, len(peers))
+		for target, reqs := range diskMap {
+			lc := localCeph
+			if target != localName {
+				lc = lc.UseTarget(target)
+			}
+
+			for _, req := range reqs {
+				err = cephClient.AddDisk(context.Background(), lc, &req)
+				if err != nil {
+					return err
+				}
+			}
+
+			targets = append(targets, target)
+		}
+
+		addPool = false
+		if len(targets) == len(peers) && len(targets) >= 3 {
+			addPool = true
+			err = lxd.AddPendingPools(targets)
 			if err != nil {
 				return err
 			}
 		}
-
-		targets = append(targets, target)
 	}
 
-	var addPool bool
-	if len(targets) == len(peers) && len(targets) >= 3 {
-		addPool = true
-		err = lxd.AddPendingPools(targets)
-		if err != nil {
-			return err
-		}
-	} else {
+	if !addPool {
 		fmt.Println("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 	}
 
