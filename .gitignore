@@ -1,1 +1,4 @@
 *.snap
+doc/.sphinx/venv
+doc/.sphinx/warnings.txt
+doc/.sphinx/.wordlist.dic
