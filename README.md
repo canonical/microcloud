@@ -22,7 +22,7 @@ A minimum of **3 systems and at least 3 additional disks** for use by Ceph are r
     <img width="33%" src="https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg">
 </p>
 
-Once the simple initialization is complete, users can launch, run and manage their workloads using system containers or VMs, and otherwise utilize regular LXD functionality.
+Once the simple initialisation is complete, users can launch, run and manage their workloads using system containers or VMs, and otherwise utilise regular LXD functionality.
 
 ## **How to get started**
 
@@ -42,7 +42,7 @@ Following the simple CLI prompts, a working MicroCloud will be ready within minu
 
 The MicroCloud snap drives two other snaps (LXD and MicroCeph), enabling automated deployment of a highly available LXD cluster for compute with Ceph as a storage backend.
 
-After the first initialization steps, MicroCloud will detect the other servers, set up a cluster and finally prompt you to add disks to Ceph.
+After the first initialisation steps, MicroCloud will detect the other servers, set up a cluster and finally prompt you to add disks to Ceph.
 
 At the end of this, you’ll have both a Ceph and a LXD cluster, and LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
