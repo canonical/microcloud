@@ -23,7 +23,6 @@ extensions = [
     'myst_parser',
     'sphinx.ext.intersphinx']
 
-templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.sphinx']
 
 source_suffix = {
@@ -97,7 +96,7 @@ html_theme_options = {
 }
 
 
-html_static_path = ['_static']
+html_static_path = ['.sphinx/_static']
 html_css_files = [
     'custom.css'
 ]
