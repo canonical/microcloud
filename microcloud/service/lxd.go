@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
@@ -225,6 +226,26 @@ func (s *LXDService) AddPendingPools(targets []string) error {
 	}
 
 	return nil
+}
+
+// GetResources returns the system resources for the LXD target.
+func (s *LXDService) GetResources(target string) (*api.Resources, error) {
+	c, err := s.client()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.UseTarget(target).GetServerResources()
+}
+
+// WipeDisk wipes the disk with the given device ID>
+func (s *LXDService) WipeDisk(target string, deviceID string) error {
+	c, err := s.m.LocalClient()
+	if err != nil {
+		return err
+	}
+
+	return client.WipeDisk(context.Background(), c.UseTarget(target), deviceID)
 }
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
