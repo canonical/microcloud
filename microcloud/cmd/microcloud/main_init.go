@@ -12,6 +12,7 @@ import (
 
 	"github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
+	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/lxd/util"
 	lxdAPI "github.com/lxc/lxd/shared/api"
@@ -20,6 +21,7 @@ import (
 	"github.com/lxc/lxd/shared/units"
 	"github.com/spf13/cobra"
 
+	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -74,17 +76,25 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ceph, err := service.NewCephService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
-	if err != nil {
-		return err
-	}
-
 	lxd, err := service.NewLXDService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
 	if err != nil {
 		return err
 	}
 
-	s := service.NewServiceHandler(name, addr, *cloud, *ceph, *lxd)
+	services := []service.Service{*cloud, *lxd}
+	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
+	if err != nil {
+		logger.Info("Skipping MicroCeph service, could not detect state directory")
+	} else {
+		ceph, err := service.NewCephService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
+		if err != nil {
+			return err
+		}
+
+		services = append(services, *ceph)
+	}
+
+	s := service.NewServiceHandler(name, addr, services...)
 	peers, err := lookupPeers(s, c.flagAuto)
 	if err != nil {
 		return err
@@ -95,7 +105,46 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return askDisks(c.flagAuto, c.flagWipe, s.Name, *ceph, *lxd)
+	if !c.flagAuto {
+		wantsDisks, err := cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
+		if err != nil || !wantsDisks {
+			return err
+		}
+	}
+
+	localDisks, err := askLocalPool(c.flagAuto, c.flagWipe, *lxd)
+	if err != nil {
+		return err
+	}
+
+	var addedRemote bool
+	if s.Services[service.MicroCeph] != nil {
+		ceph, ok := s.Services[service.MicroCeph].(service.CephService)
+		if !ok {
+			return fmt.Errorf("Invalid MicroCeph service")
+		}
+
+		if !c.flagAuto {
+			wantsDisks, err := cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
+			if err != nil || !wantsDisks {
+				return err
+			}
+		}
+
+		addedRemote, err = askRemotePool(c.flagAuto, c.flagWipe, ceph, *lxd, localDisks)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = lxd.Configure(len(localDisks) > 0, addedRemote)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("MicroCloud is ready")
+
+	return nil
 }
 
 func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error) {
@@ -362,13 +411,6 @@ func waitForCluster(sh *service.ServiceHandler, tokensByName map[string]map[stri
 }
 
 func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]string, error) {
-	if !auto {
-		wantsDisks, err := cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
-		if err != nil || !wantsDisks {
-			return nil, err
-		}
-	}
-
 	peers, err := lxd.ClusterMembers()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to find LXD cluster members: %w", err)
@@ -483,13 +525,6 @@ func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]stri
 }
 
 func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string) (bool, error) {
-	if !auto {
-		wantsDisks, err := cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
-		if err != nil || !wantsDisks {
-			return false, err
-		}
-	}
-
 	localCeph, err := ceph.Client()
 	if err != nil {
 		return false, err
