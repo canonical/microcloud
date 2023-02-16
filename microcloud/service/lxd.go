@@ -281,16 +281,6 @@ func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 		return err
 	}
 
-	if addLocalPool {
-		storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
-		err = c.CreateStoragePool(storage)
-		if err != nil {
-			return err
-		}
-
-		profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
-	}
-
 	if addRemotePool {
 		storage := api.StoragePoolsPost{Name: "remote", Driver: "ceph"}
 		err = c.CreateStoragePool(storage)
@@ -298,8 +288,18 @@ func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 			return err
 		}
 
+		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
+	}
+
+	if addLocalPool {
+		storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
+		err = c.CreateStoragePool(storage)
+		if err != nil {
+			return err
+		}
+
 		if profile.Devices["root"] == nil {
-			profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
+			profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
 		}
 	}
 
