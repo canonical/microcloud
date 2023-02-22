@@ -105,16 +105,22 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var localDisks map[string]string
+	wantsDisks := true
 	if !c.flagAuto {
-		wantsDisks, err := cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
-		if err != nil || !wantsDisks {
+		wantsDisks, err = cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
 			return err
 		}
 	}
 
-	localDisks, err := askLocalPool(c.flagAuto, c.flagWipe, *lxd)
-	if err != nil {
-		return err
+	if wantsDisks {
+		askRetry("Retry selecting disks?", c.flagAuto, func() error {
+
+			localDisks, err = askLocalPool(c.flagAuto, c.flagWipe, *lxd)
+
+			return err
+		})
 	}
 
 	var addedRemote bool
@@ -124,16 +130,21 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("Invalid MicroCeph service")
 		}
 
+		wantsDisks = true
 		if !c.flagAuto {
-			wantsDisks, err := cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
-			if err != nil || !wantsDisks {
+			wantsDisks, err = cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
 				return err
 			}
 		}
 
-		addedRemote, err = askRemotePool(c.flagAuto, c.flagWipe, ceph, *lxd, localDisks)
-		if err != nil {
-			return err
+		if wantsDisks {
+			askRetry("Retry selecting disks?", c.flagAuto, func() error {
+
+				addedRemote, err = askRemotePool(c.flagAuto, c.flagWipe, ceph, *lxd, localDisks)
+
+				return err
+			})
 		}
 	}
 
@@ -145,6 +156,29 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	fmt.Println("MicroCloud is ready")
 
 	return nil
+}
+
+// askRetry will print all errors and re-attempt the given function on user input.
+func askRetry(question string, auto bool, f func() error) {
+	for {
+		retry := false
+		err := f()
+		if err != nil {
+			fmt.Println(err)
+
+			if !auto {
+				retry, err = cli.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
+				if err != nil {
+					fmt.Println(err)
+					retry = false
+				}
+			}
+		}
+
+		if !retry {
+			break
+		}
+	}
 }
 
 func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error) {
