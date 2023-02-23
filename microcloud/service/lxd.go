@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
@@ -207,8 +208,32 @@ func (s LXDService) Port() int {
 	return s.port
 }
 
-// AddPendingPools adds pending Ceph storage pools for each of the target peers.
-func (s *LXDService) AddPendingPools(targets []string) error {
+// AddLocalPools adds local pending zfs storage pools on the target peers, with the given source disks.
+func (s *LXDService) AddLocalPools(disks map[string]string) error {
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+
+	for target, source := range disks {
+		err := c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
+			Name:   "local",
+			Driver: "zfs",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{"source": source},
+			},
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddRemotePools adds pending Ceph storage pools for each of the target peers.
+func (s *LXDService) AddRemotePools(targets []string) error {
 	c, err := s.client()
 	if err != nil {
 		return err
@@ -227,21 +252,54 @@ func (s *LXDService) AddPendingPools(targets []string) error {
 	return nil
 }
 
+// GetResources returns the system resources for the LXD target.
+func (s *LXDService) GetResources(target string) (*api.Resources, error) {
+	c, err := s.client()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.UseTarget(target).GetServerResources()
+}
+
+// WipeDisk wipes the disk with the given device ID>
+func (s *LXDService) WipeDisk(target string, deviceID string) error {
+	c, err := s.m.LocalClient()
+	if err != nil {
+		return err
+	}
+
+	return client.WipeDisk(context.Background(), c.UseTarget(target), deviceID)
+}
+
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(addPool bool) error {
+func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
 	c, err := s.client()
 	if err != nil {
 		return err
 	}
 
-	if addPool {
-		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
+	if addRemotePool {
 		storage := api.StoragePoolsPost{Name: "remote", Driver: "ceph"}
 		err = c.CreateStoragePool(storage)
 		if err != nil {
 			return err
+		}
+
+		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
+	}
+
+	if addLocalPool {
+		storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
+		err = c.CreateStoragePool(storage)
+		if err != nil {
+			return err
+		}
+
+		if profile.Devices["root"] == nil {
+			profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
 		}
 	}
 

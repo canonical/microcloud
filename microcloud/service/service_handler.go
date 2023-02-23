@@ -67,6 +67,11 @@ func NewServiceHandler(name string, addr string, services ...Service) *ServiceHa
 // Start is run after the MicroCloud daemon has started. It will periodically check for join token broadcasts, and if
 // found, will join all known services.
 func (s *ServiceHandler) Start(state *state.State) error {
+	// If we are already initialized, there's nothing to do.
+	if state.Database.IsOpen() {
+		return nil
+	}
+
 	var ctx context.Context
 	ctx, s.tokenCancel = context.WithCancel(state.Context)
 

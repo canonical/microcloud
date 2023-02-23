@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
+	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/service"
 	"github.com/canonical/microcloud/microcloud/version"
+	"github.com/canonical/microcluster/microcluster"
 )
 
 // Debug indicates whether to log debug messages or not.
@@ -65,17 +68,25 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ceph, err := service.NewCephService(context.Background(), name, addr, c.flagMicroCloudDir)
-	if err != nil {
-		return err
-	}
-
 	lxd, err := service.NewLXDService(context.Background(), name, addr, c.flagMicroCloudDir)
 	if err != nil {
 		return err
 	}
 
-	service := service.NewServiceHandler(name, addr, *cloud, *ceph, *lxd)
+	services := []service.Service{*cloud, *lxd}
+	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
+	if err != nil {
+		logger.Info("Skipping MicroCeph service, could not detect state directory")
+	} else {
+		ceph, err := service.NewCephService(context.Background(), name, addr, c.flagMicroCloudDir)
+		if err != nil {
+			return err
+		}
+
+		services = append(services, *ceph)
+	}
+
+	service := service.NewServiceHandler(name, addr, services...)
 	return cloud.StartCloud(service)
 }
 
