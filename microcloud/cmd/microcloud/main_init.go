@@ -466,7 +466,7 @@ func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]stri
 		}
 
 		// If there's no spare disk, then we can't add a remote storage pool, so skip local pool creation.
-		if len(validDisks) < 2 {
+		if auto && len(validDisks) < 2 {
 			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", peer)
 
 			return nil, nil
@@ -613,6 +613,10 @@ func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.L
 
 			data = append(data, []string{peer.Name, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 		}
+	}
+
+	if len(data) == 0 {
+		return false, fmt.Errorf("Found no available disks")
 	}
 
 	sort.Sort(utils.ByName(data))
