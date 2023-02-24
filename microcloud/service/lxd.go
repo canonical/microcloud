@@ -102,6 +102,7 @@ func (s LXDService) Bootstrap() error {
 	if underlaySize != 16 && underlaySize != 24 {
 		// Override to /16 as that will almost always lead to working Fan network.
 		underlay.Mask = net.CIDRMask(16, 32)
+		underlay.IP = underlay.IP.Mask(underlay.Mask)
 	}
 
 	network := api.NetworksPost{
