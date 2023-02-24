@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/lxd/network"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -89,10 +91,26 @@ func (s LXDService) Bootstrap() error {
 		return fmt.Errorf("Failed to update server configuration: %w", err)
 	}
 
+	// Setup networking.
+	underlay, _, err := network.DefaultGatewaySubnetV4()
+	if err != nil {
+		return fmt.Errorf("Couldn't determine Fan overlay subnet: %w", err)
+	}
+
+	underlaySize, _ := underlay.Mask.Size()
+	if underlaySize != 16 && underlaySize != 24 {
+		// Override to /16 as that will almost always lead to working Fan network.
+		underlay.Mask = net.CIDRMask(16, 32)
+	}
+
 	network := api.NetworksPost{
-		NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}},
-		Name:       "lxdfan0",
-		Type:       "bridge",
+		NetworkPut: api.NetworkPut{
+			Config: map[string]string{
+				"bridge.mode": "fan",
+			},
+		},
+		Name: "lxdfan0",
+		Type: "bridge",
 	}
 
 	err = client.CreateNetwork(network)
