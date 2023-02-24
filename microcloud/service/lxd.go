@@ -90,9 +90,13 @@ func (s LXDService) Bootstrap() error {
 	}
 
 	network := api.NetworksPost{
-		NetworkPut: api.NetworkPut{Config: map[string]string{"bridge.mode": "fan"}},
-		Name:       "lxdfan0",
-		Type:       "bridge",
+		NetworkPut: api.NetworkPut{
+			Config: map[string]string{
+				"bridge.mode": "fan",
+			},
+		},
+		Name: "lxdfan0",
+		Type: "bridge",
 	}
 
 	err = client.CreateNetwork(network)
