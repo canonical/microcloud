@@ -1,17 +1,18 @@
 package service
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/lxd/network"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -92,7 +93,7 @@ func (s LXDService) Bootstrap() error {
 	}
 
 	// Setup networking.
-	underlay, _, err := network.DefaultGatewaySubnetV4()
+	underlay, _, err := defaultGatewaySubnetV4()
 	if err != nil {
 		return fmt.Errorf("Couldn't determine Fan overlay subnet: %w", err)
 	}
@@ -337,4 +338,70 @@ func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 	}
 
 	return nil
+}
+
+// defaultGatewaySubnetV4 returns subnet of default gateway interface.
+func defaultGatewaySubnetV4() (*net.IPNet, string, error) {
+	file, err := os.Open("/proc/net/route")
+	if err != nil {
+		return nil, "", err
+	}
+
+	defer func() { _ = file.Close() }()
+
+	ifaceName := ""
+
+	scanner := bufio.NewReader(file)
+	for {
+		line, _, err := scanner.ReadLine()
+		if err != nil {
+			break
+		}
+
+		fields := strings.Fields(string(line))
+
+		if fields[1] == "00000000" && fields[7] == "00000000" {
+			ifaceName = fields[0]
+			break
+		}
+	}
+
+	if ifaceName == "" {
+		return nil, "", fmt.Errorf("No default gateway for IPv4")
+	}
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return nil, "", err
+	}
+
+	var subnet *net.IPNet
+
+	for _, addr := range addrs {
+		addrIP, addrNet, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			return nil, "", err
+		}
+
+		if addrIP.To4() == nil {
+			continue
+		}
+
+		if subnet != nil {
+			return nil, "", fmt.Errorf("More than one IPv4 subnet on default interface")
+		}
+
+		subnet = addrNet
+	}
+
+	if subnet == nil {
+		return nil, "", fmt.Errorf("No IPv4 subnet on default interface")
+	}
+
+	return subnet, ifaceName, nil
 }
