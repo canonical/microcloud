@@ -107,7 +107,8 @@ func (s LXDService) Bootstrap() error {
 	network := api.NetworksPost{
 		NetworkPut: api.NetworkPut{
 			Config: map[string]string{
-				"bridge.mode": "fan",
+				"bridge.mode":         "fan",
+				"fan.underlay_subnet": underlay.String(),
 			},
 		},
 		Name: "lxdfan0",
