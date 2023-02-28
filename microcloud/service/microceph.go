@@ -52,7 +52,7 @@ func (s CephService) Client() (*client.Client, error) {
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap() error {
-	return s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), time.Second*30)
+	return s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), time.Second*120)
 }
 
 // IssueToken issues a token for the given peer.

@@ -11,7 +11,7 @@ import (
 
 // WipeDisk wipes the local disk with the given device ID.
 func WipeDisk(ctx context.Context, c *client.Client, deviceID string) error {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*120)
 	defer cancel()
 
 	err := c.Query(queryCtx, "PUT", api.NewURL().Path("services", "disks", deviceID), nil, nil)
