@@ -264,6 +264,11 @@ func (s *LXDService) AddRemotePools(targets []string) error {
 		err = c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
 			Name:   "remote",
 			Driver: "ceph",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"source": "lxd_remote",
+				},
+			},
 		})
 		if err != nil {
 			return err
