@@ -15,7 +15,6 @@ apps:
     command: commands/daemon.start
     daemon: simple
     plugs:
-      - block-devices
       - lxd
       - microceph
       - network

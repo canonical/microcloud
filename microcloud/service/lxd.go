@@ -264,6 +264,11 @@ func (s *LXDService) AddRemotePools(targets []string) error {
 		err = c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
 			Name:   "remote",
 			Driver: "ceph",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"source": "lxd_remote",
+				},
+			},
 		})
 		if err != nil {
 			return err
@@ -303,7 +308,16 @@ func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 	}
 
 	if addRemotePool {
-		storage := api.StoragePoolsPost{Name: "remote", Driver: "ceph"}
+		storage := api.StoragePoolsPost{
+			Name:   "remote",
+			Driver: "ceph",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"ceph.rbd.du":       "false",
+					"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+				},
+			},
+		}
 		err = c.CreateStoragePool(storage)
 		if err != nil {
 			return err
