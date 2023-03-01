@@ -44,6 +44,9 @@ func main() {
 	var cmdInit = cmdInit{common: &commonCmd}
 	app.AddCommand(cmdInit.Command())
 
+	var cmdAdd = cmdAdd{common: &commonCmd}
+	app.AddCommand(cmdAdd.Command())
+
 	var cmdPeers = cmdClusterMembers{common: &commonCmd}
 	app.AddCommand(cmdPeers.Command())
 
