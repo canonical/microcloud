@@ -10,6 +10,7 @@ import (
 	"github.com/lxc/lxd/lxd/util"
 
 	"github.com/canonical/microcloud/microcloud/api"
+	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // CloudService is a MicroCloud service.
@@ -62,8 +63,8 @@ func (s CloudService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CloudService) Join(token string) error {
-	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, 5*time.Minute)
+func (s CloudService) Join(joinConfig mdns.JoinConfig) error {
+	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.

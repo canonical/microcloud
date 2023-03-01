@@ -11,8 +11,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/mdns"
+	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/logger"
 )
+
+// JoinConfig represents configuration broadcast to signal MicroCloud to begin join operations.
+type JoinConfig struct {
+	Token     string
+	LXDConfig []api.ClusterMemberConfigKey
+}
 
 // forwardingWriter forwards the mdns log message to LXD's logger package.
 type forwardingWriter struct {
@@ -69,7 +76,7 @@ func LookupPeers(ctx context.Context, service string, localPeer string) (map[str
 }
 
 // Lookup any records with join tokens matching the peer name. Accepts a function for acting on the token.
-func LookupJoinToken(ctx context.Context, peer string, f func(token map[string]string) error) {
+func LookupJoinToken(ctx context.Context, peer string, f func(token map[string]JoinConfig) error) {
 	go func() {
 		for {
 			select {
@@ -112,8 +119,8 @@ func LookupJoinToken(ctx context.Context, peer string, f func(token map[string]s
 	}()
 }
 
-func parseJoinToken(peer string, entry *mdns.ServiceEntry) (map[string]string, error) {
-	var tokensByName map[string]map[string]string
+func parseJoinToken(peer string, entry *mdns.ServiceEntry) (map[string]JoinConfig, error) {
+	var tokensByName map[string]map[string]JoinConfig
 	unquoted, err := strconv.Unquote("\"" + strings.Join(entry.InfoFields, "") + "\"")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to format DNS TXT record: %w", err)

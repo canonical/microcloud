@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
@@ -144,12 +145,13 @@ func (s LXDService) Bootstrap() error {
 }
 
 // Join joins a cluster with the given token.
-func (s LXDService) Join(token string) error {
-	config, err := s.configFromToken(token)
+func (s LXDService) Join(joinConfig mdns.JoinConfig) error {
+	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err
 	}
 
+	config.Cluster.MemberConfig = joinConfig.LXDConfig
 	client, err := s.client()
 	if err != nil {
 		return err
