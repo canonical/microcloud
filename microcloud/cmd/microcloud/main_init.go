@@ -122,7 +122,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var localDisks map[string]string
+	var localDisks map[string][]lxdAPI.ClusterMemberConfigKey
 	wantsDisks := true
 	if !c.flagAuto {
 		wantsDisks, err = cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
@@ -133,14 +133,20 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
-
-			localDisks, err = askLocalPool(c.flagAuto, c.flagWipe, *lxd)
+			// Add the local member to the list of peers so we can select disks.
+			peers[name] = addr
+			defer delete(peers, name)
+			localDisks, err = askLocalPool(peers, c.flagAuto, c.flagWipe, *lxd)
 
 			return err
 		})
 	}
 
-	var addedRemote bool
+	err = AddPeers(s, peers, localDisks)
+	if err != nil {
+		return err
+	}
+
 	if s.Services[service.MicroCeph] != nil {
 		ceph, ok := s.Services[service.MicroCeph].(service.CephService)
 		if !ok {
@@ -466,17 +472,11 @@ func waitForCluster(sh *service.ServiceHandler, cfgByName map[string]map[string]
 
 	return false, nil
 }
-
-func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]string, error) {
-	peers, err := lxd.ClusterMembers()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to find LXD cluster members: %w", err)
-	}
-
+func askLocalPool(peers map[string]string, auto bool, wipe bool, lxd service.LXDService) (map[string][]lxdAPI.ClusterMemberConfigKey, error) {
 	data := [][]string{}
 	selected := map[string]string{}
-	for peer := range peers {
-		resources, err := lxd.GetResources(peer)
+	for peer, addr := range peers {
+		resources, err := lxd.GetResources(true, peer, addr)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get system resources of LXD peer %q: %w", peer, err)
 		}
@@ -510,6 +510,11 @@ func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]stri
 	}
 
 	toWipe := map[string]string{}
+	wipeable, err := lxd.HasExtension(false, lxd.Name(), lxd.Address(), "storage_pool_source_wipe")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check for source.wipe extension: %w", err)
+	}
+
 	if !auto {
 		sort.Sort(utils.ByName(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
@@ -539,7 +544,7 @@ func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]stri
 			selected[target] = path
 		}
 
-		if !wipe {
+		if !wipe && wipeable {
 			fmt.Println("Select which disks to wipe:")
 			wipeRows, err := table.Render(selectedRows)
 			if err != nil {
@@ -562,23 +567,48 @@ func askLocalPool(auto bool, wipe bool, lxd service.LXDService) (map[string]stri
 		return nil, fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
 	}
 
-	if wipe {
+	if wipe && wipeable {
 		toWipe = selected
 	}
 
-	for target, path := range toWipe {
-		err := lxd.WipeDisk(target, filepath.Base(path))
-		if err != nil {
-			return nil, err
+	wipeDisk := lxdAPI.ClusterMemberConfigKey{
+		Entity: "storage-pool",
+		Name:   "local",
+		Key:    "source.wipe",
+		Value:  "true",
+	}
+
+	sourceTemplate := lxdAPI.ClusterMemberConfigKey{
+		Entity: "storage-pool",
+		Name:   "local",
+		Key:    "source",
+	}
+
+	memberConfig := make(map[string][]lxdAPI.ClusterMemberConfigKey, len(selected))
+	for target, path := range selected {
+		if target == lxd.Name() {
+			if toWipe[target] != "" {
+				err := lxd.WipeDisk(target, filepath.Base(path))
+				if err != nil {
+					return nil, fmt.Errorf("Failed to add wipe disk %q on peer %q: %w", path, target, err)
+				}
+			}
+
+			err := lxd.AddLocalPool("", path)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to add pending local storage pool on peer %q: %w", target, err)
+			}
+		} else {
+			sourceTemplate.Value = path
+			memberConfig[target] = []lxdAPI.ClusterMemberConfigKey{sourceTemplate}
+			if toWipe[target] != "" {
+				memberConfig[target] = append(memberConfig[target], wipeDisk)
+			}
 		}
+
 	}
 
-	err = lxd.AddLocalPools(selected)
-	if err != nil {
-		return nil, err
-	}
-
-	return selected, nil
+	return memberConfig, nil
 }
 
 func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string) (bool, error) {
