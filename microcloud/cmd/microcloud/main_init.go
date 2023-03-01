@@ -82,16 +82,21 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	services := []service.Service{*cloud, *lxd}
-	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
+	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
-		logger.Info("Skipping MicroCeph service, could not detect state directory")
-	} else {
+		return err
+	}
+
+	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
+	if err == nil {
 		ceph, err := service.NewCephService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
 		if err != nil {
 			return err
 		}
 
 		services = append(services, *ceph)
+	} else {
+		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
 
 	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
