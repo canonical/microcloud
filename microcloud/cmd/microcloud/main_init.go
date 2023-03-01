@@ -147,6 +147,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var remotePoolTargets []string
 	if s.Services[service.MicroCeph] != nil {
 		ceph, ok := s.Services[service.MicroCeph].(service.CephService)
 		if !ok {
@@ -163,15 +164,42 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 		if wantsDisks {
 			askRetry("Retry selecting disks?", c.flagAuto, func() error {
+				localCeph, err := ceph.Client()
+				if err != nil {
+					return err
+				}
 
-				addedRemote, err = askRemotePool(c.flagAuto, c.flagWipe, ceph, *lxd, localDisks)
+				peers, err := localCeph.GetClusterMembers(context.Background())
+				if err != nil {
+					return fmt.Errorf("Failed to get list of current peers: %w", err)
+				}
 
-				return err
+				peerNames := make([]string, len(peers))
+				for i, peer := range peers {
+					peerNames[i] = peer.Name
+				}
+
+				reservedDisks := map[string]string{}
+				for peer, config := range localDisks {
+					for _, entry := range config {
+						if entry.Key == "source" {
+							reservedDisks[peer] = entry.Value
+							break
+						}
+					}
+				}
+
+				remotePoolTargets, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, ceph, *lxd, reservedDisks, true)
+				if err != nil {
+					return err
+				}
+
+				return lxd.AddRemotePools(remotePoolTargets)
 			})
 		}
 	}
 
-	err = lxd.Configure(len(localDisks) > 0, addedRemote)
+	err = lxd.Configure(len(localDisks) > 0, len(remotePoolTargets) > 0)
 	if err != nil {
 		return err
 	}
@@ -611,30 +639,25 @@ func askLocalPool(peers map[string]string, auto bool, wipe bool, lxd service.LXD
 	return memberConfig, nil
 }
 
-func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string) (bool, error) {
+func askRemotePool(peers []string, auto bool, wipe bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string, checkMinSize bool) ([]string, error) {
 	localCeph, err := ceph.Client()
 	if err != nil {
-		return false, err
-	}
-
-	peers, err := localCeph.GetClusterMembers(context.Background())
-	if err != nil {
-		return false, fmt.Errorf("Failed to get list of current peers: %w", err)
+		return nil, err
 	}
 
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for _, peer := range peers {
 		// List configured disks.
-		disks, err := cephClient.GetDisks(context.Background(), localCeph.UseTarget(peer.Name))
+		disks, err := cephClient.GetDisks(context.Background(), localCeph.UseTarget(peer))
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 
 		// List physical disks.
-		resources, err := cephClient.GetResources(context.Background(), localCeph.UseTarget(peer.Name))
+		resources, err := cephClient.GetResources(context.Background(), localCeph.UseTarget(peer))
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 
 		for _, disk := range resources.Disks {
@@ -645,7 +668,7 @@ func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.L
 			devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
 			found := false
 			for _, entry := range disks {
-				if entry.Location != peer.Name {
+				if entry.Location != peer {
 					continue
 				}
 
@@ -660,16 +683,16 @@ func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.L
 			}
 
 			// Skip any disks that have been reserved for the local storage pool.
-			if localDisks != nil && localDisks[peer.Name] == devicePath {
+			if localDisks != nil && localDisks[peer] == devicePath {
 				continue
 			}
 
-			data = append(data, []string{peer.Name, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
+			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 		}
 	}
 
 	if len(data) == 0 {
-		return false, fmt.Errorf("Found no available disks")
+		return nil, fmt.Errorf("Found no available disks")
 	}
 
 	sort.Sort(utils.ByName(data))
@@ -687,21 +710,21 @@ func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.L
 	}
 
 	if len(table.rows) == 0 {
-		return false, nil
+		return nil, nil
 	}
 
 	if !auto {
 		fmt.Println("Select from the available unpartitioned disks:")
 		selected, err = table.Render(table.rows)
 		if err != nil {
-			return false, fmt.Errorf("Failed to confirm disk selection: %w", err)
+			return nil, fmt.Errorf("Failed to confirm disk selection: %w", err)
 		}
 
 		if len(selected) > 0 && !wipe {
 			fmt.Println("Select which disks to wipe:")
 			toWipe, err = table.Render(selected)
 			if err != nil {
-				return false, fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+				return nil, fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
 			}
 		}
 	}
@@ -727,27 +750,24 @@ func askRemotePool(auto bool, wipe bool, ceph service.CephService, lxd service.L
 		diskMap[target] = append(diskMap[target], types.DisksPost{Path: path, Wipe: wipeMap[entry]})
 	}
 
-	if len(diskMap) == len(peers) && len(peers) >= 3 {
-		fmt.Printf("Adding %d disks to MicroCeph\n", len(selected))
-		targets := make([]string, 0, len(peers))
-		for target, reqs := range diskMap {
-			for _, req := range reqs {
-				err = cephClient.AddDisk(context.Background(), localCeph.UseTarget(target), &req)
-				if err != nil {
-					return false, err
+	if len(diskMap) == len(peers) {
+		if !checkMinSize || len(peers) >= 3 {
+			fmt.Printf("Adding %d disks to MicroCeph\n", len(selected))
+			targets := make([]string, 0, len(peers))
+			for target, reqs := range diskMap {
+				for _, req := range reqs {
+					err = cephClient.AddDisk(context.Background(), localCeph.UseTarget(target), &req)
+					if err != nil {
+						return nil, err
+					}
 				}
+
+				targets = append(targets, target)
 			}
 
-			targets = append(targets, target)
+			return targets, nil
 		}
-
-		err = lxd.AddRemotePools(targets)
-		if err != nil {
-			return false, err
-		}
-
-		return true, nil
 	}
 
-	return false, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
+	return nil, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
 }
