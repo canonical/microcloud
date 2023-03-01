@@ -258,7 +258,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	}
 
 	fmt.Printf(" Local %s is ready\n", service.MicroCloud)
-	err = sh.RunAsync(func(s service.Service) error {
+	return sh.RunAsync(func(s service.Service) error {
 		if s.Type() == service.MicroCloud {
 			return nil
 		}
@@ -272,25 +272,26 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 
 		return nil
 	})
-	if err != nil {
-		return err
-	}
+}
 
-	tokens := map[service.ServiceType][]string{}
+func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
+	joinConfig := map[service.ServiceType][]mdns.JoinConfig{}
 	for serviceType := range sh.Services {
-		tokens[serviceType] = make([]string, len(peers))
+		joinConfig[serviceType] = make([]mdns.JoinConfig, len(peers))
 	}
 
-	err = sh.RunAsync(func(s service.Service) error {
+	err := sh.RunAsync(func(s service.Service) error {
 		i := 0
-		for peer := range peers {
+		for peer, memberConfig := range localDisks {
 			token, err := s.IssueToken(peer)
 			if err != nil {
 				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
 			}
 
-			tokens[s.Type()][i] = token
-			i++
+			if peer != s.Name() {
+				joinConfig[s.Type()][i] = mdns.JoinConfig{Token: token, LXDConfig: memberConfig}
+				i++
+			}
 		}
 
 		return nil
@@ -302,34 +303,34 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 	// Initially add just 2 peers for each dqlite service to handle issues with role reshuffling while another
 	// node is joining the cluster.
 	initialSize := 2
-	var initialTokens map[string]map[string]string
-	var tokensByName map[string]map[string]string
+	var initialCfg map[string]map[string]mdns.JoinConfig
+	var cfgByName map[string]map[string]mdns.JoinConfig
 	if len(peers) > initialSize {
-		initialTokens = make(map[string]map[string]string, initialSize)
+		initialCfg = make(map[string]map[string]mdns.JoinConfig, initialSize)
 		for peer := range peers {
-			if len(initialTokens) < initialSize {
-				initialTokens[peer] = make(map[string]string, len(sh.Services))
+			if len(initialCfg) < initialSize {
+				initialCfg[peer] = make(map[string]mdns.JoinConfig, len(sh.Services))
 			}
 		}
-		tokensByName = make(map[string]map[string]string, len(peers)-initialSize)
+		cfgByName = make(map[string]map[string]mdns.JoinConfig, len(peers)-initialSize)
 	} else {
-		tokensByName = make(map[string]map[string]string, len(peers))
+		cfgByName = make(map[string]map[string]mdns.JoinConfig, len(peers))
 	}
 
 	for serviceType, s := range sh.Services {
 		i := 0
 		for peer := range peers {
-			token := tokens[serviceType][i]
-			_, ok := initialTokens[peer]
+			cfg := joinConfig[serviceType][i]
+			_, ok := initialCfg[peer]
 			if ok {
-				initialTokens[peer][string(s.Type())] = token
+				initialCfg[peer][string(s.Type())] = cfg
 			} else {
-				_, ok := tokensByName[peer]
+				_, ok := cfgByName[peer]
 				if !ok {
-					tokensByName[peer] = make(map[string]string, len(sh.Services))
+					cfgByName[peer] = make(map[string]mdns.JoinConfig, len(sh.Services))
 				}
 
-				tokensByName[peer][string(s.Type())] = token
+				cfgByName[peer][string(s.Type())] = cfg
 			}
 
 			i++
@@ -338,7 +339,7 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 
 	fmt.Println("Awaiting cluster formation...")
 	if initialSize > 0 {
-		_, err = waitForCluster(sh, initialTokens)
+		_, err = waitForCluster(sh, initialCfg)
 		if err != nil {
 			return err
 		}
@@ -347,13 +348,18 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 		time.Sleep(3 * time.Second)
 	}
 
-	timedOut, err := waitForCluster(sh, tokensByName)
+	timedOut, err := waitForCluster(sh, cfgByName)
 	if err != nil {
 		return err
 	}
 
 	if !timedOut {
 		fmt.Println("Cluster initialization is complete")
+	}
+
+	cloudService, ok := sh.Services[service.MicroCloud]
+	if !ok {
+		return fmt.Errorf("Missing MicroCloud service")
 	}
 
 	cloudCluster, err := cloudService.ClusterMembers()
@@ -386,8 +392,8 @@ func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
 
 // waitForCluster will loop until the timeout has passed, or all cluster members for all services have reported that
 // their join process is complete.
-func waitForCluster(sh *service.ServiceHandler, tokensByName map[string]map[string]string) (bool, error) {
-	bytes, err := json.Marshal(tokensByName)
+func waitForCluster(sh *service.ServiceHandler, cfgByName map[string]map[string]mdns.JoinConfig) (bool, error) {
+	bytes, err := json.Marshal(cfgByName)
 	if err != nil {
 		return false, fmt.Errorf("Failed to marshal list of tokens: %w", err)
 	}
@@ -428,15 +434,15 @@ func waitForCluster(sh *service.ServiceHandler, tokensByName map[string]map[stri
 			}
 
 			for peer := range peers {
-				_, ok := tokensByName[peer]
+				_, ok := cfgByName[peer]
 				if ok {
 					fmt.Printf(" Peer %q has joined the cluster\n", peer)
 				}
 
-				delete(tokensByName, peer)
+				delete(cfgByName, peer)
 			}
 
-			if len(tokensByName) == 0 {
+			if len(cfgByName) == 0 {
 				close(bootstrapDoneCh)
 			}
 		}
