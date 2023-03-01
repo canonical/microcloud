@@ -62,6 +62,32 @@ func (s LXDService) client() (lxd.InstanceServer, error) {
 	})
 }
 
+// remoteClient returns an https client for the given address:port.
+func (s LXDService) remoteClient(address string, port int) (lxd.InstanceServer, error) {
+	c, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, port))
+	if err != nil {
+		return nil, err
+	}
+
+	remoteURL := c.URL()
+	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
+		HTTPClient:         c.Client.Client,
+		InsecureSkipVerify: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
+				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
+			}
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
@@ -280,14 +306,52 @@ func (s *LXDService) AddRemotePools(targets []string) error {
 	return nil
 }
 
-// GetResources returns the system resources for the LXD target.
-func (s *LXDService) GetResources(target string) (*api.Resources, error) {
-	c, err := s.client()
-	if err != nil {
-		return nil, err
+// HasExtension checks if the server supports the API extension.
+func (s *LXDService) HasExtension(useRemote bool, target string, address string, apiExtension string) (bool, error) {
+	var err error
+	var client lxd.InstanceServer
+	if !useRemote {
+		client, err = s.client()
+		if err != nil {
+			return false, err
+		}
+
+		if target != s.Name() {
+			client = client.UseTarget(target)
+		}
+	} else {
+		client, err = s.remoteClient(address, CloudPort)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return c.UseTarget(target).GetServerResources()
+	return client.HasExtension(apiExtension), nil
+}
+
+// GetResources returns the system resources for the LXD target.
+// As we cannot guarantee that LXD is available on this machine, the request is
+// forwarded through MicroCloud on via the ListenPort argument.
+func (s *LXDService) GetResources(useRemote bool, target string, address string) (*api.Resources, error) {
+	var err error
+	var client lxd.InstanceServer
+	if !useRemote {
+		client, err = s.client()
+		if err != nil {
+			return nil, err
+		}
+
+		if target != s.Name() {
+			client = client.UseTarget(target)
+		}
+	} else {
+		client, err = s.remoteClient(address, CloudPort)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return client.GetServerResources()
 }
 
 // WipeDisk wipes the disk with the given device ID>
