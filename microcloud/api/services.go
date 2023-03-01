@@ -29,8 +29,9 @@ const MicroCephDir = "/var/snap/microceph/common/state"
 // Proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
 func Proxy(name, path string, handler func(*state.State, *http.Request) response.Response) rest.Endpoint {
 	return rest.Endpoint{
-		Name: name,
-		Path: path,
+		AllowedBeforeInit: true,
+		Name:              name,
+		Path:              path,
 
 		Get:    rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
 		Put:    rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
