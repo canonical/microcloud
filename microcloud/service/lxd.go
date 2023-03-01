@@ -257,32 +257,34 @@ func (s LXDService) Port() int {
 	return s.port
 }
 
-// AddLocalPools adds local pending zfs storage pools on the target peers, with the given source disks.
-func (s *LXDService) AddLocalPools(disks map[string]string) error {
+// AddLocalPools adds local zfs storage pools on the target peers, with the given source disks.
+// If target is an empty string, then the pool will not be a pending pool.
+func (s *LXDService) AddLocalPool(target string, source string) error {
 	c, err := s.client()
 	if err != nil {
 		return err
 	}
 
-	for target, source := range disks {
-		err := c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
-			Name:   "local",
-			Driver: "zfs",
-			StoragePoolPut: api.StoragePoolPut{
-				Config: map[string]string{"source": source},
-			},
-		})
-
-		if err != nil {
-			return err
-		}
+	client := c
+	if target != "" {
+		client = c.UseTarget(target)
 	}
 
-	return nil
+	return client.CreateStoragePool(api.StoragePoolsPost{
+		Name:   "local",
+		Driver: "zfs",
+		StoragePoolPut: api.StoragePoolPut{
+			Config: map[string]string{"source": source},
+		},
+	})
 }
 
 // AddRemotePools adds pending Ceph storage pools for each of the target peers.
 func (s *LXDService) AddRemotePools(targets []string) error {
+	if len(targets) == 0 {
+		return nil
+	}
+
 	c, err := s.client()
 	if err != nil {
 		return err
@@ -366,14 +368,14 @@ func (s *LXDService) WipeDisk(target string, deviceID string) error {
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
+func (s *LXDService) Configure(addedLocalPool bool, addedRemotePool bool) error {
 	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
 	c, err := s.client()
 	if err != nil {
 		return err
 	}
 
-	if addRemotePool {
+	if addedRemotePool {
 		storage := api.StoragePoolsPost{
 			Name:   "remote",
 			Driver: "ceph",
@@ -392,16 +394,8 @@ func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
 	}
 
-	if addLocalPool {
-		storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
-		err = c.CreateStoragePool(storage)
-		if err != nil {
-			return err
-		}
-
-		if profile.Devices["root"] == nil {
-			profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
-		}
+	if addedLocalPool && profile.Devices["root"] == nil {
+		profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
 	}
 
 	profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
