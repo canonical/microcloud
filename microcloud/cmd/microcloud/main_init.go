@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -603,14 +602,7 @@ func askLocalPool(peers map[string]string, auto bool, wipe bool, lxd service.LXD
 	memberConfig := make(map[string][]lxdAPI.ClusterMemberConfigKey, len(selected))
 	for target, path := range selected {
 		if target == lxd.Name() {
-			if toWipe[target] != "" {
-				err := lxd.WipeDisk(target, filepath.Base(path))
-				if err != nil {
-					return nil, fmt.Errorf("Failed to add wipe disk %q on peer %q: %w", path, target, err)
-				}
-			}
-
-			err := lxd.AddLocalPool("", path)
+			err := lxd.AddLocalPool("", path, wipeable && toWipe[target] != "")
 			if err != nil {
 				return nil, fmt.Errorf("Failed to add pending local storage pool on peer %q: %w", target, err)
 			}

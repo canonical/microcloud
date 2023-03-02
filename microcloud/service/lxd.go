@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
@@ -259,7 +258,7 @@ func (s LXDService) Port() int {
 
 // AddLocalPools adds local zfs storage pools on the target peers, with the given source disks.
 // If target is an empty string, then the pool will not be a pending pool.
-func (s *LXDService) AddLocalPool(target string, source string) error {
+func (s *LXDService) AddLocalPool(target string, source string, wipe bool) error {
 	c, err := s.client()
 	if err != nil {
 		return err
@@ -270,11 +269,16 @@ func (s *LXDService) AddLocalPool(target string, source string) error {
 		client = c.UseTarget(target)
 	}
 
+	config := map[string]string{"source": source}
+	if wipe {
+		config["source.wipe"] = "true"
+	}
+
 	return client.CreateStoragePool(api.StoragePoolsPost{
 		Name:   "local",
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
-			Config: map[string]string{"source": source},
+			Config: config,
 		},
 	})
 }
@@ -354,16 +358,6 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string)
 	}
 
 	return client.GetServerResources()
-}
-
-// WipeDisk wipes the disk with the given device ID>
-func (s *LXDService) WipeDisk(target string, deviceID string) error {
-	c, err := s.m.LocalClient()
-	if err != nil {
-		return err
-	}
-
-	return client.WipeDisk(context.Background(), c.UseTarget(target), deviceID)
 }
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
