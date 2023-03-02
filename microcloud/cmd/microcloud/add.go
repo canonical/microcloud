@@ -89,6 +89,10 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if len(peers) == 0 {
+		return fmt.Errorf("Found no available systems")
+	}
+
 	var localDisks map[string][]lxdAPI.ClusterMemberConfigKey
 	wantsDisks := true
 	if !c.flagAuto {

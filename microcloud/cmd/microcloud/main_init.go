@@ -116,6 +116,10 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if len(peers) == 0 {
+		return fmt.Errorf("Found no available systems")
+	}
+
 	err = Bootstrap(s, peers)
 	if err != nil {
 		return err
