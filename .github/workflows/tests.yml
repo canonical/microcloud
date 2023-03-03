@@ -3,6 +3,10 @@ on:
   - push
   - pull_request
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   system-tests:
     name: System tests
@@ -44,3 +48,55 @@ jobs:
           name: snaps
           path: "*.snap"
           retention-days: 5
+
+  spellcheck:
+    name: Spelling check (documentation)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Aspell
+        run: |
+          sudo apt-get install aspell aspell-en
+
+      - name: Install the doc framework
+        working-directory: ./doc
+        run: |
+          make install
+
+      - name: Build docs and run spellchecker
+        working-directory: ./doc
+        run: |
+          make spellcheck
+
+  woke:
+    name: Inclusive language check (documentation)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: woke
+        uses: get-woke/woke-action@v0
+        with:
+          # Cause the check to fail on any broke rules
+          fail-on-error: true
+          woke-args: "*.rst *.md **/*.rst **/*.md-c https://github.com/canonical-web-and-design/Inclusive-naming/raw/main/config.yml"
+
+  linkcheck:
+    name: Link check (documentation)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install the doc framework
+        working-directory: ./doc
+        run: |
+          make install
+
+      - name: Run linkchecker
+        working-directory: ./doc
+        run: |
+          make linkcheck

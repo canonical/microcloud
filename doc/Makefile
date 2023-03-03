@@ -46,11 +46,11 @@ clean: clean-doc
 clean-doc:
 	rm -rf "$(BUILDDIR)"
 
-spelling:
-	. $(VENV); $(SPHINXBUILD) -b spelling "$(SOURCEDIR)" "$(BUILDDIR)"
-
 spellcheck: html
 	. $(VENV) ; python3 -m pyspelling -c .sphinx/spellcheck.yaml
+
+linkcheck:
+	. $(VENV) ; $(SPHINXBUILD) -c . -b linkcheck  "$(SOURCEDIR)" "$(BUILDDIR)"
 
 .PHONY: help Makefile
 
