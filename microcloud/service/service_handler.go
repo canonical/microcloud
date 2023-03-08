@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
 
+	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
 )
 
@@ -30,46 +31,29 @@ const (
 type ServiceHandler struct {
 	server *mdns.Server
 
-	Services map[ServiceType]Service
+	Services map[types.ServiceType]Service
 	Name     string
 	Address  string
 	Port     int
 }
 
-// ServiceType represents supported services.
-type ServiceType string
-
-const (
-	// MicroCloud represents a MicroCloud service.
-	MicroCloud ServiceType = "MicroCloud"
-
-	// MicroCeph represents a MicroCeph service.
-	MicroCeph ServiceType = "MicroCeph"
-
-	// MicroOVN represents a MicroOVN service.
-	MicroOVN ServiceType = "MicroOVN"
-
-	// LXD represents a LXD service.
-	LXD ServiceType = "LXD"
-)
-
 // NewServiceHandler creates a new ServiceHandler with a client for each of the given services.
-func NewServiceHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...ServiceType) (*ServiceHandler, error) {
-	servicesMap := make(map[ServiceType]Service, len(services))
+func NewServiceHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...types.ServiceType) (*ServiceHandler, error) {
+	servicesMap := make(map[types.ServiceType]Service, len(services))
 	for _, serviceType := range services {
 		var service Service
 		var err error
 		switch serviceType {
-		case MicroCloud:
+		case types.MicroCloud:
 			service, err = NewCloudService(context.Background(), name, addr, stateDir, verbose, debug)
 			break
-		case MicroCeph:
+		case types.MicroCeph:
 			service, err = NewCephService(context.Background(), name, addr, stateDir)
 			break
-		case MicroOVN:
+		case types.MicroOVN:
 			service, err = NewOVNService(context.Background(), name, addr, stateDir)
 			break
-		case LXD:
+		case types.LXD:
 			service, err = NewLXDService(context.Background(), name, addr, stateDir)
 			break
 		}
@@ -97,9 +81,9 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		return nil
 	}
 
-	services := make([]string, 0, len(s.Services))
+	services := make([]types.ServiceType, 0, len(s.Services))
 	for service := range s.Services {
-		services = append(services, string(service))
+		services = append(services, service)
 	}
 
 	serverCert, err := state.OS.ServerCert()
@@ -139,7 +123,7 @@ func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) e
 
 	if microCloudFirst {
 		for _, s := range s.Services {
-			if s.Type() != MicroCloud {
+			if s.Type() != types.MicroCloud {
 				continue
 			}
 
@@ -153,7 +137,7 @@ func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) e
 	}
 
 	for _, s := range s.Services {
-		if microCloudFirst && s.Type() == MicroCloud {
+		if microCloudFirst && s.Type() == types.MicroCloud {
 			continue
 		}
 

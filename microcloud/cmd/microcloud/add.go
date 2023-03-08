@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
+	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -55,7 +56,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	addr := status.Address.Addr().String()
-	services := []service.ServiceType{service.MicroCloud, service.LXD}
+	services := []types.ServiceType{types.MicroCloud, types.LXD}
 	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
 		return err
@@ -63,7 +64,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		services = append(services, service.MicroCeph)
+		services = append(services, types.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
@@ -93,7 +94,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
-			lxd := s.Services[service.LXD].(*service.LXDService)
+			lxd := s.Services[types.LXD].(*service.LXDService)
 			localDisks, err = askLocalPool(peers, c.flagAuto, c.flagWipe, *lxd)
 
 			return err
@@ -105,8 +106,8 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if s.Services[service.MicroCeph] != nil {
-		ceph, ok := s.Services[service.MicroCeph].(service.CephService)
+	if s.Services[types.MicroCeph] != nil {
+		ceph, ok := s.Services[types.MicroCeph].(service.CephService)
 		if !ok {
 			return fmt.Errorf("Invalid MicroCeph service")
 		}
@@ -136,7 +137,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 			}
 
 			askRetry("Retry selecting disks?", c.flagAuto, func() error {
-				lxd := s.Services[service.LXD].(*service.LXDService)
+				lxd := s.Services[types.LXD].(*service.LXDService)
 				_, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, ceph, *lxd, reservedDisks, false)
 
 				return err

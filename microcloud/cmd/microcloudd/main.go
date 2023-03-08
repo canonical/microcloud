@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
+	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
 	"github.com/canonical/microcloud/microcloud/version"
 	"github.com/canonical/microcluster/microcluster"
@@ -64,7 +65,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	services := []service.ServiceType{service.MicroCloud, service.LXD}
+	services := []types.ServiceType{types.MicroCloud, types.LXD}
 	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
 		return err
@@ -72,7 +73,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		services = append(services, service.MicroCeph)
+		services = append(services, types.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
@@ -100,7 +101,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy,
 	}
 
-	return s.Services[service.MicroCloud].(*service.CloudService).StartCloud(s, endpoints)
+	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(s, endpoints)
 }
 
 func init() {

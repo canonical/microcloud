@@ -12,7 +12,7 @@ import (
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // OVNService is a MicroOVN service.
@@ -88,8 +88,8 @@ func (s OVNService) ClusterMembers() (map[string]string, error) {
 }
 
 // Type returns the type of Service.
-func (s OVNService) Type() ServiceType {
-	return MicroOVN
+func (s OVNService) Type() types.ServiceType {
+	return types.MicroOVN
 }
 
 // Name returns the name of this Service instance.

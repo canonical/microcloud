@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/canonical/microceph/microceph/api/types"
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxc/utils"
@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
+	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -70,7 +71,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		// }
 	}
 
-	services := []service.ServiceType{service.MicroCloud, service.LXD}
+	services := []types.ServiceType{types.MicroCloud, types.LXD}
 	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
 		return err
@@ -78,7 +79,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		services = append(services, service.MicroCeph)
+		services = append(services, types.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
@@ -90,7 +91,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		services = append(services, service.MicroOVN)
+		services = append(services, types.MicroOVN)
 	} else {
 		logger.Info("Skipping MicroOVN service, could not detect state directory")
 	}
@@ -133,7 +134,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	lxd := s.Services[service.LXD].(*service.LXDService)
+	lxd := s.Services[types.LXD].(*service.LXDService)
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
 			// Add the local member to the list of peers so we can select disks.
@@ -151,8 +152,8 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	var remotePoolTargets []string
-	if s.Services[service.MicroCeph] != nil {
-		ceph, ok := s.Services[service.MicroCeph].(*service.CephService)
+	if s.Services[types.MicroCeph] != nil {
+		ceph, ok := s.Services[types.MicroCeph].(*service.CephService)
 		if !ok {
 			return fmt.Errorf("Invalid MicroCeph service")
 		}
@@ -385,8 +386,8 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks ma
 		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
 	}
 
-	err = sh.RunConcurrent(func(s service.Service) error {
-		if s.Type() == service.MicroCloud {
+	err = sh.RunConcurrent(false, func(s service.Service) error {
+		if s.Type() == types.MicroCloud {
 			return nil
 		}
 
@@ -702,17 +703,17 @@ func askRemotePool(peers []string, auto bool, wipe bool, ceph service.CephServic
 		}
 	}
 
-	diskMap := map[string][]types.DisksPost{}
+	diskMap := map[string][]cephTypes.DisksPost{}
 	for _, entry := range selected {
 		target := rowMap[entry][0]
 		path := rowMap[entry][4]
 
 		_, ok := diskMap[target]
 		if !ok {
-			diskMap[target] = []types.DisksPost{}
+			diskMap[target] = []cephTypes.DisksPost{}
 		}
 
-		diskMap[target] = append(diskMap[target], types.DisksPost{Path: path, Wipe: wipeMap[entry]})
+		diskMap[target] = append(diskMap[target], cephTypes.DisksPost{Path: path, Wipe: wipeMap[entry]})
 	}
 
 	if len(diskMap) == len(peers) {

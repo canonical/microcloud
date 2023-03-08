@@ -1,5 +1,9 @@
 package service
 
+import (
+	"github.com/canonical/microcloud/microcloud/api/types"
+)
+
 // Service represents a common interface for all MicroCloud services.
 type Service interface {
 	Bootstrap() error
@@ -7,7 +11,7 @@ type Service interface {
 	Join(config JoinConfig) error
 	ClusterMembers() (map[string]string, error)
 
-	Type() ServiceType
+	Type() types.ServiceType
 	Name() string
 	Address() string
 	Port() int

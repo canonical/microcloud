@@ -88,8 +88,8 @@ func (s CloudService) ClusterMembers() (map[string]string, error) {
 }
 
 // Type returns the type of Service.
-func (s CloudService) Type() ServiceType {
-	return MicroCloud
+func (s CloudService) Type() types.ServiceType {
+	return types.MicroCloud
 }
 
 // Name returns the name of this Service instance.

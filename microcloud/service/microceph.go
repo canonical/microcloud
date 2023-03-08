@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
@@ -86,8 +87,8 @@ func (s CephService) ClusterMembers() (map[string]string, error) {
 }
 
 // Type returns the type of Service.
-func (s CephService) Type() ServiceType {
-	return MicroCeph
+func (s CephService) Type() types.ServiceType {
+	return types.MicroCeph
 }
 
 // Name returns the name of this Service instance.

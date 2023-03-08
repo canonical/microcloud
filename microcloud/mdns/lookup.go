@@ -12,13 +12,15 @@ import (
 
 	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // ServerInfo is information about the server that is broadcast over mDNS.
 type ServerInfo struct {
 	Name        string
 	Address     string
-	Services    []string
+	Services    []types.ServiceType
 	Fingerprint string
 }
 
