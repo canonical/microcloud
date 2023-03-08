@@ -96,6 +96,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	endpoints := []rest.Endpoint{
+		api.ServicesCmd,
 		api.LXDProxy,
 		api.CephProxy,
 		api.OVNProxy,
