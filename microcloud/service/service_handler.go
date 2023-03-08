@@ -2,13 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
-	"github.com/lxc/lxd/shared/logger"
 
 	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
 )
@@ -29,8 +28,7 @@ const (
 
 // ServiceHandler holds a set of services and an mdns server for communication between them.
 type ServiceHandler struct {
-	server      *mdns.Server
-	tokenCancel context.CancelFunc
+	server *mdns.Server
 
 	Services map[ServiceType]Service
 	Name     string
@@ -99,89 +97,31 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		return nil
 	}
 
-	var ctx context.Context
-	ctx, s.tokenCancel = context.WithCancel(state.Context)
+	services := make([]string, 0, len(s.Services))
+	for service := range s.Services {
+		services = append(services, string(service))
+	}
 
-	var err error
-	s.server, err = cloudMDNS.NewBroadcast(cloudMDNS.ClusterService, s.Name, s.Address, s.Port, nil)
+	serverCert, err := state.OS.ServerCert()
+	if err != nil {
+		return fmt.Errorf("Failed to fetch server cert: %w", err)
+	}
+
+	bytes, err := json.Marshal(cloudMDNS.ServerInfo{Name: s.Name, Address: s.Address, Services: services, Fingerprint: serverCert.Fingerprint()})
+	if err != nil {
+		return fmt.Errorf("Failed to marshal server info: %w", err)
+	}
+
+	s.server, err = cloudMDNS.NewBroadcast(cloudMDNS.ClusterService, s.Name, s.Address, s.Port, bytes)
 	if err != nil {
 		return err
 	}
-
-	cloudMDNS.LookupJoinToken(ctx, s.Name, func(joinConfig map[string]cloudMDNS.JoinConfig) error {
-		// Join MicroCloud first.
-		service, ok := s.Services[MicroCloud]
-		if !ok {
-			return fmt.Errorf("Missing MicroCloud service")
-		}
-
-		config, ok := joinConfig[string(service.Type())]
-		if !ok {
-			return fmt.Errorf("Invalid service type %q", service.Type())
-		}
-
-		err := service.Join(config)
-		if err != nil {
-			return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
-		}
-
-		err = s.RunConcurrent(func(s Service) error {
-			if s.Type() == MicroCloud {
-				return nil
-			}
-
-			config, ok := joinConfig[string(s.Type())]
-			if !ok {
-				return fmt.Errorf("Invalid service type %q", s.Type())
-			}
-
-			err := s.Join(config)
-			if err != nil {
-				return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		err = s.server.Shutdown()
-		if err != nil {
-			return fmt.Errorf("Failed to shutdown mdns server after joining the cluster: %w", err)
-		}
-
-		s.server, err = cloudMDNS.NewBroadcast(cloudMDNS.JoinedService, s.Name, s.Address, s.Port, nil)
-		if err != nil {
-			return err
-		}
-
-		timeAfter := time.After(time.Second * 5)
-		go func() {
-			for {
-				select {
-				case <-timeAfter:
-					err := s.server.Shutdown()
-					if err != nil {
-						logger.Error("Failed to shutdown mdns server after joining the cluster", logger.Ctx{"error": err})
-						return
-					}
-				default:
-					// Sleep a bit so the loop doesn't push the CPU as hard.
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
-		}()
-
-		return nil
-	})
 
 	return nil
 }
 
 // Bootstrap stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
 func (s *ServiceHandler) Bootstrap(state *state.State) error {
-	s.tokenCancel()
 	err := s.server.Shutdown()
 	if err != nil {
 		return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
