@@ -70,17 +70,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		// }
 	}
 
-	cloud, err := service.NewCloudService(context.Background(), name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogVerbose, c.common.FlagLogDebug)
-	if err != nil {
-		return err
-	}
-
-	lxd, err := service.NewLXDService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
-	if err != nil {
-		return err
-	}
-
-	services := []service.Service{*cloud, *lxd}
+	services := []service.ServiceType{service.MicroCloud, service.LXD}
 	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
 		return err
@@ -88,29 +78,28 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		ceph, err := service.NewCephService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
-		if err != nil {
-			return err
-		}
-
-		services = append(services, *ceph)
+		services = append(services, service.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
 
-	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
+	app, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
 	if err != nil {
-		logger.Info("Skipping MicroOVN service, could not detect state directory")
-	} else {
-		ovn, err := service.NewOVNService(context.Background(), name, addr, c.common.FlagMicroCloudDir)
-		if err != nil {
-			return err
-		}
-
-		services = append(services, *ovn)
+		return err
 	}
 
-	s := service.NewServiceHandler(name, addr, services...)
+	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
+	if err == nil {
+		services = append(services, service.MicroOVN)
+	} else {
+		logger.Info("Skipping MicroOVN service, could not detect state directory")
+	}
+
+	s, err := service.NewServiceHandler(name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	if err != nil {
+		return err
+	}
+
 	peers, err := lookupPeers(s, c.flagAuto)
 	if err != nil {
 		return err
@@ -134,6 +123,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	lxd := s.Services[service.LXD].(*service.LXDService)
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
 			// Add the local member to the list of peers so we can select disks.
@@ -152,7 +142,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	var remotePoolTargets []string
 	if s.Services[service.MicroCeph] != nil {
-		ceph, ok := s.Services[service.MicroCeph].(service.CephService)
+		ceph, ok := s.Services[service.MicroCeph].(*service.CephService)
 		if !ok {
 			return fmt.Errorf("Invalid MicroCeph service")
 		}
@@ -192,7 +182,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 					}
 				}
 
-				remotePoolTargets, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, ceph, *lxd, reservedDisks, true)
+				remotePoolTargets, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, *ceph, *lxd, reservedDisks, true)
 				if err != nil {
 					return err
 				}

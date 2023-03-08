@@ -56,10 +56,31 @@ const (
 )
 
 // NewServiceHandler creates a new ServiceHandler with a client for each of the given services.
-func NewServiceHandler(name string, addr string, services ...Service) *ServiceHandler {
+func NewServiceHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...ServiceType) (*ServiceHandler, error) {
 	servicesMap := make(map[ServiceType]Service, len(services))
-	for _, service := range services {
-		servicesMap[service.Type()] = service
+	for _, serviceType := range services {
+		var service Service
+		var err error
+		switch serviceType {
+		case MicroCloud:
+			service, err = NewCloudService(context.Background(), name, addr, stateDir, verbose, debug)
+			break
+		case MicroCeph:
+			service, err = NewCephService(context.Background(), name, addr, stateDir)
+			break
+		case MicroOVN:
+			service, err = NewOVNService(context.Background(), name, addr, stateDir)
+			break
+		case LXD:
+			service, err = NewLXDService(context.Background(), name, addr, stateDir)
+			break
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("Failed to create %q service: %w", serviceType, err)
+		}
+
+		servicesMap[serviceType] = service
 	}
 
 	return &ServiceHandler{
@@ -67,7 +88,7 @@ func NewServiceHandler(name string, addr string, services ...Service) *ServiceHa
 		Name:     name,
 		Address:  addr,
 		Port:     CloudPort,
-	}
+	}, nil
 }
 
 // Start is run after the MicroCloud daemon has started. It will periodically check for join token broadcasts, and if

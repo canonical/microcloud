@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/util"
 
-	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
@@ -39,13 +38,7 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(service *ServiceHandler) error {
-	endpoints := []rest.Endpoint{
-		api.LXDProxy,
-		api.CephProxy,
-		api.OVNProxy,
-	}
-
+func (s *CloudService) StartCloud(service *ServiceHandler, endpoints []rest.Endpoint) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
 		OnBootstrap: service.Bootstrap,
 		OnStart:     service.Start,

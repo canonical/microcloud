@@ -11,6 +11,8 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // OVNService is a MicroOVN service.
@@ -61,8 +63,8 @@ func (s OVNService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s OVNService) Join(token string) error {
-	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, 5*time.Minute)
+func (s OVNService) Join(joinConfig mdns.JoinConfig) error {
+	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.

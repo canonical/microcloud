@@ -16,6 +16,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 	"github.com/canonical/microcloud/microcloud/version"
 	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/rest"
 )
 
 // Debug indicates whether to log debug messages or not.
@@ -63,17 +64,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	cloud, err := service.NewCloudService(context.Background(), name, addr, c.flagMicroCloudDir, c.global.flagLogVerbose, c.global.flagLogDebug)
-	if err != nil {
-		return err
-	}
-
-	lxd, err := service.NewLXDService(context.Background(), name, addr, c.flagMicroCloudDir)
-	if err != nil {
-		return err
-	}
-
-	services := []service.Service{*cloud, *lxd}
+	services := []service.ServiceType{service.MicroCloud, service.LXD}
 	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
 		return err
@@ -81,30 +72,35 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		ceph, err := service.NewCephService(context.Background(), name, addr, c.flagMicroCloudDir)
-		if err != nil {
-			return err
-		}
-
-		services = append(services, *ceph)
+		services = append(services, service.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
 
-	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
+	app, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
 	if err != nil {
-		logger.Info("Skipping MicroOVN service, could not detect state directory")
-	} else {
-		ovn, err := service.NewOVNService(context.Background(), name, addr, c.flagMicroCloudDir)
-		if err != nil {
-			return err
-		}
-
-		services = append(services, *ovn)
+		return err
 	}
 
-	service := service.NewServiceHandler(name, addr, services...)
-	return cloud.StartCloud(service)
+	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
+	if err == nil {
+		services = append(services, service.MicroOVN)
+	} else {
+		logger.Info("Skipping MicroOVN service, could not detect state directory")
+	}
+
+	s, err := service.NewServiceHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
+	if err != nil {
+		return err
+	}
+
+	endpoints := []rest.Endpoint{
+		api.LXDProxy,
+		api.CephProxy,
+		api.OVNProxy,
+	}
+
+	return s.Services[service.MicroCloud].(*service.CloudService).StartCloud(s, endpoints)
 }
 
 func init() {

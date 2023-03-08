@@ -55,17 +55,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	addr := status.Address.Addr().String()
-	cloud, err := service.NewCloudService(context.Background(), status.Name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogVerbose, c.common.FlagLogDebug)
-	if err != nil {
-		return err
-	}
-
-	lxd, err := service.NewLXDService(context.Background(), status.Name, addr, c.common.FlagMicroCloudDir)
-	if err != nil {
-		return err
-	}
-
-	services := []service.Service{*cloud, *lxd}
+	services := []service.ServiceType{service.MicroCloud, service.LXD}
 	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
 	if err != nil {
 		return err
@@ -73,17 +63,16 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		ceph, err := service.NewCephService(context.Background(), status.Name, addr, c.common.FlagMicroCloudDir)
-		if err != nil {
-			return err
-		}
-
-		services = append(services, *ceph)
+		services = append(services, service.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
 
-	s := service.NewServiceHandler(status.Name, addr, services...)
+	s, err := service.NewServiceHandler(status.Name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	if err != nil {
+		return err
+	}
+
 	peers, err := lookupPeers(s, c.flagAuto)
 	if err != nil {
 		return err
@@ -104,6 +93,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
+			lxd := s.Services[service.LXD].(*service.LXDService)
 			localDisks, err = askLocalPool(peers, c.flagAuto, c.flagWipe, *lxd)
 
 			return err
@@ -146,6 +136,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 			}
 
 			askRetry("Retry selecting disks?", c.flagAuto, func() error {
+				lxd := s.Services[service.LXD].(*service.LXDService)
 				_, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, ceph, *lxd, reservedDisks, false)
 
 				return err
