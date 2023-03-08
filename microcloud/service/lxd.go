@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
@@ -170,7 +169,7 @@ func (s LXDService) Bootstrap() error {
 }
 
 // Join joins a cluster with the given token.
-func (s LXDService) Join(joinConfig mdns.JoinConfig) error {
+func (s LXDService) Join(joinConfig JoinConfig) error {
 	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err

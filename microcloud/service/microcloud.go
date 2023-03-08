@@ -22,6 +22,12 @@ type CloudService struct {
 	port    int
 }
 
+// JoinConfig represents configuration for cluster joining.
+type JoinConfig struct {
+	Token     string
+	LXDConfig []api.ClusterMemberConfigKey
+}
+
 // NewCloudService creates a new MicroCloud service with a client attached.
 func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
 	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.Itoa(CloudPort)})
@@ -56,7 +62,7 @@ func (s CloudService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CloudService) Join(joinConfig mdns.JoinConfig) error {
+func (s CloudService) Join(joinConfig JoinConfig) error {
 	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 

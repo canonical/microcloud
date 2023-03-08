@@ -63,7 +63,7 @@ func (s OVNService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s OVNService) Join(joinConfig mdns.JoinConfig) error {
+func (s OVNService) Join(joinConfig JoinConfig) error {
 	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 

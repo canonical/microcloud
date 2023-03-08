@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
@@ -62,7 +61,7 @@ func (s CephService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CephService) Join(joinConfig mdns.JoinConfig) error {
+func (s CephService) Join(joinConfig JoinConfig) error {
 	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 

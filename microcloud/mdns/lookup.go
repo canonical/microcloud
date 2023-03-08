@@ -11,14 +11,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/mdns"
-	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/logger"
 )
 
-// JoinConfig represents configuration broadcast to signal MicroCloud to begin join operations.
-type JoinConfig struct {
-	Token     string
-	LXDConfig []api.ClusterMemberConfigKey
+// ServerInfo is information about the server that is broadcast over mDNS.
+type ServerInfo struct {
+	Name        string
+	Address     string
+	Services    []string
+	Fingerprint string
 }
 
 // forwardingWriter forwards the mdns log message to LXD's logger package.
@@ -43,13 +44,13 @@ func (f forwardingWriter) Write(p []byte) (int, error) {
 }
 
 // LookupPeers finds any broadcasting peers and returns a list of their names.
-func LookupPeers(ctx context.Context, service string, localPeer string) (map[string]string, error) {
+func LookupPeers(ctx context.Context, service string, localPeer string) (map[string]ServerInfo, error) {
 	entries, err := Lookup(ctx, service, clusterSize)
 	if err != nil {
 		return nil, err
 	}
 
-	peers := map[string]string{}
+	peers := map[string]ServerInfo{}
 	for _, entry := range entries {
 		if entry == nil {
 			return nil, fmt.Errorf("Received empty record")
@@ -63,80 +64,27 @@ func LookupPeers(ctx context.Context, service string, localPeer string) (map[str
 			continue
 		}
 
-		if entry.AddrV6 != nil {
-			peers[peerName] = entry.AddrV6.String()
-
-		} else {
-			peers[peerName] = entry.AddrV4.String()
+		if len(entry.InfoFields) == 0 {
+			logger.Info("Received incomplete record, retrying in 5s...")
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
+		unquoted, err := strconv.Unquote("\"" + strings.Join(entry.InfoFields, "") + "\"")
+		if err != nil {
+			return nil, fmt.Errorf("Failed to format DNS TXT record: %w", err)
+		}
+
+		info := ServerInfo{}
+		err = json.Unmarshal([]byte(unquoted), &info)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse token map: %w", err)
+		}
+
+		peers[info.Name] = info
 	}
 
 	return peers, nil
-}
-
-// Lookup any records with join tokens matching the peer name. Accepts a function for acting on the token.
-func LookupJoinToken(ctx context.Context, peer string, f func(token map[string]JoinConfig) error) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				entries, err := Lookup(ctx, TokenService, 1)
-				if err != nil {
-					logger.Error("Failed lookup", logger.Ctx{"name": peer, "error": err})
-
-					return
-				}
-
-				if len(entries) == 0 || entries[0] == nil || len(entries[0].InfoFields) == 0 {
-					logger.Info("Received incomplete record, retrying in 5s...")
-					time.Sleep(5 * time.Second)
-					continue
-				}
-
-				token, err := parseJoinToken(peer, entries[0])
-				if err != nil {
-					logger.Error("Failed to parse join token", logger.Ctx{"name": peer, "error": err})
-					return
-				}
-
-				if token == nil {
-					logger.Warnf("Peer %q was not found in the token broadcast", peer)
-					continue
-				}
-
-				err = f(token)
-				if err != nil {
-					logger.Error("Failed to handle join token", logger.Ctx{"name": peer, "error": err})
-					return
-				}
-
-				return
-			}
-		}
-	}()
-}
-
-func parseJoinToken(peer string, entry *mdns.ServiceEntry) (map[string]JoinConfig, error) {
-	var tokensByName map[string]map[string]JoinConfig
-	unquoted, err := strconv.Unquote("\"" + strings.Join(entry.InfoFields, "") + "\"")
-	if err != nil {
-		return nil, fmt.Errorf("Failed to format DNS TXT record: %w", err)
-	}
-
-	err = json.Unmarshal([]byte(unquoted), &tokensByName)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse token map: %w", err)
-	}
-
-	record, ok := tokensByName[peer]
-	if !ok {
-		return nil, nil
-	}
-
-	return record, nil
 }
 
 func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry, error) {

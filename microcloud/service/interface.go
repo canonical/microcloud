@@ -1,14 +1,10 @@
 package service
 
-import (
-	"github.com/canonical/microcloud/microcloud/mdns"
-)
-
 // Service represents a common interface for all MicroCloud services.
 type Service interface {
 	Bootstrap() error
 	IssueToken(peer string) (string, error)
-	Join(config mdns.JoinConfig) error
+	Join(config JoinConfig) error
 	ClusterMembers() (map[string]string, error)
 
 	Type() ServiceType
