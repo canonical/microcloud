@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -9,8 +11,11 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/client"
 )
 
 // CloudService is a MicroCloud service.
@@ -26,6 +31,12 @@ type CloudService struct {
 type JoinConfig struct {
 	Token     string
 	LXDConfig []api.ClusterMemberConfigKey
+}
+
+// joinResponse is returned in a channel after sending a join request to a peer.
+type joinResponse struct {
+	Name  string
+	Error error
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
@@ -65,6 +76,30 @@ func (s CloudService) IssueToken(peer string) (string, error) {
 // Join joins a cluster with the given token.
 func (s CloudService) Join(joinConfig JoinConfig) error {
 	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
+}
+
+// RequestJoin notifies the peers that that should begin the join operation.
+func (s CloudService) RequestJoin(ctx context.Context, joinConfig map[string]types.ServicesPut) chan joinResponse {
+	joinedChan := make(chan joinResponse, len(joinConfig))
+	for peer, cfg := range joinConfig {
+		go func(peer string, cfg types.ServicesPut) {
+			c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(cfg.Address, CloudPort))
+			if err != nil {
+				joinedChan <- joinResponse{Name: peer, Error: err}
+				return
+			}
+
+			c.Client.Client.Transport = &http.Transport{
+				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+				DisableKeepAlives: true,
+				Proxy:             shared.ProxyFromEnvironment,
+			}
+
+			joinedChan <- joinResponse{Name: peer, Error: client.JoinServices(ctx, c, cfg)}
+		}(peer, cfg)
+	}
+
+	return joinedChan
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
