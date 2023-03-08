@@ -3,10 +3,10 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
@@ -138,7 +138,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
 			// Add the local member to the list of peers so we can select disks.
-			peers[name] = addr
+			peers[name] = mdns.ServerInfo{Name: name, Address: addr}
 			defer delete(peers, name)
 			localDisks, err = askLocalPool(peers, c.flagAuto, c.flagWipe, *lxd)
 
@@ -236,9 +236,9 @@ func askRetry(question string, auto bool, f func() error) {
 	}
 }
 
-func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error) {
+func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]mdns.ServerInfo, error) {
 	stdin := bufio.NewReader(os.Stdin)
-	totalPeers := map[string]string{}
+	totalPeers := map[string]mdns.ServerInfo{}
 
 	fmt.Println("Scanning for eligible servers...")
 	if !auto {
@@ -275,11 +275,11 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 				return nil, err
 			}
 
-			for peer, addr := range peers {
+			for peer, info := range peers {
 				_, ok := totalPeers[peer]
 				if !ok {
-					fmt.Printf(" Found %q at %q\n", peer, addr)
-					totalPeers[peer] = addr
+					fmt.Printf(" Found %q at %q\n", peer, info.Address)
+					totalPeers[peer] = info
 				}
 			}
 
@@ -293,24 +293,30 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 	}
 }
 
-func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
-	joinConfig := map[service.ServiceType][]mdns.JoinConfig{}
-	for serviceType := range sh.Services {
-		joinConfig[serviceType] = make([]mdns.JoinConfig, len(peers))
+func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
+	joinConfig := make(map[string]types.ServicesPut, len(peers))
+	for peer, info := range peers {
+		joinConfig[peer] = types.ServicesPut{
+			Tokens:      []types.ServiceToken{},
+			Address:     info.Address,
+			Fingerprint: info.Fingerprint,
+			LXDConfig:   localDisks[peer],
+		}
 	}
 
-	err := sh.RunConcurrent(func(s service.Service) error {
-		i := 0
-		for peer, memberConfig := range localDisks {
+	mut := sync.Mutex{}
+	err := sh.RunConcurrent(false, func(s service.Service) error {
+		for peer := range peers {
 			token, err := s.IssueToken(peer)
 			if err != nil {
 				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
 			}
 
-			if peer != s.Name() {
-				joinConfig[s.Type()][i] = mdns.JoinConfig{Token: token, LXDConfig: memberConfig}
-				i++
-			}
+			mut.Lock()
+			cfg := joinConfig[peer]
+			cfg.Tokens = append(joinConfig[peer].Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
+			joinConfig[peer] = cfg
+			mut.Unlock()
 		}
 
 		return nil
@@ -319,46 +325,25 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks ma
 		return err
 	}
 
+	fmt.Println("Awaiting cluster formation...")
 	// Initially add just 2 peers for each dqlite service to handle issues with role reshuffling while another
 	// node is joining the cluster.
 	initialSize := 2
-	var initialCfg map[string]map[string]mdns.JoinConfig
-	var cfgByName map[string]map[string]mdns.JoinConfig
-	if len(peers) > initialSize {
-		initialCfg = make(map[string]map[string]mdns.JoinConfig, initialSize)
-		for peer := range peers {
-			if len(initialCfg) < initialSize {
-				initialCfg[peer] = make(map[string]mdns.JoinConfig, len(sh.Services))
+	if len(joinConfig) > initialSize {
+		initialCfg := map[string]types.ServicesPut{}
+		for peer, info := range joinConfig {
+			initialCfg[peer] = info
+
+			if len(initialCfg) == initialSize {
+				break
 			}
 		}
-		cfgByName = make(map[string]map[string]mdns.JoinConfig, len(peers)-initialSize)
-	} else {
-		cfgByName = make(map[string]map[string]mdns.JoinConfig, len(peers))
-	}
 
-	for serviceType, s := range sh.Services {
-		i := 0
-		for peer := range peers {
-			cfg := joinConfig[serviceType][i]
-			_, ok := initialCfg[peer]
-			if ok {
-				initialCfg[peer][string(s.Type())] = cfg
-			} else {
-				_, ok := cfgByName[peer]
-				if !ok {
-					cfgByName[peer] = make(map[string]mdns.JoinConfig, len(sh.Services))
-				}
-
-				cfgByName[peer][string(s.Type())] = cfg
-			}
-
-			i++
+		for peer := range initialCfg {
+			delete(joinConfig, peer)
 		}
-	}
 
-	fmt.Println("Awaiting cluster formation...")
-	if initialSize > 0 {
-		_, err = waitForCluster(sh, initialCfg)
+		err := waitForCluster(sh, initialCfg)
 		if err != nil {
 			return err
 		}
@@ -367,16 +352,13 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks ma
 		time.Sleep(3 * time.Second)
 	}
 
-	timedOut, err := waitForCluster(sh, cfgByName)
+	err = waitForCluster(sh, joinConfig)
 	if err != nil {
 		return err
 	}
 
-	if !timedOut {
-		fmt.Println("Cluster initialization is complete")
-	}
-
-	cloudService, ok := sh.Services[service.MicroCloud]
+	fmt.Println("Cluster initialization is complete")
+	cloudService, ok := sh.Services[types.MicroCloud]
 	if !ok {
 		return fmt.Errorf("Missing MicroCloud service")
 	}
@@ -411,73 +393,52 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks ma
 
 // waitForCluster will loop until the timeout has passed, or all cluster members for all services have reported that
 // their join process is complete.
-func waitForCluster(sh *service.ServiceHandler, cfgByName map[string]map[string]mdns.JoinConfig) (bool, error) {
-	bytes, err := json.Marshal(cfgByName)
-	if err != nil {
-		return false, fmt.Errorf("Failed to marshal list of tokens: %w", err)
-	}
-
-	server, err := mdns.NewBroadcast(mdns.TokenService, sh.Name, sh.Address, sh.Port, bytes)
-	if err != nil {
-		return false, fmt.Errorf("Failed to begin join token broadcast: %w", err)
-	}
+func waitForCluster(sh *service.ServiceHandler, peers map[string]types.ServicesPut) error {
+	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+	joinedChan := cloud.RequestJoin(context.Background(), peers)
 	timeAfter := time.After(5 * time.Minute)
-	bootstrapDoneCh := make(chan struct{})
-	var bootstrapDone bool
 	for {
 		select {
-		case <-bootstrapDoneCh:
-			logger.Info("Shutting down broadcast")
-			err := server.Shutdown()
-			if err != nil {
-				return false, fmt.Errorf("Failed to shutdown mDNS server after timeout: %w", err)
-			}
-
-			bootstrapDone = true
 		case <-timeAfter:
-			fmt.Println("Timed out waiting for a response from all cluster members")
-			logger.Info("Shutting down broadcast")
-			err := server.Shutdown()
-			if err != nil {
-				return true, fmt.Errorf("Failed to shutdown mDNS server after timeout: %w", err)
-			}
+			return fmt.Errorf("Timed out waiting for a response from all cluster members")
+		case entry, ok := <-joinedChan:
+			if !ok {
+				logger.Info("Join response channel has closed")
 
-			bootstrapDone = true
-		default:
-			// Sleep a bit so the loop doesn't push the CPU as hard.
-			time.Sleep(100 * time.Millisecond)
-
-			peers, err := mdns.LookupPeers(context.Background(), mdns.JoinedService, sh.Name)
-			if err != nil {
-				return false, fmt.Errorf("Failed to lookup records from new cluster members: %w", err)
-			}
-
-			for peer := range peers {
-				_, ok := cfgByName[peer]
-				if ok {
-					fmt.Printf(" Peer %q has joined the cluster\n", peer)
+				if len(peers) != 0 {
+					return fmt.Errorf("%q members failed to join the cluster", len(peers))
 				}
 
-				delete(cfgByName, peer)
+				return nil
 			}
 
-			if len(cfgByName) == 0 {
-				close(bootstrapDoneCh)
+			if entry.Error != nil {
+				return fmt.Errorf("Peer %q failed to join the cluster: %w", entry.Name, entry.Error)
 			}
-		}
 
-		if bootstrapDone {
-			break
+			_, ok = peers[entry.Name]
+			if !ok {
+				return fmt.Errorf("Unexpected response from unknown server %q", entry.Name)
+			}
+
+			fmt.Printf(" Peer %q has joined the cluster\n", entry.Name)
+
+			delete(peers, entry.Name)
+
+			if len(peers) == 0 {
+				close(joinedChan)
+
+				return nil
+			}
 		}
 	}
-
-	return false, nil
 }
-func askLocalPool(peers map[string]string, auto bool, wipe bool, lxd service.LXDService) (map[string][]lxdAPI.ClusterMemberConfigKey, error) {
+
+func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd service.LXDService) (map[string][]lxdAPI.ClusterMemberConfigKey, error) {
 	data := [][]string{}
 	selected := map[string]string{}
-	for peer, addr := range peers {
-		resources, err := lxd.GetResources(true, peer, addr)
+	for peer, info := range peers {
+		resources, err := lxd.GetResources(true, peer, info.Address)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get system resources of LXD peer %q: %w", peer, err)
 		}

@@ -107,7 +107,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if s.Services[types.MicroCeph] != nil {
-		ceph, ok := s.Services[types.MicroCeph].(service.CephService)
+		ceph, ok := s.Services[types.MicroCeph].(*service.CephService)
 		if !ok {
 			return fmt.Errorf("Invalid MicroCeph service")
 		}
@@ -138,7 +138,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 			askRetry("Retry selecting disks?", c.flagAuto, func() error {
 				lxd := s.Services[types.LXD].(*service.LXDService)
-				_, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, ceph, *lxd, reservedDisks, false)
+				_, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, *ceph, *lxd, reservedDisks, false)
 
 				return err
 			})
