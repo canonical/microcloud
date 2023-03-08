@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcluster/client"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // JoinServices sends join information to initiate the cluster join process.

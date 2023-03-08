@@ -10,12 +10,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // LXDService is a LXD service.

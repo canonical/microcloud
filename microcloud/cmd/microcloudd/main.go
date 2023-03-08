@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
@@ -16,8 +18,6 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
 	"github.com/canonical/microcloud/microcloud/version"
-	"github.com/canonical/microcluster/microcluster"
-	"github.com/canonical/microcluster/rest"
 )
 
 // Debug indicates whether to log debug messages or not.
