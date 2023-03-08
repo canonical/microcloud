@@ -109,7 +109,17 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Found no available systems")
 	}
 
-	err = Bootstrap(s, peers)
+	fmt.Println("Initializing a new cluster")
+	err = s.RunConcurrent(true, func(s service.Service) error {
+		err := s.Bootstrap()
+		if err != nil {
+			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
+		}
+
+		fmt.Printf(" Local %s is ready\n", s.Type())
+
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -282,44 +292,13 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]string, error
 	}
 }
 
-func Bootstrap(sh *service.ServiceHandler, peers map[string]string) error {
-	fmt.Println("Initializing a new cluster")
-
-	// Bootstrap MicroCloud first.
-	cloudService, ok := sh.Services[service.MicroCloud]
-	if !ok {
-		return fmt.Errorf("Missing MicroCloud service")
-	}
-
-	err := cloudService.Bootstrap()
-	if err != nil {
-		return fmt.Errorf("Failed to bootstrap local %s: %w", service.MicroCloud, err)
-	}
-
-	fmt.Printf(" Local %s is ready\n", service.MicroCloud)
-	return sh.RunAsync(func(s service.Service) error {
-		if s.Type() == service.MicroCloud {
-			return nil
-		}
-
-		err := s.Bootstrap()
-		if err != nil {
-			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
-		}
-
-		fmt.Printf(" Local %s is ready\n", s.Type())
-
-		return nil
-	})
-}
-
 func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
 	joinConfig := map[service.ServiceType][]mdns.JoinConfig{}
 	for serviceType := range sh.Services {
 		joinConfig[serviceType] = make([]mdns.JoinConfig, len(peers))
 	}
 
-	err := sh.RunAsync(func(s service.Service) error {
+	err := sh.RunConcurrent(func(s service.Service) error {
 		i := 0
 		for peer, memberConfig := range localDisks {
 			token, err := s.IssueToken(peer)
@@ -406,7 +385,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]string, localDisks ma
 		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
 	}
 
-	err = sh.RunAsync(func(s service.Service) error {
+	err = sh.RunConcurrent(func(s service.Service) error {
 		if s.Type() == service.MicroCloud {
 			return nil
 		}

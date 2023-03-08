@@ -125,7 +125,7 @@ func (s *ServiceHandler) Start(state *state.State) error {
 			return fmt.Errorf("Failed to join %q cluster: %w", service.Type(), err)
 		}
 
-		err = s.RunAsync(func(s Service) error {
+		err = s.RunConcurrent(func(s Service) error {
 			if s.Type() == MicroCloud {
 				return nil
 			}
@@ -190,12 +190,33 @@ func (s *ServiceHandler) Bootstrap(state *state.State) error {
 	return nil
 }
 
-// RunAsync runs the given hook asynchronously across all services.
-func (s *ServiceHandler) RunAsync(f func(s Service) error) error {
+// RunConcurrent runs the given hook concurrently across all services.
+// If microCloudFirst is true, then MicroCloud will have its hook run before the others.
+func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) error) error {
 	errors := make([]error, 0, len(s.Services))
 	mut := sync.Mutex{}
 	wg := sync.WaitGroup{}
+
+	if microCloudFirst {
+		for _, s := range s.Services {
+			if s.Type() != MicroCloud {
+				continue
+			}
+
+			err := f(s)
+			if err != nil {
+				return err
+			}
+
+			break
+		}
+	}
+
 	for _, s := range s.Services {
+		if microCloudFirst && s.Type() == MicroCloud {
+			continue
+		}
+
 		wg.Add(1)
 		go func(s Service) {
 			defer wg.Done()
