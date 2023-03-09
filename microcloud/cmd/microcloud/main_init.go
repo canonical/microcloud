@@ -29,8 +29,8 @@ import (
 type cmdInit struct {
 	common *CmdControl
 
-	flagAuto bool
-	flagWipe bool
+	flagAutoSetup    bool
+	flagWipeAllDisks bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -41,8 +41,8 @@ func (c *cmdInit) Command() *cobra.Command {
 		RunE:    c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagAuto, "auto", false, "Automatic setup with default configuration")
-	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
+	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
+	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 
 	return cmd
 }
@@ -58,7 +58,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system honame: %w", err)
 	}
 
-	if !c.flagAuto {
+	if !c.flagAutoSetup {
 		addr, err = cli.AskString(fmt.Sprintf("Please choose the address MicroCloud will be listening on [default=%s]: ", addr), addr, nil)
 		if err != nil {
 			return err
@@ -101,7 +101,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAuto)
+	peers, err := lookupPeers(s, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	var localDisks map[string][]lxdAPI.ClusterMemberConfigKey
 	wantsDisks := true
-	if !c.flagAuto {
+	if !c.flagAutoSetup {
 		wantsDisks, err = cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return err
@@ -136,11 +136,11 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	lxd := s.Services[types.LXD].(*service.LXDService)
 	if wantsDisks {
-		askRetry("Retry selecting disks?", c.flagAuto, func() error {
+		askRetry("Retry selecting disks?", c.flagAutoSetup, func() error {
 			// Add the local member to the list of peers so we can select disks.
 			peers[name] = mdns.ServerInfo{Name: name, Address: addr}
 			defer delete(peers, name)
-			localDisks, err = askLocalPool(peers, c.flagAuto, c.flagWipe, *lxd)
+			localDisks, err = askLocalPool(peers, c.flagAutoSetup, c.flagWipeAllDisks, *lxd)
 
 			return err
 		})
@@ -159,7 +159,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		wantsDisks = true
-		if !c.flagAuto {
+		if !c.flagAutoSetup {
 			wantsDisks, err = cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
 			if err != nil {
 				return err
@@ -167,7 +167,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		if wantsDisks {
-			askRetry("Retry selecting disks?", c.flagAuto, func() error {
+			askRetry("Retry selecting disks?", c.flagAutoSetup, func() error {
 				localCeph, err := ceph.Client()
 				if err != nil {
 					return err
@@ -193,7 +193,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 					}
 				}
 
-				remotePoolTargets, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, *ceph, *lxd, reservedDisks, true)
+				remotePoolTargets, err = askRemotePool(peerNames, c.flagAutoSetup, c.flagWipeAllDisks, *ceph, *lxd, reservedDisks, true)
 				if err != nil {
 					return err
 				}
@@ -214,14 +214,14 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 }
 
 // askRetry will print all errors and re-attempt the given function on user input.
-func askRetry(question string, auto bool, f func() error) {
+func askRetry(question string, autoSetup bool, f func() error) {
 	for {
 		retry := false
 		err := f()
 		if err != nil {
 			fmt.Println(err)
 
-			if !auto {
+			if !autoSetup {
 				retry, err = cli.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
 				if err != nil {
 					fmt.Println(err)
@@ -236,18 +236,18 @@ func askRetry(question string, auto bool, f func() error) {
 	}
 }
 
-func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]mdns.ServerInfo, error) {
+func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.ServerInfo, error) {
 	stdin := bufio.NewReader(os.Stdin)
 	totalPeers := map[string]mdns.ServerInfo{}
 
 	fmt.Println("Scanning for eligible servers...")
-	if !auto {
+	if !autoSetup {
 		fmt.Println("Press enter to end scanning for servers")
 	}
 
 	// Wait for input to stop scanning.
 	var doneCh chan error
-	if !auto {
+	if !autoSetup {
 		doneCh = make(chan error)
 		go func() {
 			_, err := stdin.ReadByte()
@@ -283,7 +283,7 @@ func lookupPeers(s *service.ServiceHandler, auto bool) (map[string]mdns.ServerIn
 				}
 			}
 
-			if auto {
+			if autoSetup {
 				return totalPeers, nil
 			}
 
@@ -434,7 +434,7 @@ func waitForCluster(sh *service.ServiceHandler, peers map[string]types.ServicesP
 	}
 }
 
-func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd service.LXDService) (map[string][]lxdAPI.ClusterMemberConfigKey, error) {
+func askLocalPool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks bool, lxd service.LXDService) (map[string][]lxdAPI.ClusterMemberConfigKey, error) {
 	data := [][]string{}
 	selected := map[string]string{}
 	for peer, info := range peers {
@@ -451,7 +451,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd se
 		}
 
 		// If there's no spare disk, then we can't add a remote storage pool, so skip local pool creation.
-		if auto && len(validDisks) < 2 {
+		if autoSetup && len(validDisks) < 2 {
 			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", peer)
 
 			return nil, nil
@@ -462,7 +462,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd se
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 
 			// Add the first disk for each peer.
-			if auto {
+			if autoSetup {
 				_, ok := selected[peer]
 				if !ok {
 					selected[peer] = devicePath
@@ -477,7 +477,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd se
 		return nil, fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}
 
-	if !auto {
+	if !autoSetup {
 		sort.Sort(utils.ByName(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 		table := NewSelectableTable(header, data)
@@ -506,11 +506,11 @@ func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd se
 			selected[target] = path
 		}
 
-		if !wipe && wipeable {
+		if !wipeAllDisks && wipeable {
 			fmt.Println("Select which disks to wipe:")
 			wipeRows, err := table.Render(selectedRows)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+				return nil, fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
 			}
 
 			for _, entry := range wipeRows {
@@ -529,7 +529,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd se
 		return nil, fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
 	}
 
-	if wipe && wipeable {
+	if wipeAllDisks && wipeable {
 		toWipe = selected
 	}
 
@@ -566,7 +566,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, auto bool, wipe bool, lxd se
 	return memberConfig, nil
 }
 
-func askRemotePool(peers []string, auto bool, wipe bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string, checkMinSize bool) ([]string, error) {
+func askRemotePool(peers []string, autoSetup bool, wipeAllDisks bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string, checkMinSize bool) ([]string, error) {
 	localCeph, err := ceph.Client()
 	if err != nil {
 		return nil, err
@@ -626,7 +626,7 @@ func askRemotePool(peers []string, auto bool, wipe bool, ceph service.CephServic
 	table := NewSelectableTable(header, data)
 	selected := table.rows
 	var toWipe []string
-	if wipe {
+	if wipeAllDisks {
 		toWipe = selected
 	}
 
@@ -640,14 +640,14 @@ func askRemotePool(peers []string, auto bool, wipe bool, ceph service.CephServic
 		return nil, nil
 	}
 
-	if !auto {
+	if !autoSetup {
 		fmt.Println("Select from the available unpartitioned disks:")
 		selected, err = table.Render(table.rows)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to confirm disk selection: %w", err)
 		}
 
-		if len(selected) > 0 && !wipe {
+		if len(selected) > 0 && !wipeAllDisks {
 			fmt.Println("Select which disks to wipe:")
 			toWipe, err = table.Render(selected)
 			if err != nil {
