@@ -91,12 +91,20 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		return fmt.Errorf("Failed to fetch server cert: %w", err)
 	}
 
-	bytes, err := json.Marshal(cloudMDNS.ServerInfo{Name: s.Name, Address: s.Address, Services: services, Fingerprint: serverCert.Fingerprint()})
+	info := cloudMDNS.ServerInfo{
+		Version:     cloudMDNS.Version,
+		Name:        s.Name,
+		Address:     s.Address,
+		Services:    services,
+		Fingerprint: serverCert.Fingerprint(),
+	}
+
+	bytes, err := json.Marshal(info)
 	if err != nil {
 		return fmt.Errorf("Failed to marshal server info: %w", err)
 	}
 
-	s.server, err = cloudMDNS.NewBroadcast(cloudMDNS.ClusterService, s.Name, s.Address, s.Port, bytes)
+	s.server, err = cloudMDNS.NewBroadcast(s.Name, s.Address, s.Port, bytes)
 	if err != nil {
 		return err
 	}

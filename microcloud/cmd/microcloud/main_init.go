@@ -270,7 +270,7 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 
 			return totalPeers, nil
 		default:
-			peers, err := mdns.LookupPeers(context.Background(), mdns.ClusterService, s.Name)
+			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
 			if err != nil {
 				return nil, err
 			}

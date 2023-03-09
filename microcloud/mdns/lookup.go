@@ -8,7 +8,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
@@ -18,6 +17,7 @@ import (
 
 // ServerInfo is information about the server that is broadcast over mDNS.
 type ServerInfo struct {
+	Version     string
 	Name        string
 	Address     string
 	Services    []types.ServiceType
@@ -46,8 +46,8 @@ func (f forwardingWriter) Write(p []byte) (int, error) {
 }
 
 // LookupPeers finds any broadcasting peers and returns a list of their names.
-func LookupPeers(ctx context.Context, service string, localPeer string) (map[string]ServerInfo, error) {
-	entries, err := Lookup(ctx, service, clusterSize)
+func LookupPeers(ctx context.Context, version string, localPeer string) (map[string]ServerInfo, error) {
+	entries, err := Lookup(ctx, ClusterService, clusterSize)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func LookupPeers(ctx context.Context, service string, localPeer string) (map[str
 			return nil, fmt.Errorf("Received empty record")
 		}
 
-		parts := strings.SplitN(entry.Name, fmt.Sprintf(".%s.local.", service), 2)
+		parts := strings.SplitN(entry.Name, fmt.Sprintf(".%s.local.", ClusterService), 2)
 		peerName := parts[0]
 
 		// Skip a response from ourselves.
@@ -67,8 +67,7 @@ func LookupPeers(ctx context.Context, service string, localPeer string) (map[str
 		}
 
 		if len(entry.InfoFields) == 0 {
-			logger.Info("Received incomplete record, retrying in 5s...")
-			time.Sleep(5 * time.Second)
+			logger.Infof("Received incomplete record from peer %q", peerName)
 			continue
 		}
 
@@ -80,7 +79,13 @@ func LookupPeers(ctx context.Context, service string, localPeer string) (map[str
 		info := ServerInfo{}
 		err = json.Unmarshal([]byte(unquoted), &info)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse token map: %w", err)
+			return nil, fmt.Errorf("Failed to parse server info: %w", err)
+		}
+
+		// Skip any responses from mismatched versions.
+		if info.Version != version {
+			logger.Infof("System %q (version %q) has a version mismatch. Expected %q", peerName, info.Version, version)
+			continue
 		}
 
 		peers[info.Name] = info
