@@ -13,6 +13,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -121,11 +122,6 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		if wantsDisks {
-			peerNames := make([]string, 0, len(peers))
-			for peer := range peers {
-				peerNames = append(peerNames, peer)
-			}
-
 			reservedDisks := map[string]string{}
 			for peer, config := range localDisks {
 				for _, entry := range config {
@@ -137,8 +133,11 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 			}
 
 			askRetry("Retry selecting disks?", c.flagAuto, func() error {
+				peers[status.Name] = mdns.ServerInfo{Name: status.Name, Address: addr}
+				defer delete(peers, status.Name)
+
 				lxd := s.Services[types.LXD].(*service.LXDService)
-				_, err = askRemotePool(peerNames, c.flagAuto, c.flagWipe, *ceph, *lxd, reservedDisks, false)
+				_, err = askRemotePool(peers, c.flagAuto, c.flagWipe, *ceph, *lxd, reservedDisks, false)
 
 				return err
 			})

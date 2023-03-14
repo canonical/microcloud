@@ -44,7 +44,7 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 }
 
 // client returns a client to the LXD unix socket.
-func (s LXDService) client() (lxd.InstanceServer, error) {
+func (s LXDService) client(secret string) (lxd.InstanceServer, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -53,6 +53,7 @@ func (s LXDService) client() (lxd.InstanceServer, error) {
 	return lxd.ConnectLXDUnix(s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
 		HTTPClient: c.Client.Client,
 		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
 			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
 				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
 			}
@@ -93,7 +94,7 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
 	server := api.ServerPut{Config: map[string]any{"core.https_address": addr, "cluster.https_address": addr}}
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return err
 	}
@@ -179,7 +180,7 @@ func (s LXDService) Join(joinConfig JoinConfig) error {
 	}
 
 	config.Cluster.MemberConfig = joinConfig.LXDConfig
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func (s LXDService) Join(joinConfig JoinConfig) error {
 
 // IssueToken issues a token for the given peer.
 func (s LXDService) IssueToken(peer string) (string, error) {
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return "", err
 	}
@@ -220,7 +221,7 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s LXDService) ClusterMembers() (map[string]string, error) {
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return nil, err
 	}
@@ -259,16 +260,10 @@ func (s LXDService) Port() int {
 }
 
 // AddLocalPools adds local zfs storage pools on the target peers, with the given source disks.
-// If target is an empty string, then the pool will not be a pending pool.
-func (s *LXDService) AddLocalPool(target string, source string, wipe bool) error {
-	c, err := s.client()
+func (s *LXDService) AddLocalPool(source string, wipe bool) error {
+	c, err := s.client("")
 	if err != nil {
 		return err
-	}
-
-	client := c
-	if target != "" {
-		client = c.UseTarget(target)
 	}
 
 	config := map[string]string{"source": source}
@@ -276,7 +271,7 @@ func (s *LXDService) AddLocalPool(target string, source string, wipe bool) error
 		config["source.wipe"] = "true"
 	}
 
-	return client.CreateStoragePool(api.StoragePoolsPost{
+	return c.CreateStoragePool(api.StoragePoolsPost{
 		Name:   "local",
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
@@ -286,17 +281,17 @@ func (s *LXDService) AddLocalPool(target string, source string, wipe bool) error
 }
 
 // AddRemotePools adds pending Ceph storage pools for each of the target peers.
-func (s *LXDService) AddRemotePools(targets []string) error {
+func (s *LXDService) AddRemotePools(targets map[string]string) error {
 	if len(targets) == 0 {
 		return nil
 	}
 
-	c, err := s.client()
-	if err != nil {
-		return err
-	}
+	for target, secret := range targets {
+		c, err := s.client(secret)
+		if err != nil {
+			return err
+		}
 
-	for _, target := range targets {
 		err = c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
 			Name:   "remote",
 			Driver: "ceph",
@@ -319,7 +314,7 @@ func (s *LXDService) HasExtension(useRemote bool, target string, address string,
 	var err error
 	var client lxd.InstanceServer
 	if !useRemote {
-		client, err = s.client()
+		client, err = s.client(secret)
 		if err != nil {
 			return false, err
 		}
@@ -344,7 +339,7 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string,
 	var err error
 	var client lxd.InstanceServer
 	if !useRemote {
-		client, err = s.client()
+		client, err = s.client(secret)
 		if err != nil {
 			return nil, err
 		}
@@ -366,7 +361,7 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string,
 // the default profile.
 func (s *LXDService) Configure(addedLocalPool bool, addedRemotePool bool) error {
 	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
-	c, err := s.client()
+	c, err := s.client("")
 	if err != nil {
 		return err
 	}

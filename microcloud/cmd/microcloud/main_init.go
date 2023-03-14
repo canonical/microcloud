@@ -151,7 +151,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var remotePoolTargets []string
+	var remotePoolTargets map[string]string
 	if s.Services[types.MicroCeph] != nil {
 		ceph, ok := s.Services[types.MicroCeph].(*service.CephService)
 		if !ok {
@@ -168,20 +168,8 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 		if wantsDisks {
 			askRetry("Retry selecting disks?", c.flagAutoSetup, func() error {
-				localCeph, err := ceph.Client()
-				if err != nil {
-					return err
-				}
-
-				peers, err := localCeph.GetClusterMembers(context.Background())
-				if err != nil {
-					return fmt.Errorf("Failed to get list of current peers: %w", err)
-				}
-
-				peerNames := make([]string, len(peers))
-				for i, peer := range peers {
-					peerNames[i] = peer.Name
-				}
+				peers[name] = mdns.ServerInfo{Name: name, Address: addr}
+				defer delete(peers, name)
 
 				reservedDisks := map[string]string{}
 				for peer, config := range localDisks {
@@ -193,7 +181,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 					}
 				}
 
-				remotePoolTargets, err = askRemotePool(peerNames, c.flagAutoSetup, c.flagWipeAllDisks, *ceph, *lxd, reservedDisks, true)
+				remotePoolTargets, err = askRemotePool(peers, c.flagAutoSetup, c.flagWipeAllDisks, *ceph, *lxd, reservedDisks, true)
 				if err != nil {
 					return err
 				}
@@ -554,7 +542,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks
 	memberConfig := make(map[string][]lxdAPI.ClusterMemberConfigKey, len(selected))
 	for target, path := range selected {
 		if target == lxd.Name() {
-			err := lxd.AddLocalPool("", path, wipeable && toWipe[target] != "")
+			err := lxd.AddLocalPool(path, wipeable && toWipe[target] != "")
 			if err != nil {
 				return nil, fmt.Errorf("Failed to add pending local storage pool on peer %q: %w", target, err)
 			}
@@ -571,23 +559,22 @@ func askLocalPool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks
 	return memberConfig, nil
 }
 
-func askRemotePool(peers []string, autoSetup bool, wipeAllDisks bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string, checkMinSize bool) ([]string, error) {
-	localCeph, err := ceph.Client()
-	if err != nil {
-		return nil, err
-	}
-
+func askRemotePool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks bool, ceph service.CephService, lxd service.LXDService, localDisks map[string]string, checkMinSize bool) (map[string]string, error) {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
-	for _, peer := range peers {
-		// List configured disks.
-		disks, err := cephClient.GetDisks(context.Background(), localCeph.UseTarget(peer))
+	for peer, info := range peers {
+		c, err := ceph.Client(peer, info.AuthSecret)
+		if err != nil {
+			return nil, err
+		}
+
+		disks, err := cephClient.GetDisks(context.Background(), c)
 		if err != nil {
 			return nil, err
 		}
 
 		// List physical disks.
-		resources, err := cephClient.GetResources(context.Background(), localCeph.UseTarget(peer))
+		resources, err := cephClient.GetResources(context.Background(), c)
 		if err != nil {
 			return nil, err
 		}
@@ -647,6 +634,7 @@ func askRemotePool(peers []string, autoSetup bool, wipeAllDisks bool, ceph servi
 
 	if !autoSetup {
 		fmt.Println("Select from the available unpartitioned disks:")
+		var err error
 		selected, err = table.Render(table.rows)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to confirm disk selection: %w", err)
@@ -685,16 +673,21 @@ func askRemotePool(peers []string, autoSetup bool, wipeAllDisks bool, ceph servi
 	if len(diskMap) == len(peers) {
 		if !checkMinSize || len(peers) >= 3 {
 			fmt.Printf("Adding %d disks to MicroCeph\n", len(selected))
-			targets := make([]string, 0, len(peers))
+			targets := make(map[string]string, len(peers))
 			for target, reqs := range diskMap {
+				c, err := ceph.Client(target, peers[target].AuthSecret)
+				if err != nil {
+					return nil, err
+				}
+
 				for _, req := range reqs {
-					err = cephClient.AddDisk(context.Background(), localCeph.UseTarget(target), &req)
+					err = cephClient.AddDisk(context.Background(), c, &req)
 					if err != nil {
 						return nil, err
 					}
 				}
 
-				targets = append(targets, target)
+				targets[target] = peers[target].AuthSecret
 			}
 
 			return targets, nil
