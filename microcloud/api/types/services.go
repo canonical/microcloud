@@ -23,9 +23,8 @@ const (
 
 // ServicesPut represents data for updating the cluster configuration of the MicroCloud services.
 type ServicesPut struct {
-	Tokens      []ServiceToken `json:"tokens" yaml:"tokens"`
-	Address     string         `json:"address" yaml:"address"`
-	Fingerprint string         `json:"fingerprint" yaml:"fingerprint"`
+	Tokens  []ServiceToken `json:"tokens" yaml:"tokens"`
+	Address string         `json:"address" yaml:"address"`
 
 	LXDConfig []api.ClusterMemberConfigKey `json:"lxd_config" yaml:"lxd_config"`
 }

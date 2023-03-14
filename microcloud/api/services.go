@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/microcluster/state"
 	"github.com/lxc/lxd/lxd/response"
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
@@ -17,6 +18,32 @@ import (
 // endpointHandler is just a convenience for writing clean return types.
 type endpointHandler func(*state.State, *http.Request) response.Response
 
+// authHandler ensures a request has been authenticated with the mDNS broadcast secret.
+func authHandler(sh *service.ServiceHandler, f endpointHandler) endpointHandler {
+	return func(s *state.State, r *http.Request) response.Response {
+		if r.RemoteAddr == "@" {
+			logger.Debug("Allowing unauthenticated request through unix socket")
+
+			return f(s, r)
+		}
+
+		secret := r.Header.Get("X-MicroCloud-Auth")
+		if secret == "" {
+			return response.BadRequest(fmt.Errorf("No auth secret in response"))
+		}
+
+		if sh.AuthSecret == "" {
+			return response.BadRequest(fmt.Errorf("No generated auth secret"))
+		}
+
+		if sh.AuthSecret != secret {
+			return response.SmartError(fmt.Errorf("Request secret does not match, ignoring request"))
+		}
+
+		return f(s, r)
+	}
+}
+
 // ServicesCmd represents the /1.0/services API on MicroCloud.
 var ServicesCmd = func(sh *service.ServiceHandler) rest.Endpoint {
 	return rest.Endpoint{
@@ -24,7 +51,7 @@ var ServicesCmd = func(sh *service.ServiceHandler) rest.Endpoint {
 		Name:              "services",
 		Path:              "services",
 
-		Put: rest.EndpointAction{Handler: servicesPut, AllowUntrusted: true, ProxyTarget: true},
+		Put: rest.EndpointAction{Handler: authHandler(sh, servicesPut), AllowUntrusted: true, ProxyTarget: true},
 	}
 }
 
@@ -43,16 +70,6 @@ func servicesPut(s *state.State, r *http.Request) response.Response {
 	for i, cfg := range req.Tokens {
 		services[i] = types.ServiceType(cfg.Service)
 		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig}
-	}
-
-	serverCert, err := s.OS.ServerCert()
-	if err != nil {
-		return response.SmartError(fmt.Errorf("Failed to compare join request fingerprints: %w", err))
-	}
-
-	// Skip the join request if the fingerprint does not match what we expect.
-	if serverCert.Fingerprint() != req.Fingerprint {
-		return response.SmartError(fmt.Errorf("Join request fingerprint does not match issuer config, ignoring join request"))
 	}
 
 	// Default to the first iface if none specified.
