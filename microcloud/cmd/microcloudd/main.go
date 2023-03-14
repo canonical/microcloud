@@ -85,7 +85,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
 	if err == nil {
-		services = append(services, service.MicroOVN)
+		services = append(services, types.MicroOVN)
 	} else {
 		logger.Info("Skipping MicroOVN service, could not detect state directory")
 	}
@@ -96,10 +96,10 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	endpoints := []rest.Endpoint{
-		api.ServicesCmd,
-		api.LXDProxy,
-		api.CephProxy,
-		api.OVNProxy,
+		api.ServicesCmd(s),
+		api.LXDProxy(s),
+		api.CephProxy(s),
+		api.OVNProxy(s),
 	}
 
 	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(s, endpoints)

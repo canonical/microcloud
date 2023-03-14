@@ -12,16 +12,24 @@ import (
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/response"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // LXDProxy proxies all requests from MicroCloud to LXD.
-var LXDProxy = Proxy("lxd", "services/lxd/{rest:.*}", lxdHandler)
+func LXDProxy(sh *service.ServiceHandler) rest.Endpoint {
+	return proxy(sh, "lxd", "services/lxd/{rest:.*}", lxdHandler)
+}
 
 // CephProxy proxies all requests from MicroCloud to MicroCeph.
-var CephProxy = Proxy("microceph", "services/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
+func CephProxy(sh *service.ServiceHandler) rest.Endpoint {
+	return proxy(sh, "microceph", "services/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
+}
 
 // OVNProxy proxies all requests from MicroCloud to MicroOVN.
-var OVNProxy = Proxy("microovn", "services/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
+func OVNProxy(sh *service.ServiceHandler) rest.Endpoint {
+	return proxy(sh, "microovn", "services/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
+}
 
 // LXDDir is the path to the state directory of the LXD snap.
 const LXDDir = "/var/snap/lxd/common/lxd"
@@ -32,8 +40,8 @@ const MicroCephDir = "/var/snap/microceph/common/state"
 // MicroOVNDir is the path to the state directory of the MicroOVN snap.
 const MicroOVNDir = "/var/snap/microovn/common/state"
 
-// Proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
-func Proxy(name, path string, handler func(*state.State, *http.Request) response.Response) rest.Endpoint {
+// proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
+func proxy(sh *service.ServiceHandler, name, path string, handler endpointHandler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              name,

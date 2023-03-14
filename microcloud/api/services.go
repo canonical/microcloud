@@ -14,14 +14,21 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
-var ServicesCmd = rest.Endpoint{
-	AllowedBeforeInit: true,
-	Name:              "services",
-	Path:              "services",
+// endpointHandler is just a convenience for writing clean return types.
+type endpointHandler func(*state.State, *http.Request) response.Response
 
-	Put: rest.EndpointAction{Handler: servicesPut, AllowUntrusted: true, ProxyTarget: true},
+// ServicesCmd represents the /1.0/services API on MicroCloud.
+var ServicesCmd = func(sh *service.ServiceHandler) rest.Endpoint {
+	return rest.Endpoint{
+		AllowedBeforeInit: true,
+		Name:              "services",
+		Path:              "services",
+
+		Put: rest.EndpointAction{Handler: servicesPut, AllowUntrusted: true, ProxyTarget: true},
+	}
 }
 
+// servicesPut updates the cluster status of the MicroCloud peer.
 func servicesPut(s *state.State, r *http.Request) response.Response {
 	// Parse the request.
 	req := types.ServicesPut{}
