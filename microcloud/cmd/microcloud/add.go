@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/canonical/microcluster/microcluster"
 	lxdAPI "github.com/lxc/lxd/shared/api"
@@ -58,13 +57,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	addr := status.Address.Addr().String()
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
-	if err != nil {
-		return err
-	}
-
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
+	if service.ServiceExists(types.MicroCeph, api.MicroCephDir) {
 		services = append(services, types.MicroCeph)
 	} else {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")

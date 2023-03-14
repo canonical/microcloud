@@ -11,7 +11,6 @@ import (
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/lxd/util"
 	lxdAPI "github.com/lxc/lxd/shared/api"
@@ -72,15 +71,20 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
-	if err != nil {
-		return err
-	}
-
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
+	if service.ServiceExists(types.MicroCeph, api.MicroCephDir) {
 		services = append(services, types.MicroCeph)
 	} else {
+		if !c.flagAutoSetup {
+			skipCeph, err := cli.AskBool("MicroCeph was not found. Continue anyway? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+
+			if !skipCeph {
+				return nil
+			}
+		}
+
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
 
