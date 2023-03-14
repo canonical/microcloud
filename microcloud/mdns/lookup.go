@@ -17,11 +17,11 @@ import (
 
 // ServerInfo is information about the server that is broadcast over mDNS.
 type ServerInfo struct {
-	Version     string
-	Name        string
-	Address     string
-	Services    []types.ServiceType
-	Fingerprint string
+	Version    string
+	Name       string
+	Address    string
+	Services   []types.ServiceType
+	AuthSecret string
 }
 
 // forwardingWriter forwards the mdns log message to LXD's logger package.

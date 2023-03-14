@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
+	"github.com/lxc/lxd/shared"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
@@ -35,6 +36,8 @@ type ServiceHandler struct {
 	Name     string
 	Address  string
 	Port     int
+
+	AuthSecret string
 }
 
 // NewServiceHandler creates a new ServiceHandler with a client for each of the given services.
@@ -86,17 +89,18 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		services = append(services, service)
 	}
 
-	serverCert, err := state.OS.ServerCert()
+	var err error
+	s.AuthSecret, err = shared.RandomCryptoString()
 	if err != nil {
-		return fmt.Errorf("Failed to fetch server cert: %w", err)
+		return err
 	}
 
 	info := cloudMDNS.ServerInfo{
-		Version:     cloudMDNS.Version,
-		Name:        s.Name,
-		Address:     s.Address,
-		Services:    services,
-		Fingerprint: serverCert.Fingerprint(),
+		Version:    cloudMDNS.Version,
+		Name:       s.Name,
+		Address:    s.Address,
+		Services:   services,
+		AuthSecret: s.AuthSecret,
 	}
 
 	bytes, err := json.Marshal(info)
