@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -79,10 +81,15 @@ func (s CloudService) Join(joinConfig JoinConfig) error {
 }
 
 // RequestJoin notifies the peers that that should begin the join operation.
-func (s CloudService) RequestJoin(ctx context.Context, joinConfig map[string]types.ServicesPut) chan joinResponse {
+func (s CloudService) RequestJoin(ctx context.Context, secrets map[string]string, joinConfig map[string]types.ServicesPut) chan joinResponse {
 	joinedChan := make(chan joinResponse, len(joinConfig))
 	for peer, cfg := range joinConfig {
 		go func(peer string, cfg types.ServicesPut) {
+			if secrets[peer] == "" {
+				joinedChan <- joinResponse{Name: peer, Error: fmt.Errorf("No auth secret found for peer")}
+				return
+			}
+
 			c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(cfg.Address, CloudPort))
 			if err != nil {
 				joinedChan <- joinResponse{Name: peer, Error: err}
@@ -92,7 +99,11 @@ func (s CloudService) RequestJoin(ctx context.Context, joinConfig map[string]typ
 			c.Client.Client.Transport = &http.Transport{
 				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 				DisableKeepAlives: true,
-				Proxy:             shared.ProxyFromEnvironment,
+				Proxy: func(r *http.Request) (*url.URL, error) {
+					r.Header.Set("X-MicroCloud-Auth", secrets[peer])
+
+					return shared.ProxyFromEnvironment(r)
+				},
 			}
 
 			joinedChan <- joinResponse{Name: peer, Error: client.JoinServices(ctx, c, cfg)}

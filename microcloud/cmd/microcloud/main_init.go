@@ -295,13 +295,15 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 
 func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
 	joinConfig := make(map[string]types.ServicesPut, len(peers))
+	secrets := make(map[string]string, len(peers))
 	for peer, info := range peers {
 		joinConfig[peer] = types.ServicesPut{
-			Tokens:      []types.ServiceToken{},
-			Address:     info.Address,
-			Fingerprint: info.Fingerprint,
-			LXDConfig:   localDisks[peer],
+			Tokens:    []types.ServiceToken{},
+			Address:   info.Address,
+			LXDConfig: localDisks[peer],
 		}
+
+		secrets[peer] = info.AuthSecret
 	}
 
 	mut := sync.Mutex{}
@@ -339,11 +341,14 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 			}
 		}
 
+		initialSecrets := make(map[string]string, len(initialCfg))
 		for peer := range initialCfg {
 			delete(joinConfig, peer)
+			initialSecrets[peer] = secrets[peer]
+			delete(secrets, peer)
 		}
 
-		err := waitForCluster(sh, initialCfg)
+		err := waitForCluster(sh, initialSecrets, initialCfg)
 		if err != nil {
 			return err
 		}
@@ -352,7 +357,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 		time.Sleep(3 * time.Second)
 	}
 
-	err = waitForCluster(sh, joinConfig)
+	err = waitForCluster(sh, secrets, joinConfig)
 	if err != nil {
 		return err
 	}
@@ -393,9 +398,9 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 
 // waitForCluster will loop until the timeout has passed, or all cluster members for all services have reported that
 // their join process is complete.
-func waitForCluster(sh *service.ServiceHandler, peers map[string]types.ServicesPut) error {
+func waitForCluster(sh *service.ServiceHandler, secrets map[string]string, peers map[string]types.ServicesPut) error {
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	joinedChan := cloud.RequestJoin(context.Background(), peers)
+	joinedChan := cloud.RequestJoin(context.Background(), secrets, peers)
 	timeAfter := time.After(5 * time.Minute)
 	for {
 		select {
@@ -438,7 +443,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks
 	data := [][]string{}
 	selected := map[string]string{}
 	for peer, info := range peers {
-		resources, err := lxd.GetResources(true, peer, info.Address)
+		resources, err := lxd.GetResources(info.Name != lxd.Name(), peer, info.Address, info.AuthSecret)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get system resources of LXD peer %q: %w", peer, err)
 		}
@@ -472,7 +477,7 @@ func askLocalPool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks
 	}
 
 	toWipe := map[string]string{}
-	wipeable, err := lxd.HasExtension(false, lxd.Name(), lxd.Address(), "storage_pool_source_wipe")
+	wipeable, err := lxd.HasExtension(false, lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}

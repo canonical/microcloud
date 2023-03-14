@@ -63,7 +63,7 @@ func (s LXDService) client() (lxd.InstanceServer, error) {
 }
 
 // remoteClient returns an https client for the given address:port.
-func (s LXDService) remoteClient(address string, port int) (lxd.InstanceServer, error) {
+func (s LXDService) remoteClient(secret string, address string, port int) (lxd.InstanceServer, error) {
 	c, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, port))
 	if err != nil {
 		return nil, err
@@ -74,6 +74,7 @@ func (s LXDService) remoteClient(address string, port int) (lxd.InstanceServer, 
 		HTTPClient:         c.Client.Client,
 		InsecureSkipVerify: true,
 		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
 			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
 				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
 			}
@@ -314,7 +315,7 @@ func (s *LXDService) AddRemotePools(targets []string) error {
 }
 
 // HasExtension checks if the server supports the API extension.
-func (s *LXDService) HasExtension(useRemote bool, target string, address string, apiExtension string) (bool, error) {
+func (s *LXDService) HasExtension(useRemote bool, target string, address string, secret string, apiExtension string) (bool, error) {
 	var err error
 	var client lxd.InstanceServer
 	if !useRemote {
@@ -327,7 +328,7 @@ func (s *LXDService) HasExtension(useRemote bool, target string, address string,
 			client = client.UseTarget(target)
 		}
 	} else {
-		client, err = s.remoteClient(address, CloudPort)
+		client, err = s.remoteClient(secret, address, CloudPort)
 		if err != nil {
 			return false, err
 		}
@@ -339,7 +340,7 @@ func (s *LXDService) HasExtension(useRemote bool, target string, address string,
 // GetResources returns the system resources for the LXD target.
 // As we cannot guarantee that LXD is available on this machine, the request is
 // forwarded through MicroCloud on via the ListenPort argument.
-func (s *LXDService) GetResources(useRemote bool, target string, address string) (*api.Resources, error) {
+func (s *LXDService) GetResources(useRemote bool, target string, address string, secret string) (*api.Resources, error) {
 	var err error
 	var client lxd.InstanceServer
 	if !useRemote {
@@ -352,7 +353,7 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string)
 			client = client.UseTarget(target)
 		}
 	} else {
-		client, err = s.remoteClient(address, CloudPort)
+		client, err = s.remoteClient(secret, address, CloudPort)
 		if err != nil {
 			return nil, err
 		}
