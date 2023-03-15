@@ -17,6 +17,7 @@ apps:
     plugs:
       - lxd
       - microceph
+      - microovn
       - network
       - network-bind
 
