@@ -112,10 +112,6 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if len(peers) == 0 {
-		return fmt.Errorf("Found no available systems")
-	}
-
 	fmt.Println("Initializing a new cluster")
 	err = s.RunConcurrent(true, func(s service.Service) error {
 		err := s.Bootstrap()
@@ -233,6 +229,7 @@ func askRetry(question string, autoSetup bool, f func() error) {
 func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.ServerInfo, error) {
 	stdin := bufio.NewReader(os.Stdin)
 	totalPeers := map[string]mdns.ServerInfo{}
+	skipPeers := map[string]bool{}
 
 	fmt.Println("Scanning for eligible servers...")
 	if !autoSetup {
@@ -255,14 +252,15 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 		}()
 	}
 
-	for {
+	done := false
+	for !done {
 		select {
 		case err := <-doneCh:
 			if err != nil {
 				return nil, err
 			}
 
-			return totalPeers, nil
+			done = true
 		default:
 			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
 			if err != nil {
@@ -270,21 +268,47 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 			}
 
 			for peer, info := range peers {
+				if skipPeers[peer] {
+					continue
+				}
+
 				_, ok := totalPeers[peer]
 				if !ok {
-					fmt.Printf(" Found %q at %q\n", peer, info.Address)
-					totalPeers[peer] = info
+					serviceMap := make(map[types.ServiceType]bool, len(info.Services))
+					for _, service := range info.Services {
+						serviceMap[service] = true
+					}
+
+					for service := range s.Services {
+						if !serviceMap[service] {
+							skipPeers[peer] = true
+							logger.Infof("Skipping peer %q due to missing services (%s)", peer, string(service))
+							break
+						}
+					}
+
+					if !skipPeers[peer] {
+						fmt.Printf(" Found %q at %q\n", peer, info.Address)
+						totalPeers[peer] = info
+					}
 				}
 			}
 
 			if autoSetup {
-				return totalPeers, nil
+				done = true
+				break
 			}
 
 			// Sleep for a few seconds before retrying.
 			time.Sleep(5 * time.Second)
 		}
 	}
+
+	if len(totalPeers) == 0 {
+		return nil, fmt.Errorf("Found no available systems")
+	}
+
+	return totalPeers, nil
 }
 
 func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
