@@ -70,6 +70,18 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		logger.Info("Skipping MicroCeph service, could not detect state directory")
 	}
 
+	app, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
+	if err == nil {
+		services = append(services, types.MicroOVN)
+	} else {
+		logger.Info("Skipping MicroOVN service, could not detect state directory")
+	}
+
 	s, err := service.NewServiceHandler(status.Name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
