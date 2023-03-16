@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"sort"
 	"strings"
@@ -29,8 +30,10 @@ import (
 type cmdInit struct {
 	common *CmdControl
 
-	flagAutoSetup    bool
-	flagWipeAllDisks bool
+	flagAutoSetup     bool
+	flagClusterSubnet string
+	flagAddress       string
+	flagWipeAllDisks  bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -42,6 +45,8 @@ func (c *cmdInit) Command() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
+	cmd.Flags().StringVar(&c.flagClusterSubnet, "subnet", "", "Subnet to look for cluster members in")
+	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 
 	return cmd
@@ -52,13 +57,25 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	addr := util.NetworkInterfaceAddress()
+	addr := c.flagAddress
+	if addr == "" {
+		addr = util.NetworkInterfaceAddress()
+	}
+
 	name, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system honame: %w", err)
 	}
 
-	if !c.flagAutoSetup {
+	var subnet *net.IPNet
+	if c.flagClusterSubnet != "" {
+		_, subnet, err = net.ParseCIDR(c.flagClusterSubnet)
+		if err != nil {
+			return fmt.Errorf("Invalid subnet: %q", err)
+		}
+	}
+
+	if !c.flagAutoSetup && c.flagAddress == "" {
 		addr, err = cli.AskString(fmt.Sprintf("Please choose the address MicroCloud will be listening on [default=%s]: ", addr), addr, nil)
 		if err != nil {
 			return err
