@@ -2,13 +2,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
 	"time"
 
-	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared/logger"
@@ -66,28 +64,17 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
-	if err != nil {
-		return err
+	optionalServices := map[types.ServiceType]string{
+		types.MicroCeph: api.MicroCephDir,
+		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
-		services = append(services, types.MicroCeph)
-	} else {
-		logger.Info("Skipping MicroCeph service, could not detect state directory")
-	}
-
-	app, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
-	if err != nil {
-		return err
-	}
-
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
-		services = append(services, types.MicroOVN)
-	} else {
-		logger.Info("Skipping MicroOVN service, could not detect state directory")
+	for serviceType, stateDir := range optionalServices {
+		if service.ServiceExists(serviceType, stateDir) {
+			services = append(services, serviceType)
+		} else {
+			logger.Infof("Skipping %s service, could not detect state directory", serviceType)
+		}
 	}
 
 	s, err := service.NewServiceHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
