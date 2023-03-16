@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -32,7 +33,7 @@ const (
 
 // ServiceHandler holds a set of services and an mdns server for communication between them.
 type ServiceHandler struct {
-	server *mdns.Server
+	servers []*mdns.Server
 
 	Services map[types.ServiceType]Service
 	Name     string
@@ -71,11 +72,51 @@ func NewServiceHandler(name string, addr string, stateDir string, debug bool, ve
 	}
 
 	return &ServiceHandler{
+		servers:  []*mdns.Server{},
 		Services: servicesMap,
 		Name:     name,
 		Address:  addr,
 		Port:     CloudPort,
 	}, nil
+}
+
+func networkInterfaceAddresses() (map[string][]string, error) {
+	addrsByIface := map[string][]string{}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		allAddrs := make([]string, 0, len(addrs))
+		if len(addrs) == 0 {
+			continue
+		}
+
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if !ipNet.IP.IsGlobalUnicast() {
+				continue
+			}
+
+			allAddrs = append(allAddrs, ipNet.IP.String())
+		}
+
+		if len(allAddrs) != 0 {
+			addrsByIface[iface.Name] = allAddrs
+		}
+	}
+
+	return addrsByIface, nil
 }
 
 // Start is run after the MicroCloud daemon has started. It will periodically check for join token broadcasts, and if
@@ -97,22 +138,34 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		return err
 	}
 
+	ifaces, err := networkInterfaceAddresses()
+	if err != nil {
+		return err
+	}
+
 	info := cloudMDNS.ServerInfo{
 		Version:    cloudMDNS.Version,
 		Name:       s.Name,
-		Address:    s.Address,
 		Services:   services,
+		Interfaces: ifaces,
 		AuthSecret: s.AuthSecret,
 	}
 
-	bytes, err := json.Marshal(info)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal server info: %w", err)
-	}
+	for _, addrs := range info.Interfaces {
+		for _, addr := range addrs {
+			info.Address = addr
+			bytes, err := json.Marshal(info)
+			if err != nil {
+				return fmt.Errorf("Failed to marshal server info: %w", err)
+			}
 
-	s.server, err = cloudMDNS.NewBroadcast(s.Name, s.Address, s.Port, bytes)
-	if err != nil {
-		return err
+			server, err := cloudMDNS.NewBroadcast(s.Name, addr, s.Port, bytes)
+			if err != nil {
+				return err
+			}
+
+			s.servers = append(s.servers, server)
+		}
 	}
 
 	return nil
@@ -120,9 +173,11 @@ func (s *ServiceHandler) Start(state *state.State) error {
 
 // Bootstrap stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
 func (s *ServiceHandler) Bootstrap(state *state.State) error {
-	err := s.server.Shutdown()
-	if err != nil {
-		return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
+	for _, server := range s.servers {
+		err := server.Shutdown()
+		if err != nil {
+			return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
+		}
 	}
 
 	return nil

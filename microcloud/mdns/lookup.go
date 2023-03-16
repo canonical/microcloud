@@ -20,6 +20,7 @@ type ServerInfo struct {
 	Version    string
 	Name       string
 	Address    string
+	Interfaces map[string][]string
 	Services   []types.ServiceType
 	AuthSecret string
 }
