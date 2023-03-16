@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/lxd/util"
 	lxdAPI "github.com/lxc/lxd/shared/api"
@@ -72,28 +72,34 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
-	if err != nil {
-		return err
+	optionalServices := map[types.ServiceType]string{
+		types.MicroCeph: api.MicroCephDir,
+		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
-		services = append(services, types.MicroCeph)
-	} else {
-		logger.Info("Skipping MicroCeph service, could not detect state directory")
+	missingServices := []string{}
+	for serviceType, stateDir := range optionalServices {
+		if service.ServiceExists(serviceType, stateDir) {
+			services = append(services, serviceType)
+		} else {
+			missingServices = append(missingServices, string(serviceType))
+		}
 	}
 
-	app, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
-	if err != nil {
-		return err
-	}
+	if len(missingServices) > 0 {
+		serviceStr := strings.Join(missingServices, ",")
+		if !c.flagAutoSetup {
+			skip, err := cli.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
+			if err != nil {
+				return err
+			}
 
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
-		services = append(services, types.MicroOVN)
-	} else {
-		logger.Info("Skipping MicroOVN service, could not detect state directory")
+			if !skip {
+				return nil
+			}
+		}
+
+		logger.Infof("Skipping %s (could not detect service state directory)", serviceStr)
 	}
 
 	s, err := service.NewServiceHandler(name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
@@ -104,10 +110,6 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	peers, err := lookupPeers(s, c.flagAutoSetup)
 	if err != nil {
 		return err
-	}
-
-	if len(peers) == 0 {
-		return fmt.Errorf("Found no available systems")
 	}
 
 	fmt.Println("Initializing a new cluster")
@@ -227,6 +229,7 @@ func askRetry(question string, autoSetup bool, f func() error) {
 func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.ServerInfo, error) {
 	stdin := bufio.NewReader(os.Stdin)
 	totalPeers := map[string]mdns.ServerInfo{}
+	skipPeers := map[string]bool{}
 
 	fmt.Println("Scanning for eligible servers...")
 	if !autoSetup {
@@ -249,14 +252,15 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 		}()
 	}
 
-	for {
+	done := false
+	for !done {
 		select {
 		case err := <-doneCh:
 			if err != nil {
 				return nil, err
 			}
 
-			return totalPeers, nil
+			done = true
 		default:
 			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
 			if err != nil {
@@ -264,21 +268,47 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 			}
 
 			for peer, info := range peers {
+				if skipPeers[peer] {
+					continue
+				}
+
 				_, ok := totalPeers[peer]
 				if !ok {
-					fmt.Printf(" Found %q at %q\n", peer, info.Address)
-					totalPeers[peer] = info
+					serviceMap := make(map[types.ServiceType]bool, len(info.Services))
+					for _, service := range info.Services {
+						serviceMap[service] = true
+					}
+
+					for service := range s.Services {
+						if !serviceMap[service] {
+							skipPeers[peer] = true
+							logger.Infof("Skipping peer %q due to missing services (%s)", peer, string(service))
+							break
+						}
+					}
+
+					if !skipPeers[peer] {
+						fmt.Printf(" Found %q at %q\n", peer, info.Address)
+						totalPeers[peer] = info
+					}
 				}
 			}
 
 			if autoSetup {
-				return totalPeers, nil
+				done = true
+				break
 			}
 
 			// Sleep for a few seconds before retrying.
 			time.Sleep(5 * time.Second)
 		}
 	}
+
+	if len(totalPeers) == 0 {
+		return nil, fmt.Errorf("Found no available systems")
+	}
+
+	return totalPeers, nil
 }
 
 func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {

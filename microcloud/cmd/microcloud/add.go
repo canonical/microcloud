@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/canonical/microcluster/microcluster"
 	lxdAPI "github.com/lxc/lxd/shared/api"
@@ -58,28 +58,34 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	addr := status.Address.Addr().String()
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	app, err := microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroCephDir})
-	if err != nil {
-		return err
+	optionalServices := map[types.ServiceType]string{
+		types.MicroCeph: api.MicroCephDir,
+		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
-		services = append(services, types.MicroCeph)
-	} else {
-		logger.Info("Skipping MicroCeph service, could not detect state directory")
+	missingServices := []string{}
+	for serviceType, stateDir := range optionalServices {
+		if service.ServiceExists(serviceType, stateDir) {
+			services = append(services, serviceType)
+		} else {
+			missingServices = append(missingServices, string(serviceType))
+		}
 	}
 
-	app, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
-	if err != nil {
-		return err
-	}
+	if len(missingServices) > 0 {
+		serviceStr := strings.Join(missingServices, ",")
+		if !c.flagAuto {
+			skip, err := cli.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
+			if err != nil {
+				return err
+			}
 
-	_, err = os.Stat(app.FileSystem.ControlSocket().URL.Host)
-	if err == nil {
-		services = append(services, types.MicroOVN)
-	} else {
-		logger.Info("Skipping MicroOVN service, could not detect state directory")
+			if !skip {
+				return nil
+			}
+		}
+
+		logger.Infof("Skipping %s (could not detect service state directory)", serviceStr)
 	}
 
 	s, err := service.NewServiceHandler(status.Name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
@@ -90,10 +96,6 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	peers, err := lookupPeers(s, c.flagAuto)
 	if err != nil {
 		return err
-	}
-
-	if len(peers) == 0 {
-		return fmt.Errorf("Found no available systems")
 	}
 
 	var localDisks map[string][]lxdAPI.ClusterMemberConfigKey

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/canonical/microcluster/state"
@@ -175,4 +177,16 @@ func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) e
 	}
 
 	return nil
+}
+
+// ServiceExists returns true if we can stat the unix socket in the state directory of the given service.
+func ServiceExists(service types.ServiceType, stateDir string) bool {
+	socketPath := filepath.Join(stateDir, "control.socket")
+	if service == types.LXD {
+		socketPath = filepath.Join(stateDir, "unix.socket")
+	}
+
+	_, err := os.Stat(socketPath)
+
+	return err == nil
 }
