@@ -340,7 +340,7 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 			}
 
 			// Sleep for a few seconds before retrying.
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Second)
 		}
 	}
 
