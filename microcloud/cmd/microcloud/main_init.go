@@ -328,6 +328,107 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 	return totalPeers, nil
 }
 
+// selectPeers takes a list of mDNS records for peers and offers a selection based on a subnet.
+func selectPeers(s *service.ServiceHandler, givenSubnet *net.IPNet, autoSetup bool, peers map[string]mdns.ServerInfo) (map[string]mdns.ServerInfo, error) {
+	var err error
+	subnet := givenSubnet
+	if subnet == nil {
+		if net.ParseIP(s.Address).To4() != nil {
+			_, subnet, err = net.ParseCIDR(s.Address + "/24")
+		} else {
+			_, subnet, err = net.ParseCIDR(s.Address + "/64")
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("Failed to determine subnet from IP: %w", err)
+		}
+	}
+
+	if autoSetup {
+		networkPeers := map[string]mdns.ServerInfo{}
+		for peer, info := range peers {
+			found := false
+			for _, addrs := range info.Interfaces {
+				if found {
+					break
+				}
+
+				for _, addr := range addrs {
+					if subnet.Contains(net.ParseIP(addr)) {
+						info.Address = addr
+						networkPeers[peer] = info
+						found = true
+
+						break
+					}
+				}
+			}
+		}
+
+		return networkPeers, nil
+	}
+
+	if givenSubnet == nil {
+		subnetStr, err := cli.AskString(fmt.Sprintf("Please choose the subnet for MicroCloud (all/[subnet]) [default=%s]: ", subnet.String()), subnet.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if subnetStr == "all" {
+			subnet = nil
+		} else if subnetStr != subnet.String() {
+			_, subnet, err = net.ParseCIDR(subnetStr)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid subnet: %q", err)
+			}
+		}
+	}
+
+	header := []string{"NAME", "IFACE", "ADDR"}
+	data := [][]string{}
+	for _, info := range peers {
+		for iface, addrs := range info.Interfaces {
+			for _, addr := range addrs {
+				if subnet == nil || subnet.Contains(net.ParseIP(addr)) {
+					data = append(data, []string{info.Name, iface, addr})
+				}
+			}
+		}
+	}
+
+	sort.Sort(utils.ByName(data))
+	table := NewSelectableTable(header, data)
+
+	// map the rows (as strings) to the associated row.
+	rowMap := make(map[string][]string, len(data))
+	for i, r := range table.rows {
+		rowMap[r] = data[i]
+	}
+
+	fmt.Println("Select exactly one address for each cluster member:")
+	selectedRows, err := table.Render(table.rows)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
+	}
+
+	joinConfig := make(map[string]mdns.ServerInfo, len(selectedRows))
+	for _, entry := range selectedRows {
+		name := rowMap[entry][0]
+		addr := rowMap[entry][2]
+
+		_, ok := joinConfig[name]
+		if ok {
+			return nil, fmt.Errorf("Expected only one selection for peer %q", name)
+		}
+
+		info := peers[name]
+		info.Address = addr
+		joinConfig[name] = info
+	}
+
+	return joinConfig, nil
+}
+
 func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
 	joinConfig := make(map[string]types.ServicesPut, len(peers))
 	secrets := make(map[string]string, len(peers))
