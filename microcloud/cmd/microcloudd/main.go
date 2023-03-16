@@ -86,6 +86,18 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		services = append(services, *ceph)
 	}
 
+	_, err = microcluster.App(context.Background(), microcluster.Args{StateDir: api.MicroOVNDir})
+	if err != nil {
+		logger.Info("Skipping MicroOVN service, could not detect state directory")
+	} else {
+		ovn, err := service.NewOVNService(context.Background(), name, addr, c.flagMicroCloudDir)
+		if err != nil {
+			return err
+		}
+
+		services = append(services, *ovn)
+	}
+
 	service := service.NewServiceHandler(name, addr, services...)
 	return cloud.StartCloud(service)
 }
