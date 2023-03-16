@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	// OVNPort is the efault MicroOVN port.
+	OVNPort int = 6443
+
 	// CephPort is the efault MicroCeph port.
 	CephPort int = 7443
 
@@ -44,6 +47,9 @@ const (
 
 	// MicroCeph represents a MicroCeph service.
 	MicroCeph ServiceType = "MicroCeph"
+
+	// MicroOVN represents a MicroOVN service.
+	MicroOVN ServiceType = "MicroOVN"
 
 	// LXD represents a LXD service.
 	LXD ServiceType = "LXD"

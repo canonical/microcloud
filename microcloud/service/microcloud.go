@@ -42,6 +42,7 @@ func (s *CloudService) StartCloud(service *ServiceHandler) error {
 		api.Disks,
 		api.LXDProxy,
 		api.CephProxy,
+		api.OVNProxy,
 	}
 
 	return s.client.Start(endpoints, nil, &config.Hooks{
