@@ -18,13 +18,19 @@ import (
 var LXDProxy = Proxy("lxd", "services/lxd/{rest:.*}", lxdHandler)
 
 // CephProxy proxies all requests from MicroCloud to MicroCeph.
-var CephProxy = Proxy("microceph", "services/microceph/{rest:.*}", cephHandler)
+var CephProxy = Proxy("microceph", "services/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
+
+// OVNProxy proxies all requests from MicroCloud to MicroOVN.
+var OVNProxy = Proxy("microovn", "services/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
 
 // LXDDir is the path to the state directory of the LXD snap.
 const LXDDir = "/var/snap/lxd/common/lxd"
 
 // MicroCephDir is the path to the state directory of the MicroCeph snap.
 const MicroCephDir = "/var/snap/microceph/common/state"
+
+// MicroOVNDir is the path to the state directory of the MicroOVN snap.
+const MicroOVNDir = "/var/snap/microovn/common/state"
 
 // Proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
 func Proxy(name, path string, handler func(*state.State, *http.Request) response.Response) rest.Endpoint {
@@ -94,33 +100,35 @@ func lxdHandler(s *state.State, r *http.Request) response.Response {
 	return NewResponse(resp)
 }
 
-// cephHandler forwards a request made to /1.0/services/ceph/<rest> to /1.0/<rest> on the MicroCeph unix socket.
-func cephHandler(s *state.State, r *http.Request) response.Response {
-	_, path, ok := strings.Cut(r.URL.Path, "/1.0/services/microceph")
-	if !ok {
-		return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
-	}
+// microHandler forwards a request made to /1.0/services/<microcluster-service>/<rest> to /1.0/<rest> on the service unix socket.
+func microHandler(service string, stateDir string) func(*state.State, *http.Request) response.Response {
+	return func(s *state.State, r *http.Request) response.Response {
+		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
+		if !ok {
+			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
+		}
 
-	// Must unset the RequestURI. It is an error to set this in a client request.
-	r.RequestURI = ""
-	r.URL.Path = path
-	r.URL.Scheme = "http"
-	r.URL.Host = filepath.Join(MicroCephDir, "control.socket")
-	r.Host = r.URL.Host
-	client, err := microcluster.App(s.Context, microcluster.Args{StateDir: MicroCephDir})
-	if err != nil {
-		return response.SmartError(err)
-	}
+		// Must unset the RequestURI. It is an error to set this in a client request.
+		r.RequestURI = ""
+		r.URL.Path = path
+		r.URL.Scheme = "http"
+		r.URL.Host = filepath.Join(stateDir, "control.socket")
+		r.Host = r.URL.Host
+		client, err := microcluster.App(s.Context, microcluster.Args{StateDir: stateDir})
+		if err != nil {
+			return response.SmartError(err)
+		}
 
-	c, err := client.LocalClient()
-	if err != nil {
-		return response.SmartError(err)
-	}
+		c, err := client.LocalClient()
+		if err != nil {
+			return response.SmartError(err)
+		}
 
-	resp, err := c.Do(r)
-	if err != nil {
-		return response.SmartError(err)
-	}
+		resp, err := c.Do(r)
+		if err != nil {
+			return response.SmartError(err)
+		}
 
-	return NewResponse(resp)
+		return NewResponse(resp)
+	}
 }
