@@ -1,134 +1,99 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
-	"strings"
 
-	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/response"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared/logger"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/service"
 )
 
-// LXDProxy proxies all requests from MicroCloud to LXD.
-var LXDProxy = Proxy("lxd", "services/lxd/{rest:.*}", lxdHandler)
+// endpointHandler is just a convenience for writing clean return types.
+type endpointHandler func(*state.State, *http.Request) response.Response
 
-// CephProxy proxies all requests from MicroCloud to MicroCeph.
-var CephProxy = Proxy("microceph", "services/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
+// authHandler ensures a request has been authenticated with the mDNS broadcast secret.
+func authHandler(sh *service.ServiceHandler, f endpointHandler) endpointHandler {
+	return func(s *state.State, r *http.Request) response.Response {
+		if r.RemoteAddr == "@" {
+			logger.Debug("Allowing unauthenticated request through unix socket")
 
-// OVNProxy proxies all requests from MicroCloud to MicroOVN.
-var OVNProxy = Proxy("microovn", "services/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
+			return f(s, r)
+		}
 
-// LXDDir is the path to the state directory of the LXD snap.
-const LXDDir = "/var/snap/lxd/common/lxd"
+		secret := r.Header.Get("X-MicroCloud-Auth")
+		if secret == "" {
+			return response.BadRequest(fmt.Errorf("No auth secret in response"))
+		}
 
-// MicroCephDir is the path to the state directory of the MicroCeph snap.
-const MicroCephDir = "/var/snap/microceph/common/state"
+		if sh.AuthSecret == "" {
+			return response.BadRequest(fmt.Errorf("No generated auth secret"))
+		}
 
-// MicroOVNDir is the path to the state directory of the MicroOVN snap.
-const MicroOVNDir = "/var/snap/microovn/common/state"
+		if sh.AuthSecret != secret {
+			return response.SmartError(fmt.Errorf("Request secret does not match, ignoring request"))
+		}
 
-// Proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
-func Proxy(name, path string, handler func(*state.State, *http.Request) response.Response) rest.Endpoint {
-	return rest.Endpoint{
-		Name: name,
-		Path: path,
-
-		Get:    rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
-		Put:    rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
-		Post:   rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
-		Patch:  rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
-		Delete: rest.EndpointAction{Handler: handler, AllowUntrusted: true, ProxyTarget: true},
+		return f(s, r)
 	}
 }
 
-// lxdHandler forwards a request made to /1.0/services/lxd/<rest> to /1.0/<rest> on the LXD unix socket.
-func lxdHandler(s *state.State, r *http.Request) response.Response {
-	_, path, ok := strings.Cut(r.URL.Path, "/1.0/services/lxd")
-	if !ok {
-		return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
+// ServicesCmd represents the /1.0/services API on MicroCloud.
+var ServicesCmd = func(sh *service.ServiceHandler) rest.Endpoint {
+	return rest.Endpoint{
+		AllowedBeforeInit: true,
+		Name:              "services",
+		Path:              "services",
+
+		Put: rest.EndpointAction{Handler: authHandler(sh, servicesPut), AllowUntrusted: true, ProxyTarget: true},
 	}
+}
 
-	if r.Header.Get("Upgrade") == "websocket" {
-		client, err := lxd.ConnectLXDUnix(filepath.Join(LXDDir, "unix.socket"), nil)
-		if err != nil {
-			return response.SmartError(fmt.Errorf("Failed to connect to local LXD: %w", err))
-		}
+// servicesPut updates the cluster status of the MicroCloud peer.
+func servicesPut(s *state.State, r *http.Request) response.Response {
+	// Parse the request.
+	req := types.ServicesPut{}
 
-		// RawWebsocket assigns /1.0, so remove it here.
-		_, path, _ = strings.Cut(path, "/1.0")
-		ws, err := client.RawWebsocket(path)
-		if err != nil {
-			return response.SmartError(err)
-		}
-
-		// Perform the websocket proxy.
-		return response.ManualResponse(func(w http.ResponseWriter) error {
-			conn, err := shared.WebsocketUpgrader.Upgrade(w, r, nil)
-			if err != nil {
-				return err
-			}
-
-			defer conn.Close()
-
-			<-shared.WebsocketProxy(ws, conn)
-
-			return nil
-		})
-	}
-
-	// Must unset the RequestURI. It is an error to set this in a client request.
-	r.RequestURI = ""
-	r.URL.Path = path
-	r.URL.Scheme = "http"
-	r.URL.Host = filepath.Join(LXDDir, "unix.socket")
-	r.Host = r.URL.Host
-	client, err := lxd.ConnectLXDUnix(filepath.Join(LXDDir, "unix.socket"), nil)
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		return response.SmartError(fmt.Errorf("Failed to connect to local LXD: %w", err))
+		return response.BadRequest(err)
 	}
 
-	resp, err := client.DoHTTP(r)
+	joinConfigs := map[types.ServiceType]service.JoinConfig{}
+	services := make([]types.ServiceType, len(req.Tokens))
+	for i, cfg := range req.Tokens {
+		services[i] = types.ServiceType(cfg.Service)
+		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig}
+	}
+
+	// Default to the first iface if none specified.
+	addr := util.NetworkInterfaceAddress()
+	if req.Address != "" {
+		addr = req.Address
+	}
+
+	sh, err := service.NewServiceHandler(s.Name(), addr, s.OS.StateDir, false, false, services...)
 	if err != nil {
 		return response.SmartError(err)
 	}
 
-	return NewResponse(resp)
-}
-
-// microHandler forwards a request made to /1.0/services/<microcluster-service>/<rest> to /1.0/<rest> on the service unix socket.
-func microHandler(service string, stateDir string) func(*state.State, *http.Request) response.Response {
-	return func(s *state.State, r *http.Request) response.Response {
-		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
-		if !ok {
-			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
-		}
-
-		// Must unset the RequestURI. It is an error to set this in a client request.
-		r.RequestURI = ""
-		r.URL.Path = path
-		r.URL.Scheme = "http"
-		r.URL.Host = filepath.Join(stateDir, "control.socket")
-		r.Host = r.URL.Host
-		client, err := microcluster.App(s.Context, microcluster.Args{StateDir: stateDir})
+	err = sh.RunConcurrent(true, func(s service.Service) error {
+		err = s.Join(joinConfigs[s.Type()])
 		if err != nil {
-			return response.SmartError(err)
+			return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
 		}
 
-		c, err := client.LocalClient()
-		if err != nil {
-			return response.SmartError(err)
-		}
-
-		resp, err := c.Do(r)
-		if err != nil {
-			return response.SmartError(err)
-		}
-
-		return NewResponse(resp)
+		return nil
+	})
+	if err != nil {
+		return response.SmartError(err)
 	}
+
+	return response.EmptySyncResponse
 }

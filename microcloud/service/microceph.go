@@ -11,6 +11,8 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // CephService is a MicroCeph service.
@@ -45,9 +47,30 @@ func NewCephService(ctx context.Context, name string, addr string, cloudDir stri
 	}, nil
 }
 
-// client returns a client to the Ceph unix socket.
-func (s CephService) Client() (*client.Client, error) {
-	return s.m.LocalClient()
+// Client returns a client to the Ceph unix socket. If target is specified, it will be added to the query params.
+// If secret is specified, it will be added to the request header.
+func (s CephService) Client(target string, secret string) (*client.Client, error) {
+	c, err := s.m.LocalClient()
+	if err != nil {
+		return nil, err
+	}
+
+	if target != "" {
+		c = c.UseTarget(target)
+	}
+
+	if secret != "" {
+		c.Client.Client.Transport.(*http.Transport).Proxy = func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+			if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
+				r.URL.Path = "/1.0/services/microceph" + r.URL.Path
+			}
+
+			return shared.ProxyFromEnvironment(r)
+		}
+	}
+
+	return c, nil
 }
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
@@ -61,13 +84,13 @@ func (s CephService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CephService) Join(token string) error {
-	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, 5*time.Minute)
+func (s CephService) Join(joinConfig JoinConfig) error {
+	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s CephService) ClusterMembers() (map[string]string, error) {
-	client, err := s.Client()
+	client, err := s.Client("", "")
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +109,8 @@ func (s CephService) ClusterMembers() (map[string]string, error) {
 }
 
 // Type returns the type of Service.
-func (s CephService) Type() ServiceType {
-	return MicroCeph
+func (s CephService) Type() types.ServiceType {
+	return types.MicroCeph
 }
 
 // Name returns the name of this Service instance.

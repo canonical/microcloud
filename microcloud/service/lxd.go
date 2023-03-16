@@ -10,12 +10,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // LXDService is a LXD service.
@@ -43,7 +44,7 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 }
 
 // client returns a client to the LXD unix socket.
-func (s LXDService) client() (lxd.InstanceServer, error) {
+func (s LXDService) client(secret string) (lxd.InstanceServer, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -52,6 +53,7 @@ func (s LXDService) client() (lxd.InstanceServer, error) {
 	return lxd.ConnectLXDUnix(s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
 		HTTPClient: c.Client.Client,
 		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
 			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
 				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
 			}
@@ -61,11 +63,38 @@ func (s LXDService) client() (lxd.InstanceServer, error) {
 	})
 }
 
+// remoteClient returns an https client for the given address:port.
+func (s LXDService) remoteClient(secret string, address string, port int) (lxd.InstanceServer, error) {
+	c, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, port))
+	if err != nil {
+		return nil, err
+	}
+
+	remoteURL := c.URL()
+	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
+		HTTPClient:         c.Client.Client,
+		InsecureSkipVerify: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
+				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
+			}
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
 	server := api.ServerPut{Config: map[string]any{"core.https_address": addr, "cluster.https_address": addr}}
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return err
 	}
@@ -144,13 +173,14 @@ func (s LXDService) Bootstrap() error {
 }
 
 // Join joins a cluster with the given token.
-func (s LXDService) Join(token string) error {
-	config, err := s.configFromToken(token)
+func (s LXDService) Join(joinConfig JoinConfig) error {
+	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err
 	}
 
-	client, err := s.client()
+	config.Cluster.MemberConfig = joinConfig.LXDConfig
+	client, err := s.client("")
 	if err != nil {
 		return err
 	}
@@ -170,7 +200,7 @@ func (s LXDService) Join(token string) error {
 
 // IssueToken issues a token for the given peer.
 func (s LXDService) IssueToken(peer string) (string, error) {
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return "", err
 	}
@@ -191,7 +221,7 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s LXDService) ClusterMembers() (map[string]string, error) {
-	client, err := s.client()
+	client, err := s.client("")
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +240,8 @@ func (s LXDService) ClusterMembers() (map[string]string, error) {
 }
 
 // Type returns the type of Service.
-func (s LXDService) Type() ServiceType {
-	return LXD
+func (s LXDService) Type() types.ServiceType {
+	return types.LXD
 }
 
 // Name returns the name of this Service instance.
@@ -229,38 +259,39 @@ func (s LXDService) Port() int {
 	return s.port
 }
 
-// AddLocalPools adds local pending zfs storage pools on the target peers, with the given source disks.
-func (s *LXDService) AddLocalPools(disks map[string]string) error {
-	c, err := s.client()
+// AddLocalPools adds local zfs storage pools on the target peers, with the given source disks.
+func (s *LXDService) AddLocalPool(source string, wipe bool) error {
+	c, err := s.client("")
 	if err != nil {
 		return err
 	}
 
-	for target, source := range disks {
-		err := c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
-			Name:   "local",
-			Driver: "zfs",
-			StoragePoolPut: api.StoragePoolPut{
-				Config: map[string]string{"source": source},
-			},
-		})
-
-		if err != nil {
-			return err
-		}
+	config := map[string]string{"source": source}
+	if wipe {
+		config["source.wipe"] = "true"
 	}
 
-	return nil
+	return c.CreateStoragePool(api.StoragePoolsPost{
+		Name:   "local",
+		Driver: "zfs",
+		StoragePoolPut: api.StoragePoolPut{
+			Config: config,
+		},
+	})
 }
 
 // AddRemotePools adds pending Ceph storage pools for each of the target peers.
-func (s *LXDService) AddRemotePools(targets []string) error {
-	c, err := s.client()
-	if err != nil {
-		return err
+func (s *LXDService) AddRemotePools(targets map[string]string) error {
+	if len(targets) == 0 {
+		return nil
 	}
 
-	for _, target := range targets {
+	for target, secret := range targets {
+		c, err := s.client(secret)
+		if err != nil {
+			return err
+		}
+
 		err = c.UseTarget(target).CreateStoragePool(api.StoragePoolsPost{
 			Name:   "remote",
 			Driver: "ceph",
@@ -278,36 +309,64 @@ func (s *LXDService) AddRemotePools(targets []string) error {
 	return nil
 }
 
-// GetResources returns the system resources for the LXD target.
-func (s *LXDService) GetResources(target string) (*api.Resources, error) {
-	c, err := s.client()
-	if err != nil {
-		return nil, err
+// HasExtension checks if the server supports the API extension.
+func (s *LXDService) HasExtension(useRemote bool, target string, address string, secret string, apiExtension string) (bool, error) {
+	var err error
+	var client lxd.InstanceServer
+	if !useRemote {
+		client, err = s.client(secret)
+		if err != nil {
+			return false, err
+		}
+
+		if target != s.Name() {
+			client = client.UseTarget(target)
+		}
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return c.UseTarget(target).GetServerResources()
+	return client.HasExtension(apiExtension), nil
 }
 
-// WipeDisk wipes the disk with the given device ID>
-func (s *LXDService) WipeDisk(target string, deviceID string) error {
-	c, err := s.m.LocalClient()
-	if err != nil {
-		return err
+// GetResources returns the system resources for the LXD target.
+// As we cannot guarantee that LXD is available on this machine, the request is
+// forwarded through MicroCloud on via the ListenPort argument.
+func (s *LXDService) GetResources(useRemote bool, target string, address string, secret string) (*api.Resources, error) {
+	var err error
+	var client lxd.InstanceServer
+	if !useRemote {
+		client, err = s.client(secret)
+		if err != nil {
+			return nil, err
+		}
+
+		if target != s.Name() {
+			client = client.UseTarget(target)
+		}
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return client.WipeDisk(context.Background(), c.UseTarget(target), deviceID)
+	return client.GetServerResources()
 }
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
+func (s *LXDService) Configure(addedLocalPool bool, addedRemotePool bool) error {
 	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
-	c, err := s.client()
+	c, err := s.client("")
 	if err != nil {
 		return err
 	}
 
-	if addRemotePool {
+	if addedRemotePool {
 		storage := api.StoragePoolsPost{
 			Name:   "remote",
 			Driver: "ceph",
@@ -326,16 +385,8 @@ func (s *LXDService) Configure(addLocalPool bool, addRemotePool bool) error {
 		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
 	}
 
-	if addLocalPool {
-		storage := api.StoragePoolsPost{Name: "local", Driver: "zfs"}
-		err = c.CreateStoragePool(storage)
-		if err != nil {
-			return err
-		}
-
-		if profile.Devices["root"] == nil {
-			profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
-		}
+	if addedLocalPool && profile.Devices["root"] == nil {
+		profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
 	}
 
 	profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}

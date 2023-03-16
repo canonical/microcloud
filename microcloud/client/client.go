@@ -7,16 +7,18 @@ import (
 
 	"github.com/canonical/microcluster/client"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
-// WipeDisk wipes the local disk with the given device ID.
-func WipeDisk(ctx context.Context, c *client.Client, deviceID string) error {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*120)
+// JoinServices sends join information to initiate the cluster join process.
+func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut) error {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	err := c.Query(queryCtx, "PUT", api.NewURL().Path("services", "disks", deviceID), nil, nil)
+	err := c.Query(queryCtx, "PUT", api.NewURL().Path("services"), data, nil)
 	if err != nil {
-		return fmt.Errorf("Failed to wipe disk: %w", err)
+		return fmt.Errorf("Failed to update cluster status of services: %w", err)
 	}
 
 	return nil

@@ -2,14 +2,22 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
 	"github.com/lxc/lxd/lxd/util"
+	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
-	"github.com/canonical/microcloud/microcloud/api"
+	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/client"
 )
 
 // CloudService is a MicroCloud service.
@@ -21,9 +29,21 @@ type CloudService struct {
 	port    int
 }
 
+// JoinConfig represents configuration for cluster joining.
+type JoinConfig struct {
+	Token     string
+	LXDConfig []api.ClusterMemberConfigKey
+}
+
+// joinResponse is returned in a channel after sending a join request to a peer.
+type joinResponse struct {
+	Name  string
+	Error error
+}
+
 // NewCloudService creates a new MicroCloud service with a client attached.
 func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir})
+	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.Itoa(CloudPort)})
 	if err != nil {
 		return nil, err
 	}
@@ -37,16 +57,10 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(service *ServiceHandler) error {
-	endpoints := []rest.Endpoint{
-		api.Disks,
-		api.LXDProxy,
-		api.CephProxy,
-		api.OVNProxy,
-	}
-
+func (s *CloudService) StartCloud(service *ServiceHandler, endpoints []rest.Endpoint) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
 		OnBootstrap: service.Bootstrap,
+		OnJoin:      service.Bootstrap,
 		OnStart:     service.Start,
 	})
 }
@@ -62,8 +76,41 @@ func (s CloudService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CloudService) Join(token string) error {
-	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), token, 5*time.Minute)
+func (s CloudService) Join(joinConfig JoinConfig) error {
+	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
+}
+
+// RequestJoin notifies the peers that that should begin the join operation.
+func (s CloudService) RequestJoin(ctx context.Context, secrets map[string]string, joinConfig map[string]types.ServicesPut) chan joinResponse {
+	joinedChan := make(chan joinResponse, len(joinConfig))
+	for peer, cfg := range joinConfig {
+		go func(peer string, cfg types.ServicesPut) {
+			if secrets[peer] == "" {
+				joinedChan <- joinResponse{Name: peer, Error: fmt.Errorf("No auth secret found for peer")}
+				return
+			}
+
+			c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(cfg.Address, CloudPort))
+			if err != nil {
+				joinedChan <- joinResponse{Name: peer, Error: err}
+				return
+			}
+
+			c.Client.Client.Transport = &http.Transport{
+				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+				DisableKeepAlives: true,
+				Proxy: func(r *http.Request) (*url.URL, error) {
+					r.Header.Set("X-MicroCloud-Auth", secrets[peer])
+
+					return shared.ProxyFromEnvironment(r)
+				},
+			}
+
+			joinedChan <- joinResponse{Name: peer, Error: client.JoinServices(ctx, c, cfg)}
+		}(peer, cfg)
+	}
+
+	return joinedChan
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
@@ -87,8 +134,8 @@ func (s CloudService) ClusterMembers() (map[string]string, error) {
 }
 
 // Type returns the type of Service.
-func (s CloudService) Type() ServiceType {
-	return MicroCloud
+func (s CloudService) Type() types.ServiceType {
+	return types.MicroCloud
 }
 
 // Name returns the name of this Service instance.
