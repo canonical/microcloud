@@ -32,7 +32,7 @@ const (
 
 // ServiceHandler holds a set of services and an mdns server for communication between them.
 type ServiceHandler struct {
-	server *mdns.Server
+	servers []*mdns.Server
 
 	Services map[types.ServiceType]Service
 	Name     string
@@ -71,6 +71,7 @@ func NewServiceHandler(name string, addr string, stateDir string, debug bool, ve
 	}
 
 	return &ServiceHandler{
+		servers:  []*mdns.Server{},
 		Services: servicesMap,
 		Name:     name,
 		Address:  addr,
@@ -97,22 +98,32 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		return err
 	}
 
+	networks, err := cloudMDNS.GetNetworkInfo()
+	if err != nil {
+		return err
+	}
+
 	info := cloudMDNS.ServerInfo{
 		Version:    cloudMDNS.Version,
 		Name:       s.Name,
-		Address:    s.Address,
 		Services:   services,
+		Networks:   networks,
 		AuthSecret: s.AuthSecret,
 	}
 
-	bytes, err := json.Marshal(info)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal server info: %w", err)
-	}
+	for _, net := range info.Networks {
+		info.Address = net.Address
+		bytes, err := json.Marshal(info)
+		if err != nil {
+			return fmt.Errorf("Failed to marshal server info: %w", err)
+		}
 
-	s.server, err = cloudMDNS.NewBroadcast(s.Name, s.Address, s.Port, bytes)
-	if err != nil {
-		return err
+		server, err := cloudMDNS.NewBroadcast(s.Name, net.Address, s.Port, bytes)
+		if err != nil {
+			return err
+		}
+
+		s.servers = append(s.servers, server)
 	}
 
 	return nil
@@ -120,9 +131,11 @@ func (s *ServiceHandler) Start(state *state.State) error {
 
 // Bootstrap stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
 func (s *ServiceHandler) Bootstrap(state *state.State) error {
-	err := s.server.Shutdown()
-	if err != nil {
-		return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
+	for _, server := range s.servers {
+		err := server.Shutdown()
+		if err != nil {
+			return fmt.Errorf("Failed to shut down %q server: %w", cloudMDNS.ClusterService, err)
+		}
 	}
 
 	return nil

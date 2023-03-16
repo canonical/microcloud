@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"strconv"
 	"strings"
 
@@ -20,8 +21,15 @@ type ServerInfo struct {
 	Version    string
 	Name       string
 	Address    string
+	Networks   []NetworkInfo
 	Services   []types.ServiceType
 	AuthSecret string
+}
+
+// NetworkInfo represents information about a network interface broadcast by a MicroCloud peer.
+type NetworkInfo struct {
+	Interface string
+	Address   string
 }
 
 // forwardingWriter forwards the mdns log message to LXD's logger package.
@@ -121,4 +129,39 @@ func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry
 	close(entriesCh)
 
 	return entries, nil
+}
+
+// GetNetworkInfo returns a slice of NetworkInfo to be included in the mDNS broadcast.
+func GetNetworkInfo() ([]NetworkInfo, error) {
+	networks := []NetworkInfo{}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		if len(addrs) == 0 {
+			continue
+		}
+
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if !ipNet.IP.IsGlobalUnicast() {
+				continue
+			}
+
+			networks = append(networks, NetworkInfo{Interface: iface.Name, Address: ipNet.IP.String()})
+		}
+	}
+
+	return networks, nil
 }
