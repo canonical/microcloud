@@ -109,6 +109,26 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var newPeers map[string]mdns.ServerInfo
+	askRetry("Retry selecting peers?", c.flagAutoSetup, func() error {
+		// Add the local member to the list of peers so we can select disks.
+		newPeers, err = selectPeers(s, subnet, c.flagAutoSetup, peers)
+
+		if len(newPeers) < 2 {
+			return fmt.Errorf("At least 2 additional cluster members are required, got %d", len(newPeers))
+		}
+
+		return err
+	})
+
+	if newPeers != nil {
+		peers = newPeers
+	}
+
+	if len(peers) < 2 {
+		return fmt.Errorf("Aborting cluster initialization. Not enough members")
+	}
+
 	var localDisks map[string][]lxdAPI.ClusterMemberConfigKey
 	wantsDisks := true
 	if !c.flagAutoSetup {

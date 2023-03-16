@@ -129,6 +129,26 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var newPeers map[string]mdns.ServerInfo
+	askRetry("Retry selecting peers?", c.flagAutoSetup, func() error {
+		// Add the local member to the list of peers so we can select disks.
+		newPeers, err = selectPeers(s, subnet, c.flagAutoSetup, peers)
+
+		if len(newPeers) < 2 {
+			return fmt.Errorf("At least 2 additional cluster members are required, got %d", len(newPeers))
+		}
+
+		return err
+	})
+
+	if newPeers != nil {
+		peers = newPeers
+	}
+
+	if len(peers) < 2 {
+		return fmt.Errorf("Aborting cluster initialization. Not enough members")
+	}
+
 	fmt.Println("Initializing a new cluster")
 	err = s.RunConcurrent(true, func(s service.Service) error {
 		err := s.Bootstrap()
@@ -305,7 +325,10 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 					}
 
 					if !skipPeers[peer] {
-						fmt.Printf(" Found %q at %q\n", peer, info.Address)
+						fmt.Printf(" Found %q\n", peer)
+
+						// Unset info.Address so we can supply the one we select.
+						info.Address = ""
 						totalPeers[peer] = info
 					}
 				}
