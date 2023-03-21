@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
+	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -86,12 +87,17 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		return nil
 	}
 
+	// Attempt to wake up LXD so it can generate certificates already.
+	d, err := lxd.ConnectLXDUnix("/var/snap/lxd/common/lxd/unix.socket", nil)
+	if err == nil {
+		_, _, _ = d.GetServer()
+	}
+
 	services := make([]types.ServiceType, 0, len(s.Services))
 	for service := range s.Services {
 		services = append(services, service)
 	}
 
-	var err error
 	s.AuthSecret, err = shared.RandomCryptoString()
 	if err != nil {
 		return err
