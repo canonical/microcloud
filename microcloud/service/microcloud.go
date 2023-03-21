@@ -67,7 +67,7 @@ func (s *CloudService) StartCloud(service *ServiceHandler, endpoints []rest.Endp
 
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
 func (s CloudService) Bootstrap() error {
-	return s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), time.Second*120)
+	return s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
 }
 
 // IssueToken issues a token for the given peer.

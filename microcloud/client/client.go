@@ -13,7 +13,7 @@ import (
 
 // JoinServices sends join information to initiate the cluster join process.
 func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut) error {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*120)
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	err := c.Query(queryCtx, "PUT", api.NewURL().Path("services"), data, nil)
