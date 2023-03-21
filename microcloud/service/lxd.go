@@ -92,8 +92,6 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap() error {
-	addr := util.CanonicalNetworkAddress(s.address, s.port)
-	server := api.ServerPut{Config: map[string]any{"core.https_address": addr, "cluster.https_address": addr}}
 	client, err := s.client("")
 	if err != nil {
 		return err
@@ -105,15 +103,11 @@ func (s LXDService) Bootstrap() error {
 	}
 
 	// Prepare the update.
-	newServer := api.ServerPut{}
-	err = shared.DeepCopy(currentServer.Writable(), &newServer)
-	if err != nil {
-		return fmt.Errorf("Failed to copy server configuration: %w", err)
-	}
+	addr := util.CanonicalNetworkAddress(s.address, s.port)
 
-	for k, v := range server.Config {
-		newServer.Config[k] = fmt.Sprintf("%v", v)
-	}
+	newServer := currentServer.Writable()
+	newServer.Config["core.https_address"] = addr
+	newServer.Config["cluster.https_address"] = addr
 
 	// Apply it.
 	err = client.UpdateServer(newServer, etag)
@@ -150,6 +144,7 @@ func (s LXDService) Bootstrap() error {
 		return err
 	}
 
+	// Enable clustering.
 	currentCluster, etag, err := client.GetCluster()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve current cluster config: %w", err)
@@ -159,7 +154,14 @@ func (s LXDService) Bootstrap() error {
 		return fmt.Errorf("This LXD server is already clustered")
 	}
 
-	op, err := client.UpdateCluster(api.ClusterPut{Cluster: api.Cluster{ServerName: s.name, Enabled: true}}, etag)
+	cluster := api.ClusterPut{
+		Cluster: api.Cluster{
+			ServerName: s.name,
+			Enabled: true,
+		},
+	}
+
+	op, err := client.UpdateCluster(cluster, etag)
 	if err != nil {
 		return fmt.Errorf("Failed to enable clustering on local LXD: %w", err)
 	}
