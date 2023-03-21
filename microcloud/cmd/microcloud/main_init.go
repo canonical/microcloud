@@ -583,7 +583,6 @@ func askLocalPool(peers map[string]mdns.ServerInfo, autoSetup bool, wipeAllDisks
 				memberConfig[target] = append(memberConfig[target], wipeDisk)
 			}
 		}
-
 	}
 
 	return memberConfig, nil
