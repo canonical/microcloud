@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/canonical/microcluster/microcluster"
 	lxdAPI "github.com/lxc/lxd/shared/api"
 	cli "github.com/lxc/lxd/shared/cmd"
@@ -98,7 +99,26 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var localDisks map[string][]lxdAPI.ClusterMemberConfigKey
+	allResources := make(map[string]*lxdAPI.Resources, len(peers)+1)
+	for peer, info := range peers {
+		allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(true, peer, info.Address, info.AuthSecret)
+		if err != nil {
+			return fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
+		}
+	}
+
+	validDisks := make(map[string][]lxdAPI.ResourcesStorageDisk, len(allResources))
+	for peer, r := range allResources {
+		validDisks[peer] = make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
+		for _, disk := range r.Storage.Disks {
+			if len(disk.Partitions) == 0 {
+				validDisks[peer] = append(validDisks[peer], disk)
+			}
+		}
+	}
+
+	var diskConfig map[string][]lxdAPI.ClusterMemberConfigKey
+	var reservedDisks map[string]string
 	wantsDisks := true
 	if !c.flagAuto {
 		wantsDisks, err = cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
@@ -110,17 +130,13 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	if wantsDisks {
 		askRetry("Retry selecting disks?", c.flagAuto, func() error {
 			lxd := s.Services[types.LXD].(*service.LXDService)
-			localDisks, err = askLocalPool(peers, c.flagAuto, c.flagWipe, *lxd)
+			diskConfig, reservedDisks, err = askLocalPool(peers, validDisks, c.flagAuto, c.flagWipe, *lxd)
 
 			return err
 		})
 	}
 
-	err = AddPeers(s, peers, localDisks)
-	if err != nil {
-		return err
-	}
-
+	var cephDisks map[string][]cephTypes.DisksPost
 	if s.Services[types.MicroCeph] != nil {
 		ceph, ok := s.Services[types.MicroCeph].(*service.CephService)
 		if !ok {
@@ -129,32 +145,33 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 		wantsDisks = true
 		if !c.flagAuto {
-			wantsDisks, err = cli.AskBool("Would you like to add additional local disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
+			wantsDisks, err = cli.AskBool("Would you like to add additional disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
 			if err != nil {
 				return err
 			}
 		}
 
 		if wantsDisks {
-			reservedDisks := map[string]string{}
-			for peer, config := range localDisks {
-				for _, entry := range config {
-					if entry.Key == "source" {
-						reservedDisks[peer] = entry.Value
-						break
-					}
-				}
-			}
-
 			askRetry("Retry selecting disks?", c.flagAuto, func() error {
 				peers[status.Name] = mdns.ServerInfo{Name: status.Name, Address: addr}
 				defer delete(peers, status.Name)
 
-				lxd := s.Services[types.LXD].(*service.LXDService)
-				_, err = askRemotePool(peers, c.flagAuto, c.flagWipe, *ceph, *lxd, reservedDisks, false)
+				cephDisks, err = askRemotePool(peers, validDisks, c.flagAuto, c.flagWipe, *ceph, reservedDisks, false)
 
 				return err
 			})
+		}
+	}
+
+	err = AddPeers(s, peers, diskConfig)
+	if err != nil {
+		return err
+	}
+
+	if len(cephDisks) > 0 && s.Services[types.MicroCeph] != nil {
+		_, err = finalizeRemoteDisks(*s.Services[types.MicroCeph].(*service.CephService), cephDisks, peers)
+		if err != nil {
+			return err
 		}
 	}
 
