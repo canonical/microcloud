@@ -4,10 +4,10 @@ go 1.18
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
-	github.com/canonical/microceph/microceph v0.0.0-20230315192036-3be9c1a02ab9
-	github.com/canonical/microcluster v0.0.0-20230313210313-e1b810cb8513
+	github.com/canonical/microceph/microceph v0.0.0-20230321062645-8135a30e7461
+	github.com/canonical/microcluster v0.0.0-20230321051606-3575305b2dc2
 	github.com/hashicorp/mdns v1.0.5
-	github.com/lxc/lxd v0.0.0-20230320141943-afa20048df16
+	github.com/lxc/lxd v0.0.0-20230322094346-40077467cbbe
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.6.1
 )
@@ -38,7 +38,7 @@ require (
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
