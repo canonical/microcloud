@@ -112,21 +112,6 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Initializing a new cluster")
-	err = s.RunConcurrent(true, func(s service.Service) error {
-		err := s.Bootstrap()
-		if err != nil {
-			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
-		}
-
-		fmt.Printf(" Local %s is ready\n", s.Type())
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
 	allResources := make(map[string]*lxdAPI.Resources, len(peers)+1)
 	allResources[name], err = s.Services[types.LXD].(*service.LXDService).GetResources(false, "", "", "")
 	if err != nil {
@@ -200,6 +185,21 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				return nil
 			})
 		}
+	}
+
+	fmt.Println("Initializing a new cluster")
+	err = s.RunConcurrent(true, func(s service.Service) error {
+		err := s.Bootstrap()
+		if err != nil {
+			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
+		}
+
+		fmt.Printf(" Local %s is ready\n", s.Type())
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	err = AddPeers(s, peers, diskConfig)
