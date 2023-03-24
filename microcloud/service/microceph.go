@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxd/util"
@@ -85,7 +86,24 @@ func (s CephService) IssueToken(peer string) (string, error) {
 
 // Join joins a cluster with the given token.
 func (s CephService) Join(joinConfig JoinConfig) error {
-	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
+	err := s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	c, err := s.Client("", "")
+	if err != nil {
+		return err
+	}
+
+	for _, disk := range joinConfig.CephConfig {
+		err := cephClient.AddDisk(context.Background(), c, &disk)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.

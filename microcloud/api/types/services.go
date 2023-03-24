@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/canonical/microceph/microceph/api/types"
 	"github.com/lxc/lxd/shared/api"
 )
 
@@ -26,7 +27,8 @@ type ServicesPut struct {
 	Tokens  []ServiceToken `json:"tokens" yaml:"tokens"`
 	Address string         `json:"address" yaml:"address"`
 
-	LXDConfig []api.ClusterMemberConfigKey `json:"lxd_config" yaml:"lxd_config"`
+	LXDConfig  []api.ClusterMemberConfigKey `json:"lxd_config" yaml:"lxd_config"`
+	CephConfig []types.DisksPost            `json:"ceph_config" yaml:"ceph_config"`
 }
 
 // ServiceToken represents a join token for a service join request.

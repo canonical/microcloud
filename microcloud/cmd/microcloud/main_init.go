@@ -5,19 +5,17 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/lxc/lxd/lxc/utils"
+	"github.com/canonical/microceph/microceph/client"
+	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/lxc/lxd/lxd/util"
 	lxdAPI "github.com/lxc/lxd/shared/api"
 	cli "github.com/lxc/lxd/shared/cmd"
 	"github.com/lxc/lxd/shared/logger"
-	"github.com/lxc/lxd/shared/units"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -77,29 +75,9 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	missingServices := []string{}
-	for serviceType, stateDir := range optionalServices {
-		if service.ServiceExists(serviceType, stateDir) {
-			services = append(services, serviceType)
-		} else {
-			missingServices = append(missingServices, string(serviceType))
-		}
-	}
-
-	if len(missingServices) > 0 {
-		serviceStr := strings.Join(missingServices, ",")
-		if !c.flagAutoSetup {
-			skip, err := cli.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
-			if err != nil {
-				return err
-			}
-
-			if !skip {
-				return nil
-			}
-		}
-
-		logger.Infof("Skipping %s (could not detect service state directory)", serviceStr)
+	services, err = askMissingServices(services, optionalServices, c.flagAutoSetup)
+	if err != nil {
+		return err
 	}
 
 	s, err := service.NewServiceHandler(name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
@@ -112,79 +90,9 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	allResources := make(map[string]*lxdAPI.Resources, len(peers)+1)
-	allResources[name], err = s.Services[types.LXD].(*service.LXDService).GetResources(false, "", "", "")
+	lxdDisks, cephDisks, err := askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
 	if err != nil {
 		return err
-	}
-
-	for peer, info := range peers {
-		allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(true, peer, info.Address, info.AuthSecret)
-		if err != nil {
-			return fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
-		}
-	}
-
-	validDisks := make(map[string][]lxdAPI.ResourcesStorageDisk, len(allResources))
-	for peer, r := range allResources {
-		validDisks[peer] = make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				validDisks[peer] = append(validDisks[peer], disk)
-			}
-		}
-	}
-
-	var diskConfig map[string][]lxdAPI.ClusterMemberConfigKey
-	var reservedDisks map[string]string
-	wantsDisks := true
-	if !c.flagAutoSetup {
-		wantsDisks, err = cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
-	}
-
-	lxd := s.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		askRetry("Retry selecting disks?", c.flagAutoSetup, func() error {
-			// Add the local member to the list of peers so we can select disks.
-			peers[name] = mdns.ServerInfo{Name: name, Address: addr}
-			defer delete(peers, name)
-			diskConfig, reservedDisks, err = askLocalPool(peers, validDisks, c.flagAutoSetup, c.flagWipeAllDisks, *lxd)
-
-			return err
-		})
-	}
-
-	var cephDisks map[string][]cephTypes.DisksPost
-	if s.Services[types.MicroCeph] != nil {
-		ceph, ok := s.Services[types.MicroCeph].(*service.CephService)
-		if !ok {
-			return fmt.Errorf("Invalid MicroCeph service")
-		}
-
-		wantsDisks = true
-		if !c.flagAutoSetup {
-			wantsDisks, err = cli.AskBool("Would you like to add additional disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
-			if err != nil {
-				return err
-			}
-		}
-
-		if wantsDisks {
-			askRetry("Retry selecting disks?", c.flagAutoSetup, func() error {
-				peers[name] = mdns.ServerInfo{Name: name, Address: addr}
-				defer delete(peers, name)
-
-				cephDisks, err = askRemotePool(peers, validDisks, c.flagAutoSetup, c.flagWipeAllDisks, *ceph, reservedDisks, true)
-				if err != nil {
-					return err
-				}
-
-				return nil
-			})
-		}
 	}
 
 	fmt.Println("Initializing a new cluster")
@@ -202,20 +110,26 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = AddPeers(s, peers, diskConfig)
+	if len(cephDisks) > 0 {
+		c, err := s.Services[types.MicroCeph].(*service.CephService).Client("", "")
+		if err != nil {
+			return err
+		}
+
+		for _, disk := range cephDisks[s.Name] {
+			err = client.AddDisk(context.Background(), c, &disk)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = AddPeers(s, peers, lxdDisks, cephDisks)
 	if err != nil {
 		return err
 	}
 
-	var remotePoolTargets map[string]string
-	if len(cephDisks) > 0 && s.Services[types.MicroCeph] != nil {
-		remotePoolTargets, err = finalizeRemoteDisks(*s.Services[types.MicroCeph].(*service.CephService), cephDisks, peers)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = lxd.Configure(len(diskConfig) > 0, peers, remotePoolTargets)
+	err = postClusterSetup(true, s, peers, lxdDisks, cephDisks)
 	if err != nil {
 		return err
 	}
@@ -223,29 +137,6 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	fmt.Println("MicroCloud is ready")
 
 	return nil
-}
-
-// askRetry will print all errors and re-attempt the given function on user input.
-func askRetry(question string, autoSetup bool, f func() error) {
-	for {
-		retry := false
-		err := f()
-		if err != nil {
-			fmt.Println(err)
-
-			if !autoSetup {
-				retry, err = cli.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
-				if err != nil {
-					fmt.Println(err)
-					retry = false
-				}
-			}
-		}
-
-		if !retry {
-			break
-		}
-	}
 }
 
 func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.ServerInfo, error) {
@@ -333,14 +224,15 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 	return totalPeers, nil
 }
 
-func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
+func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
 	joinConfig := make(map[string]types.ServicesPut, len(peers))
 	secrets := make(map[string]string, len(peers))
 	for peer, info := range peers {
 		joinConfig[peer] = types.ServicesPut{
-			Tokens:    []types.ServiceToken{},
-			Address:   info.Address,
-			LXDConfig: localDisks[peer],
+			Tokens:     []types.ServiceToken{},
+			Address:    info.Address,
+			LXDConfig:  localDisks[peer],
+			CephConfig: cephDisks[peer],
 		}
 
 		secrets[peer] = info.AuthSecret
@@ -479,227 +371,43 @@ func waitForCluster(sh *service.ServiceHandler, secrets map[string]string, peers
 	}
 }
 
-func askLocalPool(peers map[string]mdns.ServerInfo, peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup bool, wipeAllDisks bool, lxd service.LXDService) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string]string, error) {
-	data := [][]string{}
-	selected := map[string]string{}
-	for peer, disks := range peerDisks {
-		// If there's no spare disk, then we can't add a remote storage pool, so skip local pool creation.
-		if autoSetup && len(disks) < 2 {
-			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", peer)
-
-			return nil, nil, nil
-		}
-
-		for _, disk := range disks {
-			devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
-			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
-
-			// Add the first disk for each peer.
-			if autoSetup {
-				_, ok := selected[peer]
-				if !ok {
-					selected[peer] = devicePath
-				}
-			}
-		}
+func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
+	cephTargets := map[string]string{}
+	for target := range cephDisks {
+		cephTargets[target] = peers[target].AuthSecret
 	}
 
-	toWipe := map[string]string{}
-	wipeable, err := lxd.HasExtension(false, lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
-	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to check for source.wipe extension: %w", err)
-	}
-
-	if !autoSetup {
-		sort.Sort(utils.ByName(data))
-		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-		table := NewSelectableTable(header, data)
-
-		// map the rows (as strings) to the associated row.
-		rowMap := make(map[string][]string, len(data))
-		for i, r := range table.rows {
-			rowMap[r] = data[i]
-		}
-
-		fmt.Println("Select exactly one disk from each cluster member:")
-		selectedRows, err := table.Render(table.rows)
+	ovnTargets := map[string]string{}
+	var ovnConfig string
+	if sh.Services[types.MicroOVN] != nil {
+		ovn := sh.Services[types.MicroOVN].(*service.OVNService)
+		c, err := ovn.Client()
 		if err != nil {
-			return nil, nil, fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
+			return err
 		}
 
-		for _, entry := range selectedRows {
-			target := rowMap[entry][0]
-			path := rowMap[entry][4]
-
-			_, ok := selected[target]
-			if ok {
-				return nil, nil, fmt.Errorf("Failed to add local storage pool: Selected more than one disk for target peer %q", target)
-			}
-
-			selected[target] = path
-		}
-
-		if !wipeAllDisks && wipeable {
-			fmt.Println("Select which disks to wipe:")
-			wipeRows, err := table.Render(selectedRows)
-			if err != nil {
-				return nil, nil, fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
-			}
-
-			for _, entry := range wipeRows {
-				target := rowMap[entry][0]
-				path := rowMap[entry][4]
-				toWipe[target] = path
-			}
-		}
-	}
-
-	if len(selected) == 0 {
-		return nil, nil, nil
-	}
-
-	if len(selected) != len(peers) {
-		return nil, nil, fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
-	}
-
-	if wipeAllDisks && wipeable {
-		toWipe = selected
-	}
-
-	wipeDisk := lxdAPI.ClusterMemberConfigKey{
-		Entity: "storage-pool",
-		Name:   "local",
-		Key:    "source.wipe",
-		Value:  "true",
-	}
-
-	sourceTemplate := lxdAPI.ClusterMemberConfigKey{
-		Entity: "storage-pool",
-		Name:   "local",
-		Key:    "source",
-	}
-
-	memberConfig := make(map[string][]lxdAPI.ClusterMemberConfigKey, len(selected))
-	for target, path := range selected {
-		if target == lxd.Name() {
-			err := lxd.AddLocalPool(path, wipeable && toWipe[target] != "")
-			if err != nil {
-				return nil, nil, fmt.Errorf("Failed to add pending local storage pool on peer %q: %w", target, err)
-			}
-		} else {
-			sourceTemplate.Value = path
-			memberConfig[target] = []lxdAPI.ClusterMemberConfigKey{sourceTemplate}
-			if toWipe[target] != "" {
-				memberConfig[target] = append(memberConfig[target], wipeDisk)
-			}
-		}
-	}
-
-	return memberConfig, selected, nil
-}
-
-func askRemotePool(peers map[string]mdns.ServerInfo, peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup bool, wipeAllDisks bool, ceph service.CephService, localDisks map[string]string, checkMinSize bool) (map[string][]cephTypes.DisksPost, error) {
-	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-	data := [][]string{}
-	for peer, disks := range peerDisks {
-		for _, disk := range disks {
-			// Skip any disks that have been reserved for the local storage pool.
-			devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
-			if localDisks != nil && localDisks[peer] == devicePath {
-				continue
-			}
-
-			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
-		}
-	}
-
-	if len(data) == 0 {
-		return nil, fmt.Errorf("Found no available disks")
-	}
-
-	sort.Sort(utils.ByName(data))
-	table := NewSelectableTable(header, data)
-	selected := table.rows
-	var toWipe []string
-	if wipeAllDisks {
-		toWipe = selected
-	}
-
-	// map the rows (as strings) to the associated row.
-	rowMap := make(map[string][]string, len(data))
-	for i, r := range table.rows {
-		rowMap[r] = data[i]
-	}
-
-	if len(table.rows) == 0 {
-		return nil, nil
-	}
-
-	if !autoSetup {
-		fmt.Println("Select from the available unpartitioned disks:")
-		var err error
-		selected, err = table.Render(table.rows)
+		services, err := ovnClient.GetServices(context.Background(), c)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to confirm disk selection: %w", err)
+			return err
 		}
 
-		if len(selected) > 0 && !wipeAllDisks {
-			fmt.Println("Select which disks to wipe:")
-			toWipe, err = table.Render(selected)
-			if err != nil {
-				return nil, fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
-			}
-		}
-	}
-
-	wipeMap := make(map[string]bool, len(toWipe))
-	for _, entry := range toWipe {
-		_, ok := rowMap[entry]
-		if ok {
-			wipeMap[entry] = true
-		}
-	}
-
-	diskMap := map[string][]cephTypes.DisksPost{}
-	for _, entry := range selected {
-		target := rowMap[entry][0]
-		path := rowMap[entry][4]
-
-		_, ok := diskMap[target]
-		if !ok {
-			diskMap[target] = []cephTypes.DisksPost{}
-		}
-
-		diskMap[target] = append(diskMap[target], cephTypes.DisksPost{Path: path, Wipe: wipeMap[entry]})
-	}
-
-	if len(diskMap) == len(peers) {
-		if !checkMinSize || len(peers) >= 3 {
-			return diskMap, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
-}
-
-func finalizeRemoteDisks(ceph service.CephService, diskReqs map[string][]cephTypes.DisksPost, peers map[string]mdns.ServerInfo) (map[string]string, error) {
-	targets := make(map[string]string, len(peers))
-	for target, reqs := range diskReqs {
-		c, err := ceph.Client(target, peers[target].AuthSecret)
-		if err != nil {
-			return nil, err
-		}
-
-		fmt.Printf("Adding %d disks from %q to MicroCeph\n", len(reqs), target)
-		for _, req := range reqs {
-			err = cephClient.AddDisk(context.Background(), c, &req)
-			if err != nil {
-				return nil, err
+		conns := []string{}
+		for _, service := range services {
+			if service.Service == "central" {
+				conns = append(conns, fmt.Sprintf("tcp:%s", util.CanonicalNetworkAddress(peers[service.Location].Address, 6641)))
 			}
 		}
 
-		targets[target] = peers[target].AuthSecret
+		ovnConfig = strings.Join(conns, ",")
+		for peer, info := range peers {
+			ovnTargets[peer] = info.AuthSecret
+		}
 	}
 
-	return targets, nil
+	lxdTargets := map[string]string{}
+	for peer := range lxdDisks {
+		lxdTargets[peer] = peers[peer].AuthSecret
+	}
+
+	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, ovnTargets)
 }
