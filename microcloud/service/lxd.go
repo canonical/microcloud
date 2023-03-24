@@ -17,7 +17,6 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // LXDService is a LXD service.
@@ -283,6 +282,43 @@ func (s *LXDService) AddLocalPool(source string, wipe bool) error {
 	})
 }
 
+// AddLocalVolumes creates the default local storage volumes for a new LXD service.
+func (s *LXDService) AddLocalVolumes(target string, secret string) error {
+	c, err := s.client(secret)
+	if err != nil {
+		return err
+	}
+
+	if s.Name() != target {
+		c = c.UseTarget(target)
+	}
+
+	err = c.CreateStoragePoolVolume("local", api.StorageVolumesPost{Name: "images", Type: "custom"})
+	if err != nil {
+		return err
+	}
+
+	err = c.CreateStoragePoolVolume("local", api.StorageVolumesPost{Name: "backups", Type: "custom"})
+	if err != nil {
+		return err
+	}
+
+	server, _, err := c.GetServer()
+	if err != nil {
+		return err
+	}
+
+	newServer := server.Writable()
+	newServer.Config["storage.backups_volume"] = "local/backups"
+	newServer.Config["storage.images_volume"] = "local/images"
+	err = c.UpdateServer(newServer, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // AddRemotePools adds pending Ceph storage pools for each of the target peers.
 func (s *LXDService) AddRemotePools(targets map[string]string) error {
 	if len(targets) == 0 {
@@ -362,15 +398,31 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string,
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(addedLocalPool bool, peers map[string]mdns.ServerInfo, pendingRemotePools map[string]string) error {
-	profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string) error {
 	c, err := s.client("")
 	if err != nil {
 		return err
 	}
 
-	if len(pendingRemotePools) > 0 {
-		err := s.AddRemotePools(pendingRemotePools)
+	for peer, secret := range localPoolTargets {
+		err = s.AddLocalVolumes(peer, secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	if bootstrap {
+		profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+		if len(localPoolTargets) > 0 {
+			err = s.AddLocalVolumes(s.Name(), "")
+			if err != nil {
+				return err
+			}
+
+			profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
+		}
+
+		err = s.AddRemotePools(remotePoolTargets)
 		if err != nil {
 			return err
 		}
@@ -385,88 +437,27 @@ func (s *LXDService) Configure(addedLocalPool bool, peers map[string]mdns.Server
 				},
 			},
 		}
+
 		err = c.CreateStoragePool(storage)
 		if err != nil {
 			return err
 		}
 
 		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
-	}
-
-	if addedLocalPool {
-		err = c.CreateStoragePoolVolume("local", api.StorageVolumesPost{Name: "images", Type: "custom"})
+		profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
+		profiles, err := c.GetProfileNames()
 		if err != nil {
 			return err
 		}
+		if !shared.StringInSlice(profile.Name, profiles) {
+			err = c.CreateProfile(profile)
+		} else {
+			err = c.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		}
 
-		err = c.CreateStoragePoolVolume("local", api.StorageVolumesPost{Name: "backups", Type: "custom"})
 		if err != nil {
 			return err
 		}
-
-		server, _, err := c.GetServer()
-		if err != nil {
-			return err
-		}
-
-		newServer := server.Writable()
-		newServer.Config["storage.backups_volume"] = "local/backups"
-		newServer.Config["storage.images_volume"] = "local/images"
-		err = c.UpdateServer(newServer, "")
-		if err != nil {
-			return err
-		}
-
-		for peer, info := range peers {
-			authClient, err := s.client(info.AuthSecret)
-			if err != nil {
-				return err
-			}
-
-			authClient = authClient.UseTarget(peer)
-			err = authClient.CreateStoragePoolVolume("local", api.StorageVolumesPost{Name: "images", Type: "custom"})
-			if err != nil {
-				return err
-			}
-
-			err = authClient.CreateStoragePoolVolume("local", api.StorageVolumesPost{Name: "backups", Type: "custom"})
-			if err != nil {
-				return err
-			}
-
-			server, _, err := authClient.GetServer()
-			if err != nil {
-				return err
-			}
-
-			newServer := server.Writable()
-			newServer.Config["storage.backups_volume"] = "local/backups"
-			newServer.Config["storage.images_volume"] = "local/images"
-			err = authClient.UpdateServer(newServer, "")
-			if err != nil {
-				return err
-			}
-
-		}
-
-		if profile.Devices["root"] == nil {
-			profile.Devices["root"] = map[string]string{"path": "/", "pool": "local", "type": "disk"}
-		}
-	}
-
-	profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
-	profiles, err := c.GetProfileNames()
-	if err != nil {
-		return err
-	}
-	if !shared.StringInSlice(profile.Name, profiles) {
-		err = c.CreateProfile(profile)
-	} else {
-		err = c.UpdateProfile("default", profile.ProfilePut, "")
-	}
-
-	if err != nil {
-		return err
 	}
 
 	return nil
