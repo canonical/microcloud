@@ -110,12 +110,26 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = AddPeers(s, peers, lxdDisks)
+	if len(cephDisks) > 0 {
+		c, err := s.Services[types.MicroCeph].(*service.CephService).Client("", "")
+		if err != nil {
+			return err
+		}
+
+		for _, disk := range cephDisks[s.Name] {
+			err = client.AddDisk(context.Background(), c, &disk)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = AddPeers(s, peers, lxdDisks, cephDisks)
 	if err != nil {
 		return err
 	}
 
-	err = postClusterSetup(s, peers, lxdDisks, cephDisks)
+	err = postClusterSetup(true, s, peers, lxdDisks, cephDisks)
 	if err != nil {
 		return err
 	}
@@ -210,14 +224,15 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 	return totalPeers, nil
 }
 
-func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey) error {
+func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
 	joinConfig := make(map[string]types.ServicesPut, len(peers))
 	secrets := make(map[string]string, len(peers))
 	for peer, info := range peers {
 		joinConfig[peer] = types.ServicesPut{
-			Tokens:    []types.ServiceToken{},
-			Address:   info.Address,
-			LXDConfig: localDisks[peer],
+			Tokens:     []types.ServiceToken{},
+			Address:    info.Address,
+			LXDConfig:  localDisks[peer],
+			CephConfig: cephDisks[peer],
 		}
 
 		secrets[peer] = info.AuthSecret

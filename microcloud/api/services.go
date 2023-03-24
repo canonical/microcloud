@@ -69,7 +69,7 @@ func servicesPut(s *state.State, r *http.Request) response.Response {
 	services := make([]types.ServiceType, len(req.Tokens))
 	for i, cfg := range req.Tokens {
 		services[i] = types.ServiceType(cfg.Service)
-		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig}
+		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig, CephConfig: req.CephConfig}
 	}
 
 	// Default to the first iface if none specified.
@@ -83,7 +83,23 @@ func servicesPut(s *state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
-	err = sh.RunConcurrent(true, func(s service.Service) error {
+	// Join MicroCloud first.
+	err = sh.Services[types.MicroCloud].Join(joinConfigs[types.MicroCloud])
+	if err != nil {
+		return response.SmartError(fmt.Errorf("Failed to join %q cluster: %w", types.MicroCloud, err))
+	}
+
+	// Join MicroCeph next to set up disks.
+	err = sh.Services[types.MicroCeph].Join(joinConfigs[types.MicroCeph])
+	if err != nil {
+		return response.SmartError(fmt.Errorf("Failed to join %q cluster: %w", types.MicroCeph, err))
+	}
+
+	err = sh.RunConcurrent(false, func(s service.Service) error {
+		if s.Type() == types.MicroCeph || s.Type() == types.MicroCloud {
+			return nil
+		}
+
 		err = s.Join(joinConfigs[s.Type()])
 		if err != nil {
 			return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
@@ -31,8 +32,9 @@ type CloudService struct {
 
 // JoinConfig represents configuration for cluster joining.
 type JoinConfig struct {
-	Token     string
-	LXDConfig []api.ClusterMemberConfigKey
+	Token      string
+	LXDConfig  []api.ClusterMemberConfigKey
+	CephConfig []cephTypes.DisksPost
 }
 
 // joinResponse is returned in a channel after sending a join request to a peer.

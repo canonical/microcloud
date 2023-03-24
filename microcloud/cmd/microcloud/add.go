@@ -78,10 +78,10 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = AddPeers(s, peers, lxdDisks)
+	err = AddPeers(s, peers, lxdDisks, cephDisks)
 	if err != nil {
 		return err
 	}
 
-	return postClusterSetup(s, peers, lxdDisks, cephDisks)
+	return postClusterSetup(false, s, peers, lxdDisks, cephDisks)
 }
