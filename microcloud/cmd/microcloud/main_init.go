@@ -394,7 +394,12 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		conns := []string{}
 		for _, service := range services {
 			if service.Service == "central" {
-				conns = append(conns, fmt.Sprintf("tcp:%s", util.CanonicalNetworkAddress(peers[service.Location].Address, 6641)))
+				addr := sh.Address
+				if service.Location != sh.Name {
+					addr = peers[service.Location].Address
+				}
+
+				conns = append(conns, fmt.Sprintf("tcp:%s", util.CanonicalNetworkAddress(addr, 6641)))
 			}
 		}
 
