@@ -398,7 +398,7 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string,
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string) error {
+func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string, ovnConfig string, ovnTargets map[string]string) error {
 	c, err := s.client("")
 	if err != nil {
 		return err
@@ -411,7 +411,19 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 		}
 	}
 
+	for peer, secret := range ovnTargets {
+		err = s.SetConfig(peer, secret, map[string]string{"network.ovn.northbound_connection": ovnConfig})
+		if err != nil {
+			return err
+		}
+	}
+
 	if bootstrap {
+		err = s.SetConfig(s.Name(), "", map[string]string{"network.ovn.northbound_connection": ovnConfig})
+		if err != nil {
+			return err
+		}
+
 		profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
 		if len(localPoolTargets) > 0 {
 			err = s.AddLocalVolumes(s.Name(), "")
@@ -461,6 +473,30 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 	}
 
 	return nil
+}
+
+// SetConfig applies the new config key/value pair to the given target.
+func (s *LXDService) SetConfig(target string, secret string, config map[string]string) error {
+	c, err := s.client(secret)
+	if err != nil {
+		return err
+	}
+
+	if s.Name() != target {
+		c = c.UseTarget(target)
+	}
+
+	server, _, err := c.GetServer()
+	if err != nil {
+		return err
+	}
+
+	newServer := server.Writable()
+	for k, v := range config {
+		newServer.Config[k] = v
+	}
+
+	return c.UpdateServer(newServer, "")
 }
 
 // defaultGatewaySubnetV4 returns subnet of default gateway interface.

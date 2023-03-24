@@ -11,6 +11,7 @@ import (
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/canonical/microceph/microceph/client"
+	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/lxc/lxd/lxd/util"
 	lxdAPI "github.com/lxc/lxd/shared/api"
 	cli "github.com/lxc/lxd/shared/cmd"
@@ -361,8 +362,30 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		cephTargets[target] = peers[target].AuthSecret
 	}
 
-			}
+	ovnTargets := map[string]string{}
+	var ovnConfig string
+	if sh.Services[types.MicroOVN] != nil {
+		ovn := sh.Services[types.MicroOVN].(*service.OVNService)
+		c, err := ovn.Client()
+		if err != nil {
+			return err
+		}
 
+		services, err := ovnClient.GetServices(context.Background(), c)
+		if err != nil {
+			return err
+		}
+
+		conns := []string{}
+		for _, service := range services {
+			if service.Service == "central" {
+				conns = append(conns, fmt.Sprintf("tcp:%s", util.CanonicalNetworkAddress(peers[service.Location].Address, 6641)))
+			}
+		}
+
+		ovnConfig = strings.Join(conns, ",")
+		for peer, info := range peers {
+			ovnTargets[peer] = info.AuthSecret
 		}
 	}
 
@@ -371,5 +394,5 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		lxdTargets[peer] = peers[peer].AuthSecret
 	}
 
-	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets)
+	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, ovnTargets)
 }
