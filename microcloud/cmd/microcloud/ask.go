@@ -134,6 +134,19 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 		}
 	}
 
+	if !bootstrap {
+		sourceTemplate := lxdAPI.ClusterMemberConfigKey{
+			Entity: "storage-pool",
+			Name:   "remote",
+			Key:    "source",
+			Value:  "lxd_remote",
+		}
+
+		for peer := range cephDisks {
+			diskConfig[peer] = append(diskConfig[peer], sourceTemplate)
+		}
+	}
+
 	return diskConfig, cephDisks, nil
 }
 
