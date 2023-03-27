@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
@@ -184,35 +183,40 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) 
 		}
 	}
 
-	stdin := bufio.NewReader(os.Stdin)
-	totalPeers := map[string]mdns.ServerInfo{}
-	skipPeers := map[string]bool{}
+	header := []string{"NAME", "IFACE", "ADDR"}
+	var table *SelectableTable
+	var answers []string
 
-	fmt.Println("Scanning for eligible servers...")
+	tableCh := make(chan error)
+	selectionCh := make(chan error)
 	if !autoSetup {
-		fmt.Println("Press enter to end scanning for servers")
-	}
-
-	// Wait for input to stop scanning.
-	var doneCh chan error
-	if !autoSetup {
-		doneCh = make(chan error)
 		go func() {
-			_, err := stdin.ReadByte()
+			err := <-tableCh
 			if err != nil {
-				doneCh <- err
-			} else {
-				close(doneCh)
+				selectionCh <- err
+				return
 			}
 
-			fmt.Println("Ending scan")
+			answers, err = table.GetSelections()
+			selectionCh <- err
+			return
 		}()
 	}
 
+	var timeAfter <-chan time.Time
+	if autoSetup {
+		timeAfter = time.After(5 * time.Second)
+	}
+
+	fmt.Println("Scanning for eligible servers...")
+	totalPeers := map[string]mdns.ServerInfo{}
+	skipPeers := map[string]bool{}
 	done := false
 	for !done {
 		select {
-		case err := <-doneCh:
+		case <-timeAfter:
+			done = true
+		case err := <-selectionCh:
 			if err != nil {
 				return nil, err
 			}
@@ -224,12 +228,12 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) 
 				return nil, err
 			}
 
-			for peer, info := range peers {
-				if skipPeers[peer] {
+			for key, info := range peers {
+				if skipPeers[info.Name] {
 					continue
 				}
 
-				_, ok := totalPeers[peer]
+				_, ok := totalPeers[key]
 				if !ok {
 					serviceMap := make(map[types.ServiceType]bool, len(info.Services))
 					for _, service := range info.Services {
@@ -238,26 +242,33 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) 
 
 					for service := range s.Services {
 						if !serviceMap[service] {
-							skipPeers[peer] = true
-							logger.Infof("Skipping peer %q due to missing services (%s)", peer, string(service))
+							skipPeers[info.Name] = true
+							logger.Infof("Skipping peer %q due to missing services (%s)", info.Name, string(service))
 							break
 						}
 					}
 
-					if !skipPeers[peer] {
-						fmt.Printf(" Found %q at %q\n", peer, info.Address)
-						totalPeers[peer] = info
+					if subnet != nil && !subnet.Contains(net.ParseIP(info.Address)) {
+						continue
+					}
+
+					if !skipPeers[info.Name] {
+						totalPeers[key] = info
+						if autoSetup {
+							continue
+						}
+
+						if len(totalPeers) == 1 {
+							table = NewSelectableTable(header, [][]string{{info.Name, info.Interface, info.Address}})
+							table.Render(table.rows)
+							time.Sleep(100 * time.Millisecond)
+							tableCh <- nil
+						} else {
+							table.Update([]string{info.Name, info.Interface, info.Address})
+						}
 					}
 				}
 			}
-
-			if autoSetup {
-				done = true
-				break
-			}
-
-			// Sleep for a few seconds before retrying.
-			time.Sleep(5 * time.Second)
 		}
 	}
 
@@ -265,7 +276,27 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) 
 		return nil, fmt.Errorf("Found no available systems")
 	}
 
-	return totalPeers, nil
+	selectedPeers := map[string]mdns.ServerInfo{}
+	for _, answer := range answers {
+		peer := table.SelectionValue(answer, "NAME")
+		addr := table.SelectionValue(answer, "ADDR")
+		iface := table.SelectionValue(answer, "IFACE")
+		for _, info := range totalPeers {
+			if info.Name == peer && info.Address == addr && info.Interface == iface {
+				selectedPeers[peer] = info
+			}
+		}
+	}
+
+	if autoSetup {
+		for _, info := range totalPeers {
+			selectedPeers[info.Name] = info
+			fmt.Printf("  Found %q at %q\n", info.Name, info.Address)
+		}
+
+	}
+
+	return selectedPeers, nil
 }
 
 func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
