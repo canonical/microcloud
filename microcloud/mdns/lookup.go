@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/mdns"
 	"github.com/lxc/lxd/shared/logger"
@@ -20,8 +22,20 @@ type ServerInfo struct {
 	Version    string
 	Name       string
 	Address    string
+	Interface  string
 	Services   []types.ServiceType
 	AuthSecret string
+}
+
+// NetworkInfo represents information about a network interface broadcast by a MicroCloud peer.
+type NetworkInfo struct {
+	Interface string
+	Address   string
+}
+
+// LookupKey returns a unique key representing a lookup entry.
+func (s ServerInfo) LookupKey() string {
+	return fmt.Sprintf("%s_%s_%s", s.Name, s.Interface, s.Address)
 }
 
 // forwardingWriter forwards the mdns log message to LXD's logger package.
@@ -47,9 +61,14 @@ func (f forwardingWriter) Write(p []byte) (int, error) {
 
 // LookupPeers finds any broadcasting peers and returns a list of their names.
 func LookupPeers(ctx context.Context, version string, localPeer string) (map[string]ServerInfo, error) {
-	entries, err := Lookup(ctx, ClusterService, clusterSize)
-	if err != nil {
-		return nil, err
+	entries := []*mdns.ServiceEntry{}
+	for i := 0; i < ServiceSize; i++ {
+		nextEntries, err := Lookup(ctx, fmt.Sprintf("%s_%d", ClusterService, i), clusterSize)
+		if err != nil {
+			return nil, err
+		}
+
+		entries = append(entries, nextEntries...)
 	}
 
 	peers := map[string]ServerInfo{}
@@ -58,10 +77,18 @@ func LookupPeers(ctx context.Context, version string, localPeer string) (map[str
 			return nil, fmt.Errorf("Received empty record")
 		}
 
-		parts := strings.SplitN(entry.Name, fmt.Sprintf(".%s.local.", ClusterService), 2)
-		peerName := parts[0]
+		serviceStr, ok := strings.CutSuffix(entry.Name, ".local.")
+		if !ok {
+			continue
+		}
+
+		parts := strings.SplitN(serviceStr, fmt.Sprintf(".%s_", ClusterService), 2)
+		if len(parts) != 2 {
+			continue
+		}
 
 		// Skip a response from ourselves.
+		peerName := parts[0]
 		if localPeer == peerName {
 			continue
 		}
@@ -82,13 +109,18 @@ func LookupPeers(ctx context.Context, version string, localPeer string) (map[str
 			return nil, fmt.Errorf("Failed to parse server info: %w", err)
 		}
 
+		// Skip a response from ourselves.
+		if localPeer == info.Name {
+			continue
+		}
+
 		// Skip any responses from mismatched versions.
 		if info.Version != version {
 			logger.Infof("System %q (version %q) has a version mismatch. Expected %q", peerName, info.Version, version)
 			continue
 		}
 
-		peers[info.Name] = info
+		peers[info.LookupKey()] = info
 	}
 
 	return peers, nil
@@ -113,7 +145,10 @@ func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry
 		}
 	}()
 
-	err := mdns.Lookup(service, entriesCh)
+	params := mdns.DefaultParams(service)
+	params.Entries = entriesCh
+	params.Timeout = 100 * time.Millisecond
+	err := mdns.Query(params)
 	if err != nil {
 		return nil, fmt.Errorf("Failed lookup: %w", err)
 	}
@@ -121,4 +156,39 @@ func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry
 	close(entriesCh)
 
 	return entries, nil
+}
+
+// GetNetworkInfo returns a slice of NetworkInfo to be included in the mDNS broadcast.
+func GetNetworkInfo() ([]NetworkInfo, error) {
+	networks := []NetworkInfo{}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		if len(addrs) == 0 {
+			continue
+		}
+
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if !ipNet.IP.IsGlobalUnicast() {
+				continue
+			}
+
+			networks = append(networks, NetworkInfo{Interface: iface.Name, Address: ipNet.IP.String()})
+		}
+	}
+
+	return networks, nil
 }
