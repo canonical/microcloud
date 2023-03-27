@@ -17,6 +17,7 @@ type cmdAdd struct {
 
 	flagAutoSetup     bool
 	flagWipe          bool
+	flagClusterSubnet string
 }
 
 func (c *cmdAdd) Command() *cobra.Command {
@@ -28,6 +29,7 @@ func (c *cmdAdd) Command() *cobra.Command {
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
+	cmd.Flags().StringVar(&c.flagClusterSubnet, "subnet", "", "Subnet to look for cluster members in")
 
 	return cmd
 }
@@ -68,7 +70,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAuto)
+	peers, err := lookupPeers(s, c.flagAutoSetup, c.flagClusterSubnet)
 	if err != nil {
 		return err
 	}
