@@ -97,6 +97,12 @@ func init() {
 }
 
 func main() {
+	// Only root should run this
+	if os.Geteuid() != 0 {
+		fmt.Fprintln(os.Stderr, "This must be run as root")
+		os.Exit(1)
+	}
+
 	daemonCmd := cmdDaemon{global: &cmdGlobal{}}
 	app := daemonCmd.Command()
 	app.SilenceUsage = true
