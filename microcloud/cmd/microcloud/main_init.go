@@ -104,7 +104,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("Initializing a new cluster")
-	err = s.RunConcurrent(true, func(s service.Service) error {
+	err = s.RunConcurrent(true, false, func(s service.Service) error {
 		err := s.Bootstrap()
 		if err != nil {
 			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
@@ -314,7 +314,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 	}
 
 	mut := sync.Mutex{}
-	err := sh.RunConcurrent(false, func(s service.Service) error {
+	err := sh.RunConcurrent(false, false, func(s service.Service) error {
 		for peer := range peers {
 			token, err := s.IssueToken(peer)
 			if err != nil {
@@ -380,7 +380,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
 	}
 
-	err = sh.RunConcurrent(false, func(s service.Service) error {
+	err = sh.RunConcurrent(false, false, func(s service.Service) error {
 		if s.Type() == types.MicroCloud {
 			return nil
 		}

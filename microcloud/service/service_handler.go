@@ -169,7 +169,7 @@ func (s *ServiceHandler) Bootstrap(state *state.State) error {
 
 // RunConcurrent runs the given hook concurrently across all services.
 // If microCloudFirst is true, then MicroCloud will have its hook run before the others.
-func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) error) error {
+func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, lxdLast bool, f func(s Service) error) error {
 	errors := make([]error, 0, len(s.Services))
 	mut := sync.Mutex{}
 	wg := sync.WaitGroup{}
@@ -194,6 +194,10 @@ func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) e
 			continue
 		}
 
+		if lxdLast && s.Type() == types.LXD {
+			continue
+		}
+
 		wg.Add(1)
 		go func(s Service) {
 			defer wg.Done()
@@ -212,6 +216,21 @@ func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, f func(s Service) e
 	for _, err := range errors {
 		if err != nil {
 			return err
+		}
+	}
+
+	if lxdLast {
+		for _, s := range s.Services {
+			if s.Type() != types.LXD {
+				continue
+			}
+
+			err := f(s)
+			if err != nil {
+				return err
+			}
+
+			break
 		}
 	}
 
