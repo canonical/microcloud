@@ -4,11 +4,11 @@ go 1.18
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
-	github.com/canonical/microceph/microceph v0.0.0-20230321062645-8135a30e7461
+	github.com/canonical/microceph/microceph v0.0.0-20230327132749-4369e81a9ebd
 	github.com/canonical/microcluster v0.0.0-20230323033829-3e5dfc18be05
 	github.com/canonical/microovn/microovn v0.0.0-20230321053133-34cc9e93d8a9
 	github.com/hashicorp/mdns v1.0.5
-	github.com/lxc/lxd v0.0.0-20230324112611-8c7373f0ae02
+	github.com/lxc/lxd v0.0.0-20230327083044-d6d3aa355604
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.6.1
 )

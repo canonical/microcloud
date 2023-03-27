@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -22,6 +23,12 @@ type CmdControl struct {
 }
 
 func main() {
+	// Only root should run this
+	if os.Geteuid() != 0 {
+		fmt.Fprintln(os.Stderr, "This must be run as root")
+		os.Exit(1)
+	}
+
 	// common flags.
 	commonCmd := CmdControl{}
 
