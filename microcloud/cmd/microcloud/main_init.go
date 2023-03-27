@@ -27,8 +27,8 @@ import (
 type cmdInit struct {
 	common *CmdControl
 
-	flagAutoSetup    bool
-	flagWipeAllDisks bool
+	flagAutoSetup     bool
+	flagWipeAllDisks  bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {

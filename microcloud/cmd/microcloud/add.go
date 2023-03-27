@@ -15,8 +15,8 @@ import (
 type cmdAdd struct {
 	common *CmdControl
 
-	flagAuto bool
-	flagWipe bool
+	flagAutoSetup     bool
+	flagWipe          bool
 }
 
 func (c *cmdAdd) Command() *cobra.Command {
@@ -26,7 +26,7 @@ func (c *cmdAdd) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagAuto, "auto", false, "Automatic setup with default configuration")
+	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
 
 	return cmd
@@ -58,7 +58,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = askMissingServices(services, optionalServices, c.flagAuto)
+	services, err = askMissingServices(services, optionalServices, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	lxdDisks, cephDisks, err := askDisks(s, peers, false, c.flagAuto, c.flagWipe)
+	lxdDisks, cephDisks, err := askDisks(s, peers, false, c.flagAutoSetup, c.flagWipe)
 	if err != nil {
 		return err
 	}
