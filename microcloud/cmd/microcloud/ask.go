@@ -114,6 +114,15 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 		})
 	}
 
+	for peer, path := range reservedDisks {
+		fmt.Printf(" Using %q on %q for local storage pool\n", path, peer)
+	}
+
+	if len(reservedDisks) > 0 {
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
 	var cephDisks map[string][]cephTypes.DisksPost
 	if sh.Services[types.MicroCeph] != nil {
 		ceph := sh.Services[types.MicroCeph].(*service.CephService)
@@ -131,6 +140,18 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 
 				return err
 			})
+		} else {
+			// Add a space between the CLI and the response.
+			fmt.Println("")
+		}
+
+		for peer, disks := range cephDisks {
+			fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), peer)
+		}
+
+		if len(cephDisks) > 0 {
+			// Add a space between the CLI and the response.
+			fmt.Println("")
 		}
 	}
 

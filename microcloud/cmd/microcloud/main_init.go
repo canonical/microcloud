@@ -291,11 +291,18 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) 
 	if autoSetup {
 		for _, info := range totalPeers {
 			selectedPeers[info.Name] = info
-			fmt.Printf("  Found %q at %q\n", info.Name, info.Address)
 		}
 
+		// Add a space between the CLI and the response.
+		fmt.Println("")
 	}
 
+	for _, info := range selectedPeers {
+		fmt.Printf("  Selected %q at %q\n", info.Name, info.Address)
+	}
+
+	// Add a space between the CLI and the response.
+	fmt.Println("")
 	return selectedPeers, nil
 }
 
