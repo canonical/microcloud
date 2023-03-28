@@ -99,7 +99,7 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 	var reservedDisks map[string]string
 	wantsDisks := true
 	if !autoSetup {
-		wantsDisks, err = cli.AskBool("Would you like to add a local LXD storage pool? (yes/no) [default=yes]: ", "yes")
+		wantsDisks, err = cli.AskBool("Would you like to setup local storage? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -119,7 +119,7 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 		ceph := sh.Services[types.MicroCeph].(*service.CephService)
 		wantsDisks = true
 		if !autoSetup {
-			wantsDisks, err = cli.AskBool("Would you like to add additional disks to MicroCeph? (yes/no) [default=yes]: ", "yes")
+			wantsDisks, err = cli.AskBool("Would you like to setup distributed storage? (yes/no) [default=yes]: ", "yes")
 			if err != nil {
 				return nil, nil, err
 			}
