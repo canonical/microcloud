@@ -162,7 +162,13 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 		}
 
 		for _, disk := range disks {
-			devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+			devicePath := fmt.Sprintf("/dev/%s", disk.ID)
+			if disk.DeviceID != "" {
+				devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+			} else if disk.DevicePath != "" {
+				devicePath = fmt.Sprintf("/dev/disk/by-path/%s", disk.DevicePath)
+			}
+
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 
 			// Add the first disk for each peer.
@@ -275,7 +281,13 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisk
 	for peer, disks := range peerDisks {
 		for _, disk := range disks {
 			// Skip any disks that have been reserved for the local storage pool.
-			devicePath := fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+			devicePath := fmt.Sprintf("/dev/%s", disk.ID)
+			if disk.DeviceID != "" {
+				devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+			} else if disk.DevicePath != "" {
+				devicePath = fmt.Sprintf("/dev/disk/by-path/%s", disk.DevicePath)
+			}
+
 			if localDisks != nil && localDisks[peer] == devicePath {
 				continue
 			}
