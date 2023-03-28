@@ -213,6 +213,10 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 			return nil, nil, fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
 		}
 
+		if len(selectedRows) == 0 {
+			return nil, nil, fmt.Errorf("No disks selected")
+		}
+
 		for _, entry := range selectedRows {
 			target := table.SelectionValue(entry, "LOCATION")
 			path := table.SelectionValue(entry, "PATH")
