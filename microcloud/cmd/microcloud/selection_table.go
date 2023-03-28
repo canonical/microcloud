@@ -242,7 +242,7 @@ func (t *SelectableTable) prepareTemplate() {
 // Render outputs the SelectableTable and returns a slice of selected rows.
 func (t *SelectableTable) Render(entries []string) {
 	t.prompt = &survey.MultiSelect{
-		Message: `Space to select; Enter to confirm; Esc to exit; Type to filter results.
+		Message: `Space to select; Enter to confirm; Type to filter results.
 Up/Down to move; Right to select all; Left to select none.`,
 		Options:  entries,
 		PageSize: 15,
