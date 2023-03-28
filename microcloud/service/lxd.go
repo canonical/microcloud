@@ -134,6 +134,7 @@ func (s LXDService) Bootstrap() error {
 				"bridge.mode":         "fan",
 				"fan.underlay_subnet": underlay.String(),
 			},
+			Description: "Default Ubuntu fan powered bridge",
 		},
 		Name: "lxdfan0",
 		Type: "bridge",
@@ -277,7 +278,8 @@ func (s *LXDService) AddLocalPool(source string, wipe bool) error {
 		Name:   "local",
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
-			Config: config,
+			Config:      config,
+			Description: "Local storage on ZFS",
 		},
 	})
 }
@@ -447,6 +449,7 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 					"ceph.rbd.du":       "false",
 					"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
 				},
+				Description: "Distributed storage on Ceph",
 			},
 		}
 
