@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/core"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/olekukonko/tablewriter"
 )
@@ -104,17 +105,17 @@ func NewSelectableTable(header []string, data [][]string) *SelectableTable {
 // multiSelectQuestionTemplate overwrites the default survey package template to accommodate table rows as selectable options.
 const multiSelectQuestionTemplate = `
 {{- define "option"}}
+	  {{- $line := "%s" }}
+	  {{- if (eq .CurrentOpt.Value (index .PageEntries 0).Value) }}
+	         {{- print (scroll_hint_top $line .FilterMessage .PageEntries) "\n" }}
+	  {{- end}}
     {{- if eq .SelectedIndex .CurrentIndex }}{{color .Config.Icons.SelectFocus.Format }}{{ .Config.Icons.SelectFocus.Text }}{{color "reset"}}{{else}} {{end}}
     {{- if index .Checked .CurrentOpt.Index }}{{color .Config.Icons.MarkedOption.Format }} {{ .Config.Icons.MarkedOption.Text }} {{else}}{{color .Config.Icons.UnmarkedOption.Format }} {{ .Config.Icons.UnmarkedOption.Text }} {{end}}
     {{- color "reset"}}
     {{- " "}}{{- .CurrentOpt.Value}}
-    {{- $size := 0}}
-    {{- range $i, $o := .Options}}
-      {{- if $i}} {{- $size = $i}}{{- end}}
-    {{- end}}
-    {{- if or (and (eq .CurrentOpt.Index $size) (gt $size 0)) .FilterMessage}}
-    {{- "\n%s"}}
-    {{- end}}
+	  {{- if eq (add 1 .CurrentIndex) (len .PageEntries) }}
+	        {{- print "\n" (scroll_hint_bot $line .FilterMessage .PageEntries) }}
+	  {{- end }}
 {{end}}
 {{- if gt (len .PageEntries) 0 }}
   {{- color "default+hb"}}{{ .Message }}{{color "reset"}}
@@ -127,7 +128,6 @@ const multiSelectQuestionTemplate = `
 {{- if gt (len .PageEntries) 0 }}
       {{- "%s\n"}}
       {{- "%s\n"}}
-      {{- "%s\n"}}
 {{- end}}
 {{- range $ix, $option := .PageEntries}}
   {{- template "option" $.IterateOption $ix $option}}
@@ -137,7 +137,7 @@ const multiSelectQuestionTemplate = `
 // DefaultAskOptions is the default options on ask, using the OS stdio.
 func defaultPromptConfig() *survey.PromptConfig {
 	return &survey.PromptConfig{
-		PageSize:     7,
+		PageSize:     15,
 		HelpInput:    "?",
 		SuggestInput: "tab",
 		Icons: survey.IconSet{
@@ -167,21 +167,80 @@ func defaultPromptConfig() *survey.PromptConfig {
 			},
 		},
 		Filter: func(filter string, value string, index int) (include bool) {
+			filter = strings.TrimPrefix(filter, " ")
 			filter = strings.ToLower(filter)
 
 			// include this option if it matches
 			return strings.Contains(strings.ToLower(value), filter)
 		},
-		KeepFilter:       false,
+		KeepFilter:       true,
 		ShowCursor:       false,
 		RemoveSelectAll:  false,
 		RemoveSelectNone: false,
 	}
 }
 
+// prepareTemplate sets the proper functions and strings to allow formatting a pretty table.
+func (t *SelectableTable) prepareTemplate() {
+	core.TemplateFuncsWithColor["add"] = func(a int, b int) int {
+		return a + b
+	}
+
+	filterFunc := defaultPromptConfig().Filter
+	core.TemplateFuncsWithColor["scroll_hint_top"] = func(line string, filter string, onScreen []core.OptionAnswer) string {
+		if filter == "" {
+			if onScreen[0].Index > 0 {
+				return strings.Replace(line, "     ", "   ^ ", 1)
+			}
+
+			return line
+		}
+
+		topIndex := -1
+		for i, opt := range t.prompt.Options {
+			if filterFunc(filter, opt, i) {
+				topIndex = i
+				break
+			}
+		}
+
+		if topIndex < onScreen[0].Index {
+			return strings.Replace(line, "     ", "   ^ ", 1)
+		}
+
+		return line
+	}
+
+	core.TemplateFuncsWithColor["scroll_hint_bot"] = func(line string, filter string, onScreen []core.OptionAnswer) string {
+		if filter == "" {
+			if onScreen[len(onScreen)-1].Index+1 < len(t.prompt.Options) {
+				return strings.Replace(line, "     ", "   v ", 1)
+			}
+
+			return line
+		}
+
+		botIndex := -1
+		for i, opt := range t.prompt.Options {
+			if filterFunc(filter, opt, i) {
+				botIndex = i
+			}
+		}
+
+		if botIndex > onScreen[len(onScreen)-1].Index {
+			return strings.Replace(line, "     ", "   v ", 1)
+		}
+
+		return line
+	}
+	core.TemplateFuncsNoColor["add"] = core.TemplateFuncsWithColor["add"]
+	core.TemplateFuncsNoColor["scroll_hint_bot"] = core.TemplateFuncsWithColor["scroll_hint_bot"]
+	core.TemplateFuncsNoColor["scroll_hint_top"] = core.TemplateFuncsWithColor["scroll_hint_top"]
+	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header)
+}
+
 // Render outputs the SelectableTable and returns a slice of selected rows.
 func (t *SelectableTable) Render(entries []string) {
-	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header, t.border)
 	t.prompt = &survey.MultiSelect{
 		Message: `Space to select; Enter to confirm; Esc to exit; Type to filter results.
 Up/Down to move; Right to select all; Left to select none.`,
@@ -189,10 +248,10 @@ Up/Down to move; Right to select all; Left to select none.`,
 		PageSize: 15,
 	}
 
+	t.prepareTemplate()
 	t.answers = []string{}
-
 	go func() {
-		err := survey.AskOne(t.prompt, &t.answers)
+		err := survey.AskOne(t.prompt, &t.answers, survey.WithKeepFilter(true))
 		if err != nil && err.Error() != "please provide options to select from" {
 
 			t.askChan <- fmt.Errorf("Failed to confirm selection: %w", err)
@@ -264,7 +323,7 @@ func (t *SelectableTable) Update(row []string) {
 	}
 
 	// Update the template as the size of the header and borders may have changed.
-	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header, t.border)
+	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header)
 	t.prompt.Options = newEntries
 	t.prompt.OnChange(terminal.IgnoreKey, defaultPromptConfig())
 }
