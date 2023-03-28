@@ -441,24 +441,27 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 			return err
 		}
 
-		storage := api.StoragePoolsPost{
-			Name:   "remote",
-			Driver: "ceph",
-			StoragePoolPut: api.StoragePoolPut{
-				Config: map[string]string{
-					"ceph.rbd.du":       "false",
-					"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+		if len(remotePoolTargets) > 0 {
+			storage := api.StoragePoolsPost{
+				Name:   "remote",
+				Driver: "ceph",
+				StoragePoolPut: api.StoragePoolPut{
+					Config: map[string]string{
+						"ceph.rbd.du":       "false",
+						"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+					},
+					Description: "Distributed storage on Ceph",
 				},
-				Description: "Distributed storage on Ceph",
-			},
+			}
+
+			err = c.CreateStoragePool(storage)
+			if err != nil {
+				return err
+			}
+
+			profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
 		}
 
-		err = c.CreateStoragePool(storage)
-		if err != nil {
-			return err
-		}
-
-		profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
 		profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
 		profiles, err := c.GetProfileNames()
 		if err != nil {

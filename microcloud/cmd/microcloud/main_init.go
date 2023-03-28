@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -27,8 +27,10 @@ import (
 type cmdInit struct {
 	common *CmdControl
 
-	flagAutoSetup    bool
-	flagWipeAllDisks bool
+	flagAutoSetup     bool
+	flagWipeAllDisks  bool
+	flagAddress       string
+	flagClusterSubnet string
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -41,6 +43,8 @@ func (c *cmdInit) Command() *cobra.Command {
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
+	cmd.Flags().StringVar(&c.flagClusterSubnet, "subnet", "", "Subnet to look for cluster members in")
+	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
 
 	return cmd
 }
@@ -50,13 +54,17 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	addr := util.NetworkInterfaceAddress()
+	addr := c.flagAddress
+	if addr == "" {
+		addr = util.NetworkInterfaceAddress()
+	}
+
 	name, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system honame: %w", err)
 	}
 
-	if !c.flagAutoSetup {
+	if !c.flagAutoSetup && c.flagAddress == "" {
 		addr, err = cli.AskString(fmt.Sprintf("Please choose the address MicroCloud will be listening on [default=%s]: ", addr), addr, nil)
 		if err != nil {
 			return err
@@ -85,7 +93,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAutoSetup)
+	peers, err := lookupPeers(s, c.flagAutoSetup, c.flagClusterSubnet)
 	if err != nil {
 		return err
 	}
@@ -96,7 +104,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("Initializing a new cluster")
-	err = s.RunConcurrent(true, func(s service.Service) error {
+	err = s.RunConcurrent(true, false, func(s service.Service) error {
 		err := s.Bootstrap()
 		if err != nil {
 			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
@@ -139,36 +147,76 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.ServerInfo, error) {
-	stdin := bufio.NewReader(os.Stdin)
-	totalPeers := map[string]mdns.ServerInfo{}
-	skipPeers := map[string]bool{}
+func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) (map[string]mdns.ServerInfo, error) {
+	var subnet *net.IPNet
+	var err error
+	if givenSubnet != "" {
+		_, subnet, err = net.ParseCIDR(givenSubnet)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid subnet: %q", err)
+		}
+	} else {
+		if net.ParseIP(s.Address).To4() != nil {
+			_, subnet, err = net.ParseCIDR(s.Address + "/24")
+		} else {
+			_, subnet, err = net.ParseCIDR(s.Address + "/64")
+		}
 
-	fmt.Println("Scanning for eligible servers...")
-	if !autoSetup {
-		fmt.Println("Press enter to end scanning for servers")
+		if err != nil {
+			return nil, fmt.Errorf("Failed to determine subnet from IP: %w", err)
+		}
 	}
 
-	// Wait for input to stop scanning.
-	var doneCh chan error
-	if !autoSetup {
-		doneCh = make(chan error)
-		go func() {
-			_, err := stdin.ReadByte()
+	if !autoSetup && givenSubnet == "" {
+		subnetStr, err := cli.AskString(fmt.Sprintf("Please choose the subnet for MicroCloud (all/[subnet]) [default=%s]: ", subnet.String()), subnet.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if subnetStr == "all" {
+			subnet = nil
+		} else if subnetStr != subnet.String() {
+			_, subnet, err = net.ParseCIDR(subnetStr)
 			if err != nil {
-				doneCh <- err
-			} else {
-				close(doneCh)
+				return nil, fmt.Errorf("Invalid subnet: %q", err)
+			}
+		}
+	}
+
+	header := []string{"NAME", "IFACE", "ADDR"}
+	var table *SelectableTable
+	var answers []string
+
+	tableCh := make(chan error)
+	selectionCh := make(chan error)
+	if !autoSetup {
+		go func() {
+			err := <-tableCh
+			if err != nil {
+				selectionCh <- err
+				return
 			}
 
-			fmt.Println("Ending scan")
+			answers, err = table.GetSelections()
+			selectionCh <- err
+			return
 		}()
 	}
 
+	var timeAfter <-chan time.Time
+	if autoSetup {
+		timeAfter = time.After(5 * time.Second)
+	}
+
+	fmt.Println("Scanning for eligible servers...")
+	totalPeers := map[string]mdns.ServerInfo{}
+	skipPeers := map[string]bool{}
 	done := false
 	for !done {
 		select {
-		case err := <-doneCh:
+		case <-timeAfter:
+			done = true
+		case err := <-selectionCh:
 			if err != nil {
 				return nil, err
 			}
@@ -180,12 +228,12 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 				return nil, err
 			}
 
-			for peer, info := range peers {
-				if skipPeers[peer] {
+			for key, info := range peers {
+				if skipPeers[info.Name] {
 					continue
 				}
 
-				_, ok := totalPeers[peer]
+				_, ok := totalPeers[key]
 				if !ok {
 					serviceMap := make(map[types.ServiceType]bool, len(info.Services))
 					for _, service := range info.Services {
@@ -194,26 +242,33 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 
 					for service := range s.Services {
 						if !serviceMap[service] {
-							skipPeers[peer] = true
-							logger.Infof("Skipping peer %q due to missing services (%s)", peer, string(service))
+							skipPeers[info.Name] = true
+							logger.Infof("Skipping peer %q due to missing services (%s)", info.Name, string(service))
 							break
 						}
 					}
 
-					if !skipPeers[peer] {
-						fmt.Printf(" Found %q at %q\n", peer, info.Address)
-						totalPeers[peer] = info
+					if subnet != nil && !subnet.Contains(net.ParseIP(info.Address)) {
+						continue
+					}
+
+					if !skipPeers[info.Name] {
+						totalPeers[key] = info
+						if autoSetup {
+							continue
+						}
+
+						if len(totalPeers) == 1 {
+							table = NewSelectableTable(header, [][]string{{info.Name, info.Interface, info.Address}})
+							table.Render(table.rows)
+							time.Sleep(100 * time.Millisecond)
+							tableCh <- nil
+						} else {
+							table.Update([]string{info.Name, info.Interface, info.Address})
+						}
 					}
 				}
 			}
-
-			if autoSetup {
-				done = true
-				break
-			}
-
-			// Sleep for a few seconds before retrying.
-			time.Sleep(5 * time.Second)
 		}
 	}
 
@@ -221,7 +276,34 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool) (map[string]mdns.Ser
 		return nil, fmt.Errorf("Found no available systems")
 	}
 
-	return totalPeers, nil
+	selectedPeers := map[string]mdns.ServerInfo{}
+	for _, answer := range answers {
+		peer := table.SelectionValue(answer, "NAME")
+		addr := table.SelectionValue(answer, "ADDR")
+		iface := table.SelectionValue(answer, "IFACE")
+		for _, info := range totalPeers {
+			if info.Name == peer && info.Address == addr && info.Interface == iface {
+				selectedPeers[peer] = info
+			}
+		}
+	}
+
+	if autoSetup {
+		for _, info := range totalPeers {
+			selectedPeers[info.Name] = info
+		}
+
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
+	for _, info := range selectedPeers {
+		fmt.Printf("  Selected %q at %q\n", info.Name, info.Address)
+	}
+
+	// Add a space between the CLI and the response.
+	fmt.Println("")
+	return selectedPeers, nil
 }
 
 func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
@@ -239,7 +321,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 	}
 
 	mut := sync.Mutex{}
-	err := sh.RunConcurrent(false, func(s service.Service) error {
+	err := sh.RunConcurrent(false, false, func(s service.Service) error {
 		for peer := range peers {
 			token, err := s.IssueToken(peer)
 			if err != nil {
@@ -305,7 +387,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
 	}
 
-	err = sh.RunConcurrent(false, func(s service.Service) error {
+	err = sh.RunConcurrent(false, false, func(s service.Service) error {
 		if s.Type() == types.MicroCloud {
 			return nil
 		}

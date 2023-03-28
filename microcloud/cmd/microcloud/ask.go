@@ -114,6 +114,15 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 		})
 	}
 
+	for peer, path := range reservedDisks {
+		fmt.Printf(" Using %q on %q for local storage pool\n", path, peer)
+	}
+
+	if len(reservedDisks) > 0 {
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
 	var cephDisks map[string][]cephTypes.DisksPost
 	if sh.Services[types.MicroCeph] != nil {
 		ceph := sh.Services[types.MicroCeph].(*service.CephService)
@@ -131,6 +140,18 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 
 				return err
 			})
+		} else {
+			// Add a space between the CLI and the response.
+			fmt.Println("")
+		}
+
+		for peer, disks := range cephDisks {
+			fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), peer)
+		}
+
+		if len(cephDisks) > 0 {
+			// Add a space between the CLI and the response.
+			fmt.Println("")
 		}
 	}
 
@@ -191,22 +212,20 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 		sort.Sort(utils.ByName(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 		table := NewSelectableTable(header, data)
-
-		// map the rows (as strings) to the associated row.
-		rowMap := make(map[string][]string, len(data))
-		for i, r := range table.rows {
-			rowMap[r] = data[i]
-		}
-
 		fmt.Println("Select exactly one disk from each cluster member:")
-		selectedRows, err := table.Render(table.rows)
+		table.Render(table.rows)
+		selectedRows, err := table.GetSelections()
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
 		}
 
+		if len(selectedRows) == 0 {
+			return nil, nil, fmt.Errorf("No disks selected")
+		}
+
 		for _, entry := range selectedRows {
-			target := rowMap[entry][0]
-			path := rowMap[entry][4]
+			target := table.SelectionValue(entry, "LOCATION")
+			path := table.SelectionValue(entry, "PATH")
 
 			_, ok := selected[target]
 			if ok {
@@ -218,14 +237,15 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 
 		if !wipeAllDisks && wipeable {
 			fmt.Println("Select which disks to wipe:")
-			wipeRows, err := table.Render(selectedRows)
+			table.Render(selectedRows)
+			wipeRows, err := table.GetSelections()
 			if err != nil {
 				return nil, nil, fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
 			}
 
 			for _, entry := range wipeRows {
-				target := rowMap[entry][0]
-				path := rowMap[entry][4]
+				target := table.SelectionValue(entry, "LOCATION")
+				path := table.SelectionValue(entry, "PATH")
 				toWipe[target] = path
 			}
 		}
@@ -308,12 +328,6 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisk
 		toWipe = selected
 	}
 
-	// map the rows (as strings) to the associated row.
-	rowMap := make(map[string][]string, len(data))
-	for i, r := range table.rows {
-		rowMap[r] = data[i]
-	}
-
 	if len(table.rows) == 0 {
 		return nil, nil
 	}
@@ -321,14 +335,16 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisk
 	if !autoSetup {
 		fmt.Println("Select from the available unpartitioned disks:")
 		var err error
-		selected, err = table.Render(table.rows)
+		table.Render(table.rows)
+		selected, err = table.GetSelections()
 		if err != nil {
 			return nil, fmt.Errorf("Failed to confirm disk selection: %w", err)
 		}
 
 		if len(selected) > 0 && !wipeAllDisks {
 			fmt.Println("Select which disks to wipe:")
-			toWipe, err = table.Render(selected)
+			table.Render(selected)
+			toWipe, err = table.GetSelections()
 			if err != nil {
 				return nil, fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
 			}
@@ -337,7 +353,7 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisk
 
 	wipeMap := make(map[string]bool, len(toWipe))
 	for _, entry := range toWipe {
-		_, ok := rowMap[entry]
+		_, ok := table.data[entry]
 		if ok {
 			wipeMap[entry] = true
 		}
@@ -345,8 +361,8 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisk
 
 	diskMap := map[string][]cephTypes.DisksPost{}
 	for _, entry := range selected {
-		target := rowMap[entry][0]
-		path := rowMap[entry][4]
+		target := table.SelectionValue(entry, "LOCATION")
+		path := table.SelectionValue(entry, "PATH")
 
 		_, ok := diskMap[target]
 		if !ok {

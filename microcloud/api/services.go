@@ -83,23 +83,7 @@ func servicesPut(s *state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
-	// Join MicroCloud first.
-	err = sh.Services[types.MicroCloud].Join(joinConfigs[types.MicroCloud])
-	if err != nil {
-		return response.SmartError(fmt.Errorf("Failed to join %q cluster: %w", types.MicroCloud, err))
-	}
-
-	// Join MicroCeph next to set up disks.
-	err = sh.Services[types.MicroCeph].Join(joinConfigs[types.MicroCeph])
-	if err != nil {
-		return response.SmartError(fmt.Errorf("Failed to join %q cluster: %w", types.MicroCeph, err))
-	}
-
-	err = sh.RunConcurrent(false, func(s service.Service) error {
-		if s.Type() == types.MicroCeph || s.Type() == types.MicroCloud {
-			return nil
-		}
-
+	err = sh.RunConcurrent(true, true, func(s service.Service) error {
 		err = s.Join(joinConfigs[s.Type()])
 		if err != nil {
 			return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
