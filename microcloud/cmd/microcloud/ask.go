@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -69,6 +70,76 @@ func askMissingServices(services []types.ServiceType, stateDirs map[types.Servic
 	return services, nil
 }
 
+func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
+	info, err := mdns.GetNetworkInfo()
+	if err != nil {
+		return "", nil, fmt.Errorf("Failed to find network interfaces: %w", err)
+	}
+
+	if listenAddr == "" {
+		if len(info) == 0 {
+			return "", nil, fmt.Errorf("Found no valid network interfaces")
+		}
+
+		listenAddr = info[0].Address
+		if !autoSetup && len(info) > 1 {
+			data := make([][]string, 0, len(info))
+			for _, net := range info {
+				data = append(data, []string{net.Address, net.Interface})
+			}
+
+			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
+			askRetry("Retry selecting an address?", autoSetup, func() error {
+				fmt.Println("Select an address for MicroCloud's internal traffic")
+				table.Render(table.rows)
+				answers, err := table.GetSelections()
+				if err != nil {
+					return err
+				}
+
+				if len(answers) != 1 {
+					return fmt.Errorf("Please select exactly one address")
+				}
+
+				listenAddr = table.SelectionValue(answers[0], "ADDRESS")
+
+				fmt.Printf(" Using address %q for MicroCloud\n\n", listenAddr)
+
+				return nil
+			})
+		} else {
+			fmt.Printf("Using address %q for MicroCloud\n", listenAddr)
+		}
+	}
+
+	var subnet *net.IPNet
+
+	for _, network := range info {
+		if network.Subnet.Contains(net.ParseIP(listenAddr)) {
+			subnet = network.Subnet
+
+			break
+		}
+	}
+
+	if subnet == nil {
+		return "", nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
+	}
+
+	if !autoSetup {
+		filter, err := cli.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
+		if err != nil {
+			return "", nil, err
+		}
+
+		if !filter {
+			subnet = nil
+		}
+	}
+
+	return listenAddr, subnet, nil
+}
+
 func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, bootstrap bool, autoSetup bool, wipeAllDisks bool) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string][]cephTypes.DisksPost, error) {
 	if bootstrap {
 		// Add the local system to the list of peers so we can select disks.
@@ -125,33 +196,62 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 
 	var cephDisks map[string][]cephTypes.DisksPost
 	if sh.Services[types.MicroCeph] != nil {
-		ceph := sh.Services[types.MicroCeph].(*service.CephService)
-		wantsDisks = true
-		if !autoSetup {
-			wantsDisks, err = cli.AskBool("Would you like to setup distributed storage? (yes/no) [default=yes]: ", "yes")
-			if err != nil {
-				return nil, nil, err
+		skipCeph := false
+		availableDisks := map[string][]lxdAPI.ResourcesStorageDisk{}
+		for peer, disks := range validDisks {
+			availableDisks[peer] = []lxdAPI.ResourcesStorageDisk{}
+			for _, disk := range disks {
+				devicePath := fmt.Sprintf("/dev/%s", disk.ID)
+				if disk.DeviceID != "" {
+					devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+				} else if disk.DevicePath != "" {
+					devicePath = fmt.Sprintf("/dev/disk/by-path/%s", disk.DevicePath)
+				}
+
+				if reservedDisks[peer] == devicePath {
+					continue
+				}
+
+				availableDisks[peer] = append(availableDisks[peer], disk)
+			}
+
+			if len(availableDisks[peer]) == 0 {
+				skipCeph = true
+				break
 			}
 		}
 
-		if wantsDisks {
-			askRetry("Retry selecting disks?", autoSetup, func() error {
-				cephDisks, err = askRemotePool(validDisks, reservedDisks, autoSetup, wipeAllDisks, *ceph)
-
-				return err
-			})
+		if skipCeph {
+			fmt.Println("Insufficient number of disks available to setup distributed storage, skipping at this time")
 		} else {
-			// Add a space between the CLI and the response.
-			fmt.Println("")
-		}
+			ceph := sh.Services[types.MicroCeph].(*service.CephService)
+			wantsDisks = true
+			if !autoSetup {
+				wantsDisks, err = cli.AskBool("Would you like to setup distributed storage? (yes/no) [default=yes]: ", "yes")
+				if err != nil {
+					return nil, nil, err
+				}
+			}
 
-		for peer, disks := range cephDisks {
-			fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), peer)
-		}
+			if wantsDisks {
+				askRetry("Retry selecting disks?", autoSetup, func() error {
+					cephDisks, err = askRemotePool(availableDisks, autoSetup, wipeAllDisks, *ceph)
 
-		if len(cephDisks) > 0 {
-			// Add a space between the CLI and the response.
-			fmt.Println("")
+					return err
+				})
+			} else {
+				// Add a space between the CLI and the response.
+				fmt.Println("")
+			}
+
+			for peer, disks := range cephDisks {
+				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), peer)
+			}
+
+			if len(cephDisks) > 0 {
+				// Add a space between the CLI and the response.
+				fmt.Println("")
+			}
 		}
 	}
 
@@ -295,7 +395,7 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 	return memberConfig, selected, nil
 }
 
-func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisks map[string]string, autoSetup bool, wipeAllDisks bool, ceph service.CephService) (map[string][]cephTypes.DisksPost, error) {
+func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup bool, wipeAllDisks bool, ceph service.CephService) (map[string][]cephTypes.DisksPost, error) {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for peer, disks := range peerDisks {
@@ -306,10 +406,6 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, localDisk
 				devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
 			} else if disk.DevicePath != "" {
 				devicePath = fmt.Sprintf("/dev/disk/by-path/%s", disk.DevicePath)
-			}
-
-			if localDisks != nil && localDisks[peer] == devicePath {
-				continue
 			}
 
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})

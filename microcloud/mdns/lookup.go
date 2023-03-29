@@ -31,6 +31,7 @@ type ServerInfo struct {
 type NetworkInfo struct {
 	Interface string
 	Address   string
+	Subnet    *net.IPNet
 }
 
 // LookupKey returns a unique key representing a lookup entry.
@@ -186,7 +187,7 @@ func GetNetworkInfo() ([]NetworkInfo, error) {
 				continue
 			}
 
-			networks = append(networks, NetworkInfo{Interface: iface.Name, Address: ipNet.IP.String()})
+			networks = append(networks, NetworkInfo{Interface: iface.Name, Address: ipNet.IP.String(), Subnet: ipNet})
 		}
 	}
 

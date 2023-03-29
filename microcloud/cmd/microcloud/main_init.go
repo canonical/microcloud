@@ -14,7 +14,6 @@ import (
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/lxc/lxd/lxd/util"
 	lxdAPI "github.com/lxc/lxd/shared/api"
-	cli "github.com/lxc/lxd/shared/cmd"
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
@@ -27,10 +26,9 @@ import (
 type cmdInit struct {
 	common *CmdControl
 
-	flagAutoSetup     bool
-	flagWipeAllDisks  bool
-	flagAddress       string
-	flagClusterSubnet string
+	flagAutoSetup    bool
+	flagWipeAllDisks bool
+	flagAddress      string
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -43,7 +41,6 @@ func (c *cmdInit) Command() *cobra.Command {
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
-	cmd.Flags().StringVar(&c.flagClusterSubnet, "subnet", "", "Subnet to look for cluster members in")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
 
 	return cmd
@@ -54,22 +51,17 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	addr := c.flagAddress
-	if addr == "" {
-		addr = util.NetworkInterfaceAddress()
+	addr, subnet, err := askAddress(c.flagAutoSetup, c.flagAddress)
+	if err != nil {
+		return err
 	}
 
 	name, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("Failed to retrieve system honame: %w", err)
+		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	if !c.flagAutoSetup && c.flagAddress == "" {
-		addr, err = cli.AskString(fmt.Sprintf("Please choose the address MicroCloud will be listening on [default=%s]: ", addr), addr, nil)
-		if err != nil {
-			return err
-		}
-
+	if !c.flagAutoSetup {
 		// FIXME: MicroCeph does not currently support non-hostname cluster names.
 		// name, err = cli.AskString(fmt.Sprintf("Please choose a name for this system [default=%s]: ", name), name, nil)
 		// if err != nil {
@@ -93,7 +85,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAutoSetup, c.flagClusterSubnet)
+	peers, err := lookupPeers(s, c.flagAutoSetup, subnet)
 	if err != nil {
 		return err
 	}
@@ -147,42 +139,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func lookupPeers(s *service.ServiceHandler, autoSetup bool, givenSubnet string) (map[string]mdns.ServerInfo, error) {
-	var subnet *net.IPNet
-	var err error
-	if givenSubnet != "" {
-		_, subnet, err = net.ParseCIDR(givenSubnet)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid subnet: %q", err)
-		}
-	} else {
-		if net.ParseIP(s.Address).To4() != nil {
-			_, subnet, err = net.ParseCIDR(s.Address + "/24")
-		} else {
-			_, subnet, err = net.ParseCIDR(s.Address + "/64")
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("Failed to determine subnet from IP: %w", err)
-		}
-	}
-
-	if !autoSetup && givenSubnet == "" {
-		subnetStr, err := cli.AskString(fmt.Sprintf("Please choose the subnet for MicroCloud (all/[subnet]) [default=%s]: ", subnet.String()), subnet.String(), nil)
-		if err != nil {
-			return nil, err
-		}
-
-		if subnetStr == "all" {
-			subnet = nil
-		} else if subnetStr != subnet.String() {
-			_, subnet, err = net.ParseCIDR(subnetStr)
-			if err != nil {
-				return nil, fmt.Errorf("Invalid subnet: %q", err)
-			}
-		}
-	}
-
+func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (map[string]mdns.ServerInfo, error) {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
