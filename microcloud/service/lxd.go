@@ -398,6 +398,86 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string,
 	return client.GetServerResources()
 }
 
+func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.ServerInfo) (map[string][]api.Network, error) {
+	clients := map[string]lxd.InstanceServer{}
+	networks := map[string][]api.Network{}
+	if bootstrap {
+		client, err := s.client("")
+		if err != nil {
+			return nil, err
+		}
+
+		networks[s.Name()], err = client.GetNetworks()
+		if err != nil {
+			return nil, err
+		}
+
+		clients[s.Name()] = client
+	}
+
+	for _, info := range peers {
+		client, err := s.remoteClient(info.AuthSecret, info.Address, CloudPort)
+		if err != nil {
+			return nil, err
+		}
+
+		networks[info.Name], err = client.GetNetworks()
+		if err != nil {
+			return nil, err
+		}
+
+		clients[info.Name] = client
+	}
+
+	candidates := map[string][]api.Network{}
+	for peer, nets := range networks {
+		for _, network := range nets {
+			// Skip managed networks.
+			if network.Managed {
+				continue
+			}
+
+			// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
+			if !shared.StringInSlice(network.Type, []string{"physical", "bridge", "vlan"}) {
+				continue
+			}
+
+			state, err := clients[peer].GetNetworkState(network.Name)
+			if err != nil {
+				continue
+			}
+
+			// OpenVswitch only works with full L2 devices.
+			if state.Type != "broadcast" {
+				continue
+			}
+
+			// Can't use interfaces that aren't up.
+			if state.State != "up" {
+				continue
+			}
+
+			// Make sure the interface isn't in use by ensuring there's no global addresses on it.
+			addresses := []string{}
+			for _, address := range state.Addresses {
+				if address.Scope != "global" {
+					continue
+				}
+
+				addresses = append(addresses, address.Address)
+			}
+
+			if len(addresses) > 0 {
+				continue
+			}
+
+			candidates[peer] = append(candidates[peer], network)
+		}
+	}
+
+	return candidates, nil
+}
+
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
 func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string, ovnConfig string, ovnTargets map[string]string) error {
