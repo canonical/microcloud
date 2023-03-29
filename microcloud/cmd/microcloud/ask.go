@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -67,6 +68,76 @@ func askMissingServices(services []types.ServiceType, stateDirs map[types.Servic
 	}
 
 	return services, nil
+}
+
+func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
+	info, err := mdns.GetNetworkInfo()
+	if err != nil {
+		return "", nil, fmt.Errorf("Failed to find network interfaces: %w", err)
+	}
+
+	if listenAddr == "" {
+		if len(info) == 0 {
+			return "", nil, fmt.Errorf("Found no valid network interfaces")
+		}
+
+		listenAddr = info[0].Address
+		if !autoSetup && len(info) > 1 {
+			data := make([][]string, 0, len(info))
+			for _, net := range info {
+				data = append(data, []string{net.Address, net.Interface})
+			}
+
+			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
+			askRetry("Retry selecting an address?", autoSetup, func() error {
+				fmt.Println("Select an address for MicroCloud's internal traffic")
+				table.Render(table.rows)
+				answers, err := table.GetSelections()
+				if err != nil {
+					return err
+				}
+
+				if len(answers) != 1 {
+					return fmt.Errorf("Please select exactly one address")
+				}
+
+				listenAddr = table.SelectionValue(answers[0], "ADDRESS")
+
+				fmt.Printf(" Using address %q for MicroCloud\n\n", listenAddr)
+
+				return nil
+			})
+		} else {
+			fmt.Printf("Using address %q for MicroCloud\n", listenAddr)
+		}
+	}
+
+	var subnet *net.IPNet
+
+	for _, network := range info {
+		if network.Subnet.Contains(net.ParseIP(listenAddr)) {
+			subnet = network.Subnet
+
+			break
+		}
+	}
+
+	if subnet == nil {
+		return "", nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
+	}
+
+	if !autoSetup {
+		filter, err := cli.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
+		if err != nil {
+			return "", nil, err
+		}
+
+		if !filter {
+			subnet = nil
+		}
+	}
+
+	return listenAddr, subnet, nil
 }
 
 func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, bootstrap bool, autoSetup bool, wipeAllDisks bool) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string][]cephTypes.DisksPost, error) {
