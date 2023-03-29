@@ -15,9 +15,8 @@ import (
 type cmdAdd struct {
 	common *CmdControl
 
-	flagAutoSetup     bool
-	flagWipe          bool
-	flagClusterSubnet string
+	flagAutoSetup bool
+	flagWipe      bool
 }
 
 func (c *cmdAdd) Command() *cobra.Command {
@@ -29,7 +28,6 @@ func (c *cmdAdd) Command() *cobra.Command {
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
-	cmd.Flags().StringVar(&c.flagClusterSubnet, "subnet", "", "Subnet to look for cluster members in")
 
 	return cmd
 }
@@ -53,7 +51,11 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr := status.Address.Addr().String()
+	addr, subnet, err := askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	if err != nil {
+		return err
+	}
+
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
@@ -70,7 +72,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAutoSetup, c.flagClusterSubnet)
+	peers, err := lookupPeers(s, c.flagAutoSetup, subnet)
 	if err != nil {
 		return err
 	}
