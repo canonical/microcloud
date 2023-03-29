@@ -8,6 +8,7 @@ import (
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/lxc/lxd/lxc/utils"
+	"github.com/lxc/lxd/shared/api"
 	lxdAPI "github.com/lxc/lxd/shared/api"
 	cli "github.com/lxc/lxd/shared/cmd"
 	"github.com/lxc/lxd/shared/logger"
@@ -476,4 +477,158 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup
 	}
 
 	return nil, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
+}
+
+func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
+	if sh.Services[types.MicroOVN] == nil {
+		return nil, nil, nil
+	}
+
+	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(bootstrap, peers)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if autoSetup {
+		return nil, nil, nil
+	}
+
+	wantsOVN, err := cli.AskBool("Set up distributed networking? (yes/no) [default=yes]: ", "yes")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !wantsOVN {
+		return nil, nil, err
+	}
+
+	header := []string{"LOCATION", "IFACE", "TYPE"}
+	data := [][]string{}
+	for peer, nets := range networks {
+		for _, net := range nets {
+			data = append(data, []string{peer, net.Name, net.Type})
+		}
+	}
+
+	fmt.Println(data)
+
+	table := NewSelectableTable(header, data)
+	var selected map[string]string
+	askRetry("Retry selecting uplink interfaces?", autoSetup, func() error {
+		table.Render(table.rows)
+		answers, err := table.GetSelections()
+		if err != nil {
+			return err
+		}
+
+		selected = map[string]string{}
+		for _, answer := range answers {
+			target := table.SelectionValue(answer, "LOCATION")
+			iface := table.SelectionValue(answer, "IFACE")
+
+			if selected[target] != "" {
+				return fmt.Errorf("Failed to add OVN uplink network: Selected more than one interface for target %q", target)
+			}
+
+			selected[target] = iface
+		}
+
+		if len(selected) != len(networks) {
+			return fmt.Errorf("Failed to add OVN uplink network: Some peers don't have a selected interface")
+		}
+
+		return nil
+	})
+
+	config := map[string]string{}
+	if bootstrap {
+		for _, ip := range []string{"IPv4", "IPv6"} {
+			validator := func(s string) error {
+				if ip == "IPv4" && s == "" {
+					return nil
+				}
+
+				addr, _, err := net.ParseCIDR(s)
+				if err != nil {
+					return err
+				}
+
+				if addr.To4() == nil && ip == "IPv4" {
+					return fmt.Errorf("Not a valid IPv4")
+				}
+
+				if addr.To4() != nil && ip == "IPv6" {
+					return fmt.Errorf("Not a valid IPv6")
+				}
+
+				return nil
+			}
+
+			msg := fmt.Sprintf("Select the %s gateway on the uplink network [CIDR]: ", ip)
+			if ip == "IPv4" {
+				msg = fmt.Sprintf("Select the %s gateway on the uplink network [CIDR/(empty to skip)]: ", ip)
+			}
+
+			gateway, err := cli.AskString(msg, "", validator)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if gateway != "" {
+				validator := func(s string) error {
+					addr := net.ParseIP(s)
+					if addr == nil {
+						return fmt.Errorf("Invalid IP address %q", s)
+					}
+
+					if addr.To4() == nil && ip == "IPv4" {
+						return fmt.Errorf("Not a valid IPv4")
+					}
+
+					if addr.To4() != nil && ip == "IPv6" {
+						return fmt.Errorf("Not a valid IPv6")
+					}
+
+					return nil
+				}
+
+				rangeStart, err := cli.AskString(fmt.Sprintf("Select the first %s address in the range to use with LXD: ", ip), "", validator)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				rangeEnd, err := cli.AskString(fmt.Sprintf("Select the last %s address in the range to use with LXD: ", ip), "", validator)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+			}
+		}
+	}
+
+	if !bootstrap {
+		if lxdConfig == nil {
+			lxdConfig = map[string][]lxdAPI.ClusterMemberConfigKey{}
+		}
+
+		for peer, parent := range selected {
+			config, ok := lxdConfig[peer]
+			if !ok {
+				config = []api.ClusterMemberConfigKey{}
+			}
+
+			config = append(config, api.ClusterMemberConfigKey{
+				Entity:      "network",
+				Name:        "UPLINK",
+				Key:         "parent",
+				Value:       parent,
+				Description: "",
+			})
+
+			lxdConfig[peer] = config
+		}
+	}
+
+	return selected, config, nil
 }

@@ -77,15 +77,20 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	lxdDisks, cephDisks, err := askDisks(s, peers, false, c.flagAutoSetup, c.flagWipe)
+	lxdConfig, cephDisks, err := askDisks(s, peers, false, c.flagAutoSetup, c.flagWipe)
 	if err != nil {
 		return err
 	}
 
-	err = AddPeers(s, peers, lxdDisks, cephDisks)
+	uplinkNetworks, networkConfig, err := askNetwork(s, peers, lxdConfig, false, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
 
-	return postClusterSetup(false, s, peers, lxdDisks, cephDisks)
+	err = AddPeers(s, peers, lxdConfig, cephDisks)
+	if err != nil {
+		return err
+	}
+
+	return postClusterSetup(false, s, peers, lxdConfig, cephDisks, uplinkNetworks, networkConfig)
 }
