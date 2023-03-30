@@ -17,6 +17,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // LXDService is a LXD service.
@@ -113,36 +114,6 @@ func (s LXDService) Bootstrap() error {
 	err = client.UpdateServer(newServer, etag)
 	if err != nil {
 		return fmt.Errorf("Failed to update server configuration: %w", err)
-	}
-
-	// Setup networking.
-	underlay, _, err := defaultGatewaySubnetV4()
-	if err != nil {
-		return fmt.Errorf("Couldn't determine Fan overlay subnet: %w", err)
-	}
-
-	underlaySize, _ := underlay.Mask.Size()
-	if underlaySize != 16 && underlaySize != 24 {
-		// Override to /16 as that will almost always lead to working Fan network.
-		underlay.Mask = net.CIDRMask(16, 32)
-		underlay.IP = underlay.IP.Mask(underlay.Mask)
-	}
-
-	network := api.NetworksPost{
-		NetworkPut: api.NetworkPut{
-			Config: map[string]string{
-				"bridge.mode":         "fan",
-				"fan.underlay_subnet": underlay.String(),
-			},
-			Description: "Default Ubuntu fan powered bridge",
-		},
-		Name: "lxdfan0",
-		Type: "bridge",
-	}
-
-	err = client.CreateNetwork(network)
-	if err != nil {
-		return err
 	}
 
 	// Enable clustering.
@@ -398,9 +369,178 @@ func (s *LXDService) GetResources(useRemote bool, target string, address string,
 	return client.GetServerResources()
 }
 
+func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.ServerInfo) (map[string][]api.Network, error) {
+	clients := map[string]lxd.InstanceServer{}
+	networks := map[string][]api.Network{}
+	if bootstrap {
+		client, err := s.client("")
+		if err != nil {
+			return nil, err
+		}
+
+		networks[s.Name()], err = client.GetNetworks()
+		if err != nil {
+			return nil, err
+		}
+
+		clients[s.Name()] = client
+	}
+
+	for _, info := range peers {
+		client, err := s.remoteClient(info.AuthSecret, info.Address, CloudPort)
+		if err != nil {
+			return nil, err
+		}
+
+		networks[info.Name], err = client.GetNetworks()
+		if err != nil {
+			return nil, err
+		}
+
+		clients[info.Name] = client
+	}
+
+	candidates := map[string][]api.Network{}
+	for peer, nets := range networks {
+		for _, network := range nets {
+			// Skip managed networks.
+			if network.Managed {
+				continue
+			}
+
+			// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
+			if !shared.StringInSlice(network.Type, []string{"physical", "bridge", "vlan"}) {
+				continue
+			}
+
+			state, err := clients[peer].GetNetworkState(network.Name)
+			if err != nil {
+				continue
+			}
+
+			// OpenVswitch only works with full L2 devices.
+			if state.Type != "broadcast" {
+				continue
+			}
+
+			// Can't use interfaces that aren't up.
+			if state.State != "up" {
+				continue
+			}
+
+			// Make sure the interface isn't in use by ensuring there's no global addresses on it.
+			addresses := []string{}
+			for _, address := range state.Addresses {
+				if address.Scope != "global" {
+					continue
+				}
+
+				addresses = append(addresses, address.Address)
+			}
+
+			if len(addresses) > 0 {
+				continue
+			}
+
+			candidates[peer] = append(candidates[peer], network)
+		}
+	}
+
+	return candidates, nil
+}
+
+func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig map[string]string) error {
+	client, err := s.client("")
+	if err != nil {
+		return err
+	}
+
+	if uplinkNetworks[s.Name()] == "" {
+		err = client.UseTarget(s.Name()).CreateNetwork(api.NetworksPost{Name: "lxdfan0", Type: "bridge"})
+		if err != nil {
+			return err
+		}
+
+		// Setup networking.
+		underlay, _, err := defaultGatewaySubnetV4()
+		if err != nil {
+			return fmt.Errorf("Couldn't determine Fan overlay subnet: %w", err)
+		}
+
+		underlaySize, _ := underlay.Mask.Size()
+		if underlaySize != 16 && underlaySize != 24 {
+			// Override to /16 as that will almost always lead to working Fan network.
+			underlay.Mask = net.CIDRMask(16, 32)
+			underlay.IP = underlay.IP.Mask(underlay.Mask)
+		}
+
+		network := api.NetworksPost{
+			NetworkPut: api.NetworkPut{
+				Config: map[string]string{
+					"bridge.mode":         "fan",
+					"fan.underlay_subnet": underlay.String(),
+				},
+				Description: "Default Ubuntu fan powered bridge",
+			},
+			Name: "lxdfan0",
+			Type: "bridge",
+		}
+
+		err = client.CreateNetwork(network)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = client.UseTarget(s.Name()).CreateNetwork(api.NetworksPost{
+			NetworkPut: api.NetworkPut{Config: map[string]string{"parent": uplinkNetworks[s.Name()]}},
+			Name:       "UPLINK",
+			Type:       "physical",
+		})
+		if err != nil {
+			return err
+		}
+
+		network := api.NetworkPut{Config: map[string]string{}, Description: "Uplink for OVN networks"}
+		for gateway, ipRange := range networkConfig {
+			ip, _, err := net.ParseCIDR(gateway)
+			if err != nil {
+				return err
+			}
+
+			if ip.To4() != nil {
+				network.Config["ipv4.gateway"] = gateway
+				network.Config["ipv4.ovn.ranges"] = ipRange
+			} else {
+				network.Config["ipv6.gateway"] = gateway
+				network.Config["ipv6.ovn.ranges"] = ipRange
+			}
+		}
+
+		err = client.CreateNetwork(api.NetworksPost{
+			NetworkPut: network,
+			Name:       "UPLINK",
+			Type:       "physical",
+		})
+		if err != nil {
+			return err
+		}
+
+		err = client.CreateNetwork(api.NetworksPost{
+			NetworkPut: api.NetworkPut{Config: map[string]string{"network": "UPLINK"}, Description: "Default OVN network"},
+			Name:       "default",
+			Type:       "ovn",
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string, ovnConfig string, ovnTargets map[string]string) error {
+func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string, ovnConfig string, ovnTargets map[string]string, uplinkNetworks map[string]string, networkConfig map[string]string) error {
 	c, err := s.client("")
 	if err != nil {
 		return err
@@ -413,20 +553,57 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 		}
 	}
 
-	for peer, secret := range ovnTargets {
-		err = s.SetConfig(peer, secret, map[string]string{"network.ovn.northbound_connection": ovnConfig})
-		if err != nil {
-			return err
-		}
-	}
-
 	if bootstrap {
 		err = s.SetConfig(s.Name(), "", map[string]string{"network.ovn.northbound_connection": ovnConfig})
 		if err != nil {
 			return err
 		}
 
+		for peer, secret := range ovnTargets {
+			err = s.SetConfig(peer, secret, map[string]string{"network.ovn.northbound_connection": ovnConfig})
+			if err != nil {
+				return err
+			}
+
+			if uplinkNetworks[peer] != "" {
+				client, err := s.client(secret)
+				if err != nil {
+					return err
+				}
+
+				err = client.UseTarget(peer).CreateNetwork(api.NetworksPost{
+					NetworkPut: api.NetworkPut{Config: map[string]string{"parent": uplinkNetworks[peer]}},
+					Name:       "UPLINK",
+					Type:       "physical",
+				})
+				if err != nil {
+					return err
+				}
+			} else {
+				client, err := s.client(secret)
+				if err != nil {
+					return err
+				}
+
+				err = client.UseTarget(peer).CreateNetwork(api.NetworksPost{Name: "lxdfan0", Type: "bridge"})
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		err = s.SetupNetwork(uplinkNetworks, networkConfig)
+		if err != nil {
+			return err
+		}
+
 		profile := api.ProfilesPost{ProfilePut: api.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+		if uplinkNetworks[s.Name()] != "" {
+			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "default", "type": "nic"}
+		} else {
+			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
+		}
+
 		if len(localPoolTargets) > 0 {
 			err = s.AddLocalVolumes(s.Name(), "")
 			if err != nil {
@@ -462,11 +639,11 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 			profile.Devices["root"] = map[string]string{"path": "/", "pool": "remote", "type": "disk"}
 		}
 
-		profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": "lxdfan0", "type": "nic"}
 		profiles, err := c.GetProfileNames()
 		if err != nil {
 			return err
 		}
+
 		if !shared.StringInSlice(profile.Name, profiles) {
 			err = c.CreateProfile(profile)
 		} else {

@@ -90,7 +90,12 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	lxdDisks, cephDisks, err := askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
+	lxdConfig, cephDisks, err := askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
+	if err != nil {
+		return err
+	}
+
+	uplinkNetworks, networkConfig, err := askNetwork(s, peers, lxdConfig, true, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -124,12 +129,12 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	err = AddPeers(s, peers, lxdDisks, cephDisks)
+	err = AddPeers(s, peers, lxdConfig, cephDisks)
 	if err != nil {
 		return err
 	}
 
-	err = postClusterSetup(true, s, peers, lxdDisks, cephDisks)
+	err = postClusterSetup(true, s, peers, lxdConfig, cephDisks, uplinkNetworks, networkConfig)
 	if err != nil {
 		return err
 	}
@@ -410,7 +415,7 @@ func waitForCluster(sh *service.ServiceHandler, secrets map[string]string, peers
 	}
 }
 
-func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
+func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost, uplinkNetworks map[string]string, networkConfig map[string]string) error {
 	cephTargets := map[string]string{}
 	for target := range cephDisks {
 		cephTargets[target] = peers[target].AuthSecret
@@ -453,5 +458,5 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		lxdTargets[peer] = peers[peer].AuthSecret
 	}
 
-	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, ovnTargets)
+	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, ovnTargets, uplinkNetworks, networkConfig)
 }
