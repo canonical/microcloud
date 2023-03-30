@@ -542,6 +542,11 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)
 	}
 
+	if len(selected) > 0 {
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
 	config := map[string]string{}
 	if bootstrap {
 		for _, ip := range []string{"IPv4", "IPv6"} {
