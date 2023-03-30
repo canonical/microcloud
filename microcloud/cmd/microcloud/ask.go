@@ -493,7 +493,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 		return nil, nil, nil
 	}
 
-	wantsOVN, err := cli.AskBool("Set up distributed networking? (yes/no) [default=yes]: ", "yes")
+	wantsOVN, err := cli.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -509,8 +509,6 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 			data = append(data, []string{peer, net.Name, net.Type})
 		}
 	}
-
-	fmt.Println(data)
 
 	table := NewSelectableTable(header, data)
 	var selected map[string]string
@@ -564,11 +562,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 				return nil
 			}
 
-			msg := fmt.Sprintf("Select the %s gateway on the uplink network [CIDR]: ", ip)
-			if ip == "IPv4" {
-				msg = fmt.Sprintf("Select the %s gateway on the uplink network [CIDR/(empty to skip)]: ", ip)
-			}
-
+			msg := fmt.Sprintf("Select the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
 			gateway, err := cli.AskString(msg, "", validator)
 			if err != nil {
 				return nil, nil, err
