@@ -564,11 +564,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 				return nil
 			}
 
-			msg := fmt.Sprintf("Select the %s gateway on the uplink network [CIDR]: ", ip)
-			if ip == "IPv4" {
-				msg = fmt.Sprintf("Select the %s gateway on the uplink network [CIDR/(empty to skip)]: ", ip)
-			}
-
+			msg := fmt.Sprintf("Select the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
 			gateway, err := cli.AskString(msg, "", validator)
 			if err != nil {
 				return nil, nil, err
