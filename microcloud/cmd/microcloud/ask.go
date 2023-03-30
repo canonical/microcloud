@@ -493,7 +493,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 		return nil, nil, nil
 	}
 
-	wantsOVN, err := cli.AskBool("Set up distributed networking? (yes/no) [default=yes]: ", "yes")
+	wantsOVN, err := cli.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
 	if err != nil {
 		return nil, nil, err
 	}
