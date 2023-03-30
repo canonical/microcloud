@@ -456,6 +456,11 @@ func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig
 	}
 
 	if uplinkNetworks[s.Name()] == "" {
+		err = client.UseTarget(s.Name()).CreateNetwork(api.NetworksPost{Name: "lxdfan0", Type: "bridge"})
+		if err != nil {
+			return err
+		}
+
 		// Setup networking.
 		underlay, _, err := defaultGatewaySubnetV4()
 		if err != nil {
@@ -495,7 +500,7 @@ func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig
 			return err
 		}
 
-		network := api.NetworkPut{Config: map[string]string{}}
+		network := api.NetworkPut{Config: map[string]string{}, Description: "Uplink for OVN networks"}
 		for gateway, ipRange := range networkConfig {
 			ip, _, err := net.ParseCIDR(gateway)
 			if err != nil {
@@ -521,7 +526,7 @@ func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig
 		}
 
 		err = client.CreateNetwork(api.NetworksPost{
-			NetworkPut: api.NetworkPut{Config: map[string]string{"network": "UPLINK"}},
+			NetworkPut: api.NetworkPut{Config: map[string]string{"network": "UPLINK"}, Description: "Default OVN network"},
 			Name:       "default",
 			Type:       "ovn",
 		})
@@ -548,33 +553,43 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 		}
 	}
 
-	for peer, secret := range ovnTargets {
-		err = s.SetConfig(peer, secret, map[string]string{"network.ovn.northbound_connection": ovnConfig})
-		if err != nil {
-			return err
-		}
-
-		if uplinkNetworks[peer] != "" {
-			client, err := s.client(secret)
-			if err != nil {
-				return err
-			}
-
-			err = client.UseTarget(peer).CreateNetwork(api.NetworksPost{
-				NetworkPut: api.NetworkPut{Config: map[string]string{"parent": uplinkNetworks[peer]}},
-				Name:       "UPLINK",
-				Type:       "physical",
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	if bootstrap {
 		err = s.SetConfig(s.Name(), "", map[string]string{"network.ovn.northbound_connection": ovnConfig})
 		if err != nil {
 			return err
+		}
+
+		for peer, secret := range ovnTargets {
+			err = s.SetConfig(peer, secret, map[string]string{"network.ovn.northbound_connection": ovnConfig})
+			if err != nil {
+				return err
+			}
+
+			if uplinkNetworks[peer] != "" {
+				client, err := s.client(secret)
+				if err != nil {
+					return err
+				}
+
+				err = client.UseTarget(peer).CreateNetwork(api.NetworksPost{
+					NetworkPut: api.NetworkPut{Config: map[string]string{"parent": uplinkNetworks[peer]}},
+					Name:       "UPLINK",
+					Type:       "physical",
+				})
+				if err != nil {
+					return err
+				}
+			} else {
+				client, err := s.client(secret)
+				if err != nil {
+					return err
+				}
+
+				err = client.UseTarget(peer).CreateNetwork(api.NetworksPost{Name: "lxdfan0", Type: "bridge"})
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		err = s.SetupNetwork(uplinkNetworks, networkConfig)

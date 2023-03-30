@@ -612,21 +612,22 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 			lxdConfig = map[string][]lxdAPI.ClusterMemberConfigKey{}
 		}
 
-		for peer, parent := range selected {
-			config, ok := lxdConfig[peer]
-			if !ok {
-				config = []api.ClusterMemberConfigKey{}
+		if len(selected) != 0 {
+			for peer, parent := range selected {
+				config, ok := lxdConfig[peer]
+				if !ok {
+					config = []api.ClusterMemberConfigKey{}
+				}
+
+				config = append(config, api.ClusterMemberConfigKey{
+					Entity: "network",
+					Name:   "UPLINK",
+					Key:    "parent",
+					Value:  parent,
+				})
+
+				lxdConfig[peer] = config
 			}
-
-			config = append(config, api.ClusterMemberConfigKey{
-				Entity:      "network",
-				Name:        "UPLINK",
-				Key:         "parent",
-				Value:       parent,
-				Description: "",
-			})
-
-			lxdConfig[peer] = config
 		}
 	}
 
