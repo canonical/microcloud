@@ -510,8 +510,6 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 		}
 	}
 
-	fmt.Println(data)
-
 	table := NewSelectableTable(header, data)
 	var selected map[string]string
 	askRetry("Retry selecting uplink interfaces?", autoSetup, func() error {
