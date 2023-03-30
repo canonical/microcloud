@@ -551,7 +551,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 	if bootstrap {
 		for _, ip := range []string{"IPv4", "IPv6"} {
 			validator := func(s string) error {
-				if ip == "IPv4" && s == "" {
+				if s == "" {
 					return nil
 				}
 
