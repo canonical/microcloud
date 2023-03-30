@@ -260,7 +260,7 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (
 	}
 
 	for _, info := range selectedPeers {
-		fmt.Printf("  Selected %q at %q\n", info.Name, info.Address)
+		fmt.Printf(" Selected %q at %q\n", info.Name, info.Address)
 	}
 
 	// Add a space between the CLI and the response.
