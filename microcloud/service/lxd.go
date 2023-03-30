@@ -107,7 +107,7 @@ func (s LXDService) Bootstrap() error {
 	addr := util.CanonicalNetworkAddress(s.address, s.port)
 
 	newServer := currentServer.Writable()
-	newServer.Config["core.https_address"] = addr
+	newServer.Config["core.https_address"] = "[::]:8443"
 	newServer.Config["cluster.https_address"] = addr
 
 	// Apply it.
