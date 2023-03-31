@@ -480,28 +480,47 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup
 }
 
 func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
+	// Automatic setup gets a basic fan setup.
+	if autoSetup {
+		return nil, nil, nil
+	}
+
+	// Environments without OVN get a basic fan setup.
 	if sh.Services[types.MicroOVN] == nil {
 		return nil, nil, nil
 	}
 
+	// Get the list of networks from all peers.
 	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(bootstrap, peers)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if autoSetup {
+	// Check if OVN is possible in the environment.
+	canOVN := len(networks) > 0
+	for _, nets := range networks {
+		if len(nets) == 0 {
+			canOVN = false
+			break
+		}
+	}
+
+	if !canOVN {
+		fmt.Println("No dedicated uplink interfaces detected, skipping distributed networking")
 		return nil, nil, nil
 	}
 
+	// Ask the user if they want OVN.
 	wantsOVN, err := cli.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if !wantsOVN {
-		return nil, nil, err
+		return nil, nil, nil
 	}
 
+	// Uplink selection table.
 	header := []string{"LOCATION", "IFACE", "TYPE"}
 	data := [][]string{}
 	for peer, nets := range networks {
@@ -547,6 +566,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 		fmt.Println("")
 	}
 
+	// Prepare the configuration.
 	config := map[string]string{}
 	if bootstrap {
 		for _, ip := range []string{"IPv4", "IPv6"} {
