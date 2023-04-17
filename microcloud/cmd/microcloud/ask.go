@@ -615,17 +615,21 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 					return nil
 				}
 
-				rangeStart, err := cli.AskString(fmt.Sprintf("Select the first %s address in the range to use with LXD: ", ip), "", validator)
-				if err != nil {
-					return nil, nil, err
-				}
+				if ip == "IPv4" {
+					rangeStart, err := cli.AskString(fmt.Sprintf("Select the first %s address in the range to use with LXD: ", ip), "", validator)
+					if err != nil {
+						return nil, nil, err
+					}
 
-				rangeEnd, err := cli.AskString(fmt.Sprintf("Select the last %s address in the range to use with LXD: ", ip), "", validator)
-				if err != nil {
-					return nil, nil, err
-				}
+					rangeEnd, err := cli.AskString(fmt.Sprintf("Select the last %s address in the range to use with LXD: ", ip), "", validator)
+					if err != nil {
+						return nil, nil, err
+					}
 
-				config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+					config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+				} else {
+					config[gateway] = ""
+				}
 			}
 		}
 	}

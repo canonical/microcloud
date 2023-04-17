@@ -512,7 +512,6 @@ func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig
 				network.Config["ipv4.ovn.ranges"] = ipRange
 			} else {
 				network.Config["ipv6.gateway"] = gateway
-				network.Config["ipv6.ovn.ranges"] = ipRange
 			}
 		}
 
