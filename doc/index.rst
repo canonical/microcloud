@@ -9,7 +9,7 @@ MicroCloud
 
 MicroCloud is the easiest way to get a fully highly available LXD cluster up and running.
 
-The MicroCloud snap installs and automatically configures both `LXD <https://linuxcontainers.org/>`_ and `Ceph <https://ceph.io/en/>`_ across a set of servers.
+The MicroCloud snap automatically configures `LXD <https://linuxcontainers.org/>`_, `Ceph <https://ceph.io/en/>`_, and `OVN <https://www.ovn.org/>`_ across a set of servers.
 MicroCloud relies on mDNS to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on one of the machines.
 
 This way, MicroCloud creates a small footprint cluster of compute nodes with distributed storage and secure networking, optimised for repeatable, reliable remote deployments.

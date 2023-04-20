@@ -21,7 +21,11 @@ extensions = [
     'sphinx_tabs.tabs',
     'sphinx_reredirects',
     'myst_parser',
-    'sphinx.ext.intersphinx']
+    'sphinx.ext.intersphinx',
+    "youtube-links",
+    "related-links",
+    "custom-rst-roles",
+    "terminal-output"]
 
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.sphinx']
 
