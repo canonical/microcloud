@@ -9,14 +9,17 @@
 
 **MicroCloud** is the easiest way to get a **fully highly available LXD cluster up and running.**
 
-It’s a snap package that can automatically configure both LXD and Ceph across a set of servers.
+It’s a snap package that can automatically configure LXD, Ceph, and OVN across a set of servers.
 It relies on mDNS to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on one of the machines.
 
 MicroCloud creates a small footprint cluster of compute nodes with distributed storage and secure networking, optimized for repeatable, reliable remote deployments. MicroCloud is aimed at edge computing, and anyone in need of a small-scale private cloud.
 
 ## **Requirements?**
 
-A minimum of **3 systems and at least 3 additional disks** for use by Ceph are required.
+MicroCloud requires a minimum of three machines.
+
+To use local storage, each machine requires a local disk.
+To use distributed storage, at least three additional disks (not only partitions) for use by Ceph are required.
 
 <p align="center" width="100%">
     <img width="33%" src="https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg">
@@ -26,10 +29,10 @@ Once the simple initialisation is complete, users can launch, run and manage the
 
 ## **How to get started**
 
-To get started, install the LXD, MicroCeph and Micro Cloud snaps. You can install them all at once with the following command:
+To get started, install the LXD, MicroCeph, MicroOVN and MicroCloud snaps. You can install them all at once with the following command:
 
 ```
-snap install lxd microceph microcloud
+snap install lxd microceph microovn microcloud
 ```
 
 Then start the bootstrapping process with the following command:
@@ -40,19 +43,19 @@ microcloud init
 
 Following the simple CLI prompts, a working MicroCloud will be ready within minutes.
 
-The MicroCloud snap drives two other snaps (LXD and MicroCeph), enabling automated deployment of a highly available LXD cluster for compute with Ceph as a storage backend.
+The MicroCloud snap drives three other snaps (LXD, MicroCeph, and MicroOVN), enabling automated deployment of a highly available LXD cluster for compute with Ceph as the storage driver and OVN as the managed network.
 
-After the first initialisation steps, MicroCloud will detect the other servers, set up a cluster and finally prompt you to add disks to Ceph.
+During initialisation, MicroCloud detects the other servers and then prompts you to add disks to Ceph and configure the networking setup.
 
-At the end of this, you’ll have both a Ceph and a LXD cluster, and LXD itself will have been configured with both networking and storage suitable for use in a cluster.
+At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
 ## **What about networking?**
 
-For networking, MicroCloud uses a default network bridge. **MicroOVN** is in development and will be added once completed.
+For networking, MicroCloud uses MicroOVN, a minimal implementation of OVN (Open Virtual Network).
 
 ## **What's next?**
 
-This is just the beginning of MicroCloud. We’re very excited about what’s coming up next, starting with the addition of OVN to the mix, providing distributed networking alongside the distributed storage provided by Ceph.
+This is just the beginning of MicroCloud. We’re very excited about what’s coming up next!
 
 ### **RESOURCES:**
  - Introduction: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871
