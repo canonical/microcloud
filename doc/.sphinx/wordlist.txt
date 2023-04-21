@@ -17,7 +17,10 @@ multicast
 OVN
 Permalink
 pradyunsg
+reST
+reStructuredText
 roadmap
 subnet
+UI
 uplink
 VMs

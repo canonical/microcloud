@@ -1,6 +1,5 @@
 .. _explanation-initialisation:
 
-================================
 About the initialisation process
 ================================
 

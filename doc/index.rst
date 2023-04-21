@@ -5,11 +5,11 @@
    :align: center
 
 MicroCloud
-======================================================
+==========
 
 MicroCloud is the easiest way to get a fully highly available LXD cluster up and running.
 
-The MicroCloud snap automatically configures `LXD <https://linuxcontainers.org/>`_, `Ceph <https://ceph.io/en/>`_, and `OVN <https://www.ovn.org/>`_ across a set of servers.
+The MicroCloud snap automatically configures `LXD`_, `Ceph`_, and `OVN`_ across a set of servers.
 MicroCloud relies on mDNS to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on one of the machines.
 
 This way, MicroCloud creates a small footprint cluster of compute nodes with distributed storage and secure networking, optimised for repeatable, reliable remote deployments.
@@ -49,11 +49,11 @@ Project and community
 
 MicroCloud is a member of the Ubuntu family. It’s an open source project that warmly welcomes community projects, contributions, suggestions, fixes and constructive feedback.
 
-* `Snap <https://snapcraft.io/microcloud>`_
-* `Contribute <https://github.com/canonical/microcloud>`_
-* `Get support <https://discuss.linuxcontainers.org/tag/microcloud>`_
-* `Announcement <https://discuss.linuxcontainers.org/t/introducing-microcloud/15871>`_
-* `Thinking about using MicroCloud for your next project? Get in touch! <https://microcloud.is>`_
+- `MicroCloud snap`_
+- `Contribute <GitHub_>`_
+- `Get support`_
+- `Announcement`_
+- `Thinking about using MicroCloud for your next project? Get in touch! <website_>`_
 
 
 .. toctree::

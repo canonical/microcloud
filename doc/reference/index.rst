@@ -1,3 +1,5 @@
+.. _reference:
+
 Reference
 =========
 
@@ -22,7 +24,7 @@ Snaps
 
 To run MicroCloud, you must install the following snaps:
 
-- `MicroCloud <https://snapcraft.io/microcloud>`_
-- `LXD <https://snapcraft.io/lxd>`_
-- `MicroCeph <https://snapcraft.io/microceph>`_
-- `MicroOVN <https://snapcraft.io/microovn>`_
+- `MicroCloud snap`_
+- `LXD snap`_
+- `MicroCeph snap`_
+- `MicroOVN snap`_

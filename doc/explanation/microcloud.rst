@@ -1,6 +1,5 @@
 .. _explanation-microcloud:
 
-================
 About MicroCloud
 ================
 
