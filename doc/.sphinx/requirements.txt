@@ -1,10 +1,11 @@
 sphinx
 sphinx-autobuild
 sphinx-design
-pyenchant
 furo
+myst-parser
 sphinx-tabs
 sphinx-reredirects
 pyspelling
-myst-parser
+sphinxext-opengraph
 lxd-sphinx-extensions
+sphinx-copybutton

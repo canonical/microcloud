@@ -26,16 +26,16 @@ install:
                 "* only serve: make serve \n" \
                 "* clean built doc files: make clean-doc \n" \
                 "* clean full environment: make clean \n" \
-		"* check spelling: make spellcheck \n" \
-		"\n" \
-		"enchant must be installed in order for pyenchant (and therefore \n" \
-		"spelling checks) to work. \n" \
+		"* check spelling: make spelling \n" \
 		"--------------------------------------------------------------- \n"
 run:
-	. $(VENV); sphinx-autobuild -c . "$(SOURCEDIR)" "$(BUILDDIR)"
+	. $(VENV); sphinx-autobuild -c . -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)"
 
 html:
-	. $(VENV); $(SPHINXBUILD) -c . "$(SOURCEDIR)" "$(BUILDDIR)" -w .sphinx/warnings.txt
+	. $(VENV); $(SPHINXBUILD) -c . -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w .sphinx/warnings.txt
+
+epub:
+	. $(VENV); $(SPHINXBUILD) -c . -b epub "$(SOURCEDIR)" "$(BUILDDIR)" -w .sphinx/warnings.txt
 
 serve:
 	cd "$(BUILDDIR)"; python3 -m http.server 8000
@@ -44,10 +44,10 @@ clean: clean-doc
 	rm -rf .sphinx/venv
 
 clean-doc:
-	rm -rf "$(BUILDDIR)"
+	git clean -fx "$(BUILDDIR)"
 
-spellcheck: html
-	. $(VENV) ; python3 -m pyspelling -c .sphinx/spellcheck.yaml
+spelling: html
+	. $(VENV) ; python3 -m pyspelling -c .sphinx/spellingcheck.yaml
 
 linkcheck:
 	. $(VENV) ; $(SPHINXBUILD) -c . -b linkcheck  "$(SOURCEDIR)" "$(BUILDDIR)"

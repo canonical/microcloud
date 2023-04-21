@@ -1,6 +1,5 @@
 .. _howto-install:
 
-=========================
 How to install MicroCloud
 =========================
 

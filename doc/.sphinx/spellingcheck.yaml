@@ -23,3 +23,6 @@ matrix:
       - title
       - div.relatedlinks
       - strong.command
+      - div.visually-hidden
+      - img
+

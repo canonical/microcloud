@@ -1,6 +1,5 @@
 .. _howto-initialise:
 
-============================
 How to initialise MicroCloud
 ============================
 
