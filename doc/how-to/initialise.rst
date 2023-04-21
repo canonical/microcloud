@@ -4,7 +4,7 @@
 How to initialise MicroCloud
 ============================
 
-The initialisation process bootstraps the MicroCloud cluster.
+The :ref:`initialisation process <explanation-initialisation>` bootstraps the MicroCloud cluster.
 You run the initialisation on one of the machines, and it configures the required services on all machines.
 
 During the initialisation process, you are prompted for information about your machines and how you want to set them up.
@@ -35,6 +35,8 @@ Complete the following steps to initialise MicroCloud:
 
    If you accept the default (``yes``), MicroCloud will automatically detect machines in the local subnet.
    Otherwise, it will detect all available machines, which might include duplicates (if machines are available both on IPv4 and on IPv6).
+
+   See :ref:`automatic-server-detection` for more information.
 #. Select the machines that you want to add to the MicroCloud cluster.
 
    MicroCloud displays all machines that it detects.
@@ -74,6 +76,7 @@ Complete the following steps to initialise MicroCloud:
    #. If you want to use IPv6, specify the IPv6 gateway on the uplink network (in CIDR notation).
 #. MicroCloud now starts to bootstrap the cluster.
    Monitor the output to see whether all steps complete successfully.
+   See :ref:`bootstrapping-process` for more information.
 
    Once the initialisation process is complete, you can start using MicroCloud.
 
