@@ -68,7 +68,7 @@ jobs:
       - name: Build docs and run spellchecker
         working-directory: ./doc
         run: |
-          make spellcheck
+          make spelling
 
   woke:
     name: Inclusive language check (documentation)

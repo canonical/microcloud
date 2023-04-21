@@ -1,4 +1,5 @@
 import datetime
+import sys
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -13,6 +14,21 @@ author = 'Canonical Group Ltd'
 copyright = "%s, %s" % (datetime.date.today().year, author)
 release = '0.99'
 
+# Open Graph configuration - defines what is displayed in the website preview
+ogp_site_url = "https://canonical-microcloud.readthedocs-hosted.com/en/latest/"
+ogp_site_name = project
+ogp_image = "https://assets.ubuntu.com/v1/d53eeeac-Microcloud_favicon_64px_v2.png"
+
+html_context = {
+    # Change to the discourse instance you want to be able to link to
+    "discourse_prefix": "https://discuss.linuxcontainers.org/t/",
+    # Change to the GitHub info for your project
+    "github_url": "https://github.com/canonical/microcloud",
+    "github_version": "main",
+    "github_folder": "/doc/",
+    "github_filetype": "rst"
+}
+
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
@@ -22,12 +38,18 @@ extensions = [
     'sphinx_reredirects',
     'myst_parser',
     'sphinx.ext.intersphinx',
-    "youtube-links",
-    "related-links",
-    "custom-rst-roles",
-    "terminal-output"]
+    'youtube-links',
+    'related-links',
+    'custom-rst-roles',
+    'terminal-output',
+    'sphinx_copybutton',
+    'sphinxext.opengraph']
 
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.sphinx']
+
+rst_epilog = """
+.. include:: /reuse/links.txt
+"""
 
 source_suffix = {
     '.rst': 'restructuredtext',
@@ -38,8 +60,22 @@ intersphinx_mapping = {
     'lxd': ('https://linuxcontainers.org/lxd/docs/master/', None)
 }
 
+# Links to ignore when checking links
+linkcheck_ignore = [
+    'http://127.0.0.1:8000'
+    ]
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+
+# Find the current builder
+builder = "dirhtml"
+if '-b' in sys.argv:
+    builder = sys.argv[sys.argv.index('-b')+1]
+
+# Setting templates_path for epub makes the build fail
+if builder == "dirhtml" or builder == "html":
+    templates_path = [".sphinx/_templates"]
 
 html_theme = 'furo'
 html_last_updated_fmt = ""
@@ -73,6 +109,7 @@ html_theme_options = {
         "color-highlighted-background": "#EbEbEb",
         "color-link-underline": "var(--color-background-primary)",
         "color-link-underline--hover": "var(--color-background-primary)",
+        "color-version-popup": "#772953"
     },
     "dark_css_variables": {
         "color-foreground-secondary": "var(--color-foreground-primary)",
@@ -96,14 +133,19 @@ html_theme_options = {
         "color-highlighted-background": "#666",
         "color-link-underline": "var(--color-background-primary)",
         "color-link-underline--hover": "var(--color-background-primary)",
+        "color-version-popup": "#F29879"
     },
 }
 
-
 html_static_path = ['.sphinx/_static']
 html_css_files = [
-    'custom.css'
+    'custom.css',
+    'github_issue_links.css',
 ]
+html_js_files = [
+    'github_issue_links.js',
+]
+
 
 # Set up redirects (https://documatt.gitlab.io/sphinx-reredirects/usage.html)
 # For example: "explanation/old-name.html": "../how-to/prettify.html",
