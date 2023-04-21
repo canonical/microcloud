@@ -1,3 +1,6 @@
+:discourse: 15871
+:relatedlinks: https://snapcraft.io/microcloud
+
 .. _home:
 
 .. image:: https://camo.githubusercontent.com/3abbd2b61fcb74805b2b48e41e2fead897322c39dab533de0231e13ac18e968b/68747470733a2f2f6c696e7578636f6e7461696e6572732e6f72672f7374617469632f696d672f636f6e7461696e6572732e706e67

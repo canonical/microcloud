@@ -1,3 +1,5 @@
+:relatedlinks: https://linuxcontainers.org/lxd/try-it/,https://linuxcontainers.org/lxd/docs/master/
+
 .. _tutorial:
 
 Tutorial
