@@ -17,6 +17,9 @@ You can mix different processor architectures within the same MicroCloud cluster
 
 If you want to add further machines after the initial initialisation, you can use the :command:`microcloud add` command.
 
+For networking, MicroCloud requires a dedicated network interface and an uplink network that is an actual L2 subnet.
+See :ref:`explanation-networking` for more information.
+
 .. _snaps:
 
 Snaps

@@ -17,6 +17,7 @@ MicroCloud creates a small footprint cluster of compute nodes with distributed s
 ## **Requirements?**
 
 MicroCloud requires a minimum of three machines.
+It supports up to 50 machines.
 
 To use local storage, each machine requires a local disk.
 To use distributed storage, at least three additional disks (not only partitions) for use by Ceph are required, and these disks must be on at least three different machines.
@@ -51,7 +52,8 @@ At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD clus
 
 ## **What about networking?**
 
-For networking, MicroCloud uses MicroOVN, a minimal implementation of OVN (Open Virtual Network).
+By default, MicroCloud uses MicroOVN for networking, which is a minimal implementation of OVN (Open Virtual Network).
+If you decide to not use MicroOVN, MicroCloud falls back on the Ubuntu fan for basic networking.
 
 ## **What's next?**
 
