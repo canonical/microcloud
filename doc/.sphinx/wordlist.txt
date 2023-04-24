@@ -6,6 +6,7 @@ CLI
 color
 DNS
 Furo
+IOV
 IPv
 LXD
 mDNS
@@ -23,4 +24,5 @@ roadmap
 subnet
 UI
 uplink
+VLAN
 VMs

@@ -19,6 +19,8 @@ You can use the :command:`microcloud cluster` command to show information about 
 Apart from that, you can use LXD commands to manage the cluster.
 See :ref:`lxd:clustering` in the LXD documentation for more information.
 
+.. _explanation-networking:
+
 Networking
 ----------
 
@@ -26,6 +28,9 @@ Networking
    :parser: myst_parser.sphinx_
    :start-after: ## **What about networking?**
    :end-before: ## **What's next?**
+
+MicroOVN requires an uplink network that is an actual L2 subnet (which is usually not the case in a virtual cloud environment).
+In addition, MicroOVN requires its own dedicated network interface, for example, a dedicated physical network interface, a VLAN, or a virtual function on an :abbr:`SR-IOV (Single root I/O virtualisation)`-capable network interface.
 
 See :ref:`lxd:network-ovn` in the LXD documentation for more information.
 
