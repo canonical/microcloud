@@ -14,7 +14,7 @@ type cmdShutdown struct {
 func (c *cmdShutdown) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shutdown",
-		Short: "Shut down the MicroCluster daemon",
+		Short: "Shut down the MicroCloud daemon",
 		RunE:  c.Run,
 	}
 
