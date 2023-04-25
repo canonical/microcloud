@@ -18,7 +18,7 @@ type cmdClusterMembers struct {
 func (c *cmdClusterMembers) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cluster",
-		Short: "manage cluster members.",
+		Short: "Manage cluster members",
 		RunE:  c.Run,
 	}
 
@@ -42,7 +42,7 @@ type cmdClusterMembersList struct {
 func (c *cmdClusterMembersList) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <address>",
-		Short: "List cluster members locally, or remotely if an address is specified.",
+		Short: "List cluster members locally, or remotely if an address is specified",
 		RunE:  c.Run,
 	}
 
@@ -106,7 +106,7 @@ type cmdClusterMemberRemove struct {
 func (c *cmdClusterMemberRemove) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <name>",
-		Short: "Remove the cluster member with the given name.",
+		Short: "Remove the specified cluster member",
 		RunE:  c.Run,
 	}
 

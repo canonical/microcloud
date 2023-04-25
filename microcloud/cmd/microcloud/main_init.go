@@ -35,7 +35,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"bootstrap"},
-		Short:   "Initialize the network endpoint and create or join a new cluster",
+		Short:   "Initialize the network endpoint and create a new cluster",
 		RunE:    c.Run,
 	}
 

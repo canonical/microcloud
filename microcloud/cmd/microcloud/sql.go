@@ -17,7 +17,7 @@ type cmdSQL struct {
 func (c *cmdSQL) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sql <query>",
-		Short: "Execute a SQL query against the daemon",
+		Short: "Run a SQL query against the daemon",
 		RunE:  c.Run,
 	}
 

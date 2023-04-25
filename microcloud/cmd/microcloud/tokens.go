@@ -44,7 +44,7 @@ type cmdTokensAdd struct {
 func (c *cmdTokensAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <name>",
-		Short: "Add a new join token under the given name",
+		Short: "Create a join token under the given name",
 		RunE:  c.Run,
 	}
 
@@ -120,7 +120,7 @@ type cmdTokensRevoke struct {
 func (c *cmdTokensRevoke) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke <name>",
-		Short: "Revoke the join token with the given name",
+		Short: "Revoke the specified join token",
 		RunE:  c.Run,
 	}
 
