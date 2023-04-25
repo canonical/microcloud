@@ -54,7 +54,7 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	// Get all state information for MicroCluster.
+	// Get all state information.
 	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
 	m, err := microcluster.App(context.Background(), options)
 	if err != nil {
