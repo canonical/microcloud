@@ -22,7 +22,7 @@ type cmdAdd struct {
 func (c *cmdAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Begins scanning for new cluster members",
+		Short: "Scan for new cluster members to add",
 		RunE:  c.Run,
 	}
 
