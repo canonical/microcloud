@@ -86,9 +86,9 @@ Here's an example of the full initialisation process:
    :host: micro01
    :scroll:
 
-   Select an address for MicroCloud's internal traffic
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Select an address for MicroCloud's internal traffic:
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +----------------------+-------+
           |       ADDRESS        | IFACE |
           +----------------------+-------+
@@ -99,9 +99,9 @@ Here's an example of the full initialisation process:
     Using address "2001:db8:d:100::169" for MicroCloud
 
    Limit search for other MicroCloud servers to 2001:db8:d:100::169/64? (yes/no) [default=yes]: yes
-   Scanning for eligible servers...
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Scanning for eligible servers ...
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +---------+-------+----------------------+
           |  NAME   | IFACE |         ADDR         |
           +---------+-------+----------------------+
@@ -112,10 +112,10 @@ Here's an example of the full initialisation process:
     Selected "micro03" at "2001:db8:d:100::171"
     Selected "micro02" at "2001:db8:d:100::170"
 
-   Would you like to setup local storage? (yes/no) [default=yes]: yes
+   Would you like to set up local storage? (yes/no) [default=yes]: yes
    Select exactly one disk from each cluster member:
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +----------+---------------------------+-----------+------+-------------------------------------------+
           | LOCATION |           MODEL           | CAPACITY  | TYPE |                   PATH                    |
           +----------+---------------------------+-----------+------+-------------------------------------------+
@@ -128,8 +128,8 @@ Here's an example of the full initialisation process:
           +----------+---------------------------+-----------+------+-------------------------------------------+
 
    Select which disks to wipe:
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +----------+---------------------------+-----------+------+-------------------------------------------+
           | LOCATION |           MODEL           | CAPACITY  | TYPE |                   PATH                    |
           +----------+---------------------------+-----------+------+-------------------------------------------+
@@ -142,10 +142,10 @@ Here's an example of the full initialisation process:
     Using "/dev/disk/by-id/nvme-eui.002538dc21405ad7" on "micro02" for local storage pool
     Using "/dev/disk/by-id/nvme-eui.002538dc21405aca" on "micro03" for local storage pool
 
-   Would you like to setup distributed storage? (yes/no) [default=yes]: yes
+   Would you like to set up distributed storage? (yes/no) [default=yes]: yes
    Select from the available unpartitioned disks:
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +----------+---------------------------+-----------+------+----------------------------------------+
           | LOCATION |           MODEL           | CAPACITY  | TYPE |                  PATH                  |
           +----------+---------------------------+-----------+------+----------------------------------------+
@@ -155,8 +155,8 @@ Here's an example of the full initialisation process:
           +----------+---------------------------+-----------+------+----------------------------------------+
 
    Select which disks to wipe:
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +----------+---------------------------+-----------+------+----------------------------------------+
           | LOCATION |           MODEL           | CAPACITY  | TYPE |                  PATH                  |
           +----------+---------------------------+-----------+------+----------------------------------------+
@@ -170,8 +170,8 @@ Here's an example of the full initialisation process:
     Using 1 disk(s) on "micro01" for remote storage pool
 
    Configure distributed networking? (yes/no) [default=yes]:  yes
-   Space to select; Enter to confirm; Type to filter results.
-   Up/Down to move; Right to select all; Left to select none.
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
           +----------+----------+------+
           | LOCATION |  IFACE   | TYPE |
           +----------+----------+------+
@@ -184,17 +184,17 @@ Here's an example of the full initialisation process:
     Using "eth0.200" on "micro01" for OVN uplink
     Using "eth0.200" on "micro02" for OVN uplink
 
-   Select the IPv4 gateway (CIDR) on the uplink network (empty to skip IPv4): 192.0.2.1/24
-   Select the first IPv4 address in the range to use with LXD: 192.0.2.100
-   Select the last IPv4 address in the range to use with LXD: 192.0.2.254
-   Select the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001:db8:d:200::1/64
+   Specify the IPv4 gateway (CIDR) on the uplink network (empty to skip IPv4): 192.0.2.1/24
+   Specify the first IPv4 address in the range to use with LXD: 192.0.2.100
+   Specify the last IPv4 address in the range to use with LXD: 192.0.2.254
+   Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001:db8:d:200::1/64
 
    Initializing a new cluster
     Local MicroCloud is ready
     Local LXD is ready
     Local MicroOVN is ready
     Local MicroCeph is ready
-   Awaiting cluster formation...
+   Awaiting cluster formation ...
     Peer "micro02" has joined the cluster
     Peer "micro03" has joined the cluster
    Cluster initialization is complete
