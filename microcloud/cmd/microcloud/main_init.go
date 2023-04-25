@@ -63,7 +63,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	if !c.flagAutoSetup {
 		// FIXME: MicroCeph does not currently support non-hostname cluster names.
-		// name, err = cli.AskString(fmt.Sprintf("Please choose a name for this system [default=%s]: ", name), name, nil)
+		// name, err = cli.AskString(fmt.Sprintf("Specify a name for this system [default=%s]: ", name), name, nil)
 		// if err != nil {
 		// 	return err
 		// }
@@ -170,7 +170,7 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (
 		timeAfter = time.After(5 * time.Second)
 	}
 
-	fmt.Println("Scanning for eligible servers...")
+	fmt.Println("Scanning for eligible servers ...")
 	totalPeers := map[string]mdns.ServerInfo{}
 	skipPeers := map[string]bool{}
 	done := false
@@ -303,7 +303,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 		return err
 	}
 
-	fmt.Println("Awaiting cluster formation...")
+	fmt.Println("Awaiting cluster formation ...")
 	// Initially add just 2 peers for each dqlite service to handle issues with role reshuffling while another
 	// node is joining the cluster.
 	initialSize := 2

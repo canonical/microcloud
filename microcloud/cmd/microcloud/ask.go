@@ -91,7 +91,7 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
 			askRetry("Retry selecting an address?", autoSetup, func() error {
-				fmt.Println("Select an address for MicroCloud's internal traffic")
+				fmt.Println("Select an address for MicroCloud's internal traffic:")
 				table.Render(table.rows)
 				answers, err := table.GetSelections()
 				if err != nil {
@@ -99,7 +99,7 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 				}
 
 				if len(answers) != 1 {
-					return fmt.Errorf("Please select exactly one address")
+					return fmt.Errorf("You must select exactly one address")
 				}
 
 				listenAddr = table.SelectionValue(answers[0], "ADDRESS")
@@ -171,7 +171,7 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 	var reservedDisks map[string]string
 	wantsDisks := true
 	if !autoSetup {
-		wantsDisks, err = cli.AskBool("Would you like to setup local storage? (yes/no) [default=yes]: ", "yes")
+		wantsDisks, err = cli.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -223,12 +223,12 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 		}
 
 		if skipCeph {
-			fmt.Println("Insufficient number of disks available to setup distributed storage, skipping at this time")
+			fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
 		} else {
 			ceph := sh.Services[types.MicroCeph].(*service.CephService)
 			wantsDisks = true
 			if !autoSetup {
-				wantsDisks, err = cli.AskBool("Would you like to setup distributed storage? (yes/no) [default=yes]: ", "yes")
+				wantsDisks, err = cli.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
 				if err != nil {
 					return nil, nil, err
 				}
@@ -591,7 +591,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 				return nil
 			}
 
-			msg := fmt.Sprintf("Select the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
+			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
 			gateway, err := cli.AskString(msg, "", validator)
 			if err != nil {
 				return nil, nil, err
@@ -616,12 +616,12 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 				}
 
 				if ip == "IPv4" {
-					rangeStart, err := cli.AskString(fmt.Sprintf("Select the first %s address in the range to use with LXD: ", ip), "", validator)
+					rangeStart, err := cli.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
 						return nil, nil, err
 					}
 
-					rangeEnd, err := cli.AskString(fmt.Sprintf("Select the last %s address in the range to use with LXD: ", ip), "", validator)
+					rangeEnd, err := cli.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
 						return nil, nil, err
 					}
