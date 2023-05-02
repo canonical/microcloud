@@ -172,7 +172,6 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (
 
 	fmt.Println("Scanning for eligible servers ...")
 	totalPeers := map[string]mdns.ServerInfo{}
-	skipPeers := map[string]bool{}
 	done := false
 	for !done {
 		select {
@@ -190,11 +189,8 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (
 				return nil, err
 			}
 
+			skipPeers := map[string]bool{}
 			for key, info := range peers {
-				if skipPeers[info.Name] {
-					continue
-				}
-
 				_, ok := totalPeers[key]
 				if !ok {
 					serviceMap := make(map[types.ServiceType]bool, len(info.Services))
