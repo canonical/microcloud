@@ -94,14 +94,19 @@ func (s *ServiceHandler) Start(state *state.State) error {
 		_, _, _ = d.GetServer()
 	}
 
-	services := make([]types.ServiceType, 0, len(s.Services))
-	for service := range s.Services {
-		services = append(services, service)
-	}
-
 	s.AuthSecret, err = shared.RandomCryptoString()
 	if err != nil {
 		return err
+	}
+
+	return s.Broadcast()
+}
+
+// Broadcast broadcasts service information over mDNS.
+func (s *ServiceHandler) Broadcast() error {
+	services := make([]types.ServiceType, 0, len(s.Services))
+	for service := range s.Services {
+		services = append(services, service)
 	}
 
 	networks, err := cloudMDNS.GetNetworkInfo()
@@ -152,10 +157,11 @@ func (s *ServiceHandler) Start(state *state.State) error {
 	}
 
 	return nil
+
 }
 
-// Bootstrap stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
-func (s *ServiceHandler) Bootstrap(state *state.State) error {
+// StopBroadcast stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
+func (s *ServiceHandler) StopBroadcast() error {
 	for i, server := range s.servers {
 		service := fmt.Sprintf("%s_%d", cloudMDNS.ClusterService, i)
 		err := server.Shutdown()

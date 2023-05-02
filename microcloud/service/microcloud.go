@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
+	"github.com/canonical/microcluster/state"
 	"github.com/lxc/lxd/lxd/util"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -61,8 +62,8 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(service *ServiceHandler, endpoints []rest.Endpoint) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
-		OnBootstrap: service.Bootstrap,
-		OnJoin:      service.Bootstrap,
+		OnBootstrap: func(s *state.State) error { return service.StopBroadcast() },
+		OnJoin:      func(s *state.State) error { return service.StopBroadcast() },
 		OnStart:     service.Start,
 	})
 }
