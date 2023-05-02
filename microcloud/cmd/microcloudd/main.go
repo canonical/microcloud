@@ -82,6 +82,44 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Periodically check if new services have been installed.
+	go func() {
+		for {
+			updated := false
+			for serviceName, stateDir := range optionalServices {
+				if s.Services[serviceName] != nil {
+					continue
+				}
+
+				if service.ServiceExists(serviceName, stateDir) {
+					newService, err := service.NewServiceHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
+					if err != nil {
+						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
+						break
+					}
+
+					updated = true
+					s.Services[serviceName] = newService.Services[serviceName]
+				}
+			}
+
+			if updated {
+				err = s.StopBroadcast()
+				if err != nil {
+					logger.Error("Failed to shutdown broadcast after detecting new services", logger.Ctx{"error": err})
+					continue
+				}
+
+				err = s.Broadcast()
+				if err != nil {
+					logger.Error("Failed to restart broadcast after detecting new services", logger.Ctx{"error": err})
+				}
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
 	endpoints := []rest.Endpoint{
 		api.ServicesCmd(s),
 		api.LXDProxy(s),
