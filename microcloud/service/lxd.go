@@ -539,7 +539,7 @@ func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig
 
 // Configure sets up the LXD storage pool (either remote ceph or local zfs), and adds the root and network devices to
 // the default profile.
-func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string, ovnConfig string, ovnTargets map[string]string, uplinkNetworks map[string]string, networkConfig map[string]string) error {
+func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]string, remotePoolTargets map[string]string, ovnConfig string, networkTargets map[string]string, uplinkNetworks map[string]string, networkConfig map[string]string) error {
 	c, err := s.client("")
 	if err != nil {
 		return err
@@ -558,7 +558,7 @@ func (s *LXDService) Configure(bootstrap bool, localPoolTargets map[string]strin
 			return err
 		}
 
-		for peer, secret := range ovnTargets {
+		for peer, secret := range networkTargets {
 			err = s.SetConfig(peer, secret, map[string]string{"network.ovn.northbound_connection": ovnConfig})
 			if err != nil {
 				return err
