@@ -417,7 +417,7 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		cephTargets[target] = peers[target].AuthSecret
 	}
 
-	ovnTargets := map[string]string{}
+	networkTargets := map[string]string{}
 	var ovnConfig string
 	if sh.Services[types.MicroOVN] != nil {
 		ovn := sh.Services[types.MicroOVN].(*service.OVNService)
@@ -444,9 +444,10 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		}
 
 		ovnConfig = strings.Join(conns, ",")
-		for peer, info := range peers {
-			ovnTargets[peer] = info.AuthSecret
-		}
+	}
+
+	for peer, info := range peers {
+		networkTargets[peer] = info.AuthSecret
 	}
 
 	lxdTargets := map[string]string{}
@@ -454,5 +455,5 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 		lxdTargets[peer] = peers[peer].AuthSecret
 	}
 
-	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, ovnTargets, uplinkNetworks, networkConfig)
+	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, networkTargets, uplinkNetworks, networkConfig)
 }
