@@ -162,8 +162,8 @@ Reuse
 |reuse_key|
 
 .. include:: reference/index.rst
-   :start-after: Once the simple
-   :end-before: .. _snaps:
+   :start-after: You can mix different processor architectures within the same MicroCloud cluster.
+   :end-before: Networking requirements
 
 Tabs
 ----
