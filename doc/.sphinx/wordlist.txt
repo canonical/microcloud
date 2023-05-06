@@ -4,8 +4,10 @@ Ceph
 CIDR
 CLI
 color
+DHCP
 DNS
 Furo
+GiB
 IOV
 IPv
 LXD
@@ -21,6 +23,7 @@ pradyunsg
 reST
 reStructuredText
 roadmap
+snapd
 subnet
 UI
 uplink
