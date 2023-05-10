@@ -1,5 +1,7 @@
 name: microcloud
 base: core22
+assumes:
+ - snapd2.59
 version: git
 grade: stable
 source-code: https://github.com/canonical/microcloud.git
