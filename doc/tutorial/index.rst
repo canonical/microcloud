@@ -15,8 +15,4 @@ The following video shows how to install and use MicroCloud:
 
 .. raw:: html
 
-   <iframe width="560" height="315" src="https://www.youtube.com/embed/ZSZoLnp-Ip0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-
-.. note::
-   The video shows an earlier version of MicroCloud.
-   An updated video including MicroOVN will be released shortly.
+   <iframe width="560" height="315" src="https://www.youtube.com/embed/iWZYUU8lX5A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
