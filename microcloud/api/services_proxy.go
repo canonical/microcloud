@@ -11,7 +11,7 @@ import (
 	"github.com/canonical/microcluster/state"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/lxd/response"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/ws"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -70,21 +70,21 @@ func lxdHandler(s *state.State, r *http.Request) response.Response {
 
 		// RawWebsocket assigns /1.0, so remove it here.
 		_, path, _ = strings.Cut(path, "/1.0")
-		ws, err := client.RawWebsocket(path)
+		sock, err := client.RawWebsocket(path)
 		if err != nil {
 			return response.SmartError(err)
 		}
 
 		// Perform the websocket proxy.
 		return response.ManualResponse(func(w http.ResponseWriter) error {
-			conn, err := shared.WebsocketUpgrader.Upgrade(w, r, nil)
+			conn, err := ws.Upgrader.Upgrade(w, r, nil)
 			if err != nil {
 				return err
 			}
 
 			defer conn.Close()
 
-			<-shared.WebsocketProxy(ws, conn)
+			<-ws.Proxy(sock, conn)
 
 			return nil
 		})
