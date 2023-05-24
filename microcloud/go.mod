@@ -4,9 +4,9 @@ go 1.18
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
-	github.com/canonical/microceph/microceph v0.0.0-20230517150437-7e31d7f2a2e1
+	github.com/canonical/microceph/microceph v0.0.0-20230524181004-759cad22ca01
 	github.com/canonical/microcluster v0.0.0-20230524160713-030a52685e04
-	github.com/canonical/microovn/microovn v0.0.0-20230512141447-c615e85449bb
+	github.com/canonical/microovn/microovn v0.0.0-20230524180115-a25b61d001db
 	github.com/hashicorp/mdns v1.0.5
 	github.com/lxc/lxd v0.0.0-20230524141527-1573b79fa90f
 	github.com/olekukonko/tablewriter v0.0.5

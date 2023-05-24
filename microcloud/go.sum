@@ -56,12 +56,12 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
 github.com/canonical/go-dqlite v1.11.9 h1:aO7GG3QohddXsT+C7yEetdRHhhPUWNBKavz+/JabB90=
 github.com/canonical/go-dqlite v1.11.9/go.mod h1:Uvy943N8R4CFUAs59A1NVaziWY9nJ686lScY7ywurfg=
-github.com/canonical/microceph/microceph v0.0.0-20230517150437-7e31d7f2a2e1 h1:sRgpt79cWOVHK0RQcNYcHHnDZMAQaBViRhpqNV2bS88=
-github.com/canonical/microceph/microceph v0.0.0-20230517150437-7e31d7f2a2e1/go.mod h1:FB2y54mVCCdzv1MmGCzfDLdCqPBHJ4nZFw8L1c7uNSs=
+github.com/canonical/microceph/microceph v0.0.0-20230524181004-759cad22ca01 h1:e6MwWHjRi/x8L9zoCo8gTOhgDDUbAraPVj5nkSchdg8=
+github.com/canonical/microceph/microceph v0.0.0-20230524181004-759cad22ca01/go.mod h1:DTxs/vBED063sE0Ym5bi96asOEPQSK+p7sqX936OQ38=
 github.com/canonical/microcluster v0.0.0-20230524160713-030a52685e04 h1:D8tlD1K6lqVxZVWiFoBh4/bnIOYzquLrFM6BxSQAt44=
 github.com/canonical/microcluster v0.0.0-20230524160713-030a52685e04/go.mod h1:53OywJBsvhPVZHIQ8F0kRlAKr+RJ5YIjsb2K5w1JL6k=
-github.com/canonical/microovn/microovn v0.0.0-20230512141447-c615e85449bb h1:6xgRjAS7h2ecdD7C+k9O0jrDb958RPtbWG7Mepujnmo=
-github.com/canonical/microovn/microovn v0.0.0-20230512141447-c615e85449bb/go.mod h1:H2Kl1F2O92EObE+NvJo+K2huVa8wKVoD2ySk7/KJeNM=
+github.com/canonical/microovn/microovn v0.0.0-20230524180115-a25b61d001db h1:pIaWrpsmUeV5S8BRslYgOw3OzrCh+EW+AhNl2hq4hEA=
+github.com/canonical/microovn/microovn v0.0.0-20230524180115-a25b61d001db/go.mod h1:opIr5QsH43j1GVth+kQJPXuxQO+0i0h9WyfGjplWkJQ=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
