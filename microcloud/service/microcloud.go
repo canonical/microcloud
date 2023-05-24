@@ -63,7 +63,7 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 func (s *CloudService) StartCloud(service *ServiceHandler, endpoints []rest.Endpoint) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
 		OnBootstrap: func(s *state.State) error { return service.StopBroadcast() },
-		OnJoin:      func(s *state.State) error { return service.StopBroadcast() },
+		PostJoin:    func(s *state.State) error { return service.StopBroadcast() },
 		OnStart:     service.Start,
 	})
 }
