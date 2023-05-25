@@ -4,11 +4,11 @@ go 1.18
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
-	github.com/canonical/microceph/microceph v0.0.0-20230524181004-759cad22ca01
-	github.com/canonical/microcluster v0.0.0-20230524160713-030a52685e04
+	github.com/canonical/microceph/microceph v0.0.0-20230525072551-78e3dc7163a0
+	github.com/canonical/microcluster v0.0.0-20230525014943-9b4786b0b3f0
 	github.com/canonical/microovn/microovn v0.0.0-20230524180115-a25b61d001db
 	github.com/hashicorp/mdns v1.0.5
-	github.com/lxc/lxd v0.0.0-20230524141527-1573b79fa90f
+	github.com/lxc/lxd v0.0.0-20230525153633-0e1d982a4b45
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.7.0
 )
@@ -18,7 +18,6 @@ require (
 	github.com/armon/go-proxyproto v0.0.0-20210323213023-7e956b284f0a // indirect
 	github.com/canonical/go-dqlite v1.11.9 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/digitalocean/go-smbios v0.0.0-20180907143718-390a4f403a8e // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -34,7 +33,6 @@ require (
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gosexy/gettext v0.0.0-20160830220431-74466a0a0c4a // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jaypipes/pcidb v1.0.0 // indirect
 	github.com/juju/webbrowser v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
@@ -46,7 +44,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/miekg/dns v1.1.54 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -58,11 +55,7 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/stretchr/testify v1.8.3 // indirect
-	github.com/tidwall/gjson v1.14.4 // indirect
-	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/zitadel/oidc/v2 v2.6.1 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
