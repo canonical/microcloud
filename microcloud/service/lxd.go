@@ -52,7 +52,8 @@ func (s LXDService) client(secret string) (lxd.InstanceServer, error) {
 	}
 
 	return lxd.ConnectLXDUnix(s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
-		HTTPClient: c.Client.Client,
+		HTTPClient:    c.Client.Client,
+		SkipGetServer: true,
 		Proxy: func(r *http.Request) (*url.URL, error) {
 			r.Header.Set("X-MicroCloud-Auth", secret)
 			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
@@ -75,6 +76,7 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
 		HTTPClient:         c.Client.Client,
 		InsecureSkipVerify: true,
+		SkipGetServer:      true,
 		Proxy: func(r *http.Request) (*url.URL, error) {
 			r.Header.Set("X-MicroCloud-Auth", secret)
 			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
