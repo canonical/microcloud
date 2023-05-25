@@ -409,7 +409,7 @@ func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.Se
 			}
 
 			// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
-			if !shared.StringInSlice(network.Type, []string{"physical", "bridge", "vlan"}) {
+			if !shared.StringInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
 				continue
 			}
 
@@ -430,12 +430,15 @@ func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.Se
 
 			// Make sure the interface isn't in use by ensuring there's no global addresses on it.
 			addresses := []string{}
-			for _, address := range state.Addresses {
-				if address.Scope != "global" {
-					continue
-				}
 
-				addresses = append(addresses, address.Address)
+			if network.Type != "bridge" {
+				for _, address := range state.Addresses {
+					if address.Scope != "global" {
+						continue
+					}
+
+					addresses = append(addresses, address.Address)
+				}
 			}
 
 			if len(addresses) > 0 {
