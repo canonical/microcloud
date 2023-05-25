@@ -29,6 +29,8 @@ html_context = {
     "github_filetype": "rst"
 }
 
+html_favicon = ".sphinx/_static/favicon.ico"
+
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
