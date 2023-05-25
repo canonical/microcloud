@@ -151,7 +151,7 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 	allResources := make(map[string]*lxdAPI.Resources, len(peers))
 	var err error
 	for peer, info := range peers {
-		allResources[peer], err = sh.Services[types.LXD].(*service.LXDService).GetResources(sh.Name != peer, peer, info.Address, info.AuthSecret)
+		allResources[peer], err = sh.Services[types.LXD].(*service.LXDService).GetResources(peer, info.Address, info.AuthSecret)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
 		}
@@ -304,7 +304,7 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 	}
 
 	toWipe := map[string]string{}
-	wipeable, err := lxd.HasExtension(false, lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
+	wipeable, err := lxd.HasExtension(lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}

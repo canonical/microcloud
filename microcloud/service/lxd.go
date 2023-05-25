@@ -322,17 +322,13 @@ func (s *LXDService) AddRemotePools(targets map[string]string) error {
 }
 
 // HasExtension checks if the server supports the API extension.
-func (s *LXDService) HasExtension(useRemote bool, target string, address string, secret string, apiExtension string) (bool, error) {
+func (s *LXDService) HasExtension(target string, address string, secret string, apiExtension string) (bool, error) {
 	var err error
 	var client lxd.InstanceServer
-	if !useRemote {
+	if s.Name() == target {
 		client, err = s.client(secret)
 		if err != nil {
 			return false, err
-		}
-
-		if target != s.Name() {
-			client = client.UseTarget(target)
 		}
 	} else {
 		client, err = s.remoteClient(secret, address, CloudPort)
@@ -347,17 +343,13 @@ func (s *LXDService) HasExtension(useRemote bool, target string, address string,
 // GetResources returns the system resources for the LXD target.
 // As we cannot guarantee that LXD is available on this machine, the request is
 // forwarded through MicroCloud on via the ListenPort argument.
-func (s *LXDService) GetResources(useRemote bool, target string, address string, secret string) (*api.Resources, error) {
+func (s *LXDService) GetResources(target string, address string, secret string) (*api.Resources, error) {
 	var err error
 	var client lxd.InstanceServer
-	if !useRemote {
+	if s.Name() == target {
 		client, err = s.client(secret)
 		if err != nil {
 			return nil, err
-		}
-
-		if target != s.Name() {
-			client = client.UseTarget(target)
 		}
 	} else {
 		client, err = s.remoteClient(secret, address, CloudPort)
