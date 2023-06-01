@@ -85,6 +85,13 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	// Periodically check if new services have been installed.
 	go func() {
 		for {
+			if s.AuthSecret == "" {
+				logger.Debug("Waiting for initial setup before checking for optional services")
+				time.Sleep(1 * time.Second)
+
+				continue
+			}
+
 			updated := false
 			for serviceName, stateDir := range optionalServices {
 				if s.Services[serviceName] != nil {
