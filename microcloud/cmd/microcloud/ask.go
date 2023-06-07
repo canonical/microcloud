@@ -522,6 +522,7 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 
 	// Uplink selection table.
 	header := []string{"LOCATION", "IFACE", "TYPE"}
+	fmt.Println("Select exactly one network interface from each cluster member:")
 	data := [][]string{}
 	for peer, nets := range networks {
 		for _, net := range nets {
