@@ -44,6 +44,7 @@ Complete the following steps to initialise MicroCloud:
 
    .. note::
       To set up local storage, each machine must have a local disk.
+      The disks must not contain any partitions.
 
    If you choose ``yes``, configure the local storage:
 
@@ -55,7 +56,8 @@ Complete the following steps to initialise MicroCloud:
 #. Select whether you want to set up distributed storage (using MicroCeph).
 
    .. note::
-      To set up distributed storage, you need at least three additional disks.
+      To set up distributed storage, you need at least three additional disks on at least three different machines.
+      The disks must not contain any partitions.
 
    If you choose ``yes``, configure the distributed storage:
 
@@ -170,6 +172,7 @@ Here's an example of the full initialisation process:
     Using 1 disk(s) on "micro01" for remote storage pool
 
    Configure distributed networking? (yes/no) [default=yes]:  yes
+   Select exactly one network interface from each cluster member:
    Space to select; enter to confirm; type to filter results.
    Up/down to move; right to select all; left to select none.
           +----------+----------+------+

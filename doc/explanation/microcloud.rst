@@ -1,4 +1,4 @@
-:relatedlinks: https://linuxcontainers.org/lxd/docs/master/
+:relatedlinks: https://linuxcontainers.org/lxd/docs/latest/
 
 .. _explanation-microcloud:
 
