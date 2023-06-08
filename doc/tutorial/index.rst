@@ -1,4 +1,4 @@
-:relatedlinks: https://linuxcontainers.org/lxd/try-it/,https://linuxcontainers.org/lxd/docs/master/
+:relatedlinks: https://linuxcontainers.org/lxd/try-it/,https://linuxcontainers.org/lxd/docs/latest/
 
 .. _tutorial:
 

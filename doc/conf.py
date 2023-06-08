@@ -74,7 +74,7 @@ source_suffix = {
 }
 
 intersphinx_mapping = {
-    'lxd': ('https://linuxcontainers.org/lxd/docs/master/', None)
+    'lxd': ('https://linuxcontainers.org/lxd/docs/latest/', None)
 }
 
 # Links to ignore when checking links
