@@ -27,6 +27,7 @@ install:
                 "* clean built doc files: make clean-doc \n" \
                 "* clean full environment: make clean \n" \
 		"* check spelling: make spelling \n" \
+                "* check inclusive language: make woke \n" \
 		"--------------------------------------------------------------- \n"
 run:
 	. $(VENV); sphinx-autobuild -c . -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)"
@@ -51,6 +52,10 @@ spelling: html
 
 linkcheck:
 	. $(VENV) ; $(SPHINXBUILD) -c . -b linkcheck  "$(SOURCEDIR)" "$(BUILDDIR)"
+
+woke:
+	type woke >/dev/null 2>&1 || { snap install woke; exit 1; }
+	woke *.rst  *.md **/*.rst **/*.md -c https://github.com/canonical-web-and-design/Inclusive-naming/raw/main/config.yml
 
 .PHONY: help Makefile
 

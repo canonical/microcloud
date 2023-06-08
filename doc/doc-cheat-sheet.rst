@@ -29,6 +29,7 @@ Inline formatting
 - ``code``
 - :file:`file path`
 - :command:`command`
+- :kbd:`Key`
 - *Italic*
 - **Bold**
 
@@ -128,6 +129,31 @@ Tables
    * - Cell 3
      - Cell 4
 
+.. rst-class:: align-center
+
+   +----------------------+------------+
+   | Header 1             | Header 2   |
+   +======================+============+
+   | Cell 1               | Cell 2     |
+   |                      |            |
+   | Second paragraph     |            |
+   +----------------------+------------+
+   | Cell 3               | Cell 4     |
+   +----------------------+------------+
+
+.. list-table::
+   :header-rows: 1
+   :align: center
+
+   * - Header 1
+     - Header 2
+   * - Cell 1
+
+       Second paragraph
+     - Cell 2
+   * - Cell 3
+     - Cell 4
+
 Notes
 -----
 
@@ -209,10 +235,22 @@ Related links at the top of the page::
   :relatedlinks: https://github.com/canonical/lxd-sphinx-extensions, [RTFM](https://www.google.com)
   :discourse: 12345
 
+Terms that should not be checked by the spelling checker: :spellexception:`PurposelyWrong`
+
+A terminal view with input and output:
+
+.. terminal::
+   :input: command
+   :user: root
+   :host: vampyr
+
+   the output
+
+A link to a YouTube video:
+
 .. youtube:: https://www.youtube.com/watch?v=iMLiK1fX4I0
           :title: Demo
 
-:spellexception:`PurposelyWrong`
 
 
 .. LINKS
