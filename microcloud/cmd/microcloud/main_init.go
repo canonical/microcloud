@@ -439,7 +439,7 @@ func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[stri
 					addr = peers[service.Location].Address
 				}
 
-				conns = append(conns, fmt.Sprintf("tcp:%s", util.CanonicalNetworkAddress(addr, 6641)))
+				conns = append(conns, fmt.Sprintf("ssl:%s", util.CanonicalNetworkAddress(addr, 6641)))
 			}
 		}
 
