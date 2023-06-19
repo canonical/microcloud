@@ -197,10 +197,9 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 
 	var cephDisks map[string][]cephTypes.DisksPost
 	if sh.Services[types.MicroCeph] != nil {
-		skipCeph := false
 		availableDisks := map[string][]lxdAPI.ResourcesStorageDisk{}
 		for peer, disks := range validDisks {
-			availableDisks[peer] = []lxdAPI.ResourcesStorageDisk{}
+			peerDisks := []lxdAPI.ResourcesStorageDisk{}
 			for _, disk := range disks {
 				devicePath := fmt.Sprintf("/dev/%s", disk.ID)
 				if disk.DeviceID != "" {
@@ -213,16 +212,15 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 					continue
 				}
 
-				availableDisks[peer] = append(availableDisks[peer], disk)
+				peerDisks = append(availableDisks[peer], disk)
 			}
 
-			if len(availableDisks[peer]) == 0 {
-				skipCeph = true
-				break
+			if len(peerDisks) > 0 {
+				availableDisks[peer] = peerDisks
 			}
 		}
 
-		if skipCeph {
+		if len(availableDisks) < 3 {
 			fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
 		} else {
 			ceph := sh.Services[types.MicroCeph].(*service.CephService)
@@ -231,6 +229,13 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 				wantsDisks, err = cli.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
 				if err != nil {
 					return nil, nil, err
+				}
+
+				if len(peers) != len(availableDisks) && wantsDisks {
+					wantsDisks, err = cli.AskBool("Some systems are ineligible for distributed storage. Continue anyway? (yes/no) [default=yes]: ", "yes")
+					if err != nil {
+						return nil, nil, err
+					}
 				}
 			}
 
@@ -470,10 +475,8 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup
 	}
 
 	_, checkMinSize := peerDisks[ceph.Name()]
-	if len(diskMap) == len(peerDisks) {
-		if !checkMinSize || len(peerDisks) >= 3 {
-			return diskMap, nil
-		}
+	if !checkMinSize || len(diskMap) >= 3 {
+		return diskMap, nil
 	}
 
 	return nil, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
@@ -518,6 +521,17 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 
 	if !wantsOVN {
 		return nil, nil, nil
+	}
+
+	if len(peers) != len(networks) {
+		wantsSkip, err := cli.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if !wantsSkip {
+			return nil, nil, nil
+		}
 	}
 
 	// Uplink selection table.
