@@ -230,6 +230,13 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 				if err != nil {
 					return nil, nil, err
 				}
+
+				if len(peers) != len(availableDisks) && wantsDisks {
+					wantsDisks, err = cli.AskBool("Some systems are ineligible for distributed storage. Continue anyway? (yes/no) [default=yes]: ", "yes")
+					if err != nil {
+						return nil, nil, err
+					}
+				}
 			}
 
 			if wantsDisks {
@@ -514,6 +521,17 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 
 	if !wantsOVN {
 		return nil, nil, nil
+	}
+
+	if len(peers) != len(networks) {
+		wantsSkip, err := cli.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if !wantsSkip {
+			return nil, nil, nil
+		}
 	}
 
 	// Uplink selection table.
