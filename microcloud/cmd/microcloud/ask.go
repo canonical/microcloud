@@ -523,7 +523,19 @@ func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lx
 		return nil, nil, nil
 	}
 
-	if len(peers) != len(networks) {
+	missingSystems := len(peers) != len(networks)
+	if bootstrap {
+		missingSystems = len(peers) != len(networks)-1
+	}
+
+	for _, nets := range networks {
+		if len(nets) == 0 {
+			missingSystems = true
+			break
+		}
+	}
+
+	if missingSystems {
 		wantsSkip, err := cli.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
