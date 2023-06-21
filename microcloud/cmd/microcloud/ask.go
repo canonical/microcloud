@@ -232,7 +232,7 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 				}
 
 				if len(peers) != len(availableDisks) && wantsDisks {
-					wantsDisks, err = cli.AskBool("Some systems are ineligible for distributed storage. Continue anyway? (yes/no) [default=yes]: ", "yes")
+					wantsDisks, err = cli.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
 					if err != nil {
 						return nil, nil, err
 					}
