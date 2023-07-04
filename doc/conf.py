@@ -25,7 +25,7 @@ html_favicon = ".sphinx/_static/favicon.ico"
 html_context = {
     # Change to the discourse instance you want to be able to link to
     # (use an empty value if you don't want to link)
-    "discourse": "https://discuss.linuxcontainers.org",
+    "discourse": "https://discourse.ubuntu.com/c/lxd/microcloud/",
     # Change to the GitHub info for your project
     "github_url": "https://github.com/canonical/microcloud",
     # Change to the branch for this version of the documentation
@@ -38,7 +38,7 @@ html_context = {
 
 # Used for related links - no need to change
 if 'discourse' in html_context:
-    html_context['discourse_prefix'] = html_context['discourse'] + "/t/"
+    html_context['discourse_prefix'] = "https://discuss.linuxcontainers.org/t/"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -74,7 +74,7 @@ source_suffix = {
 }
 
 intersphinx_mapping = {
-    'lxd': ('https://linuxcontainers.org/lxd/docs/latest/', None)
+    'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None)
 }
 
 # Links to ignore when checking links
