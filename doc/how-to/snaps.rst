@@ -90,6 +90,8 @@ However, in this case the snaps will be refreshed after 90 days, irrespective of
 
 See `Control updates with system options`_ in the snap documentation for detailed information.
 
+.. _howto-snap-cluster:
+
 Keep cluster members in sync
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

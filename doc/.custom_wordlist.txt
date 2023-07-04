@@ -22,4 +22,6 @@ snapd
 subnet
 uplink
 VLAN
+VM
 VMs
+ZFS

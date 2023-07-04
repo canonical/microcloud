@@ -102,7 +102,8 @@ slug = ""
 # Set up redirects (https://documatt.gitlab.io/sphinx-reredirects/usage.html)
 # For example: 'explanation/old-name.html': '../how-to/prettify.html',
 
-redirects = {}
+redirects = {
+    'tutorial/index': 'get_started/'}
 
 ############################################################
 ### Link checker exceptions
