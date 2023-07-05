@@ -255,3 +255,5 @@ A link to a YouTube video:
 
 .. LINKS
 .. _Link defined at the bottom of the page: https://canonical.com/
+.. wokeignore:rule=master
+.. _Sphinx reStructuredText Primer: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
