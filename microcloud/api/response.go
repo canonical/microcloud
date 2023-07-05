@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/lxc/lxd/lxd/response"
-	"github.com/lxc/lxd/shared/api"
+	"github.com/canonical/lxd/lxd/response"
+	"github.com/canonical/lxd/shared/api"
 )
 
 // Response represents a response returned from a MicroCloud service.
