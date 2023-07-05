@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/lxd/util"
-	"github.com/lxc/lxd/shared"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"

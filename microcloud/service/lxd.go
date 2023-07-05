@@ -10,11 +10,11 @@ import (
 	"os"
 	"strings"
 
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/lxd/util"
-	"github.com/lxc/lxd/shared"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/mdns"
