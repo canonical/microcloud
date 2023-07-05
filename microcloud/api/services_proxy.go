@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/lxd/response"
+	"github.com/canonical/lxd/shared/ws"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/lxd/response"
-	"github.com/lxc/lxd/shared/ws"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )

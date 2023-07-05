@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/lxd/util"
-	"github.com/lxc/lxd/shared"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 )

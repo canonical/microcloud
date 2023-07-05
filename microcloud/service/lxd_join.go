@@ -4,11 +4,11 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"github.com/lxc/lxd/lxd/util"
-	"github.com/lxc/lxd/shared"
-	"github.com/lxc/lxd/shared/api"
-	"github.com/lxc/lxd/shared/logger"
-	"github.com/lxc/lxd/shared/version"
+	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/version"
 )
 
 func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {

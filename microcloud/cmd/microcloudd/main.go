@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/rest"
-	"github.com/lxc/lxd/lxd/util"
-	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"

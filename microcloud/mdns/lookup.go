@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/hashicorp/mdns"
-	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 )

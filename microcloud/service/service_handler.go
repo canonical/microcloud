@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
-	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"

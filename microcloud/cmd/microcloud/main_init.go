@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canonical/lxd/lxd/util"
+	lxdAPI "github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/canonical/microceph/microceph/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
-	"github.com/lxc/lxd/lxd/util"
-	lxdAPI "github.com/lxc/lxd/shared/api"
-	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"

@@ -4,10 +4,10 @@ import (
 	"context"
 	"sort"
 
+	"github.com/canonical/lxd/shared"
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/lxc/utils"
-	"github.com/lxc/lxd/shared"
 	"github.com/spf13/cobra"
 )
 
@@ -92,9 +92,9 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	header := []string{"NAME", "ADDRESS", "ROLE", "FINGERPRINT", "STATUS"}
-	sort.Sort(utils.ByName(data))
+	sort.Sort(cli.SortColumnsNaturally(data))
 
-	return utils.RenderTable(utils.TableFormatTable, header, data, clusterMembers)
+	return cli.RenderTable(cli.TableFormatTable, header, data, clusterMembers)
 }
 
 type cmdClusterMemberRemove struct {
