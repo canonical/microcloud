@@ -6,13 +6,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/canonical/lxd/shared/api"
+	lxdAPI "github.com/canonical/lxd/shared/api"
+	cli "github.com/canonical/lxd/shared/cmd"
+	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/units"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/lxc/lxd/lxc/utils"
-	"github.com/lxc/lxd/shared/api"
-	lxdAPI "github.com/lxc/lxd/shared/api"
-	cli "github.com/lxc/lxd/shared/cmd"
-	"github.com/lxc/lxd/shared/logger"
-	"github.com/lxc/lxd/shared/units"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/mdns"
@@ -315,7 +314,7 @@ func askLocalPool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup 
 	}
 
 	if !autoSetup {
-		sort.Sort(utils.ByName(data))
+		sort.Sort(cli.SortColumnsNaturally(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 		table := NewSelectableTable(header, data)
 		fmt.Println("Select exactly one disk from each cluster member:")
@@ -422,7 +421,7 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup
 		return nil, fmt.Errorf("Found no available disks")
 	}
 
-	sort.Sort(utils.ByName(data))
+	sort.Sort(cli.SortColumnsNaturally(data))
 	table := NewSelectableTable(header, data)
 	selected := table.rows
 	var toWipe []string

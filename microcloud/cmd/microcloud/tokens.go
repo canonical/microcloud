@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/lxc/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -108,9 +108,9 @@ func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	header := []string{"NAME", "TOKENS"}
-	sort.Sort(utils.ByName(data))
+	sort.Sort(cli.SortColumnsNaturally(data))
 
-	return utils.RenderTable(utils.TableFormatTable, header, data, records)
+	return cli.RenderTable(cli.TableFormatTable, header, data, records)
 }
 
 type cmdTokensRevoke struct {
