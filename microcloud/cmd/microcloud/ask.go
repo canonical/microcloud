@@ -211,7 +211,7 @@ func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, boot
 					continue
 				}
 
-				peerDisks = append(availableDisks[peer], disk)
+				peerDisks = append(peerDisks, disk)
 			}
 
 			if len(peerDisks) > 0 {
