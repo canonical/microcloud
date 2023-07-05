@@ -1,4 +1,4 @@
-:relatedlinks: https://linuxcontainers.org/lxd/try-it/,https://linuxcontainers.org/lxd/docs/latest/
+:relatedlinks: https://documentation.ubuntu.com/lxd/
 
 .. _tutorial:
 
@@ -9,7 +9,7 @@ MicroCloud is quick to set up.
 Once :ref:`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
 If you are already familiar with LXD, you are good to go!
-Otherwise, see the `LXD online demo`_ and the :doc:`LXD documentation <lxd:index>` to get started.
+Otherwise, see the :doc:`LXD documentation <lxd:index>` to get started.
 
 The following video shows how to install and use MicroCloud:
 
