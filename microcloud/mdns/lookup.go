@@ -78,11 +78,11 @@ func LookupPeers(ctx context.Context, version string, localPeer string) (map[str
 			return nil, fmt.Errorf("Received empty record")
 		}
 
-		serviceStr, ok := strings.CutSuffix(entry.Name, ".local.")
-		if !ok {
+		if !strings.HasSuffix(entry.Name, ".local.") {
 			continue
 		}
 
+		serviceStr := strings.TrimSuffix(entry.Name, ".local.")
 		parts := strings.SplitN(serviceStr, fmt.Sprintf(".%s_", ClusterService), 2)
 		if len(parts) != 2 {
 			continue
