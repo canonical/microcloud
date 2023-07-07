@@ -19,7 +19,7 @@ import (
 type endpointHandler func(*state.State, *http.Request) response.Response
 
 // authHandler ensures a request has been authenticated with the mDNS broadcast secret.
-func authHandler(sh *service.ServiceHandler, f endpointHandler) endpointHandler {
+func authHandler(sh *service.Handler, f endpointHandler) endpointHandler {
 	return func(s *state.State, r *http.Request) response.Response {
 		if r.RemoteAddr == "@" {
 			logger.Debug("Allowing unauthenticated request through unix socket")
@@ -45,7 +45,7 @@ func authHandler(sh *service.ServiceHandler, f endpointHandler) endpointHandler 
 }
 
 // ServicesCmd represents the /1.0/services API on MicroCloud.
-var ServicesCmd = func(sh *service.ServiceHandler) rest.Endpoint {
+var ServicesCmd = func(sh *service.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "services",
@@ -78,7 +78,7 @@ func servicesPut(s *state.State, r *http.Request) response.Response {
 		addr = req.Address
 	}
 
-	sh, err := service.NewServiceHandler(s.Name(), addr, s.OS.StateDir, false, false, services...)
+	sh, err := service.NewHandler(s.Name(), addr, s.OS.StateDir, false, false, services...)
 	if err != nil {
 		return response.SmartError(err)
 	}
