@@ -31,8 +31,8 @@ const (
 	CloudPort int = 9443
 )
 
-// ServiceHandler holds a set of services and an mdns server for communication between them.
-type ServiceHandler struct {
+// Handler holds a set of services and an mdns server for communication between them.
+type Handler struct {
 	servers []*mdns.Server
 
 	Services map[types.ServiceType]Service
@@ -43,8 +43,8 @@ type ServiceHandler struct {
 	AuthSecret string
 }
 
-// NewServiceHandler creates a new ServiceHandler with a client for each of the given services.
-func NewServiceHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...types.ServiceType) (*ServiceHandler, error) {
+// NewHandler creates a new Handler with a client for each of the given services.
+func NewHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...types.ServiceType) (*Handler, error) {
 	servicesMap := make(map[types.ServiceType]Service, len(services))
 	for _, serviceType := range services {
 		var service Service
@@ -52,16 +52,12 @@ func NewServiceHandler(name string, addr string, stateDir string, debug bool, ve
 		switch serviceType {
 		case types.MicroCloud:
 			service, err = NewCloudService(context.Background(), name, addr, stateDir, verbose, debug)
-			break
 		case types.MicroCeph:
 			service, err = NewCephService(context.Background(), name, addr, stateDir)
-			break
 		case types.MicroOVN:
 			service, err = NewOVNService(context.Background(), name, addr, stateDir)
-			break
 		case types.LXD:
 			service, err = NewLXDService(context.Background(), name, addr, stateDir)
-			break
 		}
 
 		if err != nil {
@@ -71,7 +67,7 @@ func NewServiceHandler(name string, addr string, stateDir string, debug bool, ve
 		servicesMap[serviceType] = service
 	}
 
-	return &ServiceHandler{
+	return &Handler{
 		servers:  []*mdns.Server{},
 		Services: servicesMap,
 		Name:     name,
@@ -82,7 +78,7 @@ func NewServiceHandler(name string, addr string, stateDir string, debug bool, ve
 
 // Start is run after the MicroCloud daemon has started. It will periodically check for join token broadcasts, and if
 // found, will join all known services.
-func (s *ServiceHandler) Start(state *state.State) error {
+func (s *Handler) Start(state *state.State) error {
 	// If we are already initialized, there's nothing to do.
 	if state.Database.IsOpen() {
 		return nil
@@ -103,7 +99,7 @@ func (s *ServiceHandler) Start(state *state.State) error {
 }
 
 // Broadcast broadcasts service information over mDNS.
-func (s *ServiceHandler) Broadcast() error {
+func (s *Handler) Broadcast() error {
 	services := make([]types.ServiceType, 0, len(s.Services))
 	for service := range s.Services {
 		services = append(services, service)
@@ -157,11 +153,10 @@ func (s *ServiceHandler) Broadcast() error {
 	}
 
 	return nil
-
 }
 
 // StopBroadcast stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
-func (s *ServiceHandler) StopBroadcast() error {
+func (s *Handler) StopBroadcast() error {
 	for i, server := range s.servers {
 		service := fmt.Sprintf("%s_%d", cloudMDNS.ClusterService, i)
 		err := server.Shutdown()
@@ -175,7 +170,7 @@ func (s *ServiceHandler) StopBroadcast() error {
 
 // RunConcurrent runs the given hook concurrently across all services.
 // If microCloudFirst is true, then MicroCloud will have its hook run before the others.
-func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, lxdLast bool, f func(s Service) error) error {
+func (s *Handler) RunConcurrent(microCloudFirst bool, lxdLast bool, f func(s Service) error) error {
 	errors := make([]error, 0, len(s.Services))
 	mut := sync.Mutex{}
 	wg := sync.WaitGroup{}
@@ -243,8 +238,8 @@ func (s *ServiceHandler) RunConcurrent(microCloudFirst bool, lxdLast bool, f fun
 	return nil
 }
 
-// ServiceExists returns true if we can stat the unix socket in the state directory of the given service.
-func ServiceExists(service types.ServiceType, stateDir string) bool {
+// Exists returns true if we can stat the unix socket in the state directory of the given service.
+func Exists(service types.ServiceType, stateDir string) bool {
 	socketPath := filepath.Join(stateDir, "control.socket")
 	if service == types.LXD {
 		socketPath = filepath.Join(stateDir, "unix.socket")

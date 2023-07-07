@@ -16,6 +16,7 @@ func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Invalid cluster join token: %w", err)
 	}
+
 	config := &api.ClusterPut{
 		Cluster:         api.Cluster{ServerName: s.name, Enabled: true},
 		ServerAddress:   util.CanonicalNetworkAddress(s.address, s.port),
