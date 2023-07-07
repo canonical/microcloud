@@ -70,14 +70,14 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	for serviceType, stateDir := range optionalServices {
-		if service.ServiceExists(serviceType, stateDir) {
+		if service.Exists(serviceType, stateDir) {
 			services = append(services, serviceType)
 		} else {
 			logger.Infof("Skipping %s service, could not detect state directory", serviceType)
 		}
 	}
 
-	s, err := service.NewServiceHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
+	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
 	if err != nil {
 		return err
 	}
@@ -98,8 +98,8 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 					continue
 				}
 
-				if service.ServiceExists(serviceName, stateDir) {
-					newService, err := service.NewServiceHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
+				if service.Exists(serviceName, stateDir) {
+					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
 					if err != nil {
 						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
 						break

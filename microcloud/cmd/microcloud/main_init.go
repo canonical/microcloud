@@ -61,7 +61,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	if !c.flagAutoSetup {
+	if !c.flagAutoSetup { //nolint:staticcheck
 		// FIXME: MicroCeph does not currently support non-hostname cluster names.
 		// name, err = cli.AskString(fmt.Sprintf("Specify a name for this system [default=%s]: ", name), name, nil)
 		// if err != nil {
@@ -80,7 +80,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s, err := service.NewServiceHandler(name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (map[string]mdns.ServerInfo, error) {
+func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[string]mdns.ServerInfo, error) {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
@@ -161,7 +161,6 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (
 
 			answers, err = table.GetSelections()
 			selectionCh <- err
-			return
 		}()
 	}
 
@@ -264,7 +263,7 @@ func lookupPeers(s *service.ServiceHandler, autoSetup bool, subnet *net.IPNet) (
 	return selectedPeers, nil
 }
 
-func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
+func AddPeers(sh *service.Handler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
 	joinConfig := make(map[string]types.ServicesPut, len(peers))
 	secrets := make(map[string]string, len(peers))
 	for peer, info := range peers {
@@ -370,7 +369,7 @@ func AddPeers(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, loca
 
 // waitForCluster will loop until the timeout has passed, or all cluster members for all services have reported that
 // their join process is complete.
-func waitForCluster(sh *service.ServiceHandler, secrets map[string]string, peers map[string]types.ServicesPut) error {
+func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[string]types.ServicesPut) error {
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
 	joinedChan := cloud.RequestJoin(context.Background(), secrets, peers)
 	timeAfter := time.After(5 * time.Minute)
@@ -411,7 +410,7 @@ func waitForCluster(sh *service.ServiceHandler, secrets map[string]string, peers
 	}
 }
 
-func postClusterSetup(bootstrap bool, sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost, uplinkNetworks map[string]string, networkConfig map[string]string) error {
+func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost, uplinkNetworks map[string]string, networkConfig map[string]string) error {
 	cephTargets := map[string]string{}
 	for target := range cephDisks {
 		cephTargets[target] = peers[target].AuthSecret

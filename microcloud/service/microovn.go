@@ -47,7 +47,7 @@ func NewOVNService(ctx context.Context, name string, addr string, cloudDir strin
 	}, nil
 }
 
-// client returns a client to the OVN unix socket.
+// Client returns a client to the OVN unix socket.
 func (s OVNService) Client() (*client.Client, error) {
 	return s.m.LocalClient()
 }

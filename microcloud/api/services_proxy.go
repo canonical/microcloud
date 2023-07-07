@@ -17,17 +17,17 @@ import (
 )
 
 // LXDProxy proxies all requests from MicroCloud to LXD.
-func LXDProxy(sh *service.ServiceHandler) rest.Endpoint {
+func LXDProxy(sh *service.Handler) rest.Endpoint {
 	return proxy(sh, "lxd", "services/lxd/{rest:.*}", lxdHandler)
 }
 
 // CephProxy proxies all requests from MicroCloud to MicroCeph.
-func CephProxy(sh *service.ServiceHandler) rest.Endpoint {
+func CephProxy(sh *service.Handler) rest.Endpoint {
 	return proxy(sh, "microceph", "services/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
 }
 
 // OVNProxy proxies all requests from MicroCloud to MicroOVN.
-func OVNProxy(sh *service.ServiceHandler) rest.Endpoint {
+func OVNProxy(sh *service.Handler) rest.Endpoint {
 	return proxy(sh, "microovn", "services/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
 }
 
@@ -41,7 +41,7 @@ const MicroCephDir = "/var/snap/microceph/common/state"
 const MicroOVNDir = "/var/snap/microovn/common/state"
 
 // proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
-func proxy(sh *service.ServiceHandler, name, path string, handler endpointHandler) rest.Endpoint {
+func proxy(sh *service.Handler, name, path string, handler endpointHandler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              name,

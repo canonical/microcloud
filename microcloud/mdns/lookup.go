@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"strconv"
@@ -40,9 +39,7 @@ func (s ServerInfo) LookupKey() string {
 }
 
 // forwardingWriter forwards the mdns log message to LXD's logger package.
-type forwardingWriter struct {
-	w io.Writer
-}
+type forwardingWriter struct{}
 
 func (f forwardingWriter) Write(p []byte) (int, error) {
 	logMsg := string(p)
@@ -127,6 +124,7 @@ func LookupPeers(ctx context.Context, version string, localPeer string) (map[str
 	return peers, nil
 }
 
+// Lookup searches for the given service name over mdns.
 func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry, error) {
 	log.SetOutput(forwardingWriter{})
 	ctx, cancel := context.WithCancel(ctx)

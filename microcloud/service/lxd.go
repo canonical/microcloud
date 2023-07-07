@@ -235,7 +235,7 @@ func (s LXDService) Port() int {
 	return s.port
 }
 
-// AddLocalPools adds local zfs storage pools on the target peers, with the given source disks.
+// AddLocalPool adds local zfs storage pool on the target peers, with the given source disks.
 func (s *LXDService) AddLocalPool(source string, wipe bool) error {
 	c, err := s.client("")
 	if err != nil {
@@ -363,6 +363,7 @@ func (s *LXDService) GetResources(target string, address string, secret string) 
 	return client.GetServerResources()
 }
 
+// GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
 func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.ServerInfo) (map[string][]api.Network, error) {
 	clients := map[string]lxd.InstanceServer{}
 	networks := map[string][]api.Network{}
@@ -446,6 +447,7 @@ func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.Se
 	return candidates, nil
 }
 
+// SetupNetwork configures LXD to use the OVN network uplink or to use a fan overlay if this is not available.
 func (s LXDService) SetupNetwork(uplinkNetworks map[string]string, networkConfig map[string]string) error {
 	client, err := s.client("")
 	if err != nil {

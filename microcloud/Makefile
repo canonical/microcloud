@@ -22,17 +22,14 @@ check-system:
 .PHONY: check-static
 check-static:
 ifeq ($(shell command -v golangci-lint 2> /dev/null),)
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-endif
-ifeq ($(shell command -v shellcheck 2> /dev/null),)
-	echo "Please install shellcheck"
-	exit 1
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$HOME/go/bin
 endif
 ifeq ($(shell command -v revive 2> /dev/null),)
 	go install github.com/mgechev/revive@latest
 endif
 	golangci-lint run --timeout 5m
-	revive -set_exit_status ./...
+	revive -config revive.toml -exclude ./cmd/... -set_exit_status ./...
+	run-parts --exit-on-error --regex '.sh' test/lint
 
 # Update targets.
 .PHONY: update-gomod

@@ -44,7 +44,7 @@ func askRetry(question string, autoSetup bool, f func() error) {
 func askMissingServices(services []types.ServiceType, stateDirs map[types.ServiceType]string, autoSetup bool) ([]types.ServiceType, error) {
 	missingServices := []string{}
 	for serviceType, stateDir := range stateDirs {
-		if service.ServiceExists(serviceType, stateDir) {
+		if service.Exists(serviceType, stateDir) {
 			services = append(services, serviceType)
 		} else {
 			missingServices = append(missingServices, string(serviceType))
@@ -140,7 +140,7 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 	return listenAddr, subnet, nil
 }
 
-func askDisks(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, bootstrap bool, autoSetup bool, wipeAllDisks bool) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string][]cephTypes.DisksPost, error) {
+func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap bool, autoSetup bool, wipeAllDisks bool) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string][]cephTypes.DisksPost, error) {
 	if bootstrap {
 		// Add the local system to the list of peers so we can select disks.
 		peers[sh.Name] = mdns.ServerInfo{Name: sh.Name}
@@ -481,7 +481,7 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup
 	return nil, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
 }
 
-func askNetwork(sh *service.ServiceHandler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
+func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
 	// Automatic setup gets a basic fan setup.
 	if autoSetup {
 		return nil, nil, nil
