@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared/api"
-	lxdAPI "github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/units"
@@ -489,21 +488,44 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 	return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 }
 
-func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
+func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
+	_, bootstrap := systems[sh.Name]
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	for peer, system := range systems {
+		if bootstrap {
+			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
+			if peer == sh.Name {
+				network, err := lxd.DefaultFanNetwork()
+				if err != nil {
+					return err
+				}
+
+				system.Networks = []api.NetworksPost{network}
+			}
+		}
+
+		systems[peer] = system
+	}
+
 	// Automatic setup gets a basic fan setup.
 	if autoSetup {
-		return nil, nil, nil
+		return nil
 	}
 
 	// Environments without OVN get a basic fan setup.
 	if sh.Services[types.MicroOVN] == nil {
-		return nil, nil, nil
+		return nil
 	}
 
 	// Get the list of networks from all peers.
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(bootstrap, peers)
+	infos := []mdns.ServerInfo{}
+	for _, system := range systems {
+		infos = append(infos, system.ServerInfo)
+	}
+
+	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(bootstrap, infos)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	// Check if OVN is possible in the environment.
@@ -517,24 +539,20 @@ func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.Serve
 
 	if !canOVN {
 		fmt.Println("No dedicated uplink interfaces detected, skipping distributed networking")
-		return nil, nil, nil
+		return nil
 	}
 
 	// Ask the user if they want OVN.
 	wantsOVN, err := c.asker.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	if !wantsOVN {
-		return nil, nil, nil
+		return nil
 	}
 
-	missingSystems := len(peers) != len(networks)
-	if bootstrap {
-		missingSystems = len(peers) != len(networks)-1
-	}
-
+	missingSystems := len(systems) != len(networks)
 	for _, nets := range networks {
 		if len(nets) == 0 {
 			missingSystems = true
@@ -545,11 +563,11 @@ func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.Serve
 	if missingSystems {
 		wantsSkip, err := c.asker.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 
 		if !wantsSkip {
-			return nil, nil, nil
+			return nil
 		}
 	}
 
@@ -628,7 +646,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.Serve
 			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
 			gateway, err := c.asker.AskString(msg, "", validator)
 			if err != nil {
-				return nil, nil, err
+				return err
 			}
 
 			if gateway != "" {
@@ -652,12 +670,12 @@ func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.Serve
 				if ip == "IPv4" {
 					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
-						return nil, nil, err
+						return err
 					}
 
 					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
-						return nil, nil, err
+						return err
 					}
 
 					config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
@@ -668,29 +686,56 @@ func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.Serve
 		}
 	}
 
-	if !bootstrap {
-		if lxdConfig == nil {
-			lxdConfig = map[string][]lxdAPI.ClusterMemberConfigKey{}
-		}
+	// If interfaces were selected for OVN, remove the FAN config.
+	if len(selected) > 0 {
+		for peer, system := range systems {
+			system.TargetNetworks = []api.NetworksPost{}
+			system.Networks = []api.NetworksPost{}
 
-		if len(selected) != 0 {
-			for peer, parent := range selected {
-				config, ok := lxdConfig[peer]
-				if !ok {
-					config = []api.ClusterMemberConfigKey{}
-				}
-
-				config = append(config, api.ClusterMemberConfigKey{
-					Entity: "network",
-					Name:   "UPLINK",
-					Key:    "parent",
-					Value:  parent,
-				})
-
-				lxdConfig[peer] = config
-			}
+			systems[peer] = system
 		}
 	}
 
-	return selected, config, nil
+	// If we are adding a new member, a MemberConfig entry should suffice to create the network on the node.
+	for peer, parent := range selected {
+		system := systems[peer]
+		if !bootstrap {
+			if system.JoinConfig == nil {
+				system.JoinConfig = []api.ClusterMemberConfigKey{}
+			}
+
+			system.JoinConfig = append(system.JoinConfig, lxd.DefaultOVNNetworkJoinConfig(parent))
+		} else {
+			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(parent))
+		}
+
+		systems[peer] = system
+	}
+
+	if bootstrap {
+		bootstrapSystem := systems[sh.Name]
+
+		var ipv4Gateway string
+		var ipv4Ranges string
+		var ipv6Gateway string
+		for gateway, ipRange := range config {
+			ip, _, err := net.ParseCIDR(gateway)
+			if err != nil {
+				return err
+			}
+
+			if ip.To4() != nil {
+				ipv4Gateway = gateway
+				ipv4Ranges = ipRange
+			} else {
+				ipv6Gateway = gateway
+			}
+		}
+
+		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway)
+		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
+		systems[sh.Name] = bootstrapSystem
+	}
+
+	return nil
 }
