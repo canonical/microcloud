@@ -372,7 +372,7 @@ func (s *LXDService) GetResources(target string, address string, secret string) 
 }
 
 // GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
-func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.ServerInfo) (map[string][]api.Network, error) {
+func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
 	clients := map[string]lxd.InstanceServer{}
 	networks := map[string][]api.Network{}
 	if bootstrap {
@@ -390,6 +390,10 @@ func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.Se
 	}
 
 	for _, info := range peers {
+		if info.Name == s.Name() {
+			continue
+		}
+
 		client, err := s.remoteClient(info.AuthSecret, info.Address, CloudPort)
 		if err != nil {
 			return nil, err
