@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
@@ -137,46 +139,10 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("Initializing a new cluster")
-	err = s.RunConcurrent(true, false, func(s service.Service) error {
-		err := s.Bootstrap()
-		if err != nil {
-			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
-		}
-
-		fmt.Printf(" Local %s is ready\n", s.Type())
-
-		return nil
-	})
+	err = setupCluster(s, systems)
 	if err != nil {
 		return err
 	}
-
-	if len(cephDisks) > 0 {
-		c, err := s.Services[types.MicroCeph].(*service.CephService).Client("", "")
-		if err != nil {
-			return err
-		}
-
-		for _, disk := range cephDisks[s.Name] {
-			err = client.AddDisk(context.Background(), c, &disk)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	err = AddPeers(s, peers, lxdConfig, cephDisks)
-	if err != nil {
-		return err
-	}
-
-	err = postClusterSetup(true, s, peers, lxdConfig, cephDisks, uplinkNetworks, networkConfig)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("MicroCloud is ready")
 
 	return nil
 }
@@ -454,22 +420,52 @@ func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[st
 	}
 }
 
-func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost, uplinkNetworks map[string]string, networkConfig map[string]string) error {
-	cephTargets := map[string]string{}
-	if len(cephDisks) > 0 {
-		for target := range peers {
-			cephTargets[target] = peers[target].AuthSecret
+// setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
+// configuration.
+func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+	_, bootstrap := systems[s.Name]
+	if bootstrap {
+		fmt.Println("Initializing a new cluster")
+		err := s.RunConcurrent(true, false, func(s service.Service) error {
+			err := s.Bootstrap()
+			if err != nil {
+				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
+			}
+
+			fmt.Printf(" Local %s is ready\n", s.Type())
+
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 
-		if bootstrap {
-			cephTargets[sh.Name] = ""
+		// Only add disks for the local MicroCeph as other systems will add their disks upon joining.
+		var c *client.Client
+		for _, disk := range systems[s.Name].MicroCephDisks {
+			if c == nil {
+				c, err = s.Services[types.MicroCeph].(*service.CephService).Client("", "")
+				if err != nil {
+					return err
+				}
+			}
+
+			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"peer": s.Name, "disk": disk.Path})
+			err = cephClient.AddDisk(context.Background(), c, &disk)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	networkTargets := map[string]string{}
+	err := AddPeers(s, systems)
+	if err != nil {
+		return err
+	}
+
 	var ovnConfig string
-	if sh.Services[types.MicroOVN] != nil {
-		ovn := sh.Services[types.MicroOVN].(*service.OVNService)
+	if s.Services[types.MicroOVN] != nil {
+		ovn := s.Services[types.MicroOVN].(*service.OVNService)
 		c, err := ovn.Client()
 		if err != nil {
 			return err
@@ -480,12 +476,25 @@ func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns
 			return err
 		}
 
+		clusterMap := map[string]string{}
+		if bootstrap {
+			for peer, system := range systems {
+				clusterMap[peer] = system.ServerInfo.Address
+			}
+		} else {
+			cloud := s.Services[types.MicroCloud].(*service.CloudService)
+			clusterMap, err = cloud.ClusterMembers()
+			if err != nil {
+				return err
+			}
+		}
+
 		conns := []string{}
 		for _, service := range services {
 			if service.Service == "central" {
-				addr := sh.Address
-				if service.Location != sh.Name {
-					addr = peers[service.Location].Address
+				addr := s.Address
+				if service.Location != s.Name {
+					addr = clusterMap[service.Location]
 				}
 
 				conns = append(conns, fmt.Sprintf("ssl:%s", util.CanonicalNetworkAddress(addr, 6641)))
@@ -495,14 +504,160 @@ func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns
 		ovnConfig = strings.Join(conns, ",")
 	}
 
-	for peer, info := range peers {
-		networkTargets[peer] = info.AuthSecret
+	config := map[string]string{"network.ovn.northbound_connection": ovnConfig}
+	lxd := s.Services[types.LXD].(*service.LXDService)
+	lxdClient, err := lxd.Client("")
+	if err != nil {
+		return err
 	}
 
-	lxdTargets := map[string]string{}
-	for peer := range lxdDisks {
-		lxdTargets[peer] = peers[peer].AuthSecret
+	// Update LXD's global config.
+	server, _, err := lxdClient.GetServer()
+	if err != nil {
+		return err
 	}
 
-	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, networkTargets, uplinkNetworks, networkConfig)
+	newServer := server.Writable()
+	changed := false
+	for k, v := range config {
+		if newServer.Config[k] != v {
+			changed = true
+		}
+
+		newServer.Config[k] = v
+	}
+
+	if changed {
+		err = lxdClient.UpdateServer(newServer, "")
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create preliminary networks & storage pools on each target.
+	for name, system := range systems {
+		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		if err != nil {
+			return err
+		}
+
+		targetClient := lxdClient.UseTarget(name)
+		for _, network := range system.TargetNetworks {
+			err = targetClient.CreateNetwork(network)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, pool := range system.TargetStoragePools {
+			err = targetClient.CreateStoragePool(pool)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// If bootstrapping, finalize setup of storage pools & networks, and update the default profile accordingly.
+	system, bootstrap := systems[s.Name]
+	if bootstrap {
+		lxd := s.Services[types.LXD].(*service.LXDService)
+		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		if err != nil {
+			return err
+		}
+
+		profile := lxdAPI.ProfilesPost{ProfilePut: lxdAPI.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+
+		for _, network := range system.Networks {
+			if network.Name == "default" || profile.Devices["eth0"] == nil {
+				profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
+			}
+
+			err = lxdClient.CreateNetwork(network)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, pool := range system.StoragePools {
+			if pool.Driver == "ceph" || profile.Devices["root"] == nil {
+				profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
+			}
+
+			err = lxdClient.CreateStoragePool(pool)
+			if err != nil {
+				return err
+			}
+		}
+
+		profiles, err := lxdClient.GetProfileNames()
+		if err != nil {
+			return err
+		}
+
+		if !shared.StringInSlice(profile.Name, profiles) {
+			err = lxdClient.CreateProfile(profile)
+		} else {
+			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	// With storage pools set up, add some volumes for images & backups.
+	for name, system := range systems {
+		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		if err != nil {
+			return err
+		}
+
+		poolNames := []string{}
+		if bootstrap {
+			for _, pool := range system.TargetStoragePools {
+				poolNames = append(poolNames, pool.Name)
+			}
+		} else {
+			for _, cfg := range system.JoinConfig {
+				if cfg.Name == "local" || cfg.Name == "remote" {
+					if cfg.Entity == "storage-pool" && cfg.Key == "source" {
+						poolNames = append(poolNames, cfg.Name)
+					}
+				}
+			}
+		}
+
+		targetClient := lxdClient.UseTarget(name)
+		for _, pool := range poolNames {
+			if pool == "local" {
+				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
+				if err != nil {
+					return err
+				}
+
+				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				if err != nil {
+					return err
+				}
+
+				server, _, err := targetClient.GetServer()
+				if err != nil {
+					return err
+				}
+
+				newServer := server.Writable()
+				newServer.Config["storage.backups_volume"] = "local/backups"
+				newServer.Config["storage.images_volume"] = "local/images"
+				err = targetClient.UpdateServer(newServer, "")
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	fmt.Println("MicroCloud is ready")
+
+	return nil
 }
