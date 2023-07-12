@@ -304,23 +304,27 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 	return nil
 }
 
-func AddPeers(sh *service.Handler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
-	joinConfig := make(map[string]types.ServicesPut, len(peers))
-	secrets := make(map[string]string, len(peers))
-	for peer, info := range peers {
-		joinConfig[peer] = types.ServicesPut{
-			Tokens:     []types.ServiceToken{},
-			Address:    info.Address,
-			LXDConfig:  localDisks[peer],
-			CephConfig: cephDisks[peer],
+func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
+	joinConfig := make(map[string]types.ServicesPut, len(systems))
+	secrets := make(map[string]string, len(systems))
+	for peer, info := range systems {
+		if peer == sh.Name {
+			continue
 		}
 
-		secrets[peer] = info.AuthSecret
+		joinConfig[peer] = types.ServicesPut{
+			Tokens:     []types.ServiceToken{},
+			Address:    info.ServerInfo.Address,
+			LXDConfig:  info.JoinConfig,
+			CephConfig: info.MicroCephDisks,
+		}
+
+		secrets[peer] = info.ServerInfo.AuthSecret
 	}
 
 	mut := sync.Mutex{}
 	err := sh.RunConcurrent(false, false, func(s service.Service) error {
-		for peer := range peers {
+		for peer := range joinConfig {
 			token, err := s.IssueToken(peer)
 			if err != nil {
 				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
@@ -441,7 +445,6 @@ func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[st
 			fmt.Printf(" Peer %q has joined the cluster\n", entry.Name)
 
 			delete(peers, entry.Name)
-
 			if len(peers) == 0 {
 				close(joinedChan)
 
