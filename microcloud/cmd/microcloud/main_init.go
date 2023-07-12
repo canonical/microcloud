@@ -132,7 +132,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	uplinkNetworks, networkConfig, err := askNetwork(s, peers, lxdConfig, true, c.flagAutoSetup)
+	err = askNetwork(s, systems, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
