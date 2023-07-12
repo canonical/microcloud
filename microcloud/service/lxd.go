@@ -46,8 +46,9 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 	}, nil
 }
 
-// client returns a client to the LXD unix socket.
-func (s LXDService) client(secret string) (lxd.InstanceServer, error) {
+// Client returns a client to the LXD unix socket.
+// The secret should be specified when the request is going to be forwarded to a remote address, such as with UseTarget.
+func (s LXDService) Client(secret string) (lxd.InstanceServer, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -97,7 +98,7 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap() error {
-	client, err := s.client("")
+	client, err := s.Client("")
 	if err != nil {
 		return err
 	}
@@ -163,7 +164,7 @@ func (s LXDService) Join(joinConfig JoinConfig) error {
 	}
 
 	config.Cluster.MemberConfig = joinConfig.LXDConfig
-	client, err := s.client("")
+	client, err := s.Client("")
 	if err != nil {
 		return err
 	}
@@ -183,7 +184,7 @@ func (s LXDService) Join(joinConfig JoinConfig) error {
 
 // IssueToken issues a token for the given peer.
 func (s LXDService) IssueToken(peer string) (string, error) {
-	client, err := s.client("")
+	client, err := s.Client("")
 	if err != nil {
 		return "", err
 	}
@@ -204,7 +205,7 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s LXDService) ClusterMembers() (map[string]string, error) {
-	client, err := s.client("")
+	client, err := s.Client("")
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +336,7 @@ func (s *LXDService) HasExtension(target string, address string, secret string, 
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
-		client, err = s.client(secret)
+		client, err = s.Client(secret)
 		if err != nil {
 			return false, err
 		}
@@ -356,7 +357,7 @@ func (s *LXDService) GetResources(target string, address string, secret string) 
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
-		client, err = s.client(secret)
+		client, err = s.Client(secret)
 		if err != nil {
 			return nil, err
 		}
@@ -375,7 +376,7 @@ func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers map[string]mdns.Se
 	clients := map[string]lxd.InstanceServer{}
 	networks := map[string][]api.Network{}
 	if bootstrap {
-		client, err := s.client("")
+		client, err := s.Client("")
 		if err != nil {
 			return nil, err
 		}
