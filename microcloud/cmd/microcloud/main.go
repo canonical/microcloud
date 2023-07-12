@@ -69,6 +69,9 @@ func main() {
 	var cmdWaitready = cmdWaitready{common: &commonCmd}
 	app.AddCommand(cmdWaitready.Command())
 
+	var cmdApps = cmdApps{common: &commonCmd}
+	app.AddCommand(cmdApps.Command())
+
 	app.InitDefaultHelpCmd()
 
 	err := app.Execute()
