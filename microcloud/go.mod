@@ -8,9 +8,11 @@ require (
 	github.com/canonical/microceph/microceph v0.0.0-20230705131719-d68dd7f4a1ef
 	github.com/canonical/microcluster v0.0.0-20230705110230-9cde8f141cb4
 	github.com/canonical/microovn/microovn v0.0.0-20230705114915-4327576403c8
+	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/mdns v1.0.5
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.7.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -27,7 +29,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -72,6 +73,5 @@ require (
 	gopkg.in/httprequest.v1 v1.2.1 // indirect
 	gopkg.in/macaroon.v2 v2.1.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
