@@ -122,7 +122,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAutoSetup, subnet)
+	err = lookupPeers(s, c.flagAutoSetup, subnet, systems)
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[string]mdns.ServerInfo, error) {
+func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems map[string]InitSystem) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
@@ -215,14 +215,14 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[str
 			done = true
 		case err := <-selectionCh:
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			done = true
 		default:
 			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			skipPeers := map[string]bool{}
@@ -267,37 +267,41 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[str
 	}
 
 	if len(totalPeers) == 0 {
-		return nil, fmt.Errorf("Found no available systems")
+		return fmt.Errorf("Found no available systems")
 	}
 
-	selectedPeers := map[string]mdns.ServerInfo{}
 	for _, answer := range answers {
 		peer := table.SelectionValue(answer, "NAME")
 		addr := table.SelectionValue(answer, "ADDR")
 		iface := table.SelectionValue(answer, "IFACE")
 		for _, info := range totalPeers {
 			if info.Name == peer && info.Address == addr && info.Interface == iface {
-				selectedPeers[peer] = info
+				systems[peer] = InitSystem{
+					ServerInfo: info,
+				}
 			}
 		}
 	}
 
 	if autoSetup {
 		for _, info := range totalPeers {
-			selectedPeers[info.Name] = info
+			systems[info.Name] = InitSystem{
+				ServerInfo: info,
+			}
 		}
 
 		// Add a space between the CLI and the response.
 		fmt.Println("")
 	}
 
-	for _, info := range selectedPeers {
-		fmt.Printf(" Selected %q at %q\n", info.Name, info.Address)
+	for _, info := range systems {
+		fmt.Printf(" Selected %q at %q\n", info.ServerInfo.Name, info.ServerInfo.Address)
 	}
 
 	// Add a space between the CLI and the response.
 	fmt.Println("")
-	return selectedPeers, nil
+
+	return nil
 }
 
 func AddPeers(sh *service.Handler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
