@@ -127,7 +127,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	lxdConfig, cephDisks, err := askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
+	err = askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
 	if err != nil {
 		return err
 	}
