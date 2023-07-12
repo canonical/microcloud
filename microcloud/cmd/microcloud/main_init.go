@@ -13,7 +13,7 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/canonical/microceph/microceph/client"
+	"github.com/canonical/microcluster/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 
@@ -22,6 +22,22 @@ import (
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
+
+// InitSystem represents the configuration passed to individual systems that join via the Handler.
+type InitSystem struct {
+	ServerInfo mdns.ServerInfo // Data reported by mDNS about this system.
+
+	AvailableDisks []lxdAPI.ResourcesStorageDisk // Disks as reported by LXD.
+
+	MicroCephDisks     []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
+	TargetNetworks     []lxdAPI.NetworksPost                  // Target specific network configuration.
+	TargetStoragePools []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
+	Networks           []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
+	StoragePools       []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
+	StorageVolumes     map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
+
+	JoinConfig []lxdAPI.ClusterMemberConfigKey // LXD Config for joining members.
+}
 
 type cmdInit struct {
 	common *CmdControl
@@ -63,6 +79,8 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	systems := map[string]InitSystem{}
+
 	addr, subnet, err := askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
@@ -73,13 +91,20 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	if !c.flagAutoSetup { //nolint:staticcheck
-		// FIXME: MicroCeph does not currently support non-hostname cluster names.
-		// name, err = cli.AskString(fmt.Sprintf("Specify a name for this system [default=%s]: ", name), name, nil)
-		// if err != nil {
-		// 	return err
-		// }
+	systems[name] = InitSystem{
+		ServerInfo: mdns.ServerInfo{
+			Name:    name,
+			Address: addr,
+		},
 	}
+
+	//if !c.flagAutoSetup {
+	// FIXME: MicroCeph does not currently support non-hostname cluster names.
+	// name, err = cli.AskString(fmt.Sprintf("Specify a name for this system [default=%s]: ", name), name, nil)
+	// if err != nil {
+	// 	return err
+	// }
+	//}
 
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
