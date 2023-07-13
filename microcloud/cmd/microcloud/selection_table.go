@@ -107,14 +107,14 @@ const multiSelectQuestionTemplate = `
 {{- define "option"}}
 	  {{- $line := "%s" }}
 	  {{- if (eq .CurrentOpt.Value (index .PageEntries 0).Value) }}
-	         {{- print (scroll_hint_top $line .FilterMessage .PageEntries) "\n" }}
+	         {{- print (scroll_hint_top $line .FilterMessage .PageEntries .Options) "\n" }}
 	  {{- end}}
     {{- if eq .SelectedIndex .CurrentIndex }}{{color .Config.Icons.SelectFocus.Format }}{{ .Config.Icons.SelectFocus.Text }}{{color "reset"}}{{else}} {{end}}
     {{- if index .Checked .CurrentOpt.Index }}{{color .Config.Icons.MarkedOption.Format }} {{ .Config.Icons.MarkedOption.Text }} {{else}}{{color .Config.Icons.UnmarkedOption.Format }} {{ .Config.Icons.UnmarkedOption.Text }} {{end}}
     {{- color "reset"}}
     {{- " "}}{{- .CurrentOpt.Value}}
 	  {{- if eq (add 1 .CurrentIndex) (len .PageEntries) }}
-	        {{- print "\n" (scroll_hint_bot $line .FilterMessage .PageEntries) }}
+	        {{- print "\n" (scroll_hint_bot $line .FilterMessage .PageEntries .Options) }}
 	  {{- end }}
 {{end}}
 {{- if gt (len .PageEntries) 0 }}
@@ -187,7 +187,7 @@ func (t *SelectableTable) prepareTemplate() {
 	}
 
 	filterFunc := defaultPromptConfig().Filter
-	core.TemplateFuncsWithColor["scroll_hint_top"] = func(line string, filter string, onScreen []core.OptionAnswer) string {
+	core.TemplateFuncsWithColor["scroll_hint_top"] = func(line string, filter string, onScreen []core.OptionAnswer, allOpts []string) string {
 		if filter == "" {
 			if onScreen[0].Index > 0 {
 				return strings.Replace(line, "     ", "   ^ ", 1)
@@ -197,7 +197,7 @@ func (t *SelectableTable) prepareTemplate() {
 		}
 
 		topIndex := -1
-		for i, opt := range t.prompt.Options {
+		for i, opt := range allOpts {
 			if filterFunc(filter, opt, i) {
 				topIndex = i
 				break
@@ -211,9 +211,9 @@ func (t *SelectableTable) prepareTemplate() {
 		return line
 	}
 
-	core.TemplateFuncsWithColor["scroll_hint_bot"] = func(line string, filter string, onScreen []core.OptionAnswer) string {
+	core.TemplateFuncsWithColor["scroll_hint_bot"] = func(line string, filter string, onScreen []core.OptionAnswer, allOpts []string) string {
 		if filter == "" {
-			if onScreen[len(onScreen)-1].Index+1 < len(t.prompt.Options) {
+			if onScreen[len(onScreen)-1].Index+1 < len(allOpts) {
 				return strings.Replace(line, "     ", "   v ", 1)
 			}
 
@@ -221,7 +221,7 @@ func (t *SelectableTable) prepareTemplate() {
 		}
 
 		botIndex := -1
-		for i, opt := range t.prompt.Options {
+		for i, opt := range allOpts {
 			if filterFunc(filter, opt, i) {
 				botIndex = i
 			}
