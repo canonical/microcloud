@@ -412,8 +412,14 @@ func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[st
 
 func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost, uplinkNetworks map[string]string, networkConfig map[string]string) error {
 	cephTargets := map[string]string{}
-	for target := range cephDisks {
-		cephTargets[target] = peers[target].AuthSecret
+	if len(cephDisks) > 0 {
+		for target := range peers {
+			cephTargets[target] = peers[target].AuthSecret
+		}
+
+		if bootstrap {
+			cephTargets[sh.Name] = ""
+		}
 	}
 
 	networkTargets := map[string]string{}
