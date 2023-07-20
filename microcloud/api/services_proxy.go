@@ -94,7 +94,7 @@ func lxdHandler(s *state.State, r *http.Request) response.Response {
 	r.RequestURI = ""
 	r.URL.Path = path
 	r.URL.Scheme = "http"
-	r.URL.Host = filepath.Join(LXDDir, "unix.socket")
+	r.URL.Host = "unix.socket"
 	r.Host = r.URL.Host
 	client, err := lxd.ConnectLXDUnix(filepath.Join(LXDDir, "unix.socket"), nil)
 	if err != nil {
@@ -121,7 +121,7 @@ func microHandler(service string, stateDir string) func(*state.State, *http.Requ
 		r.RequestURI = ""
 		r.URL.Path = path
 		r.URL.Scheme = "http"
-		r.URL.Host = filepath.Join(stateDir, "control.socket")
+		r.URL.Host = "control.socket"
 		r.Host = r.URL.Host
 		client, err := microcluster.App(s.Context, microcluster.Args{StateDir: stateDir})
 		if err != nil {
