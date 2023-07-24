@@ -9,11 +9,13 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -678,6 +680,82 @@ func (s *LXDService) SetConfig(target string, secret string, config map[string]s
 	}
 
 	return c.UpdateServer(newServer, "")
+}
+
+// Restart requests LXD to shutdown, then waits until it is ready.
+func (s *LXDService) Restart(timeoutSeconds int) error {
+	c, err := s.client("")
+	if err != nil {
+		return err
+	}
+
+	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
+	if err != nil {
+		return fmt.Errorf("Failed to send shutdown request to LXD: %w", err)
+	}
+
+	err = s.waitReady(c, timeoutSeconds)
+	if err != nil {
+		return err
+	}
+
+	// A sleep might be necessary here on slower machines?
+	_, _, err = c.GetServer()
+	if err != nil {
+		return fmt.Errorf("Failed to initialize LXD server: %w", err)
+	}
+
+	return nil
+}
+
+// waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
+func (s *LXDService) waitReady(c lxd.InstanceServer, timeoutSeconds int) error {
+	finger := make(chan error, 1)
+	var errLast error
+	go func() {
+		for i := 0; ; i++ {
+			// Start logging only after the 10'th attempt (about 5
+			// seconds). Then after the 30'th attempt (about 15
+			// seconds), log only only one attempt every 10
+			// attempts (about 5 seconds), to avoid being too
+			// verbose.
+			doLog := false
+			if i > 10 {
+				doLog = i < 30 || ((i % 10) == 0)
+			}
+
+			if doLog {
+				logger.Debugf("Checking if LXD daemon is ready (attempt %d)", i)
+			}
+
+			_, _, err := c.RawQuery("GET", "/internal/ready", nil, "")
+			if err != nil {
+				errLast = err
+				if doLog {
+					logger.Warnf("Failed to check if LXD daemon is ready (attempt %d): %v", i, err)
+				}
+
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+
+			finger <- nil
+			return
+		}
+	}()
+
+	if timeoutSeconds > 0 {
+		select {
+		case <-finger:
+			break
+		case <-time.After(time.Second * time.Duration(timeoutSeconds)):
+			return fmt.Errorf("LXD is still not running after %ds timeout (%v)", timeoutSeconds, errLast)
+		}
+	} else {
+		<-finger
+	}
+
+	return nil
 }
 
 // defaultGatewaySubnetV4 returns subnet of default gateway interface.
