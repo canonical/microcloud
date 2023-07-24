@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/state"
 	"github.com/hashicorp/mdns"
 
@@ -84,10 +84,9 @@ func (s *Handler) Start(state *state.State) error {
 		return nil
 	}
 
-	// Attempt to wake up LXD so it can generate certificates already.
-	d, err := lxd.ConnectLXDUnix("/var/snap/lxd/common/lxd/unix.socket", nil)
-	if err == nil {
-		_, _, _ = d.GetServer()
+	err := s.Services[types.LXD].(*LXDService).Restart(30)
+	if err != nil {
+		logger.Error("Failed to restart LXD", logger.Ctx{"error": err})
 	}
 
 	s.AuthSecret, err = shared.RandomCryptoString()
