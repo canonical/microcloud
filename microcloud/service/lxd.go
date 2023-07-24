@@ -687,11 +687,31 @@ func (s *LXDService) SetConfig(target string, secret string, config map[string]s
 	return c.UpdateServer(newServer, "")
 }
 
+// isInitialized checks if LXD is initialized by fetching the storage pools.
+// If none exist, that means LXD has not yet been set up.
+func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
+	pools, err := c.GetStoragePoolNames()
+	if err != nil {
+		return false, err
+	}
+
+	return len(pools) != 0, nil
+}
+
 // Restart requests LXD to shutdown, then waits until it is ready.
 func (s *LXDService) Restart(timeoutSeconds int) error {
 	c, err := s.client("")
 	if err != nil {
 		return err
+	}
+
+	isInit, err := s.isInitialized(c)
+	if err != nil {
+		return fmt.Errorf("Failed to check LXD initialization: %w", err)
+	}
+
+	if isInit {
+		return fmt.Errorf("LXD has already been initialized")
 	}
 
 	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
