@@ -152,6 +152,11 @@ func (s LXDService) Bootstrap() error {
 
 // Join joins a cluster with the given token.
 func (s LXDService) Join(joinConfig JoinConfig) error {
+	err := s.Restart(30)
+	if err != nil {
+		return err
+	}
+
 	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err

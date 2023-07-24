@@ -51,6 +51,18 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
+	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
+	fmt.Println("Waiting for LXD to start...")
+	lxdService, err := service.NewLXDService(context.Background(), "", "", c.common.FlagMicroCloudDir)
+	if err != nil {
+		return err
+	}
+
+	err = lxdService.Restart(30)
+	if err != nil {
+		return err
+	}
+
 	addr, subnet, err := askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
