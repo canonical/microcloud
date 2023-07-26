@@ -17,9 +17,7 @@ type SelectableTable struct {
 	writer  *tablewriter.Table
 
 	rows         []string
-	header       string
 	currentRow   string
-	border       string
 	writtenLines int
 
 	rawRows   [][]string
@@ -27,6 +25,23 @@ type SelectableTable struct {
 
 	answers []string
 	data    map[string]map[string]string
+
+	tmpl templateData
+}
+
+// templateData is configuration passed to the table template.
+// Since we abuse the `Default` field of survey.MultiSelect to pass this info to the template,
+// the original functionality of the `Default` field is passed along to the DefaultRows field in this struct.
+type templateData struct {
+	Border string // The line representing a border/separator in the table.
+	Header string // The line representing the table header.
+
+	DefaultRows any // A []int of indexes, or []string of rows that will be selected by default.
+}
+
+// set up the template as early as possible.
+func init() {
+	prepareTemplate()
 }
 
 // Write lets SelectableTable implement io.Writer so we can compartmentalize the header, borders, and rows from the
@@ -37,21 +52,21 @@ func (t *SelectableTable) Write(p []byte) (int, error) {
 
 	if t.writtenLines == 0 {
 		if str != "\n" {
-			if len(t.border) == 0 {
-				t.border += selectorSpacing
+			if len(t.tmpl.Border) == 0 {
+				t.tmpl.Border += selectorSpacing
 			}
 
-			t.border += str
+			t.tmpl.Border += str
 		}
 	}
 
 	if t.writtenLines == 1 {
 		if str != "\n" {
-			if len(t.header) == 0 {
-				t.header += selectorSpacing
+			if len(t.tmpl.Header) == 0 {
+				t.tmpl.Header += selectorSpacing
 			}
 
-			t.header += str
+			t.tmpl.Header += str
 		}
 	}
 
@@ -105,16 +120,16 @@ func NewSelectableTable(header []string, data [][]string) *SelectableTable {
 // multiSelectQuestionTemplate overwrites the default survey package template to accommodate table rows as selectable options.
 const multiSelectQuestionTemplate = `
 {{- define "option"}}
-	  {{- $line := "%s" }}
+	  {{- $checked := (apply_defaults .Checked .Options .Default.DefaultRows ) }}
 	  {{- if (eq .CurrentOpt.Value (index .PageEntries 0).Value) }}
-	         {{- print (scroll_hint_top $line .FilterMessage .PageEntries) "\n" }}
+	         {{- print (scroll_hint_top .Default.Border .FilterMessage .PageEntries .Options) "\n" }}
 	  {{- end}}
     {{- if eq .SelectedIndex .CurrentIndex }}{{color .Config.Icons.SelectFocus.Format }}{{ .Config.Icons.SelectFocus.Text }}{{color "reset"}}{{else}} {{end}}
     {{- if index .Checked .CurrentOpt.Index }}{{color .Config.Icons.MarkedOption.Format }} {{ .Config.Icons.MarkedOption.Text }} {{else}}{{color .Config.Icons.UnmarkedOption.Format }} {{ .Config.Icons.UnmarkedOption.Text }} {{end}}
     {{- color "reset"}}
     {{- " "}}{{- .CurrentOpt.Value}}
 	  {{- if eq (add 1 .CurrentIndex) (len .PageEntries) }}
-	        {{- print "\n" (scroll_hint_bot $line .FilterMessage .PageEntries) }}
+	        {{- print "\n" (scroll_hint_bot .Default.Border .FilterMessage .PageEntries .Options) }}
 	  {{- end }}
 {{end}}
 {{- if gt (len .PageEntries) 0 }}
@@ -126,8 +141,8 @@ const multiSelectQuestionTemplate = `
   {{- "\n"}}
 {{- end}}
 {{- if gt (len .PageEntries) 0 }}
-      {{- "%s\n"}}
-      {{- "%s\n"}}
+      {{- .Default.Border }}{{ "\n" }}
+      {{- .Default.Header }}{{ "\n" }}
 {{- end}}
 {{- range $ix, $option := .PageEntries}}
   {{- template "option" $.IterateOption $ix $option}}
@@ -181,13 +196,13 @@ func defaultPromptConfig() *survey.PromptConfig {
 }
 
 // prepareTemplate sets the proper functions and strings to allow formatting a pretty table.
-func (t *SelectableTable) prepareTemplate() {
+func prepareTemplate() {
 	core.TemplateFuncsWithColor["add"] = func(a int, b int) int {
 		return a + b
 	}
 
 	filterFunc := defaultPromptConfig().Filter
-	core.TemplateFuncsWithColor["scroll_hint_top"] = func(line string, filter string, onScreen []core.OptionAnswer) string {
+	core.TemplateFuncsWithColor["scroll_hint_top"] = func(line string, filter string, onScreen []core.OptionAnswer, allOpts []string) string {
 		if filter == "" {
 			if onScreen[0].Index > 0 {
 				return strings.Replace(line, "     ", "   ^ ", 1)
@@ -197,7 +212,7 @@ func (t *SelectableTable) prepareTemplate() {
 		}
 
 		topIndex := -1
-		for i, opt := range t.prompt.Options {
+		for i, opt := range allOpts {
 			if filterFunc(filter, opt, i) {
 				topIndex = i
 				break
@@ -211,9 +226,9 @@ func (t *SelectableTable) prepareTemplate() {
 		return line
 	}
 
-	core.TemplateFuncsWithColor["scroll_hint_bot"] = func(line string, filter string, onScreen []core.OptionAnswer) string {
+	core.TemplateFuncsWithColor["scroll_hint_bot"] = func(line string, filter string, onScreen []core.OptionAnswer, allOpts []string) string {
 		if filter == "" {
-			if onScreen[len(onScreen)-1].Index+1 < len(t.prompt.Options) {
+			if onScreen[len(onScreen)-1].Index+1 < len(allOpts) {
 				return strings.Replace(line, "     ", "   v ", 1)
 			}
 
@@ -221,7 +236,7 @@ func (t *SelectableTable) prepareTemplate() {
 		}
 
 		botIndex := -1
-		for i, opt := range t.prompt.Options {
+		for i, opt := range allOpts {
 			if filterFunc(filter, opt, i) {
 				botIndex = i
 			}
@@ -234,10 +249,47 @@ func (t *SelectableTable) prepareTemplate() {
 		return line
 	}
 
+	core.TemplateFuncsWithColor["apply_defaults"] = func(checked map[int]bool, allOpts []string, defaults any) map[int]bool {
+		if checked == nil {
+			checked = map[int]bool{}
+		}
+
+		if defaults != nil {
+			// if the default is string values
+			defaultValues, ok := defaults.([]string)
+			if ok {
+				for _, dflt := range defaultValues {
+					for i, opt := range allOpts {
+						// if the option corresponds to the default
+						if opt == dflt {
+							// we found our initial value
+							checked[i] = true
+							// stop looking
+							break
+						}
+					}
+				}
+				// if the default value is index values
+			} else {
+				defaultIndices, ok := defaults.([]int)
+				if ok {
+					// go over every index we need to enable by default
+					for _, idx := range defaultIndices {
+						// and enable it
+						checked[idx] = true
+					}
+				}
+			}
+		}
+
+		return checked
+	}
+
 	core.TemplateFuncsNoColor["add"] = core.TemplateFuncsWithColor["add"]
 	core.TemplateFuncsNoColor["scroll_hint_bot"] = core.TemplateFuncsWithColor["scroll_hint_bot"]
 	core.TemplateFuncsNoColor["scroll_hint_top"] = core.TemplateFuncsWithColor["scroll_hint_top"]
-	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header)
+	core.TemplateFuncsNoColor["apply_defaults"] = core.TemplateFuncsWithColor["apply_defaults"]
+	survey.MultiSelectQuestionTemplate = multiSelectQuestionTemplate
 }
 
 // Render outputs the SelectableTable and returns a slice of selected rows.
@@ -246,10 +298,10 @@ func (t *SelectableTable) Render(entries []string) {
 		Message: `Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.`,
 		Options:  entries,
+		Default:  t.tmpl,
 		PageSize: 15,
 	}
 
-	t.prepareTemplate()
 	t.answers = []string{}
 	go func() {
 		err := survey.AskOne(t.prompt, &t.answers, survey.WithKeepFilter(true))
@@ -292,8 +344,8 @@ func (t *SelectableTable) Update(row []string) {
 	t.writer.ClearRows()
 	t.rows = []string{}
 	t.currentRow = ""
-	t.header = ""
-	t.border = ""
+	t.tmpl.Header = ""
+	t.tmpl.Border = ""
 	t.writtenLines = 0
 	t.rawRows = append(t.rawRows, row)
 	t.writer.AppendBulk(t.rawRows)
@@ -323,7 +375,7 @@ func (t *SelectableTable) Update(row []string) {
 	}
 
 	// Update the template as the size of the header and borders may have changed.
-	survey.MultiSelectQuestionTemplate = fmt.Sprintf(multiSelectQuestionTemplate, t.border, t.border, t.header)
+	t.prompt.Default = t.tmpl
 	t.prompt.Options = newEntries
 	t.prompt.OnChange(terminal.IgnoreKey, defaultPromptConfig())
 }
