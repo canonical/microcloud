@@ -1,0 +1,20 @@
+lookup_subnet: 10.215.246.1/24
+systems:
+- name: micro01
+  ovn_uplink_interface: enp6s0
+- name: micro02
+  ovn_uplink_interface: enp6s0
+- name: micro03
+  ovn_uplink_interface: enp6s0
+ovn:
+  ipv4_gateway: 10.123.123.1/24
+  ipv4_range: 10.123.123.100-10.123.123.254
+storage:
+  local:
+    - find: size == 3GiB
+      find_min: 3
+      wipe: true
+  ceph:
+    - find: size == 4GiB
+      find_min: 3
+      wipe: true

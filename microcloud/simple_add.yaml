@@ -1,0 +1,11 @@
+lookup_subnet: 10.215.246.1/24
+systems:
+- name: micro04
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+    ceph:
+      - path: /dev/sdc
+        wipe: true
