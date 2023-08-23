@@ -116,7 +116,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, subnet, systems)
+	err = lookupPeers(s, c.flagAutoSetup, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
@@ -139,10 +139,20 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems map[string]InitSystem) error {
+// lookupPeers attempts to find eligible systems over mDNS, optionally limiting lookup to the given subnet if not nil.
+// Found systems will be progressively added to a table, and the user selection is added to the `systems` map.
+//
+// - If `autoSetup` is true, all systems found in the first 5s will be recorded, and no other input is required.
+// - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
+// except it will wait up to a minute for exclusively these systems to be recorded.
+func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
+
+	if len(expectedSystems) > 0 {
+		autoSetup = true
+	}
 
 	tableCh := make(chan error)
 	selectionCh := make(chan error)
@@ -164,6 +174,15 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 		timeAfter = time.After(5 * time.Second)
 	}
 
+	if len(expectedSystems) > 0 {
+		timeAfter = time.After(1 * time.Minute)
+	}
+
+	expectedSystemsMap := make(map[string]bool, len(expectedSystems))
+	for _, system := range expectedSystems {
+		expectedSystemsMap[system] = true
+	}
+
 	fmt.Println("Scanning for eligible servers ...")
 	totalPeers := map[string]mdns.ServerInfo{}
 	done := false
@@ -178,6 +197,13 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 
 			done = true
 		default:
+			// If we have found all expected systems, the map will be empty and we can return right away.
+			if len(expectedSystemsMap) == 0 && len(expectedSystems) > 0 {
+				done = true
+
+				break
+			}
+
 			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
 			if err != nil {
 				return err
@@ -192,6 +218,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 						serviceMap[service] = true
 					}
 
+					// Skip any peers that are missing our services.
 					for service := range s.Services {
 						if !serviceMap[service] {
 							skipPeers[info.Name] = true
@@ -200,12 +227,22 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 						}
 					}
 
+					// If given a subnet, skip any peers that are broadcasting from a different subnet.
 					if subnet != nil && !subnet.Contains(net.ParseIP(info.Address)) {
 						continue
 					}
 
 					if !skipPeers[info.Name] {
 						totalPeers[key] = info
+
+						if len(expectedSystems) > 0 {
+							if expectedSystemsMap[info.Name] {
+								delete(expectedSystemsMap, info.Name)
+							} else {
+								delete(totalPeers, key)
+							}
+						}
+
 						if autoSetup {
 							continue
 						}
@@ -246,6 +283,10 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 			systems[info.Name] = InitSystem{
 				ServerInfo: info,
 			}
+		}
+
+		if len(expectedSystems) > 0 {
+			return nil
 		}
 
 		// Add a space between the CLI and the response.

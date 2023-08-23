@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/canonical/microcluster/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcluster/microcluster"
 )
 
 type cmdAdd struct {
@@ -73,7 +73,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	systems := map[string]InitSystem{}
-	err = lookupPeers(s, c.flagAutoSetup, subnet, systems)
+	err = lookupPeers(s, c.flagAutoSetup, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
