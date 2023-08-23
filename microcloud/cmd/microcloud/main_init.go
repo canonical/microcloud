@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
@@ -421,9 +423,9 @@ func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[st
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
 func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
-	fmt.Println("Initializing a new cluster")
 	_, bootstrap := systems[s.Name]
 	if bootstrap {
+		fmt.Println("Initializing a new cluster")
 		err := s.RunConcurrent(true, false, func(s service.Service) error {
 			err := s.Bootstrap()
 			if err != nil {
@@ -566,7 +568,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		profile := lxdAPI.ProfilesPost{ProfilePut: lxdAPI.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
 
 		for _, network := range system.Networks {
-			if network.Name == "default" {
+			if network.Name == "default" || profile.Devices["eth0"] == nil {
 				profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
 			}
 
@@ -610,9 +612,9 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			return err
 		}
 
+		targetClient := lxdClient.UseTarget(name)
 		for _, pool := range system.TargetStoragePools {
 			if pool.Name == "local" {
-				targetClient := lxdClient.UseTarget(name)
 				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
 				if err != nil {
 					return err

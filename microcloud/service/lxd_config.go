@@ -78,7 +78,7 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 
 	if ipv4Gateway != "" && ipv4Range != "" {
 		finalUplinkCfg.Config["ipv4.gateway"] = ipv4Gateway
-		finalUplinkCfg.Config["ipv4.range"] = ipv4Range
+		finalUplinkCfg.Config["ipv4.ovn.ranges"] = ipv4Range
 	}
 
 	if ipv6Gateway != "" {

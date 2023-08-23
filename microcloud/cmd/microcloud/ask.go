@@ -228,16 +228,9 @@ func askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool
 	}
 
 	if !bootstrap {
-		sourceTemplate := api.ClusterMemberConfigKey{
-			Entity: "storage-pool",
-			Name:   "remote",
-			Key:    "source",
-			Value:  "lxd_remote",
-		}
-
 		for peer, system := range systems {
 			if len(system.MicroCephDisks) > 0 {
-				system.JoinConfig = append(system.JoinConfig, sourceTemplate)
+				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
 
 				systems[peer] = system
 			}
@@ -433,7 +426,7 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 		}
 	}
 
-	systemCount := 0
+	diskCount := 0
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	for _, entry := range selected {
 		target := table.SelectionValue(entry, "LOCATION")
@@ -441,27 +434,25 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 		system := systems[target]
 
 		if system.MicroCephDisks == nil {
-			systemCount++
+			diskCount++
 			system.MicroCephDisks = []cephTypes.DisksPost{}
 		}
 
 		system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: path, Wipe: wipeMap[entry]})
+
+		systems[target] = system
 	}
 
-	_, bootstrap := systems[sh.Name]
-	if bootstrap && systemCount < 3 {
-		return fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
-	}
-
-	if len(selected) > 0 {
-		for peer, system := range systems {
+	if diskCount > 0 {
+		for target, system := range systems {
 			if system.TargetStoragePools == nil {
 				system.TargetStoragePools = []api.StoragePoolsPost{}
 			}
 
+			_, bootstrap := systems[sh.Name]
 			if bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
-				if peer == sh.Name {
+				if target == sh.Name {
 					if system.StoragePools == nil {
 						system.StoragePools = []api.StoragePoolsPost{}
 					}
@@ -476,11 +467,16 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
 			}
 
-			systems[peer] = system
+			systems[target] = system
 		}
 	}
 
-	return nil
+	_, checkMinSize := systems[sh.Name]
+	if !checkMinSize || diskCount >= 3 {
+		return nil
+	}
+
+	return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 }
 
 func askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
@@ -715,6 +711,9 @@ func askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bo
 			uplink, ovn = lxd.DefaultOVNNetwork("", "", "")
 		}
 
+		var ipv4Gateway string
+		var ipv4Ranges string
+		var ipv6Gateway string
 		for gateway, ipRange := range config {
 			ip, _, err := net.ParseCIDR(gateway)
 			if err != nil {
@@ -722,12 +721,14 @@ func askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bo
 			}
 
 			if ip.To4() != nil {
-				uplink, ovn = lxd.DefaultOVNNetwork(gateway, ipRange, "")
+				ipv4Gateway = gateway
+				ipv4Ranges = ipRange
 			} else {
-				uplink, ovn = lxd.DefaultOVNNetwork("", "", gateway)
+				ipv6Gateway = gateway
 			}
 		}
 
+		uplink, ovn = lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
 	}
