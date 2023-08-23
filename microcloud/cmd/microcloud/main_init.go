@@ -47,6 +47,7 @@ type cmdInit struct {
 	flagAutoSetup    bool
 	flagWipeAllDisks bool
 	flagAddress      string
+	flagPreseed      string
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -60,6 +61,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
+	cmd.Flags().StringVar(&c.flagPreseed, "preseed", "", "Preseed YAML for configuring MicroCloud")
 
 	return cmd
 }
@@ -69,6 +71,14 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
+	if c.flagPreseed != "" {
+		return c.common.RunPreseed(cmd, c.flagPreseed, true)
+	}
+
+	return c.RunInteractive(cmd, args)
+}
+
+func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
 	fmt.Println("Waiting for LXD to start...")
 	lxdService, err := service.NewLXDService(context.Background(), "", "", c.common.FlagMicroCloudDir)

@@ -17,6 +17,7 @@ type cmdAdd struct {
 
 	flagAutoSetup bool
 	flagWipe      bool
+	flagPreseed   string
 }
 
 func (c *cmdAdd) Command() *cobra.Command {
@@ -28,6 +29,7 @@ func (c *cmdAdd) Command() *cobra.Command {
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
+	cmd.Flags().StringVar(&c.flagPreseed, "preseed", "", "Preseed YAML for configuring MicroCloud")
 
 	return cmd
 }
@@ -35,6 +37,10 @@ func (c *cmdAdd) Command() *cobra.Command {
 func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
+	}
+
+	if c.flagPreseed != "" {
+		return c.common.RunPreseed(cmd, c.flagPreseed, false)
 	}
 
 	cloudApp, err := microcluster.App(context.Background(), microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
