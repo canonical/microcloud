@@ -100,14 +100,6 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	//if !c.flagAutoSetup {
-	// FIXME: MicroCeph does not currently support non-hostname cluster names.
-	// name, err = cli.AskString(fmt.Sprintf("Specify a name for this system [default=%s]: ", name), name, nil)
-	// if err != nil {
-	// 	return err
-	// }
-	//}
-
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
