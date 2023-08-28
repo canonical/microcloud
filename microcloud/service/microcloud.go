@@ -70,7 +70,26 @@ func (s *CloudService) StartCloud(service *Handler, endpoints []rest.Endpoint) e
 
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
 func (s CloudService) Bootstrap() error {
-	return s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	err := s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("Timed out waiting for MicroCloud cluster to initialize")
+		default:
+			names, err := s.ClusterMembers()
+			if err != nil {
+				return err
+			}
+
+			if len(names) > 0 {
+				return nil
+			}
+		}
+	}
 }
 
 // IssueToken issues a token for the given peer.

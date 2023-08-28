@@ -148,7 +148,21 @@ func (s LXDService) Bootstrap() error {
 		return fmt.Errorf("Failed to initialize cluster: %w", err)
 	}
 
-	return nil
+	for {
+		select {
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("Timed out waiting for LXD cluster to initialize")
+		default:
+			names, err := client.GetClusterMemberNames()
+			if err != nil {
+				return err
+			}
+
+			if len(names) > 0 {
+				return nil
+			}
+		}
+	}
 }
 
 // Join joins a cluster with the given token.

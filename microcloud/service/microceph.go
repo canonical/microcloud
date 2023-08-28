@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -76,7 +77,26 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap() error {
-	return s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("Timed out waiting for MicroCeph cluster to initialize")
+		default:
+			names, err := s.ClusterMembers()
+			if err != nil {
+				return err
+			}
+
+			if len(names) > 0 {
+				return nil
+			}
+		}
+	}
 }
 
 // IssueToken issues a token for the given peer.
