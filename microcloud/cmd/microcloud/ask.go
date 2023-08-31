@@ -52,16 +52,18 @@ func askMissingServices(services []types.ServiceType, stateDirs map[types.Servic
 	}
 
 	if len(missingServices) > 0 {
-		serviceStr := strings.Join(missingServices, ",")
+		serviceStr := strings.Join(missingServices, ", ")
 		if !autoSetup {
-			skip, err := cli.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
+			confirm, err := cli.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
 			if err != nil {
 				return nil, err
 			}
 
-			if !skip {
-				return services, nil
+			if !confirm {
+				return nil, fmt.Errorf("User aborted")
 			}
+
+			return services, nil
 		}
 
 		logger.Infof("Skipping %s (could not detect service state directory)", serviceStr)
