@@ -2,3 +2,14 @@
 doc/.sphinx/venv
 doc/.sphinx/warnings.txt
 doc/.sphinx/.wordlist.dic
+
+# Juju Charm related
+venv/
+build/
+*.charm
+.tox/
+.coverage
+__pycache__/
+*.py[cod]
+.idea
+.vscode/

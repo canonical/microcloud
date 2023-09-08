@@ -1,0 +1,60 @@
+[project]
+name = "charm-microcloud-metal"
+description = "Metal Charm for Microcloud"
+license = "Apache 2.0"
+python = "^3.8"
+readme = "README.md"
+repository = "https://github.com/canonical/microcloud"
+
+# Testing tools configuration
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+
+# Formatting tools configuration
+[tool.black]
+line-length = 99
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+
+# Linting tools configuration
+[tool.flake8]
+max-line-length = 99
+max-doc-length = 99
+exclude = [".git", "__pycache__", ".tox", "build", "dist", "*.egg_info", "venv"]
+select = ["E", "W", "F", "C", "N", "R", "D", "H"]
+# Ignore W503, E501 because using black creates errors with this
+# Ignore D107 Missing docstring in __init__
+ignore = ["W503", "E501", "D107"]
+# D100, D101, D102, D103: Ignore missing docstrings in tests
+per-file-ignores = ["tests/*:D100,D101,D102,D103"]
+docstring-convention = "google"
+
+# Static analysis tools configuration
+[tool.mypy]
+exclude = "build"
+pretty = true
+python_version = 3.8
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+show_traceback = true
+show_error_codes = true
+namespace_packages = true
+explicit_package_bases = true
+check_untyped_defs = true
+
+# Ignore libraries that do not have type hint nor stubs
+[[tool.mypy.overrides]]
+module = [
+  "ops.*",
+  "pylxd.*",
+]
+ignore_missing_imports = true

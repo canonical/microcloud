@@ -1,0 +1,44 @@
+name: microcloud
+display-name: Microcloud
+summary: The easiest way to get a fully highly available LXD cluster up and running.
+description: |
+  Microcloud can automatically configure LXD, Ceph, and OVN across a set of servers.
+  It relies on mDNS to automatically detect other servers on the network, making it possible
+  to set up a complete cluster by running a single command on one of the machines.
+
+  MicroCloud creates a small footprint cluster of compute nodes with distributed
+  storage and secure networking, optimized for repeatable, reliable remote deployments.
+  MicroCloud is aimed at edge computing, and anyone in need of a small-scale private cloud.
+tags:
+  - containers
+  - security
+  - system
+resources:
+  microcloud-binary:
+    type: file
+    filename: microcloud
+    description: |
+      A debug version of the Microcloud binary or a tarball of architecture specific
+      binaries. In the case of a tarball, the binaries should be at the root
+      and be named as "microcloud_${ARCH}".
+
+      Attaching an empty file will undo the sideloading.
+  microcloud-snap:
+    type: file
+    filename: microcloud.snap
+    description: |
+      A custom Microcloud snap or tarball of architecture specific snaps to install.
+      In the case of a tarball, the snaps should be at the root and be
+      named as "microcloud_${ARCH}.snap".
+
+      Attaching an empty file will undo the sideloading.
+storage:
+  local:
+    type: block
+    description: Local storage pool for Microcloud
+    minimum-size: 10G
+    multiple:
+      range: 0-1
+peers:
+  cluster:
+    interface: microcloud-cluster

@@ -1,0 +1,32 @@
+options:
+  microovn:
+    type: boolean
+    description: |
+      Enable microovn
+    default: true
+  microceph:
+    type: boolean
+    description: |
+      Enable microceph
+    default: true
+  wipe:
+    type: boolean
+    description: |
+      Wipe the disks when installing
+    default: false
+  snap-channel-lxd:
+    type: string
+    default: "latest/edge"
+    description: The snap store channel for LXD to use
+  snap-channel-microcloud:
+    type: string
+    default: "latest/edge"
+    description: The snap store channel for MicroCloud to use
+  snap-channel-microceph:
+    type: string
+    default: "latest/edge"
+    description: The snap store channel for MicroCeph to use
+  snap-channel-microovn:
+    type: string
+    default: "latest/edge"
+    description: The snap store channel for MicroOVN to use
