@@ -36,6 +36,29 @@ func main() {
 	// common flags.
 	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin))}
 
+	useTestConsole := os.Getenv("TEST_CONSOLE")
+	if useTestConsole == "1" {
+		fmt.Printf("%s\n\n", `
+  Detected 'TEST_CONSOLE=1', MicroCloud CLI is in testing mode. Terminal interactivity is disabled.
+
+  Interactive microcloud commands will read text instructions by line:
+
+cat << EOF | microcloud init
+select                # selects an element in the table
+select-all            # selects all elements in the table
+select-none           # de-selects all elements in the table
+up                    # move up in the table
+down                  # move down in the table
+wait <time.Duration>  # waits before the next instruction
+expect <count>        # waits until exactly <count> peers are available, and errors out if more are found
+---                   # confirms the table selection and exits the table
+clear                 # clears the last line
+anything else         # will be treated as a raw string. This is useful for filtering a table and text entry
+EOF`)
+
+		commonCmd.asker = prepareTestAsker(os.Stdin)
+	}
+
 	app := &cobra.Command{
 		Use:               "microcloud",
 		Short:             "Command for managing the MicroCloud daemon",
