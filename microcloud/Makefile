@@ -17,7 +17,7 @@ check-unit:
 
 .PHONY: check-system
 check-system:
-	true
+	cd test && ./main.sh
 
 .PHONY: check-static
 check-static:
