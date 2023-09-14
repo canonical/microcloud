@@ -51,7 +51,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr, subnet, err := askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	addr, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = askMissingServices(services, optionalServices, c.flagAutoSetup)
+	services, err = c.common.askMissingServices(services, optionalServices, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -77,12 +77,12 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	lxdConfig, cephDisks, err := askDisks(s, peers, false, c.flagAutoSetup, c.flagWipe)
+	lxdConfig, cephDisks, err := c.common.askDisks(s, peers, false, c.flagAutoSetup, c.flagWipe)
 	if err != nil {
 		return err
 	}
 
-	uplinkNetworks, networkConfig, err := askNetwork(s, peers, lxdConfig, false, c.flagAutoSetup)
+	uplinkNetworks, networkConfig, err := c.common.askNetwork(s, peers, lxdConfig, false, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}

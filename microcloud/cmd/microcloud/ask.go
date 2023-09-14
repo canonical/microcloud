@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net"
-	"os"
 	"sort"
 	"strings"
 
@@ -21,8 +19,7 @@ import (
 )
 
 // askRetry will print all errors and re-attempt the given function on user input.
-func askRetry(question string, autoSetup bool, f func() error) {
-	asker := cli.NewAsker(bufio.NewReader(os.Stdin))
+func (c *CmdControl) askRetry(question string, autoSetup bool, f func() error) {
 	for {
 		retry := false
 		err := f()
@@ -30,7 +27,7 @@ func askRetry(question string, autoSetup bool, f func() error) {
 			fmt.Println(err)
 
 			if !autoSetup {
-				retry, err = asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
+				retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
 				if err != nil {
 					fmt.Println(err)
 					retry = false
@@ -44,7 +41,7 @@ func askRetry(question string, autoSetup bool, f func() error) {
 	}
 }
 
-func askMissingServices(services []types.ServiceType, stateDirs map[types.ServiceType]string, autoSetup bool) ([]types.ServiceType, error) {
+func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs map[types.ServiceType]string, autoSetup bool) ([]types.ServiceType, error) {
 	missingServices := []string{}
 	for serviceType, stateDir := range stateDirs {
 		if service.Exists(serviceType, stateDir) {
@@ -57,8 +54,7 @@ func askMissingServices(services []types.ServiceType, stateDirs map[types.Servic
 	if len(missingServices) > 0 {
 		serviceStr := strings.Join(missingServices, ", ")
 		if !autoSetup {
-			asker := cli.NewAsker(bufio.NewReader(os.Stdin))
-			confirm, err := asker.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
+			confirm, err := c.asker.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
 			if err != nil {
 				return nil, err
 			}
@@ -76,7 +72,7 @@ func askMissingServices(services []types.ServiceType, stateDirs map[types.Servic
 	return services, nil
 }
 
-func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
+func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 	info, err := mdns.GetNetworkInfo()
 	if err != nil {
 		return "", nil, fmt.Errorf("Failed to find network interfaces: %w", err)
@@ -95,7 +91,7 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 			}
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
-			askRetry("Retry selecting an address?", autoSetup, func() error {
+			c.askRetry("Retry selecting an address?", autoSetup, func() error {
 				fmt.Println("Select an address for MicroCloud's internal traffic:")
 				table.Render(table.rows)
 				answers, err := table.GetSelections()
@@ -133,8 +129,7 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 	}
 
 	if !autoSetup {
-		asker := cli.NewAsker(bufio.NewReader(os.Stdin))
-		filter, err := asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
+		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
 			return "", nil, err
 		}
@@ -147,7 +142,7 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 	return listenAddr, subnet, nil
 }
 
-func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap bool, autoSetup bool, wipeAllDisks bool) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string][]cephTypes.DisksPost, error) {
+func (c *CmdControl) askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap bool, autoSetup bool, wipeAllDisks bool) (map[string][]lxdAPI.ClusterMemberConfigKey, map[string][]cephTypes.DisksPost, error) {
 	if bootstrap {
 		// Add the local system to the list of peers so we can select disks.
 		peers[sh.Name] = mdns.ServerInfo{Name: sh.Name}
@@ -177,9 +172,8 @@ func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap b
 	var reservedDisks map[string]string
 	wantsDisks := true
 
-	asker := cli.NewAsker(bufio.NewReader(os.Stdin))
 	if !autoSetup {
-		wantsDisks, err = asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -187,7 +181,7 @@ func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap b
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	if wantsDisks {
-		askRetry("Retry selecting disks?", autoSetup, func() error {
+		c.askRetry("Retry selecting disks?", autoSetup, func() error {
 			diskConfig, reservedDisks, err = askLocalPool(validDisks, autoSetup, wipeAllDisks, *lxd)
 
 			return err
@@ -234,14 +228,13 @@ func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap b
 			ceph := sh.Services[types.MicroCeph].(*service.CephService)
 			wantsDisks = true
 			if !autoSetup {
-				asker := cli.NewAsker(bufio.NewReader(os.Stdin))
-				wantsDisks, err = asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
+				wantsDisks, err = c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
 				if err != nil {
 					return nil, nil, err
 				}
 
 				if len(peers) != len(availableDisks) && wantsDisks {
-					wantsDisks, err = asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
+					wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
 					if err != nil {
 						return nil, nil, err
 					}
@@ -249,7 +242,7 @@ func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap b
 			}
 
 			if wantsDisks {
-				askRetry("Retry selecting disks?", autoSetup, func() error {
+				c.askRetry("Retry selecting disks?", autoSetup, func() error {
 					cephDisks, err = askRemotePool(availableDisks, autoSetup, wipeAllDisks, *ceph)
 
 					return err
@@ -491,7 +484,7 @@ func askRemotePool(peerDisks map[string][]lxdAPI.ResourcesStorageDisk, autoSetup
 	return nil, fmt.Errorf("Unable to add remote storage pool: Each peer (minimum 3) must have allocated disks")
 }
 
-func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
+func (c *CmdControl) askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig map[string][]api.ClusterMemberConfigKey, bootstrap bool, autoSetup bool) (map[string]string, map[string]string, error) {
 	// Automatic setup gets a basic fan setup.
 	if autoSetup {
 		return nil, nil, nil
@@ -523,8 +516,7 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 	}
 
 	// Ask the user if they want OVN.
-	asker := cli.NewAsker(bufio.NewReader(os.Stdin))
-	wantsOVN, err := asker.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
+	wantsOVN, err := c.asker.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -546,7 +538,7 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 	}
 
 	if missingSystems {
-		wantsSkip, err := asker.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		wantsSkip, err := c.asker.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -568,7 +560,7 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 
 	table := NewSelectableTable(header, data)
 	var selected map[string]string
-	askRetry("Retry selecting uplink interfaces?", autoSetup, func() error {
+	c.askRetry("Retry selecting uplink interfaces?", autoSetup, func() error {
 		table.Render(table.rows)
 		answers, err := table.GetSelections()
 		if err != nil {
@@ -628,9 +620,8 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 				return nil
 			}
 
-			asker := cli.NewAsker(bufio.NewReader(os.Stdin))
 			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
-			gateway, err := asker.AskString(msg, "", validator)
+			gateway, err := c.asker.AskString(msg, "", validator)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -654,12 +645,12 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 				}
 
 				if ip == "IPv4" {
-					rangeStart, err := asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
+					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
 						return nil, nil, err
 					}
 
-					rangeEnd, err := asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
+					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
 						return nil, nil, err
 					}

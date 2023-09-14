@@ -81,7 +81,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	systems := map[string]InitSystem{}
 
-	addr, subnet, err := askAddress(c.flagAutoSetup, c.flagAddress)
+	addr, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = askMissingServices(services, optionalServices, c.flagAutoSetup)
+	services, err = c.common.askMissingServices(services, optionalServices, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -127,12 +127,12 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	lxdConfig, cephDisks, err := askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
+	lxdConfig, cephDisks, err := c.common.askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
 	if err != nil {
 		return err
 	}
 
-	uplinkNetworks, networkConfig, err := askNetwork(s, peers, lxdConfig, true, c.flagAutoSetup)
+	uplinkNetworks, networkConfig, err := c.common.askNetwork(s, peers, lxdConfig, true, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}

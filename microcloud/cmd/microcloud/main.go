@@ -2,9 +2,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/version"
@@ -20,6 +22,8 @@ type CmdControl struct {
 	FlagLogDebug      bool
 	FlagLogVerbose    bool
 	FlagMicroCloudDir string
+
+	asker cli.Asker
 }
 
 func main() {
@@ -30,7 +34,7 @@ func main() {
 	}
 
 	// common flags.
-	commonCmd := CmdControl{}
+	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin))}
 
 	app := &cobra.Command{
 		Use:               "microcloud",
