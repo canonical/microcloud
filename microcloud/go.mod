@@ -3,11 +3,11 @@ module github.com/canonical/microcloud/microcloud
 go 1.18
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.6
-	github.com/canonical/lxd v0.0.0-20230705090120-570f7071eeb2
-	github.com/canonical/microceph/microceph v0.0.0-20230705131719-d68dd7f4a1ef
-	github.com/canonical/microcluster v0.0.0-20230705110230-9cde8f141cb4
-	github.com/canonical/microovn/microovn v0.0.0-20230705114915-4327576403c8
+	github.com/AlecAivazis/survey/v2 v2.3.7
+	github.com/canonical/lxd v0.0.0-20230918104700-87fbf8a2beac
+	github.com/canonical/microceph/microceph v0.0.0-20230915171045-01d40b7d7284
+	github.com/canonical/microcluster v0.0.0-20230705140256-7726061a60bb
+	github.com/canonical/microovn/microovn v0.0.0-20230825162448-da2e39f55c95
 	github.com/hashicorp/mdns v1.0.5
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.7.0
@@ -26,7 +26,7 @@ require (
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/renameio v1.0.1 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
@@ -40,14 +40,14 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
-	github.com/miekg/dns v1.1.55 // indirect
+	github.com/miekg/dns v1.1.56 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/sftp v1.13.5 // indirect
+	github.com/pkg/sftp v1.13.6 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
@@ -56,17 +56,17 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/zitadel/oidc/v2 v2.6.4 // indirect
-	golang.org/x/crypto v0.10.0 // indirect
-	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/net v0.11.0 // indirect
-	golang.org/x/oauth2 v0.9.0 // indirect
+	github.com/zitadel/oidc/v2 v2.11.0 // indirect
+	golang.org/x/crypto v0.13.0 // indirect
+	golang.org/x/mod v0.12.0 // indirect
+	golang.org/x/net v0.15.0 // indirect
+	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/term v0.9.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
-	golang.org/x/tools v0.10.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/tools v0.13.0 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/httprequest.v1 v1.2.1 // indirect

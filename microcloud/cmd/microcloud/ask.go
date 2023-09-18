@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strings"
 
@@ -20,6 +22,7 @@ import (
 
 // askRetry will print all errors and re-attempt the given function on user input.
 func askRetry(question string, autoSetup bool, f func() error) {
+	asker := cli.NewAsker(bufio.NewReader(os.Stdin))
 	for {
 		retry := false
 		err := f()
@@ -27,7 +30,7 @@ func askRetry(question string, autoSetup bool, f func() error) {
 			fmt.Println(err)
 
 			if !autoSetup {
-				retry, err = cli.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
+				retry, err = asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
 				if err != nil {
 					fmt.Println(err)
 					retry = false
@@ -54,7 +57,8 @@ func askMissingServices(services []types.ServiceType, stateDirs map[types.Servic
 	if len(missingServices) > 0 {
 		serviceStr := strings.Join(missingServices, ", ")
 		if !autoSetup {
-			confirm, err := cli.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
+			asker := cli.NewAsker(bufio.NewReader(os.Stdin))
+			confirm, err := asker.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
 			if err != nil {
 				return nil, err
 			}
@@ -129,7 +133,8 @@ func askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
 	}
 
 	if !autoSetup {
-		filter, err := cli.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
+		asker := cli.NewAsker(bufio.NewReader(os.Stdin))
+		filter, err := asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
 			return "", nil, err
 		}
@@ -171,8 +176,10 @@ func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap b
 	var diskConfig map[string][]lxdAPI.ClusterMemberConfigKey
 	var reservedDisks map[string]string
 	wantsDisks := true
+
+	asker := cli.NewAsker(bufio.NewReader(os.Stdin))
 	if !autoSetup {
-		wantsDisks, err = cli.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+		wantsDisks, err = asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -227,13 +234,14 @@ func askDisks(sh *service.Handler, peers map[string]mdns.ServerInfo, bootstrap b
 			ceph := sh.Services[types.MicroCeph].(*service.CephService)
 			wantsDisks = true
 			if !autoSetup {
-				wantsDisks, err = cli.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
+				asker := cli.NewAsker(bufio.NewReader(os.Stdin))
+				wantsDisks, err = asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
 				if err != nil {
 					return nil, nil, err
 				}
 
 				if len(peers) != len(availableDisks) && wantsDisks {
-					wantsDisks, err = cli.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
+					wantsDisks, err = asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
 					if err != nil {
 						return nil, nil, err
 					}
@@ -515,7 +523,8 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 	}
 
 	// Ask the user if they want OVN.
-	wantsOVN, err := cli.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
+	asker := cli.NewAsker(bufio.NewReader(os.Stdin))
+	wantsOVN, err := asker.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -537,7 +546,7 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 	}
 
 	if missingSystems {
-		wantsSkip, err := cli.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		wantsSkip, err := asker.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -619,8 +628,9 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 				return nil
 			}
 
+			asker := cli.NewAsker(bufio.NewReader(os.Stdin))
 			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
-			gateway, err := cli.AskString(msg, "", validator)
+			gateway, err := asker.AskString(msg, "", validator)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -644,12 +654,12 @@ func askNetwork(sh *service.Handler, peers map[string]mdns.ServerInfo, lxdConfig
 				}
 
 				if ip == "IPv4" {
-					rangeStart, err := cli.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
+					rangeStart, err := asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
 						return nil, nil, err
 					}
 
-					rangeEnd, err := cli.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
+					rangeEnd, err := asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
 					if err != nil {
 						return nil, nil, err
 					}
