@@ -36,7 +36,8 @@ func (c *cmdClusterMembers) Run(cmd *cobra.Command, args []string) error {
 }
 
 type cmdClusterMembersList struct {
-	common *CmdControl
+	common     *CmdControl
+	flagFormat string
 }
 
 func (c *cmdClusterMembersList) Command() *cobra.Command {
@@ -45,6 +46,8 @@ func (c *cmdClusterMembersList) Command() *cobra.Command {
 		Short: "List cluster members locally, or remotely if an address is specified",
 		RunE:  c.Run,
 	}
+
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", cli.TableFormatTable, "Format (csv|json|table|yaml|compact)")
 
 	return cmd
 }
@@ -94,7 +97,7 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	header := []string{"NAME", "ADDRESS", "ROLE", "FINGERPRINT", "STATUS"}
 	sort.Sort(cli.SortColumnsNaturally(data))
 
-	return cli.RenderTable(cli.TableFormatTable, header, data, clusterMembers)
+	return cli.RenderTable(c.flagFormat, header, data, clusterMembers)
 }
 
 type cmdClusterMemberRemove struct {
