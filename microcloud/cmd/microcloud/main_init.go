@@ -356,8 +356,6 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		time.Sleep(3 * time.Second)
 	}
 
-	fmt.Println("Cluster initialization is complete")
-
 	return nil
 }
 
@@ -403,6 +401,8 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Configuring cluster-wide devices...")
 
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
