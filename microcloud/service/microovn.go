@@ -54,18 +54,20 @@ func (s OVNService) Client() (*client.Client, error) {
 }
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
-func (s OVNService) Bootstrap() error {
+func (s OVNService) Bootstrap(ctx context.Context) error {
 	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
 	if err != nil {
 		return err
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
 	for {
 		select {
-		case <-time.After(30 * time.Second):
+		case <-ctx.Done():
 			return fmt.Errorf("Timed out waiting for MicroOVN cluster to initialize")
 		default:
-			names, err := s.ClusterMembers()
+			names, err := s.ClusterMembers(ctx)
 			if err != nil {
 				return err
 			}
@@ -73,6 +75,8 @@ func (s OVNService) Bootstrap() error {
 			if len(names) > 0 {
 				return nil
 			}
+
+			time.Sleep(time.Second)
 		}
 	}
 }
@@ -83,18 +87,18 @@ func (s OVNService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s OVNService) Join(joinConfig JoinConfig) error {
+func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s OVNService) ClusterMembers() (map[string]string, error) {
+func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client()
 	if err != nil {
 		return nil, err
 	}
 
-	members, err := client.GetClusterMembers(context.Background())
+	members, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return nil, err
 	}

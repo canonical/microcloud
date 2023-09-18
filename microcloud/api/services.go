@@ -56,7 +56,7 @@ var ServicesCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // servicesPut updates the cluster status of the MicroCloud peer.
-func servicesPut(s *state.State, r *http.Request) response.Response {
+func servicesPut(state *state.State, r *http.Request) response.Response {
 	// Parse the request.
 	req := types.ServicesPut{}
 
@@ -78,13 +78,13 @@ func servicesPut(s *state.State, r *http.Request) response.Response {
 		addr = req.Address
 	}
 
-	sh, err := service.NewHandler(s.Name(), addr, s.OS.StateDir, false, false, services...)
+	sh, err := service.NewHandler(state.Name(), addr, state.OS.StateDir, false, false, services...)
 	if err != nil {
 		return response.SmartError(err)
 	}
 
 	err = sh.RunConcurrent(true, true, func(s service.Service) error {
-		err = s.Join(joinConfigs[s.Type()])
+		err = s.Join(state.Context, joinConfigs[s.Type()])
 		if err != nil {
 			return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
 		}

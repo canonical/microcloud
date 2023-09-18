@@ -76,7 +76,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lxdService.Restart(30)
+	err = lxdService.Restart(context.Background(), 30)
 	if err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		return fmt.Errorf("Missing MicroCloud service")
 	}
 
-	cloudCluster, err := cloudService.ClusterMembers()
+	cloudCluster, err := cloudService.ClusterMembers(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
 	}
@@ -352,7 +352,7 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 			return nil
 		}
 
-		cluster, err := s.ClusterMembers()
+		cluster, err := s.ClusterMembers(context.Background())
 		if err != nil {
 			return fmt.Errorf("Failed to get %s service cluster members: %w", s.Type(), err)
 		}
@@ -419,7 +419,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	if bootstrap {
 		fmt.Println("Initializing a new cluster")
 		err := s.RunConcurrent(true, false, func(s service.Service) error {
-			err := s.Bootstrap()
+			err := s.Bootstrap(context.Background())
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}
@@ -475,7 +475,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			}
 		} else {
 			cloud := s.Services[types.MicroCloud].(*service.CloudService)
-			clusterMap, err = cloud.ClusterMembers()
+			clusterMap, err = cloud.ClusterMembers(context.Background())
 			if err != nil {
 				return err
 			}

@@ -97,7 +97,7 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 }
 
 // Bootstrap bootstraps the LXD daemon on the default port.
-func (s LXDService) Bootstrap() error {
+func (s LXDService) Bootstrap(ctx context.Context) error {
 	client, err := s.Client("")
 	if err != nil {
 		return err
@@ -148,9 +148,11 @@ func (s LXDService) Bootstrap() error {
 		return fmt.Errorf("Failed to initialize cluster: %w", err)
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
 	for {
 		select {
-		case <-time.After(30 * time.Second):
+		case <-ctx.Done():
 			return fmt.Errorf("Timed out waiting for LXD cluster to initialize")
 		default:
 			names, err := client.GetClusterMemberNames()
@@ -161,13 +163,15 @@ func (s LXDService) Bootstrap() error {
 			if len(names) > 0 {
 				return nil
 			}
+
+			time.Sleep(time.Second)
 		}
 	}
 }
 
 // Join joins a cluster with the given token.
-func (s LXDService) Join(joinConfig JoinConfig) error {
-	err := s.Restart(30)
+func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
+	err := s.Restart(ctx, 30)
 	if err != nil {
 		return err
 	}
@@ -218,7 +222,7 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s LXDService) ClusterMembers() (map[string]string, error) {
+func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client("")
 	if err != nil {
 		return nil, err
@@ -398,7 +402,7 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 }
 
 // Restart requests LXD to shutdown, then waits until it is ready.
-func (s *LXDService) Restart(timeoutSeconds int) error {
+func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
 	c, err := s.Client("")
 	if err != nil {
 		return err
@@ -418,7 +422,7 @@ func (s *LXDService) Restart(timeoutSeconds int) error {
 		return fmt.Errorf("Failed to send shutdown request to LXD: %w", err)
 	}
 
-	err = s.waitReady(c, timeoutSeconds)
+	err = s.waitReady(ctx, c, timeoutSeconds)
 	if err != nil {
 		return err
 	}
@@ -433,7 +437,7 @@ func (s *LXDService) Restart(timeoutSeconds int) error {
 }
 
 // waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
-func (s *LXDService) waitReady(c lxd.InstanceServer, timeoutSeconds int) error {
+func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer, timeoutSeconds int) error {
 	finger := make(chan error, 1)
 	var errLast error
 	go func() {
@@ -468,11 +472,14 @@ func (s *LXDService) waitReady(c lxd.InstanceServer, timeoutSeconds int) error {
 		}
 	}()
 
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
 	if timeoutSeconds > 0 {
 		select {
 		case <-finger:
 			break
-		case <-time.After(time.Second * time.Duration(timeoutSeconds)):
+		case <-ctx.Done():
 			return fmt.Errorf("LXD is still not running after %ds timeout (%v)", timeoutSeconds, errLast)
 		}
 	} else {
