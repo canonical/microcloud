@@ -84,7 +84,7 @@ func (s *Handler) Start(state *state.State) error {
 		return nil
 	}
 
-	err := s.Services[types.LXD].(*LXDService).Restart(30)
+	err := s.Services[types.LXD].(*LXDService).Restart(state.Context, 30)
 	if err != nil {
 		logger.Error("Failed to restart LXD", logger.Ctx{"error": err})
 	}

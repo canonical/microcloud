@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/canonical/microceph/microceph/client"
+	cephClient "github.com/canonical/microceph/microceph/client"
+	"github.com/canonical/microcluster/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 
@@ -22,6 +24,22 @@ import (
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
+
+// InitSystem represents the configuration passed to individual systems that join via the Handler.
+type InitSystem struct {
+	ServerInfo mdns.ServerInfo // Data reported by mDNS about this system.
+
+	AvailableDisks []lxdAPI.ResourcesStorageDisk // Disks as reported by LXD.
+
+	MicroCephDisks     []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
+	TargetNetworks     []lxdAPI.NetworksPost                  // Target specific network configuration.
+	TargetStoragePools []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
+	Networks           []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
+	StoragePools       []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
+	StorageVolumes     map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
+
+	JoinConfig []lxdAPI.ClusterMemberConfigKey // LXD Config for joining members.
+}
 
 type cmdInit struct {
 	common *CmdControl
@@ -58,12 +76,14 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lxdService.Restart(30)
+	err = lxdService.Restart(context.Background(), 30)
 	if err != nil {
 		return err
 	}
 
-	addr, subnet, err := askAddress(c.flagAutoSetup, c.flagAddress)
+	systems := map[string]InitSystem{}
+
+	addr, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
 	}
@@ -73,12 +93,11 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	if !c.flagAutoSetup { //nolint:staticcheck
-		// FIXME: MicroCeph does not currently support non-hostname cluster names.
-		// name, err = cli.AskString(fmt.Sprintf("Specify a name for this system [default=%s]: ", name), name, nil)
-		// if err != nil {
-		// 	return err
-		// }
+	systems[name] = InitSystem{
+		ServerInfo: mdns.ServerInfo{
+			Name:    name,
+			Address: addr,
+		},
 	}
 
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
@@ -87,7 +106,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = askMissingServices(services, optionalServices, c.flagAutoSetup)
+	services, err = c.common.askMissingServices(services, optionalServices, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -97,66 +116,30 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	peers, err := lookupPeers(s, c.flagAutoSetup, subnet)
+	err = lookupPeers(s, c.flagAutoSetup, subnet, systems)
 	if err != nil {
 		return err
 	}
 
-	lxdConfig, cephDisks, err := askDisks(s, peers, true, c.flagAutoSetup, c.flagWipeAllDisks)
+	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
 	if err != nil {
 		return err
 	}
 
-	uplinkNetworks, networkConfig, err := askNetwork(s, peers, lxdConfig, true, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Initializing a new cluster")
-	err = s.RunConcurrent(true, false, func(s service.Service) error {
-		err := s.Bootstrap()
-		if err != nil {
-			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
-		}
-
-		fmt.Printf(" Local %s is ready\n", s.Type())
-
-		return nil
-	})
+	err = setupCluster(s, systems)
 	if err != nil {
 		return err
 	}
-
-	if len(cephDisks) > 0 {
-		c, err := s.Services[types.MicroCeph].(*service.CephService).Client("", "")
-		if err != nil {
-			return err
-		}
-
-		for _, disk := range cephDisks[s.Name] {
-			err = client.AddDisk(context.Background(), c, &disk)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	err = AddPeers(s, peers, lxdConfig, cephDisks)
-	if err != nil {
-		return err
-	}
-
-	err = postClusterSetup(true, s, peers, lxdConfig, cephDisks, uplinkNetworks, networkConfig)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("MicroCloud is ready")
 
 	return nil
 }
 
-func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[string]mdns.ServerInfo, error) {
+func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems map[string]InitSystem) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
@@ -190,14 +173,14 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[str
 			done = true
 		case err := <-selectionCh:
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			done = true
 		default:
 			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			skipPeers := map[string]bool{}
@@ -242,56 +225,64 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet) (map[str
 	}
 
 	if len(totalPeers) == 0 {
-		return nil, fmt.Errorf("Found no available systems")
+		return fmt.Errorf("Found no available systems")
 	}
 
-	selectedPeers := map[string]mdns.ServerInfo{}
 	for _, answer := range answers {
 		peer := table.SelectionValue(answer, "NAME")
 		addr := table.SelectionValue(answer, "ADDR")
 		iface := table.SelectionValue(answer, "IFACE")
 		for _, info := range totalPeers {
 			if info.Name == peer && info.Address == addr && info.Interface == iface {
-				selectedPeers[peer] = info
+				systems[peer] = InitSystem{
+					ServerInfo: info,
+				}
 			}
 		}
 	}
 
 	if autoSetup {
 		for _, info := range totalPeers {
-			selectedPeers[info.Name] = info
+			systems[info.Name] = InitSystem{
+				ServerInfo: info,
+			}
 		}
 
 		// Add a space between the CLI and the response.
 		fmt.Println("")
 	}
 
-	for _, info := range selectedPeers {
-		fmt.Printf(" Selected %q at %q\n", info.Name, info.Address)
+	for _, info := range systems {
+		fmt.Printf(" Selected %q at %q\n", info.ServerInfo.Name, info.ServerInfo.Address)
 	}
 
 	// Add a space between the CLI and the response.
 	fmt.Println("")
-	return selectedPeers, nil
+
+	return nil
 }
 
-func AddPeers(sh *service.Handler, peers map[string]mdns.ServerInfo, localDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost) error {
-	joinConfig := make(map[string]types.ServicesPut, len(peers))
-	secrets := make(map[string]string, len(peers))
-	for peer, info := range peers {
-		joinConfig[peer] = types.ServicesPut{
-			Tokens:     []types.ServiceToken{},
-			Address:    info.Address,
-			LXDConfig:  localDisks[peer],
-			CephConfig: cephDisks[peer],
+func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
+	joinConfig := make(map[string]types.ServicesPut, len(systems))
+	secrets := make(map[string]string, len(systems))
+	for peer, info := range systems {
+		if peer == sh.Name {
+			continue
 		}
 
-		secrets[peer] = info.AuthSecret
+		joinConfig[peer] = types.ServicesPut{
+			Tokens:     []types.ServiceToken{},
+			Address:    info.ServerInfo.Address,
+			LXDConfig:  info.JoinConfig,
+			CephConfig: info.MicroCephDisks,
+		}
+
+		secrets[peer] = info.ServerInfo.AuthSecret
 	}
 
 	mut := sync.Mutex{}
 	err := sh.RunConcurrent(false, false, func(s service.Service) error {
-		for peer := range peers {
+		for peer := range joinConfig {
 			token, err := s.IssueToken(peer)
 			if err != nil {
 				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
@@ -351,7 +342,7 @@ func AddPeers(sh *service.Handler, peers map[string]mdns.ServerInfo, localDisks 
 		return fmt.Errorf("Missing MicroCloud service")
 	}
 
-	cloudCluster, err := cloudService.ClusterMembers()
+	cloudCluster, err := cloudService.ClusterMembers(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
 	}
@@ -361,7 +352,7 @@ func AddPeers(sh *service.Handler, peers map[string]mdns.ServerInfo, localDisks 
 			return nil
 		}
 
-		cluster, err := s.ClusterMembers()
+		cluster, err := s.ClusterMembers(context.Background())
 		if err != nil {
 			return fmt.Errorf("Failed to get %s service cluster members: %w", s.Type(), err)
 		}
@@ -412,7 +403,6 @@ func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[st
 			fmt.Printf(" Peer %q has joined the cluster\n", entry.Name)
 
 			delete(peers, entry.Name)
-
 			if len(peers) == 0 {
 				close(joinedChan)
 
@@ -422,22 +412,52 @@ func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[st
 	}
 }
 
-func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns.ServerInfo, lxdDisks map[string][]lxdAPI.ClusterMemberConfigKey, cephDisks map[string][]cephTypes.DisksPost, uplinkNetworks map[string]string, networkConfig map[string]string) error {
-	cephTargets := map[string]string{}
-	if len(cephDisks) > 0 {
-		for target := range peers {
-			cephTargets[target] = peers[target].AuthSecret
+// setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
+// configuration.
+func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+	_, bootstrap := systems[s.Name]
+	if bootstrap {
+		fmt.Println("Initializing a new cluster")
+		err := s.RunConcurrent(true, false, func(s service.Service) error {
+			err := s.Bootstrap(context.Background())
+			if err != nil {
+				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
+			}
+
+			fmt.Printf(" Local %s is ready\n", s.Type())
+
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 
-		if bootstrap {
-			cephTargets[sh.Name] = ""
+		// Only add disks for the local MicroCeph as other systems will add their disks upon joining.
+		var c *client.Client
+		for _, disk := range systems[s.Name].MicroCephDisks {
+			if c == nil {
+				c, err = s.Services[types.MicroCeph].(*service.CephService).Client("", "")
+				if err != nil {
+					return err
+				}
+			}
+
+			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"peer": s.Name, "disk": disk.Path})
+			err = cephClient.AddDisk(context.Background(), c, &disk)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	networkTargets := map[string]string{}
+	err := AddPeers(s, systems)
+	if err != nil {
+		return err
+	}
+
 	var ovnConfig string
-	if sh.Services[types.MicroOVN] != nil {
-		ovn := sh.Services[types.MicroOVN].(*service.OVNService)
+	if s.Services[types.MicroOVN] != nil {
+		ovn := s.Services[types.MicroOVN].(*service.OVNService)
 		c, err := ovn.Client()
 		if err != nil {
 			return err
@@ -448,12 +468,25 @@ func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns
 			return err
 		}
 
+		clusterMap := map[string]string{}
+		if bootstrap {
+			for peer, system := range systems {
+				clusterMap[peer] = system.ServerInfo.Address
+			}
+		} else {
+			cloud := s.Services[types.MicroCloud].(*service.CloudService)
+			clusterMap, err = cloud.ClusterMembers(context.Background())
+			if err != nil {
+				return err
+			}
+		}
+
 		conns := []string{}
 		for _, service := range services {
 			if service.Service == "central" {
-				addr := sh.Address
-				if service.Location != sh.Name {
-					addr = peers[service.Location].Address
+				addr := s.Address
+				if service.Location != s.Name {
+					addr = clusterMap[service.Location]
 				}
 
 				conns = append(conns, fmt.Sprintf("ssl:%s", util.CanonicalNetworkAddress(addr, 6641)))
@@ -463,14 +496,160 @@ func postClusterSetup(bootstrap bool, sh *service.Handler, peers map[string]mdns
 		ovnConfig = strings.Join(conns, ",")
 	}
 
-	for peer, info := range peers {
-		networkTargets[peer] = info.AuthSecret
+	config := map[string]string{"network.ovn.northbound_connection": ovnConfig}
+	lxd := s.Services[types.LXD].(*service.LXDService)
+	lxdClient, err := lxd.Client("")
+	if err != nil {
+		return err
 	}
 
-	lxdTargets := map[string]string{}
-	for peer := range lxdDisks {
-		lxdTargets[peer] = peers[peer].AuthSecret
+	// Update LXD's global config.
+	server, _, err := lxdClient.GetServer()
+	if err != nil {
+		return err
 	}
 
-	return sh.Services[types.LXD].(*service.LXDService).Configure(bootstrap, lxdTargets, cephTargets, ovnConfig, networkTargets, uplinkNetworks, networkConfig)
+	newServer := server.Writable()
+	changed := false
+	for k, v := range config {
+		if newServer.Config[k] != v {
+			changed = true
+		}
+
+		newServer.Config[k] = v
+	}
+
+	if changed {
+		err = lxdClient.UpdateServer(newServer, "")
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create preliminary networks & storage pools on each target.
+	for name, system := range systems {
+		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		if err != nil {
+			return err
+		}
+
+		targetClient := lxdClient.UseTarget(name)
+		for _, network := range system.TargetNetworks {
+			err = targetClient.CreateNetwork(network)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, pool := range system.TargetStoragePools {
+			err = targetClient.CreateStoragePool(pool)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// If bootstrapping, finalize setup of storage pools & networks, and update the default profile accordingly.
+	system, bootstrap := systems[s.Name]
+	if bootstrap {
+		lxd := s.Services[types.LXD].(*service.LXDService)
+		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		if err != nil {
+			return err
+		}
+
+		profile := lxdAPI.ProfilesPost{ProfilePut: lxdAPI.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+
+		for _, network := range system.Networks {
+			if network.Name == "default" || profile.Devices["eth0"] == nil {
+				profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
+			}
+
+			err = lxdClient.CreateNetwork(network)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, pool := range system.StoragePools {
+			if pool.Driver == "ceph" || profile.Devices["root"] == nil {
+				profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
+			}
+
+			err = lxdClient.CreateStoragePool(pool)
+			if err != nil {
+				return err
+			}
+		}
+
+		profiles, err := lxdClient.GetProfileNames()
+		if err != nil {
+			return err
+		}
+
+		if !shared.StringInSlice(profile.Name, profiles) {
+			err = lxdClient.CreateProfile(profile)
+		} else {
+			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	// With storage pools set up, add some volumes for images & backups.
+	for name, system := range systems {
+		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		if err != nil {
+			return err
+		}
+
+		poolNames := []string{}
+		if bootstrap {
+			for _, pool := range system.TargetStoragePools {
+				poolNames = append(poolNames, pool.Name)
+			}
+		} else {
+			for _, cfg := range system.JoinConfig {
+				if cfg.Name == "local" || cfg.Name == "remote" {
+					if cfg.Entity == "storage-pool" && cfg.Key == "source" {
+						poolNames = append(poolNames, cfg.Name)
+					}
+				}
+			}
+		}
+
+		targetClient := lxdClient.UseTarget(name)
+		for _, pool := range poolNames {
+			if pool == "local" {
+				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
+				if err != nil {
+					return err
+				}
+
+				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				if err != nil {
+					return err
+				}
+
+				server, _, err := targetClient.GetServer()
+				if err != nil {
+					return err
+				}
+
+				newServer := server.Writable()
+				newServer.Config["storage.backups_volume"] = "local/backups"
+				newServer.Config["storage.images_volume"] = "local/images"
+				err = targetClient.UpdateServer(newServer, "")
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	fmt.Println("MicroCloud is ready")
+
+	return nil
 }

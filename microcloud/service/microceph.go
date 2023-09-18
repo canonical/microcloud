@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -75,8 +76,31 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 }
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
-func (s CephService) Bootstrap() error {
-	return s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+func (s CephService) Bootstrap(ctx context.Context) error {
+	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("Timed out waiting for MicroCeph cluster to initialize")
+		default:
+			names, err := s.ClusterMembers(ctx)
+			if err != nil {
+				return err
+			}
+
+			if len(names) > 0 {
+				return nil
+			}
+
+			time.Sleep(time.Second)
+		}
+	}
 }
 
 // IssueToken issues a token for the given peer.
@@ -85,7 +109,7 @@ func (s CephService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CephService) Join(joinConfig JoinConfig) error {
+func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	err := s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 	if err != nil {
 		return err
@@ -97,7 +121,7 @@ func (s CephService) Join(joinConfig JoinConfig) error {
 	}
 
 	for _, disk := range joinConfig.CephConfig {
-		err := cephClient.AddDisk(context.Background(), c, &disk)
+		err := cephClient.AddDisk(ctx, c, &disk)
 		if err != nil {
 			return err
 		}
@@ -107,13 +131,13 @@ func (s CephService) Join(joinConfig JoinConfig) error {
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s CephService) ClusterMembers() (map[string]string, error) {
+func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client("", "")
 	if err != nil {
 		return nil, err
 	}
 
-	members, err := client.GetClusterMembers(context.Background())
+	members, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return nil, err
 	}

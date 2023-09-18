@@ -94,11 +94,11 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 			updated := false
 			for serviceName, stateDir := range optionalServices {
-				if s.Services[serviceName] != nil {
-					continue
-				}
-
 				if service.Exists(serviceName, stateDir) {
+					if s.Services[serviceName] != nil {
+						continue
+					}
+
 					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
 					if err != nil {
 						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
@@ -107,6 +107,9 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 					updated = true
 					s.Services[serviceName] = newService.Services[serviceName]
+				} else if s.Services[serviceName] != nil {
+					delete(s.Services, serviceName)
+					updated = true
 				}
 			}
 

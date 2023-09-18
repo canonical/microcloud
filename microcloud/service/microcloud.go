@@ -69,8 +69,31 @@ func (s *CloudService) StartCloud(service *Handler, endpoints []rest.Endpoint) e
 }
 
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
-func (s CloudService) Bootstrap() error {
-	return s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+func (s CloudService) Bootstrap(ctx context.Context) error {
+	err := s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("Timed out waiting for MicroCloud cluster to initialize")
+		default:
+			names, err := s.ClusterMembers(ctx)
+			if err != nil {
+				return err
+			}
+
+			if len(names) > 0 {
+				return nil
+			}
+
+			time.Sleep(time.Second)
+		}
+	}
 }
 
 // IssueToken issues a token for the given peer.
@@ -79,7 +102,7 @@ func (s CloudService) IssueToken(peer string) (string, error) {
 }
 
 // Join joins a cluster with the given token.
-func (s CloudService) Join(joinConfig JoinConfig) error {
+func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 
@@ -117,13 +140,13 @@ func (s CloudService) RequestJoin(ctx context.Context, secrets map[string]string
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s CloudService) ClusterMembers() (map[string]string, error) {
+func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.client.LocalClient()
 	if err != nil {
 		return nil, err
 	}
 
-	members, err := client.GetClusterMembers(context.Background())
+	members, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return nil, err
 	}
