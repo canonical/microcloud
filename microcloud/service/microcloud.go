@@ -97,7 +97,7 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 }
 
 // IssueToken issues a token for the given peer.
-func (s CloudService) IssueToken(peer string) (string, error) {
+func (s CloudService) IssueToken(ctx context.Context, peer string) (string, error) {
 	return s.client.NewJoinToken(peer)
 }
 

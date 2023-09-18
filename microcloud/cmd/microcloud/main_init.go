@@ -498,7 +498,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 	config := map[string]string{"network.ovn.northbound_connection": ovnConfig}
 	lxd := s.Services[types.LXD].(*service.LXDService)
-	lxdClient, err := lxd.Client("")
+	lxdClient, err := lxd.Client(context.Background(), "")
 	if err != nil {
 		return err
 	}
@@ -528,7 +528,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 	// Create preliminary networks & storage pools on each target.
 	for name, system := range systems {
-		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}
@@ -553,7 +553,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	system, bootstrap := systems[s.Name]
 	if bootstrap {
 		lxd := s.Services[types.LXD].(*service.LXDService)
-		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}
@@ -600,7 +600,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 	// With storage pools set up, add some volumes for images & backups.
 	for name, system := range systems {
-		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}

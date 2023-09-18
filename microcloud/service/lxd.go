@@ -48,13 +48,13 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 
 // Client returns a client to the LXD unix socket.
 // The secret should be specified when the request is going to be forwarded to a remote address, such as with UseTarget.
-func (s LXDService) Client(secret string) (lxd.InstanceServer, error) {
+func (s LXDService) Client(ctx context.Context, secret string) (lxd.InstanceServer, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
 	}
 
-	return lxd.ConnectLXDUnix(s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
+	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
 		HTTPClient:    c.Client.Client,
 		SkipGetServer: true,
 		Proxy: func(r *http.Request) (*url.URL, error) {
@@ -98,7 +98,7 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap(ctx context.Context) error {
-	client, err := s.Client("")
+	client, err := s.Client(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 		return fmt.Errorf("Failed to enable clustering on local LXD: %w", err)
 	}
 
-	err = op.Wait()
+	err = op.WaitContext(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to initialize cluster: %w", err)
 	}
@@ -182,7 +182,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	}
 
 	config.Cluster.MemberConfig = joinConfig.LXDConfig
-	client, err := s.Client("")
+	client, err := s.Client(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return fmt.Errorf("Failed to join cluster: %w", err)
 	}
 
-	err = op.Wait()
+	err = op.WaitContext(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to configure cluster :%w", err)
 	}
@@ -201,8 +201,8 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 }
 
 // IssueToken issues a token for the given peer.
-func (s LXDService) IssueToken(peer string) (string, error) {
-	client, err := s.Client("")
+func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error) {
+	client, err := s.Client(ctx, "")
 	if err != nil {
 		return "", err
 	}
@@ -223,7 +223,7 @@ func (s LXDService) IssueToken(peer string) (string, error) {
 
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, error) {
-	client, err := s.Client("")
+	client, err := s.Client(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -262,11 +262,11 @@ func (s LXDService) Port() int {
 }
 
 // HasExtension checks if the server supports the API extension.
-func (s *LXDService) HasExtension(target string, address string, secret string, apiExtension string) (bool, error) {
+func (s *LXDService) HasExtension(ctx context.Context, target string, address string, secret string, apiExtension string) (bool, error) {
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
-		client, err = s.Client(secret)
+		client, err = s.Client(ctx, secret)
 		if err != nil {
 			return false, err
 		}
@@ -283,11 +283,11 @@ func (s *LXDService) HasExtension(target string, address string, secret string, 
 // GetResources returns the system resources for the LXD target.
 // As we cannot guarantee that LXD is available on this machine, the request is
 // forwarded through MicroCloud on via the ListenPort argument.
-func (s *LXDService) GetResources(target string, address string, secret string) (*api.Resources, error) {
+func (s *LXDService) GetResources(ctx context.Context, target string, address string, secret string) (*api.Resources, error) {
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
-		client, err = s.Client(secret)
+		client, err = s.Client(ctx, secret)
 		if err != nil {
 			return nil, err
 		}
@@ -302,11 +302,11 @@ func (s *LXDService) GetResources(target string, address string, secret string) 
 }
 
 // GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
-func (s LXDService) GetUplinkInterfaces(bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
+func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
 	clients := map[string]lxd.InstanceServer{}
 	networks := map[string][]api.Network{}
 	if bootstrap {
-		client, err := s.Client("")
+		client, err := s.Client(ctx, "")
 		if err != nil {
 			return nil, err
 		}
@@ -403,7 +403,7 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 
 // Restart requests LXD to shutdown, then waits until it is ready.
 func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
-	c, err := s.Client("")
+	c, err := s.Client(ctx, "")
 	if err != nil {
 		return err
 	}

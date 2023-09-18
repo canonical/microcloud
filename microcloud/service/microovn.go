@@ -82,7 +82,7 @@ func (s OVNService) Bootstrap(ctx context.Context) error {
 }
 
 // IssueToken issues a token for the given peer.
-func (s OVNService) IssueToken(peer string) (string, error) {
+func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error) {
 	return s.m.NewJoinToken(peer)
 }
 
