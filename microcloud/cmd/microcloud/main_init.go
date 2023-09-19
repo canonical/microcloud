@@ -262,6 +262,61 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, systems 
 	return nil
 }
 
+// waitForJoin issues a token and instructs a system to request a join,
+// and then waits for the request to either complete or time out.
+// If the request was successful, it additionally waits until the cluster appears in the database.
+func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer string, cfg types.ServicesPut) error {
+	mut := sync.Mutex{}
+	err := sh.RunConcurrent(false, false, func(s service.Service) error {
+		token, err := s.IssueToken(context.Background(), peer)
+		if err != nil {
+			return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
+		}
+
+		mut.Lock()
+		cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
+		mut.Unlock()
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+	err = cloud.RequestJoin(context.Background(), secret, peer, cfg)
+	if err != nil {
+		return fmt.Errorf("System %q failed to join the cluster: %w", peer, err)
+	}
+
+	clustered := make(map[types.ServiceType]bool, len(sh.Services))
+	for service := range sh.Services {
+		clustered[service] = false
+	}
+
+	now := time.Now()
+	for len(clustered) != 0 {
+		if time.Since(now) >= time.Second*30 {
+			return fmt.Errorf("Timed out waiting for cluster member %q to appear", peer)
+		}
+
+		for service := range clustered {
+			systems, err := sh.Services[service].ClusterMembers(context.Background())
+			if err != nil {
+				return err
+			}
+
+			if len(systems) == clusterSize+1 {
+				delete(clustered, service)
+			}
+		}
+	}
+
+	fmt.Printf(" Peer %q has joined the cluster\n", peer)
+
+	return nil
+}
+
 func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 	joinConfig := make(map[string]types.ServicesPut, len(systems))
 	secrets := make(map[string]string, len(systems))
@@ -280,136 +335,28 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		secrets[peer] = info.ServerInfo.AuthSecret
 	}
 
-	mut := sync.Mutex{}
-	err := sh.RunConcurrent(false, false, func(s service.Service) error {
-		for peer := range joinConfig {
-			token, err := s.IssueToken(peer)
-			if err != nil {
-				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
-			}
-
-			mut.Lock()
-			cfg := joinConfig[peer]
-			cfg.Tokens = append(joinConfig[peer].Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
-			joinConfig[peer] = cfg
-			mut.Unlock()
-		}
-
-		return nil
-	})
+	cluster, err := sh.Services[types.MicroCloud].ClusterMembers(context.Background())
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to inspect existing cluster: %w", err)
 	}
 
+	clusterSize := len(cluster)
+
 	fmt.Println("Awaiting cluster formation ...")
-	// Initially add just 2 peers for each dqlite service to handle issues with role reshuffling while another
-	// node is joining the cluster.
-	initialSize := 2
-	if len(joinConfig) > initialSize {
-		initialCfg := map[string]types.ServicesPut{}
-		for peer, info := range joinConfig {
-			initialCfg[peer] = info
-
-			if len(initialCfg) == initialSize {
-				break
-			}
-		}
-
-		initialSecrets := make(map[string]string, len(initialCfg))
-		for peer := range initialCfg {
-			delete(joinConfig, peer)
-			initialSecrets[peer] = secrets[peer]
-			delete(secrets, peer)
-		}
-
-		err := waitForCluster(sh, initialSecrets, initialCfg)
+	for peer, cfg := range joinConfig {
+		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
+		err := waitForJoin(sh, clusterSize, systems[peer].ServerInfo.AuthSecret, peer, cfg)
 		if err != nil {
 			return err
 		}
+
+		clusterSize = clusterSize + 1
 
 		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
 		time.Sleep(3 * time.Second)
 	}
 
-	err = waitForCluster(sh, secrets, joinConfig)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Cluster initialization is complete")
-	cloudService, ok := sh.Services[types.MicroCloud]
-	if !ok {
-		return fmt.Errorf("Missing MicroCloud service")
-	}
-
-	cloudCluster, err := cloudService.ClusterMembers(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to get %s service cluster members: %w", cloudService.Type(), err)
-	}
-
-	err = sh.RunConcurrent(false, false, func(s service.Service) error {
-		if s.Type() == types.MicroCloud {
-			return nil
-		}
-
-		cluster, err := s.ClusterMembers(context.Background())
-		if err != nil {
-			return fmt.Errorf("Failed to get %s service cluster members: %w", s.Type(), err)
-		}
-
-		if len(cloudCluster) != len(cluster) {
-			return fmt.Errorf("%s service cluster does not match %s", s.Type(), cloudService.Type())
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
 	return nil
-}
-
-// waitForCluster will loop until the timeout has passed, or all cluster members for all services have reported that
-// their join process is complete.
-func waitForCluster(sh *service.Handler, secrets map[string]string, peers map[string]types.ServicesPut) error {
-	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	joinedChan := cloud.RequestJoin(context.Background(), secrets, peers)
-	timeAfter := time.After(5 * time.Minute)
-	for {
-		select {
-		case <-timeAfter:
-			return fmt.Errorf("Timed out waiting for a response from all cluster members")
-		case entry, ok := <-joinedChan:
-			if !ok {
-				logger.Info("Join response channel has closed")
-
-				if len(peers) != 0 {
-					return fmt.Errorf("%q members failed to join the cluster", len(peers))
-				}
-
-				return nil
-			}
-
-			if entry.Error != nil {
-				return fmt.Errorf("Peer %q failed to join the cluster: %w", entry.Name, entry.Error)
-			}
-
-			_, ok = peers[entry.Name]
-			if !ok {
-				return fmt.Errorf("Unexpected response from unknown server %q", entry.Name)
-			}
-
-			fmt.Printf(" Peer %q has joined the cluster\n", entry.Name)
-
-			delete(peers, entry.Name)
-			if len(peers) == 0 {
-				close(joinedChan)
-
-				return nil
-			}
-		}
-	}
 }
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
@@ -455,6 +402,8 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		return err
 	}
 
+	fmt.Println("Configuring cluster-wide devices...")
+
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
 		ovn := s.Services[types.MicroOVN].(*service.OVNService)
@@ -498,7 +447,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 	config := map[string]string{"network.ovn.northbound_connection": ovnConfig}
 	lxd := s.Services[types.LXD].(*service.LXDService)
-	lxdClient, err := lxd.Client("")
+	lxdClient, err := lxd.Client(context.Background(), "")
 	if err != nil {
 		return err
 	}
@@ -528,7 +477,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 	// Create preliminary networks & storage pools on each target.
 	for name, system := range systems {
-		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}
@@ -553,7 +502,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	system, bootstrap := systems[s.Name]
 	if bootstrap {
 		lxd := s.Services[types.LXD].(*service.LXDService)
-		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}
@@ -600,7 +549,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 	// With storage pools set up, add some volumes for images & backups.
 	for name, system := range systems {
-		lxdClient, err := lxd.Client(system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}

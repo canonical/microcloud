@@ -9,7 +9,7 @@ import (
 // Service represents a common interface for all MicroCloud services.
 type Service interface {
 	Bootstrap(ctx context.Context) error
-	IssueToken(peer string) (string, error)
+	IssueToken(ctx context.Context, peer string) (string, error)
 	Join(ctx context.Context, config JoinConfig) error
 	ClusterMembers(ctx context.Context) (map[string]string, error)
 

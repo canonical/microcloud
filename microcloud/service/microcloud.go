@@ -38,12 +38,6 @@ type JoinConfig struct {
 	CephConfig []cephTypes.DisksPost
 }
 
-// joinResponse is returned in a channel after sending a join request to a peer.
-type joinResponse struct {
-	Name  string
-	Error error
-}
-
 // NewCloudService creates a new MicroCloud service with a client attached.
 func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
 	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.Itoa(CloudPort)})
@@ -97,7 +91,7 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 }
 
 // IssueToken issues a token for the given peer.
-func (s CloudService) IssueToken(peer string) (string, error) {
+func (s CloudService) IssueToken(ctx context.Context, peer string) (string, error) {
 	return s.client.NewJoinToken(peer)
 }
 
@@ -106,37 +100,27 @@ func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
 }
 
-// RequestJoin notifies the peers that that should begin the join operation.
-func (s CloudService) RequestJoin(ctx context.Context, secrets map[string]string, joinConfig map[string]types.ServicesPut) chan joinResponse {
-	joinedChan := make(chan joinResponse, len(joinConfig))
-	for peer, cfg := range joinConfig {
-		go func(peer string, cfg types.ServicesPut) {
-			if secrets[peer] == "" {
-				joinedChan <- joinResponse{Name: peer, Error: fmt.Errorf("No auth secret found for peer")}
-				return
-			}
+// RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.
+func (s CloudService) RequestJoin(ctx context.Context, secret string, name string, joinConfig types.ServicesPut) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
 
-			c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(cfg.Address, CloudPort))
-			if err != nil {
-				joinedChan <- joinResponse{Name: peer, Error: err}
-				return
-			}
-
-			c.Client.Client.Transport = &http.Transport{
-				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-				DisableKeepAlives: true,
-				Proxy: func(r *http.Request) (*url.URL, error) {
-					r.Header.Set("X-MicroCloud-Auth", secrets[peer])
-
-					return shared.ProxyFromEnvironment(r)
-				},
-			}
-
-			joinedChan <- joinResponse{Name: peer, Error: client.JoinServices(ctx, c, cfg)}
-		}(peer, cfg)
+	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
+	if err != nil {
+		return err
 	}
 
-	return joinedChan
+	c.Client.Client.Transport = &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	}
+
+	return client.JoinServices(ctx, c, joinConfig)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.

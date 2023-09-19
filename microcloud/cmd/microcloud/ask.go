@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -146,7 +147,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 	allResources := make(map[string]*api.Resources, len(systems))
 	var err error
 	for peer, system := range systems {
-		allResources[peer], err = sh.Services[types.LXD].(*service.LXDService).GetResources(peer, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
+		allResources[peer], err = sh.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
 		if err != nil {
 			return fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
 		}
@@ -292,7 +293,7 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 	}
 
 	toWipe := map[string]string{}
-	wipeable, err := lxd.HasExtension(lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
+	wipeable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
 	if err != nil {
 		return fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}
@@ -523,7 +524,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		infos = append(infos, system.ServerInfo)
 	}
 
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(bootstrap, infos)
+	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
 	if err != nil {
 		return err
 	}
