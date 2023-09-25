@@ -453,7 +453,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		return err
 	}
 
-	fmt.Println("Configuring cluster-wide devices...")
+	fmt.Println("Configuring cluster-wide devices ...")
 
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
