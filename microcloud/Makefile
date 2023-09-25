@@ -19,6 +19,10 @@ check-unit:
 check-system:
 	cd test && ./main.sh
 
+.PHONY: check-unit
+check-unit:
+	go test ./... -tags test
+
 .PHONY: check-static
 check-static:
 ifeq ($(shell command -v golangci-lint 2> /dev/null),)
