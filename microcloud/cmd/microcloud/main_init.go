@@ -259,7 +259,11 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, expected
 
 						if len(totalPeers) == 1 {
 							table = NewSelectableTable(header, [][]string{{info.Name, info.Interface, info.Address}})
-							table.Render(table.rows)
+							err := table.Render(table.rows)
+							if err != nil {
+								return err
+							}
+
 							time.Sleep(100 * time.Millisecond)
 							tableCh <- nil
 						} else {

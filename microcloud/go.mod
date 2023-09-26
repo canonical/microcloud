@@ -4,13 +4,17 @@ go 1.18
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/canonical/lxd v0.0.0-20230918104700-87fbf8a2beac
-	github.com/canonical/microceph/microceph v0.0.0-20230915171045-01d40b7d7284
+	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
+	github.com/canonical/lxd v0.0.0-20230925122558-b8564e463cc1
+	github.com/canonical/microceph/microceph v0.0.0-20230922105158-3cd9bb9a7908
 	github.com/canonical/microcluster v0.0.0-20230705140256-7726061a60bb
-	github.com/canonical/microovn/microovn v0.0.0-20230825162448-da2e39f55c95
+	github.com/canonical/microovn/microovn v0.0.0-20230921173357-baac52ad1822
+	github.com/creack/pty v1.1.18
 	github.com/hashicorp/mdns v1.0.5
+	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.7.0
+	github.com/stretchr/testify v1.8.4
 )
 
 require (
@@ -55,7 +59,6 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/zitadel/oidc/v2 v2.11.0 // indirect
 	golang.org/x/crypto v0.13.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect

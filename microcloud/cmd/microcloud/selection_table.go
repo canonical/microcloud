@@ -12,9 +12,10 @@ import (
 
 // SelectableTable represents a CLI table with selectable rows.
 type SelectableTable struct {
-	askChan chan error
-	prompt  *survey.MultiSelect
-	writer  *tablewriter.Table
+	askChan  chan error
+	testChan bool // When TEST_CONSOLE=1, sets whether askChan should expect an additional error for parsing the test input.
+	prompt   *survey.MultiSelect
+	writer   *tablewriter.Table
 
 	rows         []string
 	currentRow   string
@@ -293,7 +294,7 @@ func prepareTemplate() {
 }
 
 // Render outputs the SelectableTable and returns a slice of selected rows.
-func (t *SelectableTable) Render(entries []string) {
+func (t *SelectableTable) Render(entries []string) error {
 	t.prompt = &survey.MultiSelect{
 		Message: `Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.`,
@@ -303,15 +304,48 @@ Up/down to move; right to select all; left to select none.`,
 	}
 
 	t.answers = []string{}
+
+	surveyOpts := []survey.AskOpt{survey.WithKeepFilter(true)}
+
+	// Setup the test console if TEST_CONSOLE=1 is set.
+	c, err := NewTestConsole()
+	if err != nil {
+		return err
+	}
+
+	if c != nil {
+		surveyOpts = append(surveyOpts, survey.WithStdio(c.Tty(), c.Tty(), c.Tty()))
+		t.testChan = true
+		go func() {
+			err := c.parseInput(&t.rawRows)
+			if err != nil {
+				t.askChan <- fmt.Errorf("Failed to parse test input: %w", err)
+				return
+			}
+
+			t.askChan <- nil
+		}()
+	}
+
 	go func() {
-		err := survey.AskOne(t.prompt, &t.answers, survey.WithKeepFilter(true))
+		err := survey.AskOne(t.prompt, &t.answers, surveyOpts...)
 		if err != nil && err.Error() != "please provide options to select from" {
 			t.askChan <- fmt.Errorf("Failed to confirm selection: %w", err)
 			return
 		}
 
+		if c != nil {
+			err = c.Close()
+			if err != nil {
+				t.askChan <- err
+				return
+			}
+		}
+
 		t.askChan <- nil
 	}()
+
+	return nil
 }
 
 // GetSelections blocks until the user selections are made, and returns them once available.
@@ -319,6 +353,14 @@ func (t *SelectableTable) GetSelections() ([]string, error) {
 	err := <-t.askChan
 	if err != nil {
 		return nil, err
+	}
+
+	// If TEST_CONSOLE=1, we need to wait for the second blocking read of stdin.
+	if t.testChan {
+		err = <-t.askChan
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if t.answers == nil {
