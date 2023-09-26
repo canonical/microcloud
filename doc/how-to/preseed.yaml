@@ -1,0 +1,56 @@
+# `lookup_subnet` limits the subnet when looking up systems with mDNS.
+lookup_subnet: 10.0.0.1/24
+
+# `systems` lists the systems we expect to find by their hostname.
+#   `name` represents the hostname
+#   `ovn_uplink_interface` is optional and represents the name of the interface reserved for use with OVN.
+#   `storage` is optional and represents explicit paths to disks for each system.
+systems:
+- name: micro01
+  ovn_uplink_interface: eth1
+- name: micro02
+  ovn_uplink_interface: eth1
+  storage:
+    local:
+      path: /dev/nvme5n1
+      wipe: true
+    ceph:
+      - path: /dev/nvme4n1
+        wipe: true
+      - path: nvme3n1
+        wipe: true
+- name: micro03
+  ovn_uplink_interface: eth1
+- name: micro04
+  ovn_uplink_interface: eth1
+
+# `ovn` is optional and represents the ovn & uplink network configuration for LXD.
+ovn:
+  ipv4_gateway: 10.0.0.1/24
+  ipv4_range: 10.0.0.100-10.0.0.254
+  ipv6_gateway: cafe::1/64
+
+# `storage` is optional and is used as basic filtering logic for finding disks across all systems. Filters will be checked in order of appearance.
+# The names and values of each key correspond to the yaml field names for the `api.ResouresStorageDisk` struct here: `https://github.com/canonical/lxd/blob/c86603236167a43836c2766647e2fac97d79f899/shared/api/resource.go#L591`
+# Supported operands: &&, ||, <, >, <=, >=, ==, !=, !
+# String values must not be in quotes unless the string contains a space. Single quotes are fine, but double-quotes must be escaped.
+# `find_min` and `find_max` can be used to validate the number of disks each filter finds.
+storage:
+  local:
+    - find: size > 10GiB && size < 50GiB && type == nvme
+      find_min: 1
+      find_max: 1
+      wipe: true
+    - find: size > 10GiB && size < 50GiB && type == hdd && block_size == 512 && model == 'Samsung %'
+      find_min: 3
+      find_max: 3
+      wipe: false
+  ceph:
+    - find: size > 10GiB && size < 50GiB && type == nvme
+      find_min: 1
+      find_max: 2
+      wipe: true
+    - find: size > 10GiB && size < 50GiB && type == hdd && partitioned == false && block_size == 512 && model == 'Samsung %'
+      find_min: 3
+      find_max: 8
+      wipe: false
