@@ -56,10 +56,10 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
 github.com/canonical/go-dqlite v1.20.0 h1:pnkn0oS0hPXWeODjvjWONKGb5KYh8kK0aruDPzZLwmU=
 github.com/canonical/go-dqlite v1.20.0/go.mod h1:Uvy943N8R4CFUAs59A1NVaziWY9nJ686lScY7ywurfg=
-github.com/canonical/lxd v0.0.0-20230925122558-b8564e463cc1 h1:yfVJUMr+D/prvCTnGu2UbWnRjJRULkd5PyFAdPtk1FQ=
-github.com/canonical/lxd v0.0.0-20230925122558-b8564e463cc1/go.mod h1:/lJ1suHbUSZn1VgwfWEcjkddHk4JeLTjtBwFPY0Eb7o=
-github.com/canonical/microceph/microceph v0.0.0-20230922105158-3cd9bb9a7908 h1:377/dyoG01mV6vwXdtlU5nMjisbndzlteskcxqP1sOw=
-github.com/canonical/microceph/microceph v0.0.0-20230922105158-3cd9bb9a7908/go.mod h1:M1IUlvGeRSA0Kee2B5iS85SrgoPjSA7ubjLbjmhfoDI=
+github.com/canonical/lxd v0.0.0-20230927132915-eb5f174028fd h1:a41RQfR+eD4NlQOMui+RM+eXKqTCr+lQIL5Q1hOU7vU=
+github.com/canonical/lxd v0.0.0-20230927132915-eb5f174028fd/go.mod h1:/lJ1suHbUSZn1VgwfWEcjkddHk4JeLTjtBwFPY0Eb7o=
+github.com/canonical/microceph/microceph v0.0.0-20230927064453-e327ed3726da h1:jm3D4PW0OEz7hyl4689G0aFTxd2WmC/ERIrpM4qbTJQ=
+github.com/canonical/microceph/microceph v0.0.0-20230927064453-e327ed3726da/go.mod h1:M1IUlvGeRSA0Kee2B5iS85SrgoPjSA7ubjLbjmhfoDI=
 github.com/canonical/microcluster v0.0.0-20230705140256-7726061a60bb h1:rTBytbpzzHmWkptalBUDt5xtaA+Wi2TCNtuzJectBC0=
 github.com/canonical/microcluster v0.0.0-20230705140256-7726061a60bb/go.mod h1:vrMOrNO0Iu0lgGaFlKBwZdLXYNdogOgk6WqD4SneSDI=
 github.com/canonical/microovn/microovn v0.0.0-20230921173357-baac52ad1822 h1:j5SsNWhRHztF3AVY0aS2d+GWqKKFsGi4tXvNBZ1wFqU=

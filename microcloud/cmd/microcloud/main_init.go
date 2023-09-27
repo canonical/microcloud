@@ -591,7 +591,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			return err
 		}
 
-		if !shared.StringInSlice(profile.Name, profiles) {
+		if !shared.ValueInSlice(profile.Name, profiles) {
 			err = lxdClient.CreateProfile(profile)
 		} else {
 			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")

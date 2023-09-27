@@ -347,7 +347,7 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 			}
 
 			// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
-			if !shared.StringInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
+			if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
 				continue
 			}
 

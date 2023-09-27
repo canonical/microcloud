@@ -26,10 +26,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
-      - name: Update gomod
-        working-directory: microcloud
-        run: make update-gomod
-
       - name: Run static analysis
         working-directory: microcloud
         run: make check-static

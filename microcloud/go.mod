@@ -5,8 +5,8 @@ go 1.18
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-	github.com/canonical/lxd v0.0.0-20230925122558-b8564e463cc1
-	github.com/canonical/microceph/microceph v0.0.0-20230922105158-3cd9bb9a7908
+	github.com/canonical/lxd v0.0.0-20230927132915-eb5f174028fd
+	github.com/canonical/microceph/microceph v0.0.0-20230927064453-e327ed3726da
 	github.com/canonical/microcluster v0.0.0-20230705140256-7726061a60bb
 	github.com/canonical/microovn/microovn v0.0.0-20230921173357-baac52ad1822
 	github.com/creack/pty v1.1.18
@@ -15,6 +15,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -76,5 +77,4 @@ require (
 	gopkg.in/macaroon.v2 v2.1.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
