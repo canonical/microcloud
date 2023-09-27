@@ -1,4 +1,4 @@
-:discourse: 15871
+:discourse: lxc:15871
 :relatedlinks: https://snapcraft.io/microcloud
 
 .. _home:

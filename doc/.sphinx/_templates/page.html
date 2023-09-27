@@ -4,6 +4,11 @@
    {% include "footer.html" %}
 {% endblock footer %}
 
+{% block body -%}
+   {% include "header.html" %}
+   {{ super() }}
+{%- endblock body %}
+
 {% if meta and ((meta.discourse and discourse_prefix) or meta.relatedlinks) %}
    {% set furo_hide_toc_orig = furo_hide_toc %}
    {% set furo_hide_toc=false %}

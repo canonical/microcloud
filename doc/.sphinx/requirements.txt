@@ -9,3 +9,5 @@ sphinxext-opengraph
 lxd-sphinx-extensions
 sphinx-copybutton
 myst-parser
+sphinxcontrib-jquery
+sphinx-notfound-page
