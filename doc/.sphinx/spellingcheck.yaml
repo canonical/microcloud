@@ -5,7 +5,7 @@ matrix:
     d: en_GB
   dictionary:
     wordlists:
-    - .sphinx/wordlist.txt
+    - .wordlist.txt
     output: .sphinx/.wordlist.dic
   sources:
   - _build/**/*.html
@@ -25,4 +25,4 @@ matrix:
       - strong.command
       - div.visually-hidden
       - img
-
+      - a.p-navigation__link
