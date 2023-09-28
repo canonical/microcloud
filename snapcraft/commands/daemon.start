@@ -1,4 +1,0 @@
-#!/bin/sh
-export DQLITE_SOCKET="@snap.${SNAP_INSTANCE_NAME}.dqlite"
-
-exec microcloudd --state-dir "${SNAP_COMMON}/state"

@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.18.x
+          go-version: 1.20.x
 
       - name: Install dependencies
         run: |
@@ -30,69 +30,60 @@ jobs:
         working-directory: microcloud
         run: make check-static
 
-  unit-tests:
-    name: Unit tests
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.20.x
-
-      - name: Install dependencies
-        run: |
-          sudo add-apt-repository ppa:dqlite/dev -y
-          sudo apt-get install -y libdqlite-dev pkg-config
-
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Run unit tests
+      - name: Unit tests
         working-directory: microcloud
         run: make check-unit
-
-  system-tests:
-    name: System tests
-    runs-on: ubuntu-22.04
-    env:
-      SNAPCRAFT_BUILD_ENVIRONMENT: "lxd"
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Clear FORWARD firewall rules
-        run: |
-          # Docker can inject rules causing firewall conflicts
-          sudo iptables -P FORWARD ACCEPT  || true
-          sudo ip6tables -P FORWARD ACCEPT || true
-          sudo iptables -F FORWARD  || true
-          sudo ip6tables -F FORWARD || true
-
-      - name: Install dependencies
-        run: |
-          sudo snap refresh
-          sudo snap set lxd daemon.group=adm
-          sudo lxd init --auto
-          sudo snap install snapcraft --classic
-          snap list
-
-      - name: Build snaps
-        run: snapcraft
-
-      - name: Run system tests
-        run: |
-          set -eux
-          sudo snap install --dangerous microcloud_*.snap
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: snaps
-          path: "*.snap"
-          retention-days: 5
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
     with:
       working-directory: './doc'
+
+  snap:
+    name: Trigger snap edge build
+    runs-on: ubuntu-22.04
+    needs: [code-tests, documentation-checks]
+    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push'}}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Launchpad SSH access
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          LAUNCHPAD_LXD_BOT_KEY: ${{ secrets.LAUNCHPAD_LXD_BOT_KEY }}
+        run: |
+          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
+          ssh-add - <<< "${{ secrets.LAUNCHPAD_LXD_BOT_KEY }}"
+          mkdir -m 0700 -p ~/.ssh/
+          # In ephemeral environments like GitHub Action runners, relying on TOFU isn't providing any security
+          # so require the key obtained by `ssh-keyscan` to match the expected hash from https://help.launchpad.net/SSHFingerprints
+          ssh-keyscan git.launchpad.net >> ~/.ssh/known_hosts
+          ssh-keygen -qlF git.launchpad.net | grep -xF 'git.launchpad.net RSA SHA256:UNOzlP66WpDuEo34Wgs8mewypV0UzqHLsIFoqwe8dYo'
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.x
+
+      - name: Trigger Launchpad snap build
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          TARGET: >-
+            ${{ fromJson('{
+              "main": "latest-edge",
+              "stable-5.0": "5.0-edge",
+            }')[github.ref_name] }}
+        run: |
+          set -x
+          git config --global user.name "Canonical LXD Bot"
+          git config --global user.email "lxd@lists.canonical.com"
+          localRev=$(git rev-parse HEAD)
+          GOPROXY=direct go install github.com/canonical/lxd-ci/lxd-snapcraft@latest
+          git clone -b "${TARGET}" git+ssh://lxdbot@git.launchpad.net/~canonical-lxd/microcloud ~/microcloud-pkg-snap-lp
+          cd ~/microcloud-pkg-snap-lp
+          lxd-snapcraft -package microcloud -set-version "git-${localRev:0:7}" -set-source-commit "${localRev}"
+          git add --all
+          git commit --all --quiet -s --allow-empty -m "Automatic upstream build (${TARGET})" -m "Upstream commit: ${localRev}"
+          git show
+          git push --quiet
