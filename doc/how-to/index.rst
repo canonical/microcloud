@@ -11,3 +11,4 @@ These how-to guides cover key operations and processes in MicroCloud.
    Install MicroCloud <install>
    Initialise MicroCloud <initialise>
    Add a machine <add_machine>
+   Get support <support>
