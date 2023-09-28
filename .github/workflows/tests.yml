@@ -35,7 +35,7 @@ jobs:
         run: make check-unit
 
   documentation-checks:
-    uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
+    uses: ru-fu/documentation-workflows/.github/workflows/documentation-checks.yaml@combine-workflows
     with:
       working-directory: './doc'
 
