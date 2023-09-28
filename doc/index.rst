@@ -50,7 +50,7 @@ MicroCloud is a member of the Ubuntu family. It’s an open source project that 
 
 - `MicroCloud snap`_
 - `Contribute <GitHub_>`_
-- `Get support`_
+- `Get support <discussion forum_>`_
 - `Announcement`_
 - `Thinking about using MicroCloud for your next project? Get in touch! <website_>`_
 

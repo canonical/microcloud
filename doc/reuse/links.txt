@@ -5,10 +5,12 @@
 .. _OVN: https://www.ovn.org/
 .. _MicroCloud snap: https://snapcraft.io/microcloud
 .. _GitHub: https://github.com/canonical/microcloud
-.. _Get support: https://discuss.linuxcontainers.org/tag/microcloud
+.. _Github issues: https://github.com/canonical/microcloud/issues/new
+.. _discussion forum: https://discourse.ubuntu.com/c/lxd/microcloud/
 .. _Announcement: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871
 .. _website: https://microcloud.is
-.. _LXD online demo: https://linuxcontainers.org/lxd/try-it/
 .. _LXD snap: https://snapcraft.io/lxd
 .. _MicroCeph snap: https://snapcraft.io/microceph
 .. _MicroOVN snap: https://snapcraft.io/microovn
+.. _MicroCloud documentation: https://canonical-microcloud.readthedocs-hosted.com/en/latest/
+.. _Ubuntu Pro: https://ubuntu.com/support
