@@ -6,9 +6,10 @@ How-to guides
 These how-to guides cover key operations and processes in MicroCloud.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   Install MicroCloud <install>
-   Initialise MicroCloud <initialise>
-   Add a machine <add_machine>
-   Get support <support>
+   Install MicroCloud </how-to/install>
+   Initialise MicroCloud </how-to/initialise>
+   Add a machine </how-to/add_machine>
+   Get support </how-to/support>
+   Contribute to MicroCloud </how-to/contribute>
