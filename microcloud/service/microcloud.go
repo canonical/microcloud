@@ -40,7 +40,7 @@ type JoinConfig struct {
 
 // NewCloudService creates a new MicroCloud service with a client attached.
 func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.Itoa(CloudPort)})
+	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.Itoa(CloudPort), Debug: debug, Verbose: verbose})
 	if err != nil {
 		return nil, err
 	}

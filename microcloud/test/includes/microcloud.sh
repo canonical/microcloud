@@ -256,6 +256,7 @@ validate_system_lxd_fan() {
 
 # validate_system_lxd: Ensures the node with the given name has correctly set up LXD with the given resources.
 validate_system_lxd() {
+    local name num_peers local_disk remote_disks ovn_interface ipv4_gateway ipv4_ranges ipv6_gateway
     name=${1}
     num_peers=${2}
     local_disk=${3:-}
@@ -364,30 +365,24 @@ reset_snaps() {
     echo "Resetting MicroCeph for ${name}"
     lxc exec "${name}" -- sh -c "
       if snap list | grep -q microceph ; then
-
-        # Ceph might not be responsive if we haven't set it up yet, or if we have torn down another node.
-        microceph_setup=0
-        if timeout -k 3 3 microceph cluster list ; then
-          microceph_setup=1
-        fi
-
         snap disable microceph >> /dev/null 2>&1 || true
-        if [ \$microceph_setup = 1 ]; then
-          for pool in \$(microceph.ceph osd ls) ; do
-            microceph.ceph osd down \${pool} --definitely-dead
-            microceph.ceph osd purge \${pool} --yes-i-really-mean-it --force
-            microceph.ceph osd destroy \${pool} --yes-i-really-mean-it --force
-          done
-        fi
 
         # Kill any remaining processes.
         if ps -e -o '%p %a' | grep -v grep | grep -qe 'ceph-' -qe 'microceph' ; then
           kill -9 \$(ps -e -o '%p %a' | grep -e 'ceph-' -e 'microceph' | grep -v grep | awk '{print \$1}') || true
         fi
 
+        # Remove modules to get rid of any kernel owned processes.
+        modprobe -r rbd ceph
+
         # Wipe the snap state so we can start fresh.
         rm -rf /var/snap/microceph/*/*
         snap enable microceph >> /dev/null 2>&1 || true
+
+        # microceph.osd requires this directory to exist but doesn't create it after install.
+        # OSDs won't show up and ceph will freeze creating volumes without it, so make it here.
+        mkdir -p /var/snap/microceph/current/run
+        snap run --shell microceph -c 'snapctl restart microceph.osd' || true
       fi
     "
 
@@ -507,7 +502,6 @@ cluster_reset() {
     lxc exec ${name} -- sh -c "
       echo 'config: {}' | lxc profile edit default || true
       lxc storage rm local || true
-      lxc storage rm ceph || true
     "
 
     lxc exec "${name}" -- sh -c "
@@ -520,11 +514,19 @@ cluster_reset() {
 
         if [ \$microceph_setup = 1 ]; then
           microceph.ceph tell mon.\* injectargs '--mon-allow-pool-delete=true'
+          lxc storage rm remote || true
           microceph.rados purge lxd_remote --yes-i-really-really-mean-it --force
           microceph.rados purge .mgr --yes-i-really-really-mean-it --force
 
           for pool in \$(microceph.ceph osd pool ls) ; do
             microceph.ceph osd pool rm \${pool} \${pool} --yes-i-really-really-mean-it
+          done
+
+          for pool in \$(microceph.ceph osd ls) ; do
+            microceph.ceph osd out \${pool}
+            microceph.ceph osd down \${pool} --definitely-dead
+            microceph.ceph osd purge \${pool} --yes-i-really-mean-it --force
+            microceph.ceph osd destroy \${pool} --yes-i-really-mean-it --force
           done
         fi
       fi
