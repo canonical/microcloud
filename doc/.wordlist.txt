@@ -23,6 +23,7 @@ multicast
 OVN
 Permalink
 pradyunsg
+rollout
 reST
 reStructuredText
 roadmap

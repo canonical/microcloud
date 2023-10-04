@@ -28,5 +28,13 @@
 .. _Ubuntu Code of Conduct: https://ubuntu.com/community/ethos/code-of-conduct
 .. _Canonical contributor licence agreement: https://ubuntu.com/legal/contributors
 
+.. _snap: https://snapcraft.io/docs
+.. _Channels and tracks: https://snapcraft.io/docs/channels
+.. _Hold refreshes: https://snapcraft.io/docs/keeping-snaps-up-to-date#heading--hold
+.. _Control updates with system options: https://snapcraft.io/docs/keeping-snaps-up-to-date#heading--settings
+.. _Progressive releases: https://snapcraft.io/docs/progressive-releases
+.. _Snap Store Proxy documentation: https://docs.ubuntu.com/snap-store-proxy/
+.. _Configuring snap devices: https://docs.ubuntu.com/snap-store-proxy/en/devices
+
 .. |http://localhost:8000| replace:: ``http://localhost:8000``
 .. _http://localhost:8000: http://localhost:8000
