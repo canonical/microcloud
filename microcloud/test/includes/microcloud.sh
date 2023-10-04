@@ -500,6 +500,14 @@ cluster_reset() {
     fi
 
     lxc exec ${name} -- sh -c "
+      for m in \$(lxc ls -f csv -c n) ; do
+        lxc rm \$m -f
+      done
+
+      for f in \$(lxc image ls -f csv -c f) ; do
+        lxc image rm \$f
+      done
+
       echo 'config: {}' | lxc profile edit default || true
       lxc storage rm local || true
     "

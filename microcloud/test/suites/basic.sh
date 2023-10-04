@@ -102,6 +102,155 @@ test_interactive() {
   done
 }
 
+test_instances() {
+  reset_systems 3 3 2
+
+  # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 -- sh -c "
+  cat << EOF > /root/preseed.yaml
+lookup_subnet: ${addr}/24
+systems:
+- name: micro01
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+- name: micro02
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+- name: micro03
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+"
+
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --preseed /root/preseed.yaml"
+
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- sh -c "
+  for m in \$(lxc ls -f csv -c n) ; do
+    lxc rm \$m -f
+  done
+
+    cat << EOF | lxc profile edit default
+config:
+  cloud-init.user-data: |
+    #cloud-config
+    packages:
+      - curl
+    write_files:
+      - content: |
+          #!/bin/sh
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{\"state\": \"Ready\"}'
+        path: /var/lib/cloud/scripts/per-boot/ready.sh
+        permissions: \"0755\"
+EOF
+"
+
+  # Launch a container and VM with ZFS storage & FAN network.
+  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 v1 --vm -s local -n lxdfan0"
+  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 c1 -s local -n lxdfan0"
+
+  # Ensure we can reach the launched instances.
+  for m in c1 v1 ; do
+    echo "Waiting up to 5 mins for ${m} to start"
+    lxc exec micro01 -- sh -ceu "
+    for round in \$(seq 300); do
+      if lxc info ${m} | grep -qF \"Status: READY\" ; then
+
+         lxc rm ${m} -f
+         return 0
+      fi
+      sleep 1
+    done
+    return 1
+    "
+  done
+
+  reset_systems 3 3 2
+
+  # Create a MicroCloud with ceph and ovn setup.
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 -- sh -c "
+  cat << EOF > /root/preseed.yaml
+lookup_subnet: ${addr}/24
+systems:
+- name: micro01
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+- name: micro02
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+- name: micro03
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+"
+
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --preseed /root/preseed.yaml"
+
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- sh -c "
+  for m in \$(lxc ls -f csv -c n) ; do
+    lxc rm \$m -f
+  done
+
+    cat << EOF | lxc profile edit default
+config:
+  cloud-init.user-data: |
+    #cloud-config
+    packages:
+      - curl
+    write_files:
+      - content: |
+          #!/bin/sh
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{\"state\": \"Ready\"}'
+        path: /var/lib/cloud/scripts/per-boot/ready.sh
+        permissions: \"0755\"
+EOF
+"
+
+  # Launch a container and VM with CEPH storage & OVN network.
+  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 v1 --vm -s remote -n default"
+  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 c1 -s remote -n default"
+
+  # Ensure we can reach the launched instances.
+  for m in c1 v1 ; do
+    echo "Waiting up to 5 mins for ${m} to start"
+    lxc exec micro01 -- sh -ceu "
+    for round in \$(seq 300); do
+      if lxc info ${m} | grep -qF \"Status: READY\" ; then
+         lxc rm ${m} -f
+
+         return 0
+      fi
+      sleep 1
+    done
+    return 1
+    "
+  done
+
+}
+
 test_case() {
     # Number of systems to use in the test.
     local num_systems num_disks num_ifaces skip_services
