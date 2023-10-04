@@ -387,8 +387,8 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 	}
 
-	// If we gave OVN config, implicitly assume we want interfaces and pick the first one.
-	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != ""
+	// If we have specified any part of OVN config, implicitly assume we want to set it up.
+	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || len(ifaceByPeer) != 0
 	if usingOVN {
 		// Only select systems not explicitly picked above.
 		infos := make([]mdns.ServerInfo, 0, len(systems))
@@ -398,6 +398,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 			}
 		}
 
+		// Pick the first interface for any system without an explicitly chosen one.
 		networks, err := lxd.GetUplinkInterfaces(context.Background(), bootstrap, infos)
 		if err != nil {
 			return nil, err
@@ -410,7 +411,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 	}
 
-	if bootstrap && len(ifaceByPeer) < 3 {
+	if usingOVN && bootstrap && len(ifaceByPeer) < 3 {
 		return nil, fmt.Errorf("Failed to find at least 3 interfaces on 3 machines for OVN configuration")
 	}
 
