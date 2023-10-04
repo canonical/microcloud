@@ -232,10 +232,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return err
 	}
 
-	if (InitNetwork{} != p.OVN) && !containsUplinks {
-		return fmt.Errorf("OVN uplink configuration found, but no uplink interfaces selected")
-	}
-
 	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || containsUplinks
 	if bootstrap && usingOVN && len(p.Systems) < 3 {
 		return fmt.Errorf("At least 3 systems are required to configure distributed networking")

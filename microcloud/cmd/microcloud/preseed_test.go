@@ -186,19 +186,6 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			err:    errors.New("At least 3 systems are required to configure distributed networking"),
 		},
 		{
-			desc:    "All systems missing interface, but uplink config given",
-			subnet:  "10.0.0.1/24",
-			systems: []System{{Name: "n1"}, {Name: "n2"}, {Name: "n3"}},
-			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
-			storage: StorageFilter{
-				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-				Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
-			},
-
-			addErr: true,
-			err:    errors.New("OVN uplink configuration found, but no uplink interfaces selected"),
-		},
-		{
 			desc:    "OVN IPv4 Ranges with no gateway",
 			subnet:  "10.0.0.1/24",
 			systems: []System{{Name: "n1", UplinkInterface: "eth0"}, {Name: "n2", UplinkInterface: "eth0"}, {Name: "n3", UplinkInterface: "eth0"}},
