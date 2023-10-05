@@ -5,10 +5,10 @@ go 1.18
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-	github.com/canonical/lxd v0.0.0-20230927132915-eb5f174028fd
-	github.com/canonical/microceph/microceph v0.0.0-20230927064453-e327ed3726da
-	github.com/canonical/microcluster v0.0.0-20230705140256-7726061a60bb
-	github.com/canonical/microovn/microovn v0.0.0-20230921173357-baac52ad1822
+	github.com/canonical/lxd v0.0.0-20231005125117-b85d9e1c9c39
+	github.com/canonical/microceph/microceph v0.0.0-20231002103643-e5c33c339715
+	github.com/canonical/microcluster v0.0.0-20231004070507-e3b7b60a4d71
+	github.com/canonical/microovn/microovn v0.0.0-20231004200623-2e86c95a7c35
 	github.com/creack/pty v1.1.18
 	github.com/hashicorp/mdns v1.0.5
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
@@ -62,11 +62,11 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zitadel/oidc/v2 v2.11.0 // indirect
 	golang.org/x/crypto v0.13.0 // indirect
-	golang.org/x/mod v0.12.0 // indirect
+	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/sync v0.4.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
