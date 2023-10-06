@@ -585,7 +585,6 @@ reset_systems() {
   if [ "${CONCURRENT_SETUP}" = 1 ]; then
     wait
   fi
-
 }
 
 # restore_systems: Restores the systems from a snapshot at snap0.
@@ -594,7 +593,7 @@ restore_systems() {
   num_disks=3
   num_extra_ifaces=1
 
-	if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -Pq '\d+'; then
     num_vms=${1}
     shift 1
   fi
@@ -764,7 +763,7 @@ setup_lxd_project() {
     # Create a zfs pool so we can use fast snapshots.
     lxc storage create zpool zfs volume.size=5GiB
 
-    lxc remote list -f csv | cut -d',' -f1 | grep -q "ubuntu" || lxc remote add ubuntu https://cloud-images.ubuntu.com/releases  --protocol simplestreams --auth-type none
+    lxc remote list -f csv | cut -d',' -f1 | grep -qxF "ubuntu-minimal" || lxc remote add ubuntu-minimal https://cloud-images.ubuntu.com/minimal/releases/ --protocol simplestreams --auth-type none
 
     # Setup default profile
     cat << EOF | lxc profile edit default
@@ -801,7 +800,7 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init ubuntu:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
+    lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
 
     for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
