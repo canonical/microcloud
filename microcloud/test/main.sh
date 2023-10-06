@@ -33,7 +33,7 @@ import_subdir_files() {
 import_subdir_files includes
 
 echo "==> Checking for dependencies"
-check_dependencies lxc lxd curl awk jq git python3 xgettext sqlite3 msgmerge msgfmt shuf rsync openssl
+check_dependencies lxc lxd curl awk jq git python3 shuf rsync openssl
 
 cleanup() {
 	# Do not exit if commands fail on cleanup. (No need to reset -e as this is only run on test suite exit).
