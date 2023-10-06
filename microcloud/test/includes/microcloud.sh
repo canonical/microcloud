@@ -119,7 +119,7 @@ validate_system_microceph() {
     name=${1}
     shift 1
 
-    disks=${@}
+    disks="${*}"
 
     echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}"
 
@@ -284,8 +284,8 @@ validate_system_lxd() {
 
     # These look like errors so suppress them to avoid confusion.
     {
-      lxc exec local:"${name}" -- microovn cluster list > /dev/null && has_microovn=1 || true
-      lxc exec local:"${name}" -- microceph cluster list > /dev/null && has_microceph=1 || true
+      { lxc exec local:"${name}" -- microovn cluster list > /dev/null && has_microovn=1; } || true
+      { lxc exec local:"${name}" -- microceph cluster list > /dev/null && has_microceph=1; } || true
     } > /dev/null 2>&1
 
     if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
@@ -418,8 +418,7 @@ reset_snaps() {
 # Makes only `num_disks` and `num_ifaces` disks and interfaces available for the next test.
 reset_system() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
-    restore_system $@
-
+    restore_system "${*}"
     return
   fi
 
@@ -540,7 +539,7 @@ cluster_reset() {
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
-    restore_systems $@
+    restore_systems "${*}"
     return
   fi
 
@@ -717,11 +716,13 @@ restore_system() {
 # cleanup: try to clean everything that is in the lxd-cloud project
 cleanup_systems() {
   lxc remote switch local
-  lxc remote ls -f csv | cut -d',' -f1 | grep -q microcloud-test && lxc remote remove microcloud-test || true
+  if lxc remote list -f csv | cut -d',' -f1 | grep -qF microcloud-test; then
+      lxc remote remove microcloud-test || true
+  fi
   lxc project switch microcloud-test
   echo "==> Removing systems"
-  lxc list -c n -f csv | xargs --no-run-if-empty lxc delete --force
-  lxc image list -c f -f csv | xargs --no-run-if-empty lxc image delete
+  lxc list -c n -f csv | xargs --no-run-if-empty /snap/bin/lxc delete --force
+  lxc image list -c f -f csv | xargs --no-run-if-empty /snap/bin/lxc image delete
 
   for profile in $(lxc profile list -f csv | cut -d, -f1 | grep -vxF default); do
     lxc profile delete "${profile}"
