@@ -721,8 +721,8 @@ cleanup_systems() {
   fi
   lxc project switch microcloud-test
   echo "==> Removing systems"
-  lxc list -c n -f csv | xargs --no-run-if-empty /snap/bin/lxc delete --force
-  lxc image list -c f -f csv | xargs --no-run-if-empty /snap/bin/lxc image delete
+  lxc list -c n -f csv | xargs --no-run-if-empty lxc delete --force
+  lxc image list -c f -f csv | xargs --no-run-if-empty lxc image delete
 
   for profile in $(lxc profile list -f csv | cut -d, -f1 | grep -vxF default); do
     lxc profile delete "${profile}"
@@ -744,11 +744,6 @@ cleanup_systems() {
 
   lxc storage delete zpool
   echo "==> All systems removed"
-}
-
-# Always use the snap lxc.
-lxc() {
-	/snap/bin/lxc "$@"
 }
 
 # setup_lxd: create a dedicate project in the host's LXD to use for the testbed
