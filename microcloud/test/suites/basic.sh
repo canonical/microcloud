@@ -253,7 +253,6 @@ EOF
 
 test_case() {
     # Number of systems to use in the test.
-    local num_systems num_disks num_ifaces skip_services
     num_systems="${1}"
 
     # Number of available disks per system.
