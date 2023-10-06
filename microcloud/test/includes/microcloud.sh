@@ -35,7 +35,7 @@ ${LOOKUP_IFACE}                                         # filter the lookup inte
 $([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
 ${LIMIT_SUBNET}                                             # limit lookup subnet (yes/no)
-$([ "yes" = "${SKIP_SERVICE}" ] && printf ${SKIP_SERVICE})  # skip MicroOVN/MicroCeph (yes/no)
+$([ "yes" = "${SKIP_SERVICE}" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
 expect ${EXPECT_PEERS}                                      # wait until the systems show up
 select-all                                                  # select all the systems
 ---
@@ -101,17 +101,17 @@ set_remote() {
 
   lxc remote switch local
 
-  addr=$(lxc exec ${name} -- sh -c "lxc config get cluster.https_address")
+  addr="$(lxc exec "${name}" -- lxc config get cluster.https_address)"
 
-  if lxc remote ls -f csv | cut -d',' -f1 | grep -q ${remote} ; then
-    lxc remote remove ${remote}
+  if lxc remote list -f csv | cut -d',' -f1 | grep -qwF "${remote}" ; then
+    lxc remote remove "${remote}"
   fi
 
-  lxc exec ${name} -- sh -c "lxc config set core.trust_password test"
+  lxc exec "${name}" -- lxc config set core.trust_password test
 
   # Suppress the confirmation as it's noisy.
-  lxc remote add ${remote} "https://${addr}" --password "test" --accept-certificate >> /dev/null 2>&1
-  lxc remote switch ${remote}
+  lxc remote add "${remote}" "https://${addr}" --password "test" --accept-certificate > /dev/null 2>&1
+  lxc remote switch "${remote}"
 }
 
 # validate_system_microceph: Ensures the node with the given name has correctly set up MicroCeph with the given resources.
@@ -124,7 +124,7 @@ validate_system_microceph() {
     echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}"
 
     lxc remote switch local
-    lxc exec ${name} -- sh -ceu "
+    lxc exec "${name}" -- sh -ceu "
       microceph cluster list | grep -q ${name}
 
       count=0
@@ -148,7 +148,7 @@ validate_system_microovn() {
     echo "==> ${name} Validating MicroOVN"
 
     lxc remote switch local
-    lxc exec ${name} -- sh -ceu "microovn cluster list | grep -q ${name}"
+    lxc exec "${name}" -- sh -ceu "microovn cluster list | grep -q ${name}"
 }
 
 # validate_system_lxd_zfs: Ensures the node with the given name has the given disk set up for ZFS storage.
@@ -156,14 +156,14 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get "storage.backups_volume" --target ${name} | grep -q '^local/backups$'
-  lxc config get "storage.images_volume" --target ${name} | grep -q '^local/images$'
+  lxc config get "storage.backups_volume" --target "${name}" | grep -q '^local/backups$'
+  lxc config get "storage.images_volume" --target "${name}" | grep -q '^local/images$'
 
   cfg=$(lxc storage show local)
   echo "${cfg}" | grep -q "config: {}"
   echo "${cfg}" | grep -q "status: Created"
 
-  cfg=$(lxc storage show local --target ${name})
+  cfg=$(lxc storage show local --target "${name}")
   echo "${cfg}" | grep -q "source: local"
   echo "${cfg}" | grep -q "volatile.initial_source: .*${local_disk}"
   echo "${cfg}" | grep -q "zfs.pool_name: local"
@@ -189,7 +189,7 @@ validate_system_lxd_ceph() {
   echo "${cfg}" | grep -q "status: Created"
   echo "${cfg}" | grep -q "driver: ceph"
 
-  cfg=$(lxc storage show remote --target ${name})
+  cfg=$(lxc storage show remote --target "${name}")
   echo "${cfg}" | grep -q "source: lxd_remote"
   echo "${cfg}" | grep -q "status: Created"
 }
@@ -204,18 +204,18 @@ validate_system_lxd_ovn() {
   ipv6_gateway=${6:-}
 
   echo "    ${name} Validating OVN network"
-  addr=$(lxc exec local:${name} -- sh -c "lxc config get cluster.https_address")
+  addr=$(lxc exec local:"${name}" -- lxc config get cluster.https_address)
 
   num_conns=3
-  if [ ${num_peers} -lt ${num_conns} ]; then
-    num_conns=${num_peers}
+  if [ "${num_peers}" -lt "${num_conns}" ]; then
+    num_conns="${num_peers}"
   fi
 
-  lxc config get "network.ovn.northbound_connection" --target ${name} | sed -e 's/,/\n/g' | wc -l | grep -q ${num_conns}
+  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -q "${num_conns}"
 
   # Make sure there's no empty addresses.
-  ! lxc config get "network.ovn.northbound_connection" --target ${name} | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
-  ! lxc config get "network.ovn.northbound_connection" --target ${name} | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
+  ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
+  ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
 
   cfg=$(lxc network show UPLINK)
   echo "${cfg}" | grep -q "status: Created"
@@ -233,7 +233,7 @@ validate_system_lxd_ovn() {
     echo "${cfg}" | grep -q "ipv6.gateway: ${ipv6_gateway}"
   fi
 
-  lxc network show UPLINK --target ${name} | grep -q "parent: ${ovn_interface}"
+  lxc network show UPLINK --target "${name}" | grep -q "parent: ${ovn_interface}"
 
   cfg=$(lxc network show default)
   echo "${cfg}" | grep -q "status: Created"
@@ -270,40 +270,40 @@ validate_system_lxd() {
     lxc remote switch local
 
     # Call lxc list once to supress the welcome message.
-    lxc exec ${name} -- sh -c "lxc ls" >> /dev/null 2>&1
+    lxc exec "${name}" -- lxc list > /dev/null 2>&1
 
     # Add the peer as a remote.
-    set_remote microcloud-test ${name}
+    set_remote microcloud-test "${name}"
 
     # Ensure we are clustered and online.
     lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep  -q "${name}"
-    lxc cluster list -f csv | wc -l | grep -q ${num_peers}
+    lxc cluster list -f csv | wc -l | grep -q "${num_peers}"
 
     has_microovn=0
     has_microceph=0
 
     # These look like errors so suppress them to avoid confusion.
     {
-      lxc exec local:${name} -- sh -c "microovn cluster list >> /dev/null" && has_microovn=1 || true
-      lxc exec local:${name} -- sh -c "microceph cluster list >> /dev/null" && has_microceph=1 || true
-    } >> /dev/null 2>&1
+      lxc exec local:"${name}" -- microovn cluster list > /dev/null && has_microovn=1 || true
+      lxc exec local:"${name}" -- microceph cluster list > /dev/null && has_microceph=1 || true
+    } > /dev/null 2>&1
 
-    if [ ${has_microovn} = 1 ] && [ -n "${ovn_interface}" ] ; then
-      validate_system_lxd_ovn ${name} ${num_peers} ${ovn_interface} ${ipv4_gateway} ${ipv4_ranges} ${ipv6_gateway}
+    if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
+      validate_system_lxd_ovn "${name}" "${num_peers}" "${ovn_interface}" "${ipv4_gateway}" "${ipv4_ranges}" "${ipv6_gateway}"
     else
-      validate_system_lxd_fan ${name}
+      validate_system_lxd_fan "${name}"
     fi
 
     if [ -n "${local_disk}" ]; then
-      validate_system_lxd_zfs ${name} ${local_disk}
+      validate_system_lxd_zfs "${name}" "${local_disk}"
     fi
 
-    if [ ${has_microceph} = 1 ] && [ ${remote_disks} -gt 0 ] ; then
-      validate_system_lxd_ceph ${name} ${remote_disks}
+    if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
+      validate_system_lxd_ceph "${name}" "${remote_disks}"
     fi
 
     echo "    ${name} Validating Profiles"
-    if [ ${has_microceph} = 1 ] && [ ${remote_disks} -gt 0 ] ; then
+    if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
        lxc profile device get default root pool | grep -q "remote"
     elif [ -n "${local_disk}" ] ; then
        lxc profile device get default root pool | grep -q "local"
@@ -311,7 +311,7 @@ validate_system_lxd() {
        ! lxc profile device list default | grep -q root || false
     fi
 
-    if [ ${has_microovn} = 1 ] && [ -n "${ovn_interface}" ] ; then
+    if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
        lxc profile device get default eth0 network | grep -q "default"
     else
        lxc profile device get default eth0 network | grep -q "lxdfan0"
@@ -330,8 +330,8 @@ reset_snaps() {
 
   (
     set -eu
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null
     fi
 
     # These are set to always pass in case the snaps are already disabled.
@@ -341,15 +341,15 @@ reset_snaps() {
         kill -9 \$(pidof lxd)
       fi
 
-      snap disable lxd >> /dev/null 2>&1 || true
+      snap disable lxd > /dev/null 2>&1 || true
 
       if pidof -q microcloud ; then
         kill -9 \$(pidof microcloud)
       fi
 
-      snap disable microcloud >> /dev/null 2>&1 || true
+      snap disable microcloud > /dev/null 2>&1 || true
 
-      systemctl stop snap.lxd.daemon snap.lxd.daemon.unix.socket >> /dev/null 2>&1 || true
+      systemctl stop snap.lxd.daemon snap.lxd.daemon.unix.socket > /dev/null 2>&1 || true
       if ps -u lxd -o pid= ; then
         kill -9 \$(ps -u lxd -o pid=)
       fi
@@ -361,7 +361,7 @@ reset_snaps() {
     echo "Resetting MicroCeph for ${name}"
     lxc exec "${name}" -- sh -c "
       if snap list | grep -q microceph ; then
-        snap disable microceph >> /dev/null 2>&1 || true
+        snap disable microceph > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
         if ps -e -o '%p %a' | grep -v grep | grep -qe 'ceph-' -qe 'microceph' ; then
@@ -373,7 +373,7 @@ reset_snaps() {
 
         # Wipe the snap state so we can start fresh.
         rm -rf /var/snap/microceph/*/*
-        snap enable microceph >> /dev/null 2>&1 || true
+        snap enable microceph > /dev/null 2>&1 || true
 
         # microceph.osd requires this directory to exist but doesn't create it after install.
         # OSDs won't show up and ceph will freeze creating volumes without it, so make it here.
@@ -388,7 +388,7 @@ reset_snaps() {
         microovn.ovn-appctl exit || true
         microovn.ovs-appctl exit --cleanup || true
         microovn.ovs-dpctl del-dp system@ovs-system || true
-        snap disable microovn >> /dev/null 2>&1 || true
+        snap disable microovn > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
         if ps -e -o '%p %a' | grep -v grep | grep -qe 'ovs-' -qe 'ovn-' -qe 'microovn' ; then
@@ -397,16 +397,16 @@ reset_snaps() {
 
         # Wipe the snap state so we can start fresh.
         rm -rf /var/snap/microovn/*/*
-        snap enable microovn >> /dev/null 2>&1 || true
+        snap enable microovn > /dev/null 2>&1 || true
       fi
     "
 
     echo "Enabling LXD and MicroCloud for ${name}"
     lxc exec "${name}" -- sh -c "
-      snap enable lxd >> /dev/null 2>&1 || true
-      snap enable microcloud >> /dev/null 2>&1 || true
-      snap start lxd >> /dev/null 2>&1 || true
-      snap start microcloud >> /dev/null 2>&1 || true
+      snap enable lxd > /dev/null 2>&1 || true
+      snap enable microcloud > /dev/null 2>&1 || true
+      snap start lxd > /dev/null 2>&1 || true
+      snap start microcloud > /dev/null 2>&1 || true
       snap refresh lxd --channel latest/stable --cohort=+
 
       lxd waitready
@@ -417,7 +417,7 @@ reset_snaps() {
 # reset_system: Starts the given system and resets its snaps, and devices.
 # Makes only `num_disks` and `num_ifaces` disks and interfaces available for the next test.
 reset_system() {
-  if [ ${SNAPSHOT_RESTORE} = 1 ]; then
+  if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     restore_system $@
 
     return
@@ -430,33 +430,33 @@ reset_system() {
   echo "==> Resetting ${name} with ${num_disks} disk(s) and ${num_ifaces} extra interface(s)"
   (
     set -eu
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null 2>&1
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null 2>&1
     fi
 
-    lxc start ${name} || true
+    lxc start "${name}" || true
 
     lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
 
-    lxc exec ${name} -- sh -c "ip link del lxdfan0 || true"
+    lxc exec "${name}" -- ip link del lxdfan0 || true
 
     # Rescan for any disks we hid from the previous run.
-    lxc exec ${name} -- sh -c "
+    lxc exec "${name}" -- sh -c "
       for h in /sys/class/scsi_host/host*; do
           echo '- - -' > \${h}/scan
       done
     "
 
-    reset_snaps ${name}
+    reset_snaps "${name}"
 
-    lxc exec ${name} -- sh -c "zpool destroy -f local || true"
+    lxc exec "${name}" -- zpool destroy -f local || true
 
     # Hide any extra disks for this run.
-    lxc exec ${name} -- sh -c "
+    lxc exec "${name}" -- sh -c "
       disks=\$(lsblk -o NAME,SERIAL | grep \"lxd_disk[0-9]\" | cut -d\" \" -f1 | tac)
       count_disks=\$(echo \"\${disks}\" | wc -l)
       for d in \${disks} ; do
-        if [ \${count_disks} -gt ${num_disks} ]; then
+        if [ \${count_disks} -gt \${num_disks} ]; then
           echo 1 > /sys/block/\${d}/device/delete
         else
           wipefs -af /dev/\${d}
@@ -468,17 +468,17 @@ reset_system() {
     "
 
     # Disable all extra interfaces.
-    max_ifaces=$(lxc network ls -f csv | grep microbr | wc -l)
-    for i in $(seq 1 ${max_ifaces}) ; do
+    max_ifaces=$(lxc network ls -f csv | grep -cF microbr)
+    for i in $(seq 1 "${max_ifaces}") ; do
       iface="enp$((i + 5))s0"
-      lxc exec "${name}" -- ip link set ${iface} down
+      lxc exec "${name}" -- ip link set "${iface}" down
     done
 
     # Re-enable as many interfaces as we want for this run.
-    for i in $(seq 1 ${num_ifaces}) ; do
+    for i in $(seq 1 "${num_ifaces}") ; do
       iface="enp$((i + 5))s0"
-      lxc exec "${name}" -- ip link set ${iface} up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" >> /dev/null
+      lxc exec "${name}" -- ip link set "${iface}" up
+      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
     done
   )
 
@@ -490,11 +490,11 @@ cluster_reset() {
   name=${1}
   (
     set -eu
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null 2>&1
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null 2>&1
     fi
 
-    lxc exec ${name} -- sh -c "
+    lxc exec "${name}" -- sh -c "
       for m in \$(lxc ls -f csv -c n) ; do
         lxc rm \$m -f
       done
@@ -535,14 +535,12 @@ cluster_reset() {
       fi
     "
   )
-
 }
 
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
-  if [ ${SNAPSHOT_RESTORE} = 1 ]; then
+  if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     restore_systems $@
-
     return
   fi
 
@@ -551,41 +549,41 @@ reset_systems() {
   num_ifaces=1
 
 	if echo "${1}" | grep -Pq '\d+'; then
-    num_vms=${1}
+    num_vms="${1}"
     shift 1
   fi
 
   if echo "${1}" | grep -Pq '\d+'; then
-    num_disks=${1}
+    num_disks="${1}"
     shift 1
   fi
 
   if echo "${1}" | grep -Pq '\d+'; then
-    num_ifaces=${1}
+    num_ifaces="${1}"
     shift 1
   fi
 
-  for i in $(seq 1 ${num_vms}) ; do
-    name=$(printf "micro%02d" $i)
-    if [ $i = 1 ]; then
-      cluster_reset ${name}
+  for i in $(seq 1 "${num_vms}") ; do
+    name=$(printf "micro%02d" "$i")
+    if [ "$i" = 1 ]; then
+      cluster_reset "${name}"
     fi
 
-    if [ ${CONCURRENT_SETUP} = 1 ]; then
-      reset_system ${name} ${num_disks} ${num_ifaces} &
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+      reset_system "${name}" "${num_disks}" "${num_ifaces}" &
     else
-      reset_system ${name} ${num_disks} ${num_ifaces}
+      reset_system "${name}" "${num_disks}" "${num_ifaces}"
     fi
   done
 
   # Pause any extra systems.
-  total_machines=$(lxc ls -f csv -c n micro | wc -l)
-  for i in $(seq $((1 + num_vms)) ${total_machines}); do
-    name=$(printf "micro%02d" $i)
-    lxc pause ${name} || true
+  total_machines="$(lxc list -f csv -c n micro | wc -l)"
+  for i in $(seq "$((1 + num_vms))" "${total_machines}"); do
+    name=$(printf "micro%02d" "$i")
+    lxc pause "${name}" || true
   done
 
-  if [ ${CONCURRENT_SETUP} = 1 ]; then
+  if [ "${CONCURRENT_SETUP}" = 1 ]; then
     wait $(jobs -p)
   fi
 
@@ -616,32 +614,32 @@ restore_systems() {
 
   (
     set -eu
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null
     fi
 
-    for i in $(seq 1 ${num_extra_ifaces}) ; do
+    for i in $(seq 1 "${num_extra_ifaces}") ; do
       network="microbr$((i - 1))"
-      lxc profile device remove default eth${i}
-      lxc network delete ${network} || true
-      lxc network create ${network} \
-        ipv4.address=10.${i}.123.1/24 ipv4.dhcp=false ipv4.nat=true \
-        ipv6.address=fd42:${i}:1234:1234::1/64 ipv6.nat=true
+      lxc profile device remove default "eth${i}"
+      lxc network delete "${network}" || true
+      lxc network create "${network}" \
+        ipv4.address="10.${i}.123.1/24" ipv4.dhcp=false ipv4.nat=true \
+        ipv6.address="fd42:${i}:1234:1234::1/64" ipv6.nat=true
 
-      lxc profile device add default eth${i} nic network=${network} name=eth${i}
+      lxc profile device add default "eth${i}" nic network="${network}" name="eth${i}"
     done
   )
 
-  for n in $(seq 1 ${num_vms}) ; do
-    name=$(printf "micro%02d" ${n})
-    if [ ${CONCURRENT_SETUP} = 1 ]; then
-      restore_system ${name} ${num_disks} ${num_extra_ifaces} &
+  for n in $(seq 1 "${num_vms}") ; do
+    name="$(printf "micro%02d" "${n}")"
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+      restore_system "${name}" "${num_disks}" "${num_extra_ifaces}" &
     else
-      restore_system ${name} ${num_disks} ${num_extra_ifaces}
+      restore_system "${name}" "${num_disks}" "${num_extra_ifaces}"
     fi
   done
 
-  if [ ${CONCURRENT_SETUP} = 1 ]; then
+  if [ "${CONCURRENT_SETUP}" = 1 ]; then
     wait $(jobs -p)
   fi
 }
@@ -652,13 +650,13 @@ restore_system() {
 
   num_disks="0"
   if echo "${1}" | grep -Pq '\d+'; then
-    num_disks=${1}
+    num_disks="${1}"
     shift 1
   fi
 
   num_extra_ifaces="0"
   if echo "${1}" | grep -Pq '\d+'; then
-    num_extra_ifaces=${1}
+    num_extra_ifaces="${1}"
     shift 1
   fi
 
@@ -667,22 +665,22 @@ restore_system() {
   (
     set -eu
 
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null
     fi
 
     lxc remote switch local
     lxc project switch microcloud-test
 
-    if lxc ls ${name} -f csv -c s | grep -q "RUNNING"; then
-      lxc stop ${name} --force
+    if lxc list "${name}" -f csv -c s | grep -qxF "RUNNING"; then
+      lxc stop "${name}" --force
     fi
 
-    lxc restore ${name} snap0
+    lxc restore "${name}" snap0
 
-    for disk in $(lxc config device list ${name}) ; do
-      if lxc config device get ${name} ${disk} type | grep -q "disk" ; then
-        lxc config device remove ${name} ${disk}
+    for disk in $(lxc config device list "${name}") ; do
+      if lxc config device get "${name}" "${disk}" type | grep -qF "disk" ; then
+        lxc config device remove "${name}" "${disk}"
       fi
 
       volume="${name}-${disk}"
@@ -692,22 +690,22 @@ restore_system() {
     done
 
 
-    for n in $(seq 1 ${num_disks}) ; do
+    for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
       lxc storage volume create zpool "${disk}" size=5GiB --type=block
       lxc config device add "${name}" "disk${n}" disk pool=zpool source="${disk}"
     done
 
-    lxc start ${name}
+    lxc start "${name}"
 
     lxd_wait_vm "${name}"
 
     # Sleep some time so the snaps are fully set up.
     sleep 3
 
-    for i in $(seq 1 ${num_extra_ifaces}) ; do
+    for i in $(seq 1 "${num_extra_ifaces}") ; do
       network="enp$((i + 5))s0"
-      lxc exec "${name}" -- ip link set ${network} up
+      lxc exec "${name}" -- ip link set "${network}" up
       lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${network}/disable_ipv6"
     done
   )
@@ -729,7 +727,7 @@ cleanup_systems() {
     lxc profile delete "${profile}"
   done
 
-  for volume in $(lxc storage volume list -f csv -c t,n zpool | grep custom, | cut -d',' -f2-); do
+  for volume in $(lxc storage volume list -f csv -c t,n zpool | grep -F "custom," | cut -d',' -f2-); do
     lxc storage volume delete zpool "${volume}"
   done
 
@@ -740,7 +738,7 @@ cleanup_systems() {
   lxc project delete microcloud-test
 
   for net in $(lxc network ls -f csv | grep microbr | cut -d',' -f1) ; do
-    lxc network delete ${net}
+    lxc network delete "${net}"
   done
 
   lxc storage delete zpool
@@ -759,8 +757,8 @@ setup_lxd_project() {
   (
     set -eu
 
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null
     fi
 
     lxc remote switch local
@@ -805,13 +803,13 @@ create_system() {
   (
     set -eu
 
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null
     fi
 
     lxc init ubuntu:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
 
-    for n in $(seq 1 ${num_disks}) ; do
+    for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
       lxc storage volume create zpool "${disk}" size=5GiB --type=block
       lxc config device add "${name}" "disk${n}" disk pool=zpool source="${disk}"
@@ -829,18 +827,18 @@ setup_system() {
 
   # Bring enp6s0 up but disable IPv6 (should do through netplan).
   lxc exec "${name}" -- ip link set enp6s0 up
-  lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp6s0/disable_ipv6" >> /dev/null
+  lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp6s0/disable_ipv6" > /dev/null
 
   (
     set -eu
 
-    if [ 1 = "${SKIP_SETUP_LOG}" ]; then
-      exec >> /dev/null
+    if [ "${SKIP_SETUP_LOG}" = 1 ]; then
+      exec > /dev/null
     fi
 
     # Install the snaps.
-    lxc exec "${name}" -- sh -c "apt-get update -y"
-    lxc exec "${name}" -- sh -c "apt-get install -y snapd curl jq zfsutils-linux htop"
+    lxc exec "${name}" -- apt-get update
+    lxc exec "${name}" -- apt-get install --no-install-recommends -y snapd curl jq zfsutils-linux htop
 
     lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install snapd"
 
@@ -875,13 +873,13 @@ setup_system() {
   sleep 3
 
 
-  lxc stop ${name}
+  lxc stop "${name}"
 
-  lxc snapshot ${name} snap0
+  lxc snapshot "${name}" snap0
 
-  lxc start ${name}
+  lxc start "${name}"
 
-  lxd_wait_vm ${name}
+  lxd_wait_vm "${name}"
 
   echo "==> ${name} Finished Setting up"
 }
@@ -903,42 +901,42 @@ new_systems() {
   num_disks=3
   num_ifaces=1
 
-	if echo "${1}" | grep -qP '\d+'; then
-    num_vms=${1}
+  if echo "${1}" | grep -qP '\d+'; then
+    num_vms="${1}"
     shift 1
   fi
 
   if echo "${1}" | grep -qP '\d+'; then
-    num_disks=${1}
+    num_disks="${1}"
     shift 1
   fi
 
   if echo "${1}" | grep -qP '\d+'; then
-    num_ifaces=${1}
+    num_ifaces="${1}"
     shift 1
   fi
 
   setup_lxd_project
 
   echo "==> Creating ${num_ifaces} extra network interfaces"
-  for i in $(seq 1 ${num_ifaces}) ; do
+  for i in $(seq 1 "${num_ifaces}"); do
     # Create uplink network
-    lxc network create microbr$((i - 1)) \
-        ipv4.address=10.${i}.123.1/24 ipv4.dhcp=false ipv4.nat=true \
-        ipv6.address=fd42:${i}:1234:1234::1/64 ipv6.nat=true
-    lxc profile device add default eth${i} nic network=microbr$((i - 1)) name=eth${i}
+    lxc network create "microbr$((i - 1))" \
+        ipv4.address="10.${i}.123.1/24" ipv4.dhcp=false ipv4.nat=true \
+        ipv6.address="fd42:${i}:1234:1234::1/64" ipv6.nat=true
+    lxc profile device add default "eth${i}" nic network="microbr$((i - 1))" name="eth${i}"
   done
 
-  if [ ${CONCURRENT_SETUP} = 1 ]; then
-    for n in $(seq 1 ${num_vms}); do
-      name=$(printf "micro%02d" ${n})
+  if [ "${CONCURRENT_SETUP}" = 1 ]; then
+    for n in $(seq 1 "${num_vms}"); do
+      name=$(printf "micro%02d" "${n}")
       create_system "${name}" "${num_disks}" &
     done
 
     wait $(jobs -p)
 
-    for n in $(seq 1 ${num_vms}); do
-      name=$(printf "micro%02d" ${n})
+    for n in $(seq 1 "${num_vms}"); do
+      name=$(printf "micro%02d" "${n}")
 
       (
        lxd_wait_vm "${name}"
@@ -952,8 +950,8 @@ new_systems() {
       wait $(jobs -p)
 
   else
-    for n in $(seq 1 ${num_vms}); do
-      name=$(printf "micro%02d" ${n})
+    for n in $(seq 1 "${num_vms}"); do
+      name="$(printf "micro%02d" "${n}")"
       create_system "${name}" "${num_disks}"
       lxd_wait_vm "${name}"
 
@@ -966,10 +964,10 @@ new_systems() {
 }
 
 wait_snapd() {
-	name="${1}"
+  name="${1}"
 
   for i in $(seq 60); do # Wait up to 60s.
-    if lxc exec ${name} -- sh -c "systemctl show snapd.seeded.service --value --property SubState" | grep -qx exited; then
+    if lxc exec "${name}" -- systemctl show snapd.seeded.service --value --property SubState | grep -qx exited; then
       return 0 # Success.
     fi
 
@@ -981,18 +979,18 @@ wait_snapd() {
 }
 
 lxd_wait_vm() {
-	name="${1}"
+  name="${1}"
 
   echo "==> ${name} Awaiting VM..."
   for round in $(seq 640); do
     if lxc info "${name}" | grep -qF "Status: READY" ; then
-      wait_snapd ${name}
+      wait_snapd "${name}"
       echo "    ${name} VM is ready"
       return 0
     fi
 
     # Sometimes the VM just won't start, so retry after 3 minutes.
-    if [ $(($round % 180)) = 0 ]; then
+    if [ "$((round % 180))" = 0 ]; then
       echo "==> ${name} Timeout (${round}s): Re-initializing VM"
       lxc restart "${name}" --force
     fi
