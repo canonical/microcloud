@@ -1001,4 +1001,5 @@ lxd_wait_vm() {
   done
 
   echo "    ${name} VM failed to start"
+  return 1
 }
