@@ -90,8 +90,10 @@ export SKIP_SETUP_LOG
 SNAPSHOT_RESTORE=${SNAPSHOT_RESTORE:-0}
 export SNAPSHOT_RESTORE
 
-if [ -z "${MICROCLOUD_SNAP_PATH}" ]; then
-  echo TODO: Setup snap build
+if [ -z "${MICROCLOUD_SNAP_PATH}" ] || ! [ -e "${MICROCLOUD_SNAP_PATH}" ]; then
+  # TODO: Setup snap build
+  echo "Undefined or missing MICROCLOUD_SNAP_PATH" >&2
+  exit 1
 fi
 
 export MICROCLOUD_SNAP_PATH
