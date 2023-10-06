@@ -96,7 +96,6 @@ echo "${setup}" | sed -e '/^\s*#/d' -e '/^\s*$/d'
 
 # set_remote: Adds and switches to the remote for the MicroCloud node with the given name.
 set_remote() {
-  local addr remote name
   remote="${1}"
   name="${2}"
 
@@ -197,8 +196,6 @@ validate_system_lxd_ceph() {
 
 # validate_system_lxd_ovn: Ensures the node with the given name and config has ovn network set up correctly.
 validate_system_lxd_ovn() {
-  local name addr num_peers ovn_interface ipv4_gateway ipv4_ranges ipv6_gateway
-
   name=${1}
   num_peers=${2}
   ovn_interface=${3:-}
@@ -256,7 +253,6 @@ validate_system_lxd_fan() {
 
 # validate_system_lxd: Ensures the node with the given name has correctly set up LXD with the given resources.
 validate_system_lxd() {
-    local name num_peers local_disk remote_disks ovn_interface ipv4_gateway ipv4_ranges ipv6_gateway
     name=${1}
     num_peers=${2}
     local_disk=${3:-}
@@ -427,7 +423,6 @@ reset_system() {
     return
   fi
 
-  local name num_disks num_ifaces
   name=$1
   num_disks=${2:-0}
   num_ifaces=${3:-0}
@@ -551,8 +546,6 @@ reset_systems() {
     return
   fi
 
-  local num_vms num_disks num_ifaces
-
   num_vms=3
   num_disks=3
   num_ifaces=1
@@ -600,7 +593,6 @@ reset_systems() {
 
 # restore_systems: Restores the systems from a snapshot at snap0.
 restore_systems() {
-  local num_vms num_disks num_extra_ifaces
   num_vms=3
   num_disks=3
   num_extra_ifaces=1
