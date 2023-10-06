@@ -584,7 +584,7 @@ reset_systems() {
   done
 
   if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    wait $(jobs -p)
+    wait
   fi
 
 }
@@ -640,7 +640,7 @@ restore_systems() {
   done
 
   if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    wait $(jobs -p)
+    wait
   fi
 }
 
@@ -843,7 +843,7 @@ setup_system() {
     lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install snapd"
 
     # Snaps can occasionally fail to install properly, so repeatedly try.
-    lxc exec ${name} -- sh -c "
+    lxc exec "${name}" -- sh -c "
       export PATH=\$PATH:/snap/bin
       while ! test -e /snap/bin/microceph ; do
         snap install microceph || true
@@ -933,7 +933,7 @@ new_systems() {
       create_system "${name}" "${num_disks}" &
     done
 
-    wait $(jobs -p)
+    wait
 
     for n in $(seq 1 "${num_vms}"); do
       name=$(printf "micro%02d" "${n}")
@@ -947,7 +947,7 @@ new_systems() {
 
     done
 
-      wait $(jobs -p)
+    wait
 
   else
     for n in $(seq 1 "${num_vms}"); do
