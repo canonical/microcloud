@@ -2,39 +2,39 @@ test_interactive() {
   reset_systems 3 3 1
 
   echo "Creating a MicroCloud with all services but no devices"
-  LOOKUP_IFACE="enp5s0"
-  LIMIT_SUBNET="yes"
-  EXPECT_PEERS=2
-  SETUP_ZFS="no"
-  SETUP_CEPH="no"
-  SETUP_OVN="no"
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="no"
+  export SETUP_CEPH="no"
+  export SETUP_OVN="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd ${m} 3
-    validate_system_microceph ${m}
-    validate_system_microovn ${m}
+    validate_system_lxd "${m}" 3
+    validate_system_microceph "${m}"
+    validate_system_microovn "${m}"
   done
 
   # Reset the systems with just LXD.
   reset_systems 3 3 1
 
   for m in micro01 micro02 micro03 ; do
-    lxc exec ${m} -- sh -c "snap disable microceph || true"
-    lxc exec ${m} -- sh -c "snap disable microovn || true"
-    lxc exec ${m} -- sh -c "snap restart microcloud"
+    lxc exec "${m}" -- snap disable microceph || true
+    lxc exec "${m}" -- snap disable microovn || true
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   echo "Creating a MicroCloud with ZFS storage"
-  SKIP_SERVICE="yes"
-  SETUP_ZFS="yes"
-  ZFS_FILTER="lxd_disk1"
-  ZFS_WIPE="yes"
+  export SKIP_SERVICE="yes"
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
   unset SETUP_CEPH SETUP_OVN
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1
   done
@@ -43,8 +43,8 @@ test_interactive() {
   reset_systems 3 3 1
 
   for m in micro01 micro02 micro03 ; do
-    lxc exec ${m} -- sh -c "snap disable microovn || true"
-    lxc exec ${m} -- sh -c "snap restart microcloud"
+    lxc exec "${m}" -- snap disable microovn || true
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   echo "Creating a MicroCloud with ZFS and Ceph storage"
@@ -53,7 +53,7 @@ test_interactive() {
   CEPH_WIPE="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1 1
     validate_system_microceph "${m}" disk2
@@ -63,24 +63,24 @@ test_interactive() {
   reset_systems 3 3 1
 
   for m in micro01 micro02 micro03 ; do
-    lxc exec ${m} -- sh -c "snap disable microceph || true"
-    lxc exec ${m} -- sh -c "snap restart microcloud"
+    lxc exec "${m}" -- snap disable microceph || true
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   echo "Creating a MicroCloud with ZFS storage and OVN network"
   unset SETUP_CEPH CEPH_FILTER CEPH_WIPE
 
-  SETUP_OVN="yes"
-  OVN_FILTER="enp6s0"
-  IPV4_SUBNET="10.1.123.1/24"
-  IPV4_START="10.1.123.100"
-  IPV4_END="10.1.123.254"
-  IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd "${m}" 3 disk1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+    validate_system_lxd "${m}" 3 disk1 0 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
     validate_system_microovn "${m}"
   done
 
@@ -89,14 +89,14 @@ test_interactive() {
 
   echo "Creating a MicroCloud with ZFS and Ceph storage, and OVN network"
   unset SKIP_SERVICE
-  SETUP_CEPH="yes"
-  CEPH_FILTER="lxd_disk2"
-  CEPH_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export CEPH_FILTER="lxd_disk2"
+  export CEPH_WIPE="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd "${m}" 3 disk1 3 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+    validate_system_lxd "${m}" 3 disk1 3 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
     validate_system_microceph "${m}" disk2
     validate_system_microovn "${m}"
   done
@@ -261,17 +261,17 @@ test_case() {
     # Number of available interfaces per system.
     num_ifaces="${3}"
 
-    skip_services="${4:-}"
+    shift 3
+    skip_services="${*}"
 
     # Refuse to create local storage, even if we have enough disks and peers.
-    force_no_zfs="$(echo ${@} | grep -wo zfs || true)"
+    force_no_zfs="$(echo "${skip_services}" | grep -Fwo zfs || true)"
 
     # Refuse to create ceph storage, even if we have enough disks and peers.
-    force_no_ceph="$(echo ${@} | grep -o ceph || true)"
+    force_no_ceph="$(echo "${skip_services}" | grep -Fwo ceph || true)"
 
     # Refuse to create ovn network, even if we have enough interfaces and peers.
-    force_no_ovn="$(echo ${@} | grep -o ovn || true)"
-
+    force_no_ovn="$(echo "${skip_services}" | grep -Fwo ovn || true)"
 
     expected_zfs_disk=""
     expected_ceph_disks=0
@@ -280,7 +280,7 @@ test_case() {
     unset_interactive_vars
 
     reset_systems "${num_systems}" "${num_disks}" "${num_ifaces}"
-    printf "Creating a MicroCloud with ${num_systems} systems, ${num_disks} disks, ${num_ifaces} extra interfaces"
+    printf "Creating a MicroCloud with %d systems, %d disks, %d extra interfaces" "${num_systems}" "${num_disks}" "${num_ifaces}"
     if [ -n "${force_no_zfs}" ]; then
       printf ", and skipping zfs setup"
     fi
@@ -314,7 +314,7 @@ test_case() {
     if [ "${num_disks}" -gt 0 ] && [ "${num_systems}" -ge 3 ] ; then
       # If we only have one disk and we used it for ZFS, there should be no prompt.
       if [ "${num_disks}" = 1 ] && [ -z "${force_no_zfs}" ] ; then
-        insufficient_disks_warning=1
+        echo "Insufficient disks"
       elif [ -z "${force_no_ceph}" ]; then
         SETUP_CEPH="yes"
         CEPH_WIPE="yes"
@@ -345,12 +345,12 @@ test_case() {
     fi
 
     microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
-    lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+    lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
     for i in $(seq 1 "${num_systems}") ; do
       name="$(printf "micro%02d" "${i}")"
 
       if [ -n "${expected_ovn_iface}" ]; then
-        validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_ovn_iface}" 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+        validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_ovn_iface}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
       else
         validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_ovn_iface}"
       fi
@@ -363,8 +363,8 @@ test_case() {
       ceph_disks=""
 
       if [ "${expected_ceph_disks}" -gt 0 ]; then
-        for i in $(seq "${start_disk}" "${num_disks}"); do
-          ceph_disks="$(echo "${ceph_disks} disk${i}" | sed -e 's/^ //')"
+        for j in $(seq "${start_disk}" "${num_disks}"); do
+          ceph_disks="$(echo "${ceph_disks} disk${j}" | sed -e 's/^ //')"
         done
       fi
 
@@ -436,23 +436,23 @@ test_interactive_combinations() {
 test_service_mismatch() {
   unset_interactive_vars
   # Selects all available systems, adds 1 local disk per system, skips ceph and ovn setup.
-  LOOKUP_IFACE="enp5s0"
-  LIMIT_SUBNET="yes"
-  EXPECT_PEERS=2
-  SETUP_ZFS="yes"
-  ZFS_FILTER="lxd_disk1"
-  ZFS_WIPE="yes"
-  SETUP_CEPH="no"
-  SETUP_OVN="no"
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="no"
+  export SETUP_OVN="no"
 
   # Restore the snapshots from the previous test.
   reset_systems 3 3 1
 
   # Install microceph and microovn on the first machine only.
   for m in micro02 micro03 ; do
-    lxc exec ${m} -- sh -c "snap remove microceph --purge"
-    lxc exec ${m} -- sh -c "snap remove microovn --purge"
-    lxc exec ${m} -- sh -c "snap restart microcloud"
+    lxc exec "${m}" -- snap remove microceph --purge
+    lxc exec "${m}" -- snap remove microovn --purge
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   # Init should fail to find the other systems as they don't have the same services.
@@ -461,7 +461,7 @@ test_service_mismatch() {
   ! microcloud_interactive | lxc exec micro01 -- sh -c "timeout -k 5 30 microcloud init > out" || false
 
   # Ensure we exited while still looking for servers, and found none.
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "Scanning for eligible servers" -q
+  lxc exec micro01 -- tail -1 out | grep "Scanning for eligible servers" -q
 
   # Install the remaining services on the other systems.
   lxc exec micro02 -- sh -c "snap install microceph microovn"
@@ -471,7 +471,7 @@ test_service_mismatch() {
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1
     validate_system_microceph "${m}"
@@ -493,7 +493,7 @@ test_service_mismatch() {
   echo "Creating a MicroCloud without setting up MicroOVN and MicroCeph on peers"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1
   done
@@ -512,18 +512,18 @@ test_disk_mismatch() {
 
   echo "Creating a MicroCloud with fully remote ceph on one node"
   unset_interactive_vars
-  LOOKUP_IFACE="enp5s0"
-  LIMIT_SUBNET="yes"
-  EXPECT_PEERS=3
-  SETUP_ZFS="yes"
-  ZFS_FILTER="lxd_disk1"
-  ZFS_WIPE="yes"
-  SETUP_CEPH="yes"
-  CEPH_WARNING="yes"
-  CEPH_WIPE="yes"
-  SETUP_OVN="no"
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=3
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export CEPH_WARNING="yes"
+  export CEPH_WIPE="yes"
+  export SETUP_OVN="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 micro04 ; do
     validate_system_lxd "${m}" 4 disk1 6
     validate_system_microovn "${m}"
@@ -544,7 +544,7 @@ test_auto() {
 
   echo MicroCloud auto setup without any peers.
   ! lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out 2>&1" || false
-  lxc exec micro01 -- sh -c "cat out" | tail -1 | grep -q "Error: Found no available systems"
+  lxc exec micro01 -- tail -1 out | grep -q "Error: Found no available systems"
 
   lxc exec micro02 -- sh -c "snap start microcloud"
 
