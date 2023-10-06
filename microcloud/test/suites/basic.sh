@@ -27,7 +27,7 @@ test_interactive() {
   done
 
   echo "Creating a MicroCloud with ZFS storage"
-  SKIP_SERVICE=yes
+  SKIP_SERVICE="yes"
   SETUP_ZFS="yes"
   ZFS_FILTER="lxd_disk1"
   ZFS_WIPE="yes"
@@ -254,18 +254,18 @@ EOF
 test_case() {
     # Number of systems to use in the test.
     local num_systems num_disks num_ifaces skip_services
-    num_systems=$1
+    num_systems="${1}"
 
     # Number of available disks per system.
-    num_disks=$2
+    num_disks="${2}"
 
     # Number of available interfaces per system.
-    num_ifaces=$3
+    num_ifaces="${3}"
 
-    skip_services=${4:-}
+    skip_services="${4:-}"
 
     # Refuse to create local storage, even if we have enough disks and peers.
-    force_no_zfs="$(echo ${@} | grep -o zfs || true)"
+    force_no_zfs="$(echo ${@} | grep -wo zfs || true)"
 
     # Refuse to create ceph storage, even if we have enough disks and peers.
     force_no_ceph="$(echo ${@} | grep -o ceph || true)"
@@ -280,7 +280,7 @@ test_case() {
 
     unset_interactive_vars
 
-    reset_systems ${num_systems} ${num_disks} ${num_ifaces}
+    reset_systems "${num_systems}" "${num_disks}" "${num_ifaces}"
     printf "Creating a MicroCloud with ${num_systems} systems, ${num_disks} disks, ${num_ifaces} extra interfaces"
     if [ -n "${force_no_zfs}" ]; then
       printf ", and skipping zfs setup"
@@ -296,44 +296,44 @@ test_case() {
 
     printf "\n"
 
-    LOOKUP_IFACE=enp5s0 # filter string for the lookup interface table.
-    LIMIT_SUBNET=yes # (yes/no) input for limiting lookup of systems to the above subnet.
+    LOOKUP_IFACE="enp5s0" # filter string for the lookup interface table.
+    LIMIT_SUBNET="yes" # (yes/no) input for limiting lookup of systems to the above subnet.
 
-    EXPECT_PEERS=$((num_systems - 1))
+    EXPECT_PEERS="$((num_systems - 1))"
 
-    if [ ${num_disks} -gt 0 ] ; then
+    if [ "${num_disks}" -gt 0 ] ; then
       if [ -z "${force_no_zfs}" ]; then
-        SETUP_ZFS=yes
-        ZFS_FILTER=disk1
-        ZFS_WIPE=yes
+        SETUP_ZFS="yes"
+        ZFS_FILTER="disk1"
+        ZFS_WIPE="yes"
         expected_zfs_disk="disk1"
       else
-        SETUP_ZFS=no
+        SETUP_ZFS="no"
       fi
     fi
 
-    if [ ${num_disks} -gt 0 ] && [ ${num_systems} -ge 3 ] ; then
+    if [ "${num_disks}" -gt 0 ] && [ "${num_systems}" -ge 3 ] ; then
       # If we only have one disk and we used it for ZFS, there should be no prompt.
-      if [ ${num_disks} = 1 ] && [ -z "${force_no_zfs}" ] ; then
+      if [ "${num_disks}" = 1 ] && [ -z "${force_no_zfs}" ] ; then
         insufficient_disks_warning=1
       elif [ -z "${force_no_ceph}" ]; then
-        SETUP_CEPH=yes
-        CEPH_WIPE=yes
-        expected_ceph_disks=${num_disks}
+        SETUP_CEPH="yes"
+        CEPH_WIPE="yes"
+        expected_ceph_disks="${num_disks}"
         if [ -n "${expected_zfs_disk}" ]; then
-          expected_ceph_disks=$((num_disks - 1))
+          expected_ceph_disks="$((num_disks - 1))"
         fi
       else
-        SETUP_CEPH=no
+        SETUP_CEPH="no"
       fi
     fi
 
-    if [ ${num_ifaces} -gt 0 ] && [ ${num_systems} -ge 3 ] ; then
+    if [ "${num_ifaces}" -gt 0 ] && [ "${num_systems}" -ge 3 ] ; then
       if [ -z "${force_no_ovn}" ] ; then
-        SETUP_OVN=yes
+        SETUP_OVN="yes"
 
         # Always pick the first available interface.
-        OVN_FILTER=enp6s0
+        OVN_FILTER="enp6s0"
         IPV4_SUBNET="10.1.123.1/24"
         IPV4_START="10.1.123.100"
         IPV4_END="10.1.123.254"
@@ -341,19 +341,19 @@ test_case() {
 
         expected_ovn_iface="enp6s0"
       else
-        SETUP_OVN=no
+        SETUP_OVN="no"
       fi
     fi
 
     microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
     lxc exec micro01 -- sh -c "cat out" | tail -1 | grep "MicroCloud is ready" -q
-    for i in $(seq 1 ${num_systems}) ; do
-      name=$(printf "micro%02d" $i)
+    for i in $(seq 1 "${num_systems}") ; do
+      name="$(printf "micro%02d" "${i}")"
 
       if [ -n "${expected_ovn_iface}" ]; then
-        validate_system_lxd "${name}" ${num_systems} "${expected_zfs_disk}" ${expected_ceph_disks} "${expected_ovn_iface}" 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+        validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_ovn_iface}" 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
       else
-        validate_system_lxd "${name}" ${num_systems} "${expected_zfs_disk}" ${expected_ceph_disks} "${expected_ovn_iface}"
+        validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_ovn_iface}"
       fi
 
       start_disk=1
@@ -363,13 +363,13 @@ test_case() {
 
       ceph_disks=""
 
-      if [ ${expected_ceph_disks} -gt 0 ]; then
-        for i in $(seq $start_disk $num_disks); do
-          ceph_disks=$(echo "${ceph_disks} disk${i}" | sed -e 's/^ //')
+      if [ "${expected_ceph_disks}" -gt 0 ]; then
+        for i in $(seq "${start_disk}" "${num_disks}"); do
+          ceph_disks="$(echo "${ceph_disks} disk${i}" | sed -e 's/^ //')"
         done
       fi
 
-      validate_system_microceph "${name}" ${ceph_disks}
+      validate_system_microceph "${name}" "${ceph_disks}"
       validate_system_microovn "${name}"
     done
   }
@@ -381,53 +381,53 @@ test_interactive_combinations() {
 
       # A setup with 3 disks is redundant if we have less than 3 peers,
       # since we have already covered having too many disks for zfs with 2 disks per system.
-      if [ ${num_systems} -ge 3 ] ; then
+      if [ "${num_systems}" -ge 3 ] ; then
         max_disks=3
       fi
 
-      for num_disks in $(seq 0 ${max_disks}) ; do
+      for num_disks in $(seq 0 "${max_disks}") ; do
         # A setup with OVN interfaces is not necessary with fewer
         # than 3 machines as OVN setup will get skipped anyway.
         max_ifaces=0
-        if [ ${num_systems} -ge 3 ]; then
+        if [ "${num_systems}" -ge 3 ]; then
           max_ifaces=2
-          if [ ${num_disks} -gt 0 ]; then
+          if [ "${num_disks}" -gt 0 ]; then
             # If we are testing disks too, just stick to one interface, or none.
             max_ifaces=1
           fi
         fi
 
-        for num_ifaces in $(seq 0 ${max_ifaces}) ; do
+        for num_ifaces in $(seq 0 "${max_ifaces}") ; do
           # Run a test without forcibly skipping any services.
-          test_case ${num_systems} ${num_disks} ${num_ifaces}
+          test_case "${num_systems}" "${num_disks}" "${num_ifaces}"
 
-          if [ ${num_systems} -lt 3 ]; then
-            if [ ${num_disks} -gt 0 ] ; then
+          if [ "${num_systems}" -lt 3 ]; then
+            if [ "${num_disks}" -gt 0 ] ; then
               # If we have fewer than 3 systems, we can still create ZFS so test forcibly skipping it.
-              test_case ${num_systems} ${num_disks} ${num_ifaces} "zfs"
+              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
             fi
 
           # Only run additional tests with skipped services if we actually have devices to set up.
-          elif [ ${num_ifaces} = 1 ]; then
-            if [ ${num_disks} -gt 0 ] ; then
+          elif [ "${num_ifaces}" = 1 ]; then
+            if [ "${num_disks}" -gt 0 ] ; then
               # Test forcibly skipping ZFS, sending available disks to Ceph instead.
-              test_case ${num_systems} ${num_disks} ${num_ifaces} "zfs"
-              if [ ${num_disks} -gt 1 ] ; then
+              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
+              if [ "${num_disks}" -gt 1 ] ; then
                 # Test forcibly skipping Ceph only if we have extra disks after ZFS setup.
-                test_case ${num_systems} ${num_disks} ${num_ifaces} "ceph"
+                test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ceph"
               fi
 
               # Test forcibly skipping both Ceph and ZFS to create no storage devices.
-              test_case ${num_systems} ${num_disks} ${num_ifaces} "zfs" "ceph"
+              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph"
 
               # Test forcibly skipping Ceph, ZFS, and OVN to get a FAN device.
-              test_case ${num_systems} ${num_disks} ${num_ifaces} "zfs" "ceph" "ovn"
+              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph" "ovn"
             fi
           fi
 
-          if [ ${num_systems} -ge 3 ] && [ ${num_ifaces} -gt 0 ]; then
+          if [ "${num_systems}" -ge 3 ] && [ "${num_ifaces}" -gt 0 ]; then
               # Test forcibly skipping OVN whenever we can assign interfaces.
-              test_case ${num_systems} ${num_disks} ${num_ifaces} "ovn"
+              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ovn"
           fi
         done
     done
