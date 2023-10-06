@@ -556,7 +556,7 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Supress the first message from LXD.
-    lxc exec ${m} -- sh -c "lxc ls >> /dev/null 2>&1" || true
+    lxc exec ${m} -- sh -c "lxc list > /dev/null 2>&1" || true
 
     # Ensure we created no storage devices.
     lxc exec ${m} -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
@@ -607,7 +607,7 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Supress the first message from LXD.
-    lxc exec ${m} -- sh -c "lxc ls >> /dev/null 2>&1" || true
+    lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
     lxc exec ${m} -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
