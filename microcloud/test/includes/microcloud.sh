@@ -749,7 +749,7 @@ cleanup_systems() {
 # setup_lxd: create a dedicate project in the host's LXD to use for the testbed
 #            it also sets core.https_address to make the LXD API available to MAAS and Juju
 setup_lxd_project() {
-	# Create project
+  # Create project
   (
     set -eu
 
@@ -771,8 +771,6 @@ setup_lxd_project() {
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-      - curl
     write_files:
       - content: |
           #!/bin/sh
