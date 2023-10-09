@@ -1,10 +1,13 @@
+AGPL
 APIs
 backend
 Ceph
 CIDR
 CLI
 color
+DCO
 DHCP
+Diátaxis
 DNS
 Furo
 GiB
