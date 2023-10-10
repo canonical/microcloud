@@ -121,6 +121,7 @@ fi
 new_systems 4 3 3
 
 if [ "${1:-"all"}" != "cluster" ]; then
+  run_test test_instances "instances"
   run_test test_interactive "interactive"
   run_test test_service_mismatch "service mismatch"
   run_test test_disk_mismatch "disk mismatch"

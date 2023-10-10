@@ -3,6 +3,7 @@ test_preseed() {
   reset_systems 4 3 2
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
 
+  # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${addr}/24
@@ -59,6 +60,7 @@ EOF
   validate_system_microceph micro02 disk1 disk3
   validate_system_microovn micro02
 
+  # Grow the MicroCloud with a new node, with filter-based storage selection.
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${addr}/24
@@ -87,6 +89,7 @@ EOF
   reset_systems 3 3 2
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
 
+  # Create a MicroCloud but don't set up storage or network (Should get a FAN setup).
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${addr}/24
@@ -107,6 +110,7 @@ EOF
   reset_systems 3 3 2
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
 
+  # Create a MicroCloud if we don't have MicroOVN or MicroCeph installed.
   lxc exec micro01 -- sh -c "
   snap disable microceph
   snap disable microovn
