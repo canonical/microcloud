@@ -43,7 +43,7 @@ jobs:
     name: Trigger snap edge build
     runs-on: ubuntu-22.04
     needs: [code-tests, documentation-checks]
-    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push'}}
+    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]'}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
