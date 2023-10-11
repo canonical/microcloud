@@ -13,8 +13,8 @@ VENV          = $(VENVDIR)/bin/activate
 
 
 # Put it first so that "make" without argument is like "make help".
-help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+help: $(VENVDIR)
+	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 .PHONY: help
 
@@ -31,7 +31,7 @@ $(VENVDIR): $(SPHINXDIR)/requirements.txt
         --log $(VENVDIR)/pip_install.log
 	@test ! -f $(VENVDIR)/pip_list.txt || \
         mv $(VENVDIR)/pip_list.txt $(VENVDIR)/pip_list.txt.bak
-	@pip list --local --format=freeze > $(VENVDIR)/pip_list.txt
+	@. $(VENV); pip list --local --format=freeze > $(VENVDIR)/pip_list.txt
 	@echo "\n" \
         "--------------------------------------------------------------- \n" \
         "* watch, build and serve the documentation: make run \n" \
@@ -115,6 +115,7 @@ linkcheck: install
 
 woke: woke-install
 	woke *.rst **/*.rst \
+		--exit-1-on-failure \
         -c https://github.com/canonical/Inclusive-naming/raw/main/config.yml
 
 .PHONY: woke
