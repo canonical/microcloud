@@ -36,8 +36,10 @@ extensions.extend(custom_extensions)
 # Additional MyST syntax
 myst_enable_extensions = [
     'substitution',
-    'deflist'
+    'deflist',
+    'linkify'
 ]
+myst_enable_extensions.extend(custom_myst_extensions)
 
 # Used for related links
 if not 'discourse_prefix' in html_context and 'discourse' in html_context:
@@ -90,6 +92,10 @@ linkcheck_anchors_ignore_for_url = [
 ]
 linkcheck_anchors_ignore_for_url.extend(custom_linkcheck_anchors_ignore_for_url)
 
+# Tags cannot be added directly in custom_conf.py, so add them here
+for tag in custom_tags:
+    tags.add(tag)
+
 ############################################################
 ### Styling
 ############################################################
@@ -107,6 +113,11 @@ if builder == 'dirhtml' or builder == 'html':
 html_theme = 'furo'
 html_last_updated_fmt = ''
 html_permalinks_icon = '¶'
+
+if html_title == '':
+    html_theme_options = {
+        'sidebar_hide_name': True
+        }
 
 ############################################################
 ### Additional files

@@ -96,7 +96,7 @@ Keep cluster members in sync
 The cluster members that are part of the MicroCloud deployment must always run the same version of the snaps.
 This means that when the snaps on one of the cluster members are refreshed, they must also be refreshed on all other cluster members before MicroCloud is operational again.
 
-Snaps updates are delivered as `progressive releases`_, which means that updated snap versions are made available to different machines at different times.
+Snap updates are delivered as `progressive releases`_, which means that updated snap versions are made available to different machines at different times.
 This method can cause a problem for cluster updates if some cluster members are refreshed to a version that is not available to other cluster members yet.
 
 To avoid this problem, use the ``--cohort="+"`` flag when refreshing your snaps::
