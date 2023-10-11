@@ -1,5 +1,5 @@
 // Package version provides shared version information.
 package version
 
-// Version is the current API version.
-const Version = "0.1"
+// Version is the current version of MicroCloud.
+const Version = "1.1"
