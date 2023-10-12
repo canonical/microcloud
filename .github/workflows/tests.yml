@@ -44,6 +44,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
+      - name: Build
+        working-directory: microcloud
+        run: make
+
       - name: Run static analysis
         working-directory: microcloud
         run: make check-static
