@@ -140,8 +140,6 @@ systems:
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-      - curl
     write_files:
       - content: |
           #!/bin/sh
@@ -218,8 +216,6 @@ ovn:
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-      - curl
     write_files:
       - content: |
           #!/bin/sh
