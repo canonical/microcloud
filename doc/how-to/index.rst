@@ -14,3 +14,4 @@ These how-to guides cover key operations and processes in MicroCloud.
    Add a machine </how-to/add_machine>
    Get support </how-to/support>
    Contribute to MicroCloud </how-to/contribute>
+   Work with MicroCloud </how-to/commands>
