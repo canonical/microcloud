@@ -188,3 +188,45 @@ func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKe
 		Value:  "lxd_remote",
 	}
 }
+
+// DefaultPendingCephFSStoragePool returns the default cephfs storage configuration when
+// creating a pending pool on a specific cluster member target.
+func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
+	return api.StoragePoolsPost{
+		Name:   "remote-fs",
+		Driver: "cephfs",
+		StoragePoolPut: api.StoragePoolPut{
+			Config: map[string]string{
+				"source": "lxd_cephfs",
+			},
+		},
+	}
+}
+
+// DefaultCephFSStoragePool returns the default cephfs storage configuration when
+// creating the finalized pool.
+func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
+	return api.StoragePoolsPost{
+		Name:   "remote-fs",
+		Driver: "cephfs",
+		StoragePoolPut: api.StoragePoolPut{
+			Config: map[string]string{
+				"cephfs.create_missing": "true",
+				"cephfs.meta_pool":      "lxd_cephfs_meta",
+				"cephfs.data_pool":      "lxd_cephfs_data",
+			},
+			Description: "Distributed file-system storage using CephFS",
+		},
+	}
+}
+
+// DefaultCephFSStoragePoolJoinConfig returns the default cephfs storage configuration when
+// joining an existing cluster.
+func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
+	return api.ClusterMemberConfigKey{
+		Entity: "storage-pool",
+		Name:   "remote-fs",
+		Key:    "source",
+		Value:  "lxd_cephfs",
+	}
+}
