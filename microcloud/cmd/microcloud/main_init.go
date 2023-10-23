@@ -48,7 +48,7 @@ type cmdInit struct {
 	flagAutoSetup    bool
 	flagWipeAllDisks bool
 	flagAddress      string
-	flagPreseed      string
+	flagPreseed      bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -62,7 +62,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
-	cmd.Flags().StringVar(&c.flagPreseed, "preseed", "", "Preseed YAML for configuring MicroCloud")
+	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
 
 	return cmd
 }
@@ -72,8 +72,8 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	if c.flagPreseed != "" {
-		return c.common.RunPreseed(cmd, c.flagPreseed, true)
+	if c.flagPreseed {
+		return c.common.RunPreseed(cmd, true)
 	}
 
 	return c.RunInteractive(cmd, args)

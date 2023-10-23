@@ -5,8 +5,7 @@ test_preseed() {
   addr="$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)/24"
 
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+preseed="
 lookup_subnet: ${addr}
 systems:
 - name: micro01
@@ -45,10 +44,9 @@ storage:
       find_min: 2
       find_max: 2
       wipe: true
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
 
   for m in micro01 micro03 ; do
     validate_system_lxd ${m} 3 disk1 2 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
@@ -62,8 +60,7 @@ EOF
   validate_system_microovn micro02
 
   # Grow the MicroCloud with a new node, with filter-based storage selection.
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+preseed="
 lookup_subnet: ${addr}
 systems:
 - name: micro04
@@ -79,11 +76,9 @@ storage:
       find_min: 1
       find_max: 1
       wipe: true
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed /var/snap/microcloud/common/preseed.yaml
-
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed <<< "${preseed}"
   validate_system_lxd micro04 4 disk1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
   validate_system_microceph micro04 disk2
   validate_system_microovn micro04
@@ -91,18 +86,15 @@ EOF
   reset_systems 3 3 2
 
   # Create a MicroCloud but don't set up storage or network (Should get a FAN setup).
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+preseed="
 lookup_subnet: ${addr}
 systems:
 - name: micro01
 - name: micro02
 - name: micro03
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
-
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd ${m} 3
     validate_system_microceph ${m}
@@ -116,18 +108,15 @@ EOF
   lxc exec micro01 -- snap disable microovn
   sleep 1
 
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+preseed="
 lookup_subnet: ${addr}
 systems:
 - name: micro01
 - name: micro02
 - name: micro03
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
-
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd ${m} 3
   done
