@@ -60,8 +60,9 @@ type InitNetwork struct {
 
 // StorageFilter separates the filters used for local and ceph disks.
 type StorageFilter struct {
-	Local []DiskFilter `yaml:"local"`
-	Ceph  []DiskFilter `yaml:"ceph"`
+	CephFS bool         `yaml:"cephfs"`
+	Local  []DiskFilter `yaml:"local"`
+	Ceph   []DiskFilter `yaml:"ceph"`
 }
 
 // DiskFilter is the optional filter for finding disks according to their fields in api.ResourcesStorageDisk in LXD.
@@ -653,6 +654,21 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 
 	if bootstrap && len(zfsMachines)+len(directZFSMatches) > 0 && len(zfsMachines)+len(directZFSMatches) < len(systems) {
 		return nil, fmt.Errorf("Failed to find at least 1 disk on each machine for local storage pool configuration")
+	}
+
+	if len(cephMatches)+len(directCephMatches) > 0 && p.Storage.CephFS {
+		for name, system := range systems {
+			if bootstrap {
+				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
+				if s.Name == name {
+					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())
+				}
+			} else {
+				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephFSStoragePoolJoinConfig())
+			}
+
+			systems[name] = system
+		}
 	}
 
 	return systems, nil

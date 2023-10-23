@@ -502,11 +502,64 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	}
 
 	_, checkMinSize := systems[sh.Name]
-	if !checkMinSize || diskCount >= 3 {
-		return nil
+	if checkMinSize && diskCount < 3 {
+		return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 	}
 
-	return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
+	setupCephFS := false
+	_, bootstrap := systems[sh.Name]
+	if bootstrap && !autoSetup {
+		var err error
+		ext := "storage_cephfs_create_missing"
+		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
+		if err != nil {
+			return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
+		}
+
+		if hasCephFS {
+			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if !bootstrap {
+		d, err := sh.Services[types.LXD].(*service.LXDService).Client(context.Background(), "")
+		if err != nil {
+			return err
+		}
+
+		pools, err := d.GetStoragePools()
+		if err != nil {
+			return err
+		}
+
+		// If "cephfs" has been setup already, then set it up for the new system too.
+		for _, pool := range pools {
+			if pool.Driver == "cephfs" {
+				setupCephFS = true
+				break
+			}
+		}
+	}
+
+	if setupCephFS {
+		for name, system := range systems {
+			if bootstrap {
+				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
+				if sh.Name == name {
+					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())
+				}
+			} else {
+				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephFSStoragePoolJoinConfig())
+			}
+
+			systems[name] = system
+		}
+	}
+
+	return nil
 }
 
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
