@@ -2,11 +2,11 @@
 
 test_preseed() {
   reset_systems 4 3 2
-  addr="$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)/24"
+  lookup_addr="$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)/24"
 
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
 preseed="
-lookup_subnet: ${addr}
+lookup_subnet: ${lookup_addr}
 systems:
 - name: micro01
   ovn_uplink_interface: enp6s0
@@ -61,7 +61,7 @@ storage:
 
   # Grow the MicroCloud with a new node, with filter-based storage selection.
 preseed="
-lookup_subnet: ${addr}
+lookup_subnet: ${lookup_addr}
 systems:
 - name: micro04
   ovn_uplink_interface: enp6s0
@@ -87,7 +87,7 @@ storage:
 
   # Create a MicroCloud but don't set up storage or network (Should get a FAN setup).
 preseed="
-lookup_subnet: ${addr}
+lookup_subnet: ${lookup_addr}
 systems:
 - name: micro01
 - name: micro02
@@ -109,7 +109,7 @@ systems:
   sleep 1
 
 preseed="
-lookup_subnet: ${addr}
+lookup_subnet: ${lookup_addr}
 systems:
 - name: micro01
 - name: micro02
