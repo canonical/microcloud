@@ -128,7 +128,7 @@ systems:
       wipe: true
 "
 
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --preseed /root/preseed.yaml"
+  lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
 
   # Add cloud-init entry for checking ready state on launched instances.
   lxc exec micro01 -- sh -c "
@@ -204,7 +204,7 @@ ovn:
   ipv6_gateway: fd42:1:1234:1234::1/64
 "
 
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --preseed /root/preseed.yaml"
+  lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
 
   # Add cloud-init entry for checking ready state on launched instances.
   lxc exec micro01 -- sh -c "
