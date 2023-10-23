@@ -539,6 +539,10 @@ cluster_reset() {
           microceph.ceph tell mon.\* injectargs '--mon-allow-pool-delete=true'
           lxc storage rm remote || true
           microceph.rados purge lxd_remote --yes-i-really-really-mean-it --force
+          microceph.ceph fs fail lxd_cephfs || true
+          microceph.ceph fs rm lxd_cephfs  --yes-i-really-mean-it || true
+          microceph.rados purge lxd_cephfs_meta --yes-i-really-really-mean-it --force || true
+          microceph.rados purge lxd_cephfs_data --yes-i-really-really-mean-it --force || true
           microceph.rados purge .mgr --yes-i-really-really-mean-it --force
 
           for pool in \$(microceph.ceph osd pool ls) ; do
