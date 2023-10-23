@@ -222,7 +222,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 			if wantsDisks {
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return askRemotePool(systems, autoSetup, wipeAllDisks, sh)
+					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
 				})
 			} else {
 				// Add a space between the CLI and the response.
@@ -401,7 +401,7 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 	return nil
 }
 
-func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
+func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for peer, system := range systems {
