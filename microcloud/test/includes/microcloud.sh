@@ -2,7 +2,7 @@
 unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE \
+    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS \
     SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END CUSTOM_DNS_ADDRESSES IPV6_SUBNET
 }
 
@@ -19,6 +19,7 @@ microcloud_interactive() {
   ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
   ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
   SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
   CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
   CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
   CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
@@ -68,6 +69,7 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matchi
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
+${SETUP_CEPHFS}
 EOF
 )
 fi
@@ -121,6 +123,12 @@ validate_system_microceph() {
     name=${1}
     shift 1
 
+    cephfs=0
+    if echo "${1}" | grep -Pq '\d+'; then
+      cephfs="${1}"
+      shift 1
+    fi
+
     disks="${*}"
 
     echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}"
@@ -141,6 +149,14 @@ validate_system_microceph() {
      echo \"\${count_disks}\" | jq '.status_code' | grep -q 200
      echo \"\${count_disks}\" | jq '.metadata .Results[0] .rows[0][0]' | grep -q \${count}
     "
+
+    if [ "${cephfs}" = 1 ]; then
+      lxc exec "${name}" -- sh -ceu "
+        microceph.ceph fs get lxd_cephfs
+        microceph.ceph osd pool get lxd_cephfs_meta size
+        microceph.ceph osd pool get lxd_cephfs_data size
+      " > /dev/null
+    fi
 }
 
 # validate_system_microovn: Ensures the node with the given name has correctly set up MicroOVN with the given resources.
@@ -178,7 +194,7 @@ validate_system_lxd_zfs() {
 # validate_system_lxd_ceph: Ensures the node with the given name has ceph storage set up.
 validate_system_lxd_ceph() {
   name=${1}
-  remote_disks=${2:-0}
+  cephfs=${2}
   echo "    ${name} Validating Ceph storage"
   cfg=$(lxc storage show remote)
   echo "${cfg}" | grep -q "ceph.cluster_name: ceph"
@@ -194,6 +210,20 @@ validate_system_lxd_ceph() {
   cfg=$(lxc storage show remote --target "${name}")
   echo "${cfg}" | grep -q "source: lxd_remote"
   echo "${cfg}" | grep -q "status: Created"
+
+  if [ "${cephfs}" = 1 ]; then
+    cfg=$(lxc storage show remote-fs)
+    echo "${cfg}" | grep -q "status: Created"
+    echo "${cfg}" | grep -q "driver: cephfs"
+    echo "${cfg}" | grep -q "cephfs.meta_pool: lxd_cephfs_meta"
+    echo "${cfg}" | grep -q "cephfs.data_pool: lxd_cephfs_data"
+
+    cfg=$(lxc storage show remote-fs --target "${name}")
+    echo "${cfg}" | grep -q "source: lxd_cephfs"
+    echo "${cfg}" | grep -q "status: Created"
+  else
+   ! lxc storage show remote-fs || true
+  fi
 }
 
 # validate_system_lxd_ovn: Ensures the node with the given name and config has ovn network set up correctly.
@@ -222,7 +252,7 @@ validate_system_lxd_ovn() {
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
-    dns_addresses=$(lxc exec ${name} -- sh -c "lxc network get UPLINK dns.nameservers")
+    dns_addresses=$(lxc exec "${name}" -- sh -c "lxc network get UPLINK dns.nameservers")
     if [ "${dns_addresses}" != "${dns_namesersers}" ] ; then
       echo "ERROR: UPLINK network has wrong DNS server addresses: ${dns_addresses}"
       return 1
@@ -269,11 +299,12 @@ validate_system_lxd() {
     num_peers=${2}
     local_disk=${3:-}
     remote_disks=${4:-0}
-    ovn_interface=${5:-}
-    ipv4_gateway=${6:-}
-    ipv4_ranges=${7:-}
-    ipv6_gateway=${8:-}
-    dns_namesersers=${9:-}
+    cephfs=${5:-0}
+    ovn_interface=${6:-}
+    ipv4_gateway=${7:-}
+    ipv4_ranges=${8:-}
+    ipv6_gateway=${9:-}
+    dns_namesersers=${10:-}
 
     echo "==> ${name} Validating LXD with ${num_peers} peers"
     echo "    ${name} Local Disk: {${local_disk}}, Remote Disks: {${remote_disks}}, OVN Iface: {${ovn_interface}}"
@@ -312,7 +343,7 @@ validate_system_lxd() {
     fi
 
     if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
-      validate_system_lxd_ceph "${name}" "${remote_disks}"
+      validate_system_lxd_ceph "${name}" "${cephfs}"
     fi
 
     echo "    ${name} Validating Profiles"
