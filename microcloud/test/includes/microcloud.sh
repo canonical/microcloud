@@ -435,7 +435,9 @@ reset_system() {
 
     lxc start "${name}" || true
 
-    lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+    if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
+      lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+    fi
 
     lxc exec "${name}" -- ip link del lxdfan0 || true
 
@@ -494,13 +496,19 @@ cluster_reset() {
     fi
 
     lxc exec "${name}" -- sh -c "
-      for m in \$(lxc ls -f csv -c n) ; do
-        lxc rm \$m -f
-      done
+      if lxc ls -f csv -c n > /dev/null
+      then
+        for m in \$(lxc ls -f csv -c n) ; do
+          lxc rm \$m -f
+        done
+      fi
 
-      for f in \$(lxc image ls -f csv -c f) ; do
-        lxc image rm \$f
-      done
+      if lxc image ls -f csv -c f > /dev/null
+      then
+        for f in \$(lxc image ls -f csv -c f) ; do
+          lxc image rm \$f
+        done
+      fi
 
       echo 'config: {}' | lxc profile edit default || true
       lxc storage rm local || true
@@ -858,8 +866,12 @@ setup_system() {
       done
     "
 
-    lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
-    lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install --devmode /root/microcloud.snap"
+    if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
+      lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+      lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install --devmode /root/microcloud.snap"
+    else
+      lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install microcloud --channel latest/edge"
+    fi
   )
 
   # Sleep some time so the snaps are fully set up.
