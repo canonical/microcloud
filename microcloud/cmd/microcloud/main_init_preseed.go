@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -87,14 +88,14 @@ func DiskOperatorSet() filter.OperatorSet {
 }
 
 // RunPreseed initializes MicroCloud from a preseed yaml filepath input.
-func (c *CmdControl) RunPreseed(cmd *cobra.Command, preseed string, init bool) error {
-	fileBytes, err := os.ReadFile(preseed)
+func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
+	bytes, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return fmt.Errorf("Failed to read preseed file %q: %w", preseed, err)
+		return fmt.Errorf("Failed to read from stdin: %w", err)
 	}
 
 	config := Preseed{}
-	err = yaml.Unmarshal(fileBytes, &config)
+	err = yaml.Unmarshal(bytes, &config)
 	if err != nil {
 		return fmt.Errorf("Failed to parse the preseed yaml: %w", err)
 	}
