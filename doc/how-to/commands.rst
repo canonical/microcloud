@@ -122,7 +122,9 @@ See :ref:`lxd:instances-configure`, :ref:`lxd:profiles`, and :ref:`lxd:instance-
 Use ``cloud-init``
 ~~~~~~~~~~~~~~~~~~
 
-See :ref:`lxd:cloud-init`.
+.. rst-class:: spellexception
+
+See :spellexception:`test` :ref:`lxd:cloud-init`.
 
 For example, to import an SSH key:
 
