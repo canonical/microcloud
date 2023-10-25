@@ -6,7 +6,7 @@
 MicroCloud
 ==========
 
-MicroCloud is the easiest way to get a fully highly available LXD cluster up and running.
+MicroCloud allows you to deploy your own fully functional cloud in minutes.
 
 The MicroCloud snap automatically configures `LXD`_, `Ceph`_, and `OVN`_ across a set of servers.
 MicroCloud relies on mDNS to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on one of the machines.
@@ -22,7 +22,7 @@ In this documentation
 
 ..  grid:: 1 1 2 2
 
-   ..  grid-item:: :doc:`Tutorial <tutorial/index>`
+   ..  grid-item:: :doc:`Tutorial <tutorial/get_started>`
 
        **Start here**: a hands-on introduction to MicroCloud for new users
 
@@ -60,7 +60,7 @@ MicroCloud is a member of the Ubuntu family. It’s an open source project that 
    :maxdepth: 2
 
    self
-   tutorial/index
-   how-to/index
-   reference/index
-   explanation/index
+   Tutorial </tutorial/get_started>
+   /how-to/index
+   /reference/index
+   /explanation/index

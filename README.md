@@ -1,6 +1,6 @@
 # **MicroCloud**
 
-**MicroCloud** is the easiest way to get a **fully highly available LXD cluster up and running.**
+**MicroCloud** MicroCloud allows you to deploy your own fully functional cloud in minutes.
 
 It’s a snap package that can automatically configure LXD, Ceph, and OVN across a set of servers.
 It relies on mDNS to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on one of the machines.
