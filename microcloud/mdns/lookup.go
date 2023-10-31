@@ -28,7 +28,7 @@ type ServerInfo struct {
 
 // NetworkInfo represents information about a network interface broadcast by a MicroCloud peer.
 type NetworkInfo struct {
-	Interface string
+	Interface net.Interface
 	Address   string
 	Subnet    *net.IPNet
 }
@@ -58,10 +58,10 @@ func (f forwardingWriter) Write(p []byte) (int, error) {
 }
 
 // LookupPeers finds any broadcasting peers and returns a list of their names.
-func LookupPeers(ctx context.Context, version string, localPeer string) (map[string]ServerInfo, error) {
+func LookupPeers(ctx context.Context, iface *net.Interface, version string, localPeer string) (map[string]ServerInfo, error) {
 	entries := []*mdns.ServiceEntry{}
 	for i := 0; i < ServiceSize; i++ {
-		nextEntries, err := Lookup(ctx, fmt.Sprintf("%s_%d", ClusterService, i), clusterSize)
+		nextEntries, err := Lookup(ctx, iface, fmt.Sprintf("%s_%d", ClusterService, i), clusterSize)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func LookupPeers(ctx context.Context, version string, localPeer string) (map[str
 }
 
 // Lookup searches for the given service name over mdns.
-func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry, error) {
+func Lookup(ctx context.Context, iface *net.Interface, service string, size int) ([]*mdns.ServiceEntry, error) {
 	log.SetOutput(forwardingWriter{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -145,6 +145,7 @@ func Lookup(ctx context.Context, service string, size int) ([]*mdns.ServiceEntry
 	}()
 
 	params := mdns.DefaultParams(service)
+	params.Interface = iface
 	params.Entries = entriesCh
 	params.Timeout = 100 * time.Millisecond
 	err := mdns.Query(params)
@@ -185,7 +186,7 @@ func GetNetworkInfo() ([]NetworkInfo, error) {
 				continue
 			}
 
-			networks = append(networks, NetworkInfo{Interface: iface.Name, Address: ipNet.IP.String(), Subnet: ipNet})
+			networks = append(networks, NetworkInfo{Interface: iface, Address: ipNet.IP.String(), Subnet: ipNet})
 		}
 	}
 

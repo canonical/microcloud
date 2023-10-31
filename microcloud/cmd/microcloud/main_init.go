@@ -93,7 +93,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	systems := map[string]InitSystem{}
 
-	addr, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, subnet, nil, systems)
+	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 // - If `autoSetup` is true, all systems found in the first 5s will be recorded, and no other input is required.
 // - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
 // except it will wait up to a minute for exclusively these systems to be recorded.
-func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
+func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
@@ -214,7 +214,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, expected
 				break
 			}
 
-			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
+			peers, err := mdns.LookupPeers(context.Background(), iface, mdns.Version, s.Name)
 			if err != nil {
 				return err
 			}

@@ -72,22 +72,22 @@ func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs 
 	return services, nil
 }
 
-func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net.IPNet, error) {
+func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net.Interface, *net.IPNet, error) {
 	info, err := mdns.GetNetworkInfo()
 	if err != nil {
-		return "", nil, fmt.Errorf("Failed to find network interfaces: %w", err)
+		return "", nil, nil, fmt.Errorf("Failed to find network interfaces: %w", err)
 	}
 
 	if listenAddr == "" {
 		if len(info) == 0 {
-			return "", nil, fmt.Errorf("Found no valid network interfaces")
+			return "", nil, nil, fmt.Errorf("Found no valid network interfaces")
 		}
 
 		listenAddr = info[0].Address
 		if !autoSetup && len(info) > 1 {
 			data := make([][]string, 0, len(info))
 			for _, net := range info {
-				data = append(data, []string{net.Address, net.Interface})
+				data = append(data, []string{net.Address, net.Interface.Name})
 			}
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
@@ -119,23 +119,23 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 	}
 
 	var subnet *net.IPNet
-
+	var iface *net.Interface
 	for _, network := range info {
 		if network.Subnet.Contains(net.ParseIP(listenAddr)) {
 			subnet = network.Subnet
-
+			iface = &network.Interface
 			break
 		}
 	}
 
 	if subnet == nil {
-		return "", nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
+		return "", nil, nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
 	}
 
 	if !autoSetup {
 		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
-			return "", nil, err
+			return "", nil, nil, err
 		}
 
 		if !filter {
@@ -143,7 +143,7 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 		}
 	}
 
-	return listenAddr, subnet, nil
+	return listenAddr, iface, subnet, nil
 }
 
 func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool) error {
