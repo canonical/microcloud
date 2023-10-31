@@ -7,6 +7,7 @@ test_preseed() {
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${lookup_addr}/24
+lookup_interface: enp5s0
 systems:
 - name: micro01
   ovn_uplink_interface: enp6s0
