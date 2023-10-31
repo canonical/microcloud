@@ -457,7 +457,7 @@ reset_system() {
       disks=\$(lsblk -o NAME,SERIAL | grep \"lxd_disk[0-9]\" | cut -d\" \" -f1 | tac)
       count_disks=\$(echo \"\${disks}\" | wc -l)
       for d in \${disks} ; do
-        if [ \${count_disks} -gt \${num_disks} ]; then
+        if [ \${count_disks} -gt ${num_disks} ]; then
           echo 1 > /sys/block/\${d}/device/delete
         else
           wipefs -af /dev/\${d}
