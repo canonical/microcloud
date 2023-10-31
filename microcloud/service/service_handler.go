@@ -120,7 +120,7 @@ func (s *Handler) Broadcast() error {
 	broadcasts := make([][]cloudMDNS.ServerInfo, cloudMDNS.ServiceSize)
 	for i, net := range networks {
 		info.Address = net.Address
-		info.Interface = net.Interface
+		info.Interface = net.Interface.Name
 
 		services := broadcasts[i%cloudMDNS.ServiceSize]
 		if services == nil {

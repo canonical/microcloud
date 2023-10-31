@@ -57,7 +57,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	systems := map[string]InitSystem{}
-	err = lookupPeers(s, c.flagAutoSetup, subnet, nil, systems)
+	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
