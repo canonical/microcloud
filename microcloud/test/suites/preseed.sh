@@ -7,6 +7,7 @@ test_preseed() {
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
 preseed="
 lookup_subnet: ${lookup_addr}
+lookup_interface: enp5s0
 systems:
 - name: micro01
   ovn_uplink_interface: enp6s0
