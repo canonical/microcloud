@@ -28,7 +28,7 @@ type ServerInfo struct {
 
 // NetworkInfo represents information about a network interface broadcast by a MicroCloud peer.
 type NetworkInfo struct {
-	Interface string
+	Interface net.Interface
 	Address   string
 	Subnet    *net.IPNet
 }
@@ -185,7 +185,7 @@ func GetNetworkInfo() ([]NetworkInfo, error) {
 				continue
 			}
 
-			networks = append(networks, NetworkInfo{Interface: iface.Name, Address: ipNet.IP.String(), Subnet: ipNet})
+			networks = append(networks, NetworkInfo{Interface: iface, Address: ipNet.IP.String(), Subnet: ipNet})
 		}
 	}
 
