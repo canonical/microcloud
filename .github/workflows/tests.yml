@@ -59,7 +59,7 @@ jobs:
         run: make check-unit
 
   documentation-checks:
-    uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
+    uses: tigarmo/documentation-workflows/.github/workflows/documentation-checks.yaml@setup-python-action
     with:
       working-directory: './doc'
 
