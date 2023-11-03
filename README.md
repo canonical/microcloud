@@ -37,7 +37,7 @@ microcloud init
 
 Following the simple CLI prompts, a working MicroCloud will be ready within minutes.
 
-The MicroCloud snap drives three other snaps (LXD, MicroCeph, and MicroOVN), enabling automated deployment of a highly available LXD cluster for compute with Ceph as the storage driver and OVN as the managed network.
+The MicroCloud snap drives three other snaps ([LXD](https://documentation.ubuntu.com/lxd), [MicroCeph](https://canonical-microceph.readthedocs-hosted.com/), and [MicroOVN](https://canonical-microovn.readthedocs-hosted.com/)), enabling automated deployment of a highly available LXD cluster for compute with Ceph as the storage driver and OVN as the managed network.
 
 During initialisation, MicroCloud detects the other servers and then prompts you to add disks to Ceph and configure the networking setup.
 
