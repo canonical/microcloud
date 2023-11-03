@@ -245,6 +245,10 @@ Complete the following steps:
 
      microcloud init
 
+   .. tip::
+      In this tutorial, we initialise MicroCloud interactively.
+      Alternatively, you can use a preseed file for :ref:`howto-initialise-preseed`.
+
 #. Answer the questions:
 
    a. As the address for MicroCloud's internal traffic, select the listed IPv4 address.

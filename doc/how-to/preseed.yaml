@@ -1,8 +1,8 @@
 # `lookup_subnet` limits the subnet when looking up systems with mDNS.
 lookup_subnet: 10.0.0.1/24
 
-# `systems` lists the systems we expect to find by their hostname.
-#   `name` represents the hostname
+# `systems` lists the systems we expect to find by their host name.
+#   `name` represents the host name
 #   `ovn_uplink_interface` is optional and represents the name of the interface reserved for use with OVN.
 #   `storage` is optional and represents explicit paths to disks for each system.
 systems:
@@ -24,16 +24,20 @@ systems:
 - name: micro04
   ovn_uplink_interface: eth1
 
-# `ovn` is optional and represents the ovn & uplink network configuration for LXD.
+# `ovn` is optional and represents the OVN & uplink network configuration for LXD.
 ovn:
   ipv4_gateway: 10.0.0.1/24
   ipv4_range: 10.0.0.100-10.0.0.254
   ipv6_gateway: cafe::1/64
 
-# `storage` is optional and is used as basic filtering logic for finding disks across all systems. Filters will be checked in order of appearance.
-# The names and values of each key correspond to the yaml field names for the `api.ResouresStorageDisk` struct here: `https://github.com/canonical/lxd/blob/c86603236167a43836c2766647e2fac97d79f899/shared/api/resource.go#L591`
+# `storage` is optional and is used as basic filtering logic for finding disks across all systems.
+# Filters are checked in order of appearance.
+# The names and values of each key correspond to the YAML field names for the `api.ResouresStorageDisk`
+# struct here:
+# https://github.com/canonical/lxd/blob/c86603236167a43836c2766647e2fac97d79f899/shared/api/resource.go#L591
 # Supported operands: &&, ||, <, >, <=, >=, ==, !=, !
-# String values must not be in quotes unless the string contains a space. Single quotes are fine, but double-quotes must be escaped.
+# String values must not be in quotes unless the string contains a space.
+# Single quotes are fine, but double quotes must be escaped.
 # `find_min` and `find_max` can be used to validate the number of disks each filter finds.
 storage:
   local:
