@@ -45,3 +45,13 @@ Disk sizes can vary.
 
 For distributed storage, MicroCloud uses MicroCeph, which is a lightweight way of deploying a Ceph cluster.
 To use distributed storage, you must have at least three disks (attached to at least three different machines).
+
+Troubleshooting
+---------------
+
+MicroCloud does not manage the services that it deploys.
+After the deployment process, the individual services are operating independently.
+If anything goes wrong, each service is responsible for handling recovery.
+
+So, for example, if :command:`lxc cluster list` shows that a LXD cluster member is offline, follow the usual steps for recovering an offline cluster member (in the simplest case, restart the LXD snap on the machine).
+The same applies to MicroOVN and MicroCeph.
