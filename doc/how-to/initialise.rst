@@ -6,7 +6,12 @@ How to initialise MicroCloud
 The :ref:`initialisation process <explanation-initialisation>` bootstraps the MicroCloud cluster.
 You run the initialisation on one of the machines, and it configures the required services on all machines.
 
-During the initialisation process, you are prompted for information about your machines and how you want to set them up.
+.. _howto-initialise-interactive:
+
+Interactive configuration
+-------------------------
+
+If you run the initialisation process in interactive mode (the default), you are prompted for information about your machines and how you want to set them up.
 The questions that you are asked might differ depending on your setup; for example, if you do not have the MicroOVN snap installed, you will not be prompted to configure your network, and if your machines don't have local disks, you will not be prompted to set up local storage.
 
 The following instructions show the full initialisation process.
@@ -82,3 +87,18 @@ Complete the following steps to initialise MicroCloud:
    Once the initialisation process is complete, you can start using MicroCloud.
 
 See an example of the full initialisation process in the :ref:`Get started with MicroCloud <initialisation-process>` tutorial.
+
+.. _howto-initialise-preseed:
+
+Non-interactive configuration
+-----------------------------
+
+If you want to automate the initialisation process, you can provide a preseed configuration in YAML format to the :command:`microcloud init` command::
+
+  cat <preseed_file> | microcloud init --preseed
+
+The preseed YAML file must use the following syntax:
+
+.. literalinclude:: preseed.yaml
+   :language: YAML
+   :emphasize-lines: 1,4-7,27,33-41

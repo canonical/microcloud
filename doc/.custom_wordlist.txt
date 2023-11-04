@@ -18,6 +18,7 @@ MicroCloud's
 MicroOVN
 multicast
 OVN
+preseed
 rollout
 roadmap
 snapd
