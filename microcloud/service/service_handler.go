@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -142,7 +143,12 @@ func (s *Handler) Broadcast() error {
 				return fmt.Errorf("Failed to marshal server info: %w", err)
 			}
 
-			server, err := cloudMDNS.NewBroadcast(info.LookupKey(), info.Address, s.Port, service, bytes)
+			iface, err := net.InterfaceByName(info.Interface)
+			if err != nil {
+				return err
+			}
+
+			server, err := cloudMDNS.NewBroadcast(info.LookupKey(), iface, info.Address, s.Port, service, bytes)
 			if err != nil {
 				return err
 			}
