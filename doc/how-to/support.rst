@@ -5,7 +5,7 @@ How to get support
 
 MicroCloud is not yet ready for production.
 
-To benefit from the latest bug fixes, you should use the ``latest/edge`` snap channel for now.
+We recommend using the default channels for all snaps required to run MicroCloud.
 
 Support and community
 ---------------------

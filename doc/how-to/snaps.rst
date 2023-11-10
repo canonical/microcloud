@@ -19,9 +19,7 @@ See `Channels and tracks`_ in the snap documentation for detailed information.
 MicroCloud currently provides only the ``latest`` track.
 
 .. tip::
-   In general, you should use the ``latest/stable`` channel for all snaps required to run MicroCloud.
-
-   However, since MicroCloud is not ready for production yet, you might want to use the ``latest/edge`` channel of the MicroCloud snap to benefit from the latest bug fixes.
+   In general, you should use the default channels for all snaps required to run MicroCloud.
 
 When installing a snap, specify the channel as follows::
 
