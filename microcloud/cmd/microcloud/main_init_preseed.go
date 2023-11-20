@@ -55,6 +55,7 @@ type InitNetwork struct {
 	IPv4Gateway string `yaml:"ipv4_gateway"`
 	IPv4Range   string `yaml:"ipv4_range"`
 	IPv6Gateway string `yaml:"ipv6_gateway"`
+	DNSServers  string `yaml:"dns_servers"`
 }
 
 // StorageFilter separates the filters used for local and ceph disks.
@@ -430,7 +431,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		if bootstrap {
 			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(iface))
 			if s.Name == peer {
-				uplink, ovn := lxd.DefaultOVNNetwork(p.OVN.IPv4Gateway, p.OVN.IPv4Range, p.OVN.IPv6Gateway)
+				uplink, ovn := lxd.DefaultOVNNetwork(p.OVN.IPv4Gateway, p.OVN.IPv4Range, p.OVN.IPv6Gateway, p.OVN.DNSServers)
 				system.Networks = append(system.Networks, uplink, ovn)
 			}
 		} else {

@@ -11,6 +11,7 @@ import (
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/units"
+	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -643,7 +644,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	}
 
 	// Prepare the configuration.
-	config := map[string]string{}
+	ipConfig := map[string]string{}
+	dnsConfig := map[string]string{}
 	if bootstrap {
 		for _, ip := range []string{"IPv4", "IPv6"} {
 			validator := func(s string) error {
@@ -674,37 +676,34 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			}
 
 			if gateway != "" {
-				validator := func(s string) error {
-					addr := net.ParseIP(s)
-					if addr == nil {
-						return fmt.Errorf("Invalid IP address %q", s)
-					}
-
-					if addr.To4() == nil && ip == "IPv4" {
-						return fmt.Errorf("Not a valid IPv4")
-					}
-
-					if addr.To4() != nil && ip == "IPv6" {
-						return fmt.Errorf("Not a valid IPv6")
-					}
-
-					return nil
-				}
-
 				if ip == "IPv4" {
-					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
+					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
 					if err != nil {
 						return err
 					}
 
-					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
+					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
 					if err != nil {
 						return err
 					}
 
-					config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+					ipConfig[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+
+					gatewayAddr, _, err := net.ParseCIDR(gateway)
+					if err != nil {
+						return err
+					}
+
+					dnsAddresses, err := c.asker.AskString(fmt.Sprintf("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: %s): ", gatewayAddr.String()), gatewayAddr.String(), validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
+					if err != nil {
+						return err
+					}
+
+					if dnsAddresses != "" {
+						dnsConfig[gateway] = dnsAddresses
+					}
 				} else {
-					config[gateway] = ""
+					ipConfig[gateway] = ""
 				}
 			}
 		}
@@ -742,7 +741,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		var ipv4Gateway string
 		var ipv4Ranges string
 		var ipv6Gateway string
-		for gateway, ipRange := range config {
+		for gateway, ipRange := range ipConfig {
 			ip, _, err := net.ParseCIDR(gateway)
 			if err != nil {
 				return err
@@ -756,7 +755,12 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			}
 		}
 
-		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway)
+		var allDNSServers string
+		for _, dnsAddr := range dnsConfig {
+			allDNSServers = dnsAddr
+		}
+
+		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, allDNSServers)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
 	}
