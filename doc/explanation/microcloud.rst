@@ -24,15 +24,20 @@ See :ref:`lxd:clustering` in the LXD documentation for more information.
 Networking
 ----------
 
-.. include:: ../../README.md
-   :parser: myst_parser.sphinx_
-   :start-after: ## **What about networking?**
-   :end-before: ## **What's next?**
+By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
 
 MicroOVN requires an uplink network that is an actual L2 subnet (which is usually not the case in a virtual cloud environment).
 In addition, MicroOVN requires its own dedicated network interface, for example, a dedicated physical network interface, a VLAN, or a virtual function on an :abbr:`SR-IOV (Single root I/O virtualisation)`-capable network interface.
 
 See :ref:`lxd:network-ovn` in the LXD documentation for more information.
+
+If you decide to not use MicroOVN, MicroCloud falls back on the Ubuntu fan for basic networking.
+MicroCloud will still be usable, but you will see some limitations:
+
+- When you move an instance from one cluster member to another, its IP address changes.
+- Egress traffic leaves from the local cluster member (while OVN provides shared egress).
+  As a result of this, network forwarding works at a basic level only, and external addresses must be forwarded to a specific cluster member and don't fail over.
+- There is no support for hardware acceleration, load balancers, or ACL functionality within the local network.
 
 Storage
 -------

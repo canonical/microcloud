@@ -45,7 +45,7 @@ At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD clus
 
 ## **What about networking?**
 
-By default, MicroCloud uses MicroOVN for networking, which is a minimal implementation of OVN (Open Virtual Network).
+By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
 If you decide to not use MicroOVN, MicroCloud falls back on the Ubuntu fan for basic networking.
 
 ## **What's next?**

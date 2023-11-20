@@ -2,6 +2,7 @@ ACL
 ACLs
 AGPL
 backend
+balancers
 Ceph
 CIDR
 DCO
