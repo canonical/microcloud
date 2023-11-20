@@ -214,8 +214,8 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	}
 
 	containsCephStorage = directCephCount > 0
-	if containsCephStorage && directCephCount < len(p.Systems) && len(p.Storage.Ceph) == 0 {
-		return fmt.Errorf("Some systems are missing ceph storage disks")
+	if containsCephStorage && directCephCount < 3 && len(p.Storage.Ceph) == 0 && bootstrap {
+		return fmt.Errorf("At least 3 systems must specify ceph storage disks")
 	}
 
 	containsLocalStorage = directLocalCount > 0
