@@ -67,7 +67,7 @@ func (s LXDService) DefaultOVNNetworkJoinConfig(parent string) api.ClusterMember
 // creating the finalized network.
 // Returns both the finalized uplink configuration as the first argument,
 // and the default OVN network configuration as the second argument.
-func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6Gateway string) (api.NetworksPost, api.NetworksPost) {
+func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6Gateway string, dnsServers string) (api.NetworksPost, api.NetworksPost) {
 	finalUplinkCfg := api.NetworksPost{
 		NetworkPut: api.NetworkPut{
 			Config:      map[string]string{},
@@ -83,6 +83,10 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 
 	if ipv6Gateway != "" {
 		finalUplinkCfg.Config["ipv6.gateway"] = ipv6Gateway
+	}
+
+	if dnsServers != "" {
+		finalUplinkCfg.Config["dns.nameservers"] = dnsServers
 	}
 
 	ovnNetwork := api.NetworksPost{
