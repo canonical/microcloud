@@ -94,14 +94,14 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			subnet:  "10.0.0.1/24",
 			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}},
 			addErr:  false,
-			err:     errors.New("At least 3 systems are required to configure distributed storage"),
+			err:     errors.New("At least 3 systems must specify ceph storage disks"),
 		},
 		{
 			desc:    "Incomplete ceph direct selection",
 			subnet:  "10.0.0.1/24",
 			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n3"}},
-			addErr:  true,
-			err:     errors.New("Some systems are missing ceph storage disks"),
+			addErr:  false,
+			err:     errors.New("At least 3 systems must specify ceph storage disks"),
 		},
 		{
 			desc:    "Incomplete zfs direct selection",
