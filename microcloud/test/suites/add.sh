@@ -122,6 +122,7 @@ test_add_interactive() {
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
+  export CUSTOM_DNS_ADDRESSES="10.1.123.1,8.8.8.8" # comma-separated list of custom DNS addresses to be set for the OVN uplink.
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q

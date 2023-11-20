@@ -3,7 +3,7 @@ unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE \
-    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END IPV6_SUBNET
+    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END CUSTOM_DNS_ADDRESSES IPV6_SUBNET
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -11,24 +11,25 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
-  LOOKUP_IFACE=${LOOKUP_IFACE:-} # filter string for the lookup interface table.
-  LIMIT_SUBNET=${LIMIT_SUBNET:-} # (yes/no) input for limiting lookup of systems to the above subnet.
-  SKIP_SERVICE=${SKIP_SERVICE:-} # (yes/no) input to skip any missing services. Should be unset if all services are installed.
-  EXPECT_PEERS=${EXPECT_PEERS:-} # wait for this number of systems to be available to join the cluster.
-  SETUP_ZFS=${SETUP_ZFS:-}       # (yes/no) input for initiating ZFS storage pool setup.
-  ZFS_FILTER=${ZFS_FILTER:-}     # filter string for ZFS disks.
-  ZFS_WIPE=${ZFS_WIPE:-}         # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}     # (yes/no) input for initiating CEPH storage pool setup.
-  CEPH_WARNING=${CEPH_WARNING:-} # (yes/no) input for warning about eligible disk detection.
-  CEPH_FILTER=${CEPH_FILTER:-}   # filter string for CEPH disks.
-  CEPH_WIPE=${CEPH_WIPE:-}       # (yes/no) to wipe all disks.
-  SETUP_OVN=${SETUP_OVN:-}       # (yes/no) input for initiating OVN network setup.
-  OVN_WARNING=${OVN_WARNING:-}   # (yes/no) input for warning about eligible interface detection.
-  OVN_FILTER=${OVN_FILTER:-}     # filter string for OVN interfaces.
-  IPV4_SUBNET=${IPV4_SUBNET:-}   # OVN ipv4 gateway subnet.
-  IPV4_START=${IPV4_START:-}     # OVN ipv4 range start.
-  IPV4_END=${IPV4_END:-}         # OVN ipv4 range end.
-  IPV6_SUBNET=${IPV6_SUBNET:-}   # OVN ipv6 range.
+  LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
+  LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
+  SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
+  EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
+  SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
+  ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
+  ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
+  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
+  CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
+  CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
+  CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
+  SETUP_OVN=${SETUP_OVN:-}                       # (yes/no) input for initiating OVN network setup.
+  OVN_WARNING=${OVN_WARNING:-}                   # (yes/no) input for warning about eligible interface detection.
+  OVN_FILTER=${OVN_FILTER:-}                     # filter string for OVN interfaces.
+  IPV4_SUBNET=${IPV4_SUBNET:-}                   # OVN ipv4 gateway subnet.
+  IPV4_START=${IPV4_START:-}                     # OVN ipv4 range start.
+  IPV4_END=${IPV4_END:-}                         # OVN ipv4 range end.
+  CUSTOM_DNS_ADDRESSES=${CUSTOM_DNS_ADDRESSES:-} # OVN custom DNS addresses.
+  IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
 
   setup=$(cat << EOF
 ${LOOKUP_IFACE}                                         # filter the lookup interface
@@ -84,6 +85,7 @@ $([ "${SETUP_OVN}" = "yes" ] && printf -- "---")
 ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateways and ranges
 ${IPV4_START}
 ${IPV4_END}
+${CUSTOM_DNS_ADDRESSES}
 ${IPV6_SUBNET}
 EOF
 )
@@ -202,6 +204,7 @@ validate_system_lxd_ovn() {
   ipv4_gateway=${4:-}
   ipv4_ranges=${5:-}
   ipv6_gateway=${6:-}
+  dns_namesersers=${7:-}
 
   echo "    ${name} Validating OVN network"
   addr=$(lxc exec local:"${name}" -- lxc config get cluster.https_address)
@@ -216,6 +219,15 @@ validate_system_lxd_ovn() {
   # Make sure there's no empty addresses.
   ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
   ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
+
+  # Check that the created UPLINK network has the right DNS servers.
+  if [ -n "${dns_namesersers}" ] ; then
+    dns_addresses=$(lxc exec ${name} -- sh -c "lxc network get UPLINK dns.nameservers")
+    if [ "${dns_addresses}" != "${dns_namesersers}" ] ; then
+      echo "ERROR: UPLINK network has wrong DNS server addresses: ${dns_addresses}"
+      return 1
+    fi
+  fi
 
   cfg=$(lxc network show UPLINK)
   echo "${cfg}" | grep -q "status: Created"
@@ -261,6 +273,7 @@ validate_system_lxd() {
     ipv4_gateway=${6:-}
     ipv4_ranges=${7:-}
     ipv6_gateway=${8:-}
+    dns_namesersers=${9:-}
 
     echo "==> ${name} Validating LXD with ${num_peers} peers"
     echo "    ${name} Local Disk: {${local_disk}}, Remote Disks: {${remote_disks}}, OVN Iface: {${ovn_interface}}"
@@ -289,7 +302,7 @@ validate_system_lxd() {
     } > /dev/null 2>&1
 
     if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
-      validate_system_lxd_ovn "${name}" "${num_peers}" "${ovn_interface}" "${ipv4_gateway}" "${ipv4_ranges}" "${ipv6_gateway}"
+      validate_system_lxd_ovn "${name}" "${num_peers}" "${ovn_interface}" "${ipv4_gateway}" "${ipv4_ranges}" "${ipv6_gateway}" "${dns_namesersers}"
     else
       validate_system_lxd_fan "${name}"
     fi
