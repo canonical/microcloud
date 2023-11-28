@@ -582,7 +582,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	}
 
 	if missingSystems {
-		wantsSkip, err := c.asker.AskBool("Some systems are ineligible for distributed networking. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		wantsSkip, err := c.asker.AskBool("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway? (yes/no) [default=yes]: ", "yes")
 		if err != nil {
 			return err
 		}
@@ -594,7 +594,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 
 	// Uplink selection table.
 	header := []string{"LOCATION", "IFACE", "TYPE"}
-	fmt.Println("Select exactly one network interface from each cluster member:")
+	fmt.Println("Select an available interface per system to provide external connectivity for distributed network(s):")
 	data := [][]string{}
 	for peer, nets := range networks {
 		for _, net := range nets {
@@ -677,12 +677,12 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 
 			if gateway != "" {
 				if ip == "IPv4" {
-					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
+					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use on the uplink network: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
 					if err != nil {
 						return err
 					}
 
-					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
+					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use on the uplink network: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
 					if err != nil {
 						return err
 					}
