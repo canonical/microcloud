@@ -94,14 +94,35 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			subnet:  "10.0.0.1/24",
 			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}},
 			addErr:  false,
-			err:     errors.New("At least 3 systems are required to configure distributed storage"),
+			err:     errors.New("At least 3 systems must specify ceph storage disks"),
 		},
 		{
 			desc:    "Incomplete ceph direct selection",
 			subnet:  "10.0.0.1/24",
 			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n3"}},
-			addErr:  true,
-			err:     errors.New("Some systems are missing ceph storage disks"),
+			addErr:  false,
+			err:     errors.New("At least 3 systems must specify ceph storage disks"),
+		},
+		{
+			desc:   "Minimum ceph direct selection (3) with more systems (4)",
+			subnet: "10.0.0.1/24",
+			systems: []System{
+				{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
+				{Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
+				{Name: "n3", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
+				{Name: "n4"}},
+			addErr: false,
+			err:    nil,
+		},
+		{
+			desc:   "Multiple disks on the same system don't count towards the minimum quota:",
+			subnet: "10.0.0.1/24",
+			systems: []System{
+				{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
+				{Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}, {Path: "def2"}}}},
+				{Name: "n3"}},
+			addErr: false,
+			err:    errors.New("At least 3 systems must specify ceph storage disks"),
 		},
 		{
 			desc:    "Incomplete zfs direct selection",
@@ -232,7 +253,11 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		}
 
 		err := p.validate("n1", true)
-		s.EqualError(err, c.err.Error())
+		if c.err == nil {
+			s.NoError(err)
+		} else {
+			s.EqualError(err, c.err.Error())
+		}
 
 		s.T().Logf("%s in add mode", c.desc)
 		err = p.validate("n0", false)
