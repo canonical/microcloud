@@ -12,6 +12,8 @@ Requirements
    :alt: LXD requirements illustration
    :align: center
 
+.. _hardware-requirements:
+
 Hardware requirements
 ~~~~~~~~~~~~~~~~~~~~~
 

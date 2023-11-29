@@ -17,9 +17,12 @@ This tutorial guides you through installing MicroCloud in a confined environment
 It uses virtual machines in LXD, so you don't need any extra hardware to follow the tutorial.
 
 .. tip::
-   In this tutorial, we'll use four virtual machines in LXD for the MicroCloud cluster members.
-
+   In this tutorial, we use four virtual machines in LXD for the MicroCloud cluster members.
    You can use a different number of machines if you want, but the minimum number of required machines is three.
+
+   We limit each virtual machine to 2 GiB of RAM, which is less than the recommended hardware requirements.
+   In the context of the tutorial, this amount of RAM is sufficient.
+   However, in a production environment, make sure to use machines that fulfil the :ref:`hardware-requirements`.
 
 1. Install and initialise LXD
 -----------------------------
