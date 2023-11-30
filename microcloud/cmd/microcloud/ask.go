@@ -224,22 +224,6 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
 					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
 				})
-			} else {
-				// Add a space between the CLI and the response.
-				fmt.Println("")
-			}
-
-			usingCeph := false
-			for peer, system := range systems {
-				if len(system.MicroCephDisks) > 0 {
-					usingCeph = true
-					fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(system.MicroCephDisks), peer)
-				}
-			}
-
-			if usingCeph {
-				// Add a space between the CLI and the response.
-				fmt.Println("")
 			}
 		}
 	}
@@ -506,6 +490,18 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 		return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 	}
 
+	// Print a summary of what was chosen in this step.
+	if diskCount > 0 {
+		for peer, system := range systems {
+			if len(system.MicroCephDisks) > 0 {
+				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(system.MicroCephDisks), peer)
+			}
+		}
+
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
 	setupCephFS := false
 	_, bootstrap := systems[sh.Name]
 	if bootstrap && !autoSetup {
@@ -691,10 +687,13 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)
 	}
 
-	if len(selected) > 0 {
-		// Add a space between the CLI and the response.
-		fmt.Println("")
+	// If we didn't select anything, then abort network setup.
+	if len(selected) == 0 {
+		return nil
 	}
+
+	// Add a space between the CLI and the response.
+	fmt.Println("")
 
 	// Prepare the configuration.
 	ipConfig := map[string]string{}
