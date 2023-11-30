@@ -67,6 +67,7 @@ EOF
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${lookup_addr}/24
+lookup_interface: enp5s0
 systems:
 - name: micro04
   ovn_uplink_interface: enp6s0
@@ -97,6 +98,7 @@ EOF
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${lookup_addr}/24
+lookup_interface: enp5s0
 systems:
 - name: micro01
 - name: micro02
@@ -123,6 +125,7 @@ EOF
 
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${lookup_addr}/24
+lookup_interface: enp5s0
 systems:
 - name: micro01
 - name: micro02

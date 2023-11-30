@@ -112,6 +112,7 @@ test_instances() {
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
 systems:
 - name: micro01
   storage:
@@ -178,6 +179,7 @@ EOF
   lxc exec micro01 -- sh -c "
   cat << EOF > /root/preseed.yaml
 lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
 systems:
 - name: micro01
   storage:

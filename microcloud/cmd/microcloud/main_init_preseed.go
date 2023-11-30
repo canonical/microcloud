@@ -236,6 +236,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return err
 	}
 
+	if p.LookupInterface == "" {
+		return fmt.Errorf("Missing interface name for machine lookup")
+	}
+
 	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || containsUplinks
 	if bootstrap && usingOVN && len(p.Systems) < 3 {
 		return fmt.Errorf("At least 3 systems are required to configure distributed networking")
@@ -374,7 +378,12 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 	for _, iface := range ifaces {
 		if iface.Name == p.LookupInterface {
 			lookupIface = &iface
+			break
 		}
+	}
+
+	if lookupIface == nil {
+		return nil, fmt.Errorf("Failed to find lookup interface %q", p.LookupInterface)
 	}
 
 	err = lookupPeers(s, true, lookupIface, lookupSubnet, expectedSystems, systems)
