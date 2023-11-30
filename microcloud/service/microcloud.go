@@ -56,15 +56,15 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(service *Handler, endpoints []rest.Endpoint) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
-		OnBootstrap: func(s *state.State) error { return service.StopBroadcast() },
-		PostJoin:    func(s *state.State) error { return service.StopBroadcast() },
+		OnBootstrap: func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
+		PostJoin:    func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
 		OnStart:     service.Start,
 	})
 }
 
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
 func (s CloudService) Bootstrap(ctx context.Context) error {
-	err := s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	err := s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 
 // Join joins a cluster with the given token.
 func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
+	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
 }
 
 // RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.

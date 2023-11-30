@@ -77,7 +77,7 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), 2*time.Minute)
+	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (s CephService) IssueToken(ctx context.Context, peer string) (string, error
 
 // Join joins a cluster with the given token.
 func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	err := s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, 5*time.Minute)
+	err := s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
 	if err != nil {
 		return err
 	}
