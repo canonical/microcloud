@@ -580,11 +580,15 @@ cluster_reset() {
             microceph.ceph osd pool rm \${pool} \${pool} --yes-i-really-really-mean-it
           done
 
-          for pool in \$(microceph.ceph osd ls) ; do
-            microceph.ceph osd out \${pool}
-            microceph.ceph osd down \${pool} --definitely-dead
-            microceph.ceph osd purge \${pool} --yes-i-really-mean-it --force
-            microceph.ceph osd destroy \${pool} --yes-i-really-mean-it --force
+          for osd in \$(microceph.ceph osd ls) ; do
+            microceph.ceph config set osd.\${osd} osd_pool_default_crush_rule \$(microceph.ceph osd crush rule dump microceph_auto_osd | jq '.rule_id')
+            microceph.ceph osd crush reweight osd.\${osd} 0
+            microceph.ceph osd out \${osd}
+            microceph.ceph osd down \${osd} --definitely-dead
+            pkill -f \"ceph-osd .* --id \${osd}\"
+            microceph.ceph osd purge \${osd} --yes-i-really-mean-it --force
+            microceph.ceph osd destroy \${osd} --yes-i-really-mean-it --force
+            rm -rf /var/snap/microceph/common/data/osd/ceph-\${osd}
           done
         fi
       fi
