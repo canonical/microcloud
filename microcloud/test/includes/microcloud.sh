@@ -97,6 +97,29 @@ fi
 echo "${setup}" | sed -e '/^\s*#/d' -e '/^\s*$/d'
 }
 
+# set_debug_binaries: Adds {app}.debug binaries if the corresponding {APP}_DEBUG_PATH environment variable is set.
+set_debug_binaries() {
+  name="${1}"
+
+    # Add debug binaries for MicroCloud.
+    if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
+      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloudd.debug
+      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloud.debug
+
+      lxc file push "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
+      lxc file push "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
+
+      lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
+    fi
+
+    # Add a debug binary for LXD.
+    if [ -n "${LXD_DEBUG_PATH}" ]; then
+      lxc exec "${name}" -- rm -rf /var/snap/lxd/common/lxd.debug
+      lxc file push "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
+      lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
+      lxc exec "${name}" -- lxd waitready
+    fi
+}
 
 # set_remote: Adds and switches to the remote for the MicroCloud node with the given name.
 set_remote() {
@@ -381,16 +404,17 @@ reset_snaps() {
     # These are set to always pass in case the snaps are already disabled.
     echo "Disabling LXD and MicroCloud for ${name}"
     lxc exec "${name}" -- sh -c "
-      if pidof -q lxd ; then
-        kill -9 \$(pidof lxd)
-      fi
+      rm -rf /var/snap/lxd/common/lxd.debug
+      rm -rf /var/snap/microcloud/common/microcloudd.debug
+      rm -rf /var/snap/microcloud/common/microcloud.debug
+
+      for app in lxd lxd.debug microcloud microcloud.debug microcloudd microcloudd.debug ; do
+        if pidof -q \${app} > /dev/null; then
+          kill -9 \$(pidof \${app})
+        fi
+      done
 
       snap disable lxd > /dev/null 2>&1 || true
-
-      if pidof -q microcloud ; then
-        kill -9 \$(pidof microcloud)
-      fi
-
       snap disable microcloud > /dev/null 2>&1 || true
 
       systemctl stop snap.lxd.daemon snap.lxd.daemon.unix.socket > /dev/null 2>&1 || true
@@ -455,6 +479,8 @@ reset_snaps() {
 
       lxd waitready
     "
+
+    set_debug_binaries "${name}"
   )
 }
 
@@ -924,6 +950,8 @@ setup_system() {
     else
       lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install microcloud --channel latest/edge"
     fi
+
+    set_debug_binaries "${name}"
   )
 
   # Sleep some time so the snaps are fully set up.

@@ -94,6 +94,18 @@ set +u
 if [ -z "${MICROCLOUD_SNAP_PATH}" ] || ! [ -e "${MICROCLOUD_SNAP_PATH}" ]; then
   MICROCLOUD_SNAP_PATH=""
 fi
+
+if [ -z "${MICROCLOUD_DEBUG_PATH}" ] || ! [ -e "${MICROCLOUD_DEBUG_PATH}" ]; then
+  MICROCLOUD_DEBUG_PATH=""
+fi
+
+if [ -z "${MICROCLOUDD_DEBUG_PATH}" ] || ! [ -e "${MICROCLOUDD_DEBUG_PATH}" ]; then
+  MICROCLOUDD_DEBUG_PATH=""
+fi
+
+if [ -z "${LXD_DEBUG_PATH}" ] || ! [ -e "${LXD_DEBUG_PATH}" ]; then
+  LXD_DEBUG_PATH=""
+fi
 set -u
 
 export MICROCLOUD_SNAP_PATH
