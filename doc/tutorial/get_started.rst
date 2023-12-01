@@ -384,7 +384,7 @@ See the full initialisation process here:
     Using 1 disk(s) on "micro3" for remote storage pool
 
    Configure distributed networking? (yes/no) [default=yes]:  yes
-   Select exactly one network interface from each cluster member:
+   Select an available interface per system to provide external connectivity for distributed network(s):
    Space to select; enter to confirm; type to filter results.
    Up/down to move; right to select all; left to select none.
           +----------+--------+----------+
@@ -402,8 +402,8 @@ See the full initialisation process here:
     Using "enp6s0" on "micro4" for OVN uplink
 
    Specify the IPv4 gateway (CIDR) on the uplink network (empty to skip IPv4): 192.0.2.1/24
-   Specify the first IPv4 address in the range to use with LXD: 192.0.2.100
-   Specify the last IPv4 address in the range to use with LXD: 192.0.2.254
+   Specify the first IPv4 address in the range to use on the uplink network: 192.0.2.100
+   Specify the last IPv4 address in the range to use on the uplink network: 192.0.2.254
    Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001:db8:d:200::1/64
 
    Initializing a new cluster
