@@ -841,7 +841,7 @@ You can, however, create a different network to isolate some instances from othe
 
 #.  Launch an Ubuntu container that uses the new network::
 
-     lxc launch images:ubuntu/22.04 u4 --network isolated
+     lxc launch ubuntu:22.04 u4 --network isolated
 
 #. Access the shell in ``u4``::
 
