@@ -569,6 +569,10 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 				profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
 			}
 
+			if network.Name == "underlay" || profile.Devices["eth1"] == nil {
+				profile.Devices["eth1"] = map[string]string{"name": "eth1", "network": network.Name, "type": "nic"}
+			}
+
 			err = lxdClient.CreateNetwork(network)
 			if err != nil {
 				return err

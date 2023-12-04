@@ -8,6 +8,28 @@ import (
 	"github.com/canonical/lxd/shared/api"
 )
 
+// OVNNetworkType represents the type of OVN network.
+type OVNNetworkType int
+
+const (
+	// OVNUplinkNetwork represents the OVN uplink network (north-south traffic).
+	OVNUplinkNetwork OVNNetworkType = iota
+	// OVNUnderlayNetwork represents the OVN underlay network (east-west traffic).
+	OVNUnderlayNetwork
+)
+
+// String returns the string representation of the OVNNetworkType.
+func (o OVNNetworkType) String() string {
+	switch o {
+	case OVNUplinkNetwork:
+		return "UPLINK"
+	case OVNUnderlayNetwork:
+		return "UNDERLAY"
+	default:
+		return ""
+	}
+}
+
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
 func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
@@ -42,56 +64,74 @@ func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
 	}, nil
 }
 
-// DefaultPendingOVNNetwork returns the default OVN uplink network configuration when
+// PendingOVNNetwork either returns the OVN uplink or underlay network configuration when
 // creating a pending network on a specific cluster member target.
-func (s LXDService) DefaultPendingOVNNetwork(parent string) api.NetworksPost {
+func (s LXDService) PendingOVNNetwork(ovnNetworkType OVNNetworkType, parent string) api.NetworksPost {
 	return api.NetworksPost{
 		NetworkPut: api.NetworkPut{Config: map[string]string{"parent": parent}},
-		Name:       "UPLINK",
+		Name:       ovnNetworkType.String(),
 		Type:       "physical",
 	}
 }
 
-// DefaultOVNNetworkJoinConfig returns the default OVN uplink network configuration when
+// OVNNetworkJoinConfig either returns the OVN uplink or underlay network configuration when
 // joining an existing cluster.
-func (s LXDService) DefaultOVNNetworkJoinConfig(parent string) api.ClusterMemberConfigKey {
+func (s LXDService) OVNNetworkJoinConfig(ovnNetworkType OVNNetworkType, parent string) api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "network",
-		Name:   "UPLINK",
+		Name:   ovnNetworkType.String(),
 		Key:    "parent",
 		Value:  parent,
 	}
 }
 
-// DefaultOVNNetwork returns the default OVN network configuration when
+// OVNNetwork either returns the default uplink
+// (or an underlay, if specified) OVN network configuration when
 // creating the finalized network.
-// Returns both the finalized uplink configuration as the first argument,
-// and the default OVN network configuration as the second argument.
-func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6Gateway string) (api.NetworksPost, api.NetworksPost) {
-	finalUplinkCfg := api.NetworksPost{
+// Returns both the physical link (uplink or underlay) configuration as the first argument,
+// and the OVN network configuration as the second argument.
+func (s LXDService) OVNNetwork(ovnNetworkType OVNNetworkType, ipv4Gateway string, ipv4Range string, ipv6Gateway string) (api.NetworksPost, api.NetworksPost) {
+	var physLinkCfgDesc string
+	if ovnNetworkType == OVNUplinkNetwork {
+		physLinkCfgDesc = "Uplink for OVN networks"
+	} else {
+		physLinkCfgDesc = "Underlay for OVN networks"
+	}
+
+	physLinkCfg := api.NetworksPost{
 		NetworkPut: api.NetworkPut{
 			Config:      map[string]string{},
-			Description: "Uplink for OVN networks"},
-		Name: "UPLINK",
+			Description: physLinkCfgDesc},
+		Name: ovnNetworkType.String(),
 		Type: "physical",
 	}
 
 	if ipv4Gateway != "" && ipv4Range != "" {
-		finalUplinkCfg.Config["ipv4.gateway"] = ipv4Gateway
-		finalUplinkCfg.Config["ipv4.ovn.ranges"] = ipv4Range
+		physLinkCfg.Config["ipv4.gateway"] = ipv4Gateway
+		physLinkCfg.Config["ipv4.ovn.ranges"] = ipv4Range
 	}
 
 	if ipv6Gateway != "" {
-		finalUplinkCfg.Config["ipv6.gateway"] = ipv6Gateway
+		physLinkCfg.Config["ipv6.gateway"] = ipv6Gateway
+	}
+
+	var ovnNetworkName string
+	var ovnNetworkDesc string
+	if ovnNetworkType == OVNUplinkNetwork {
+		ovnNetworkName = "default"
+		ovnNetworkDesc = "Default OVN network"
+	} else {
+		ovnNetworkName = "underlay"
+		ovnNetworkDesc = "Underlay OVN network"
 	}
 
 	ovnNetwork := api.NetworksPost{
-		NetworkPut: api.NetworkPut{Config: map[string]string{"network": "UPLINK"}, Description: "Default OVN network"},
-		Name:       "default",
+		NetworkPut: api.NetworkPut{Config: map[string]string{"network": ovnNetworkType.String()}, Description: ovnNetworkDesc},
+		Name:       ovnNetworkName,
 		Type:       "ovn",
 	}
 
-	return finalUplinkCfg, ovnNetwork
+	return physLinkCfg, ovnNetwork
 }
 
 // DefaultPendingZFSStoragePool returns the default local storage configuration when

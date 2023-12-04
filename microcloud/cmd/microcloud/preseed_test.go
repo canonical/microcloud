@@ -248,7 +248,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		p := Preseed{
 			LookupSubnet: c.subnet,
 			Systems:      c.systems,
-			OVN:          c.ovn,
+			OVNUplink:    c.ovn,
 			Storage:      c.storage,
 		}
 

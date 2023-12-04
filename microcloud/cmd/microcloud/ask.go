@@ -508,6 +508,107 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 	return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 }
 
+func selectNetInterfaces(ovnNetworkType service.OVNNetworkType, table *SelectableTable, availableNetworks map[string][]api.Network) (selected map[string]string, err error) {
+	ovnNetworkTypeStr := strings.ToLower(ovnNetworkType.String())
+
+	err = table.Render(table.rows)
+	if err != nil {
+		return selected, err
+	}
+
+	answers, err := table.GetSelections()
+	if err != nil {
+		return selected, err
+	}
+
+	selected = map[string]string{}
+	for _, answer := range answers {
+		target := table.SelectionValue(answer, "LOCATION")
+		iface := table.SelectionValue(answer, "IFACE")
+
+		if selected[target] != "" {
+			return selected, fmt.Errorf("Failed to add OVN %s network: Selected more than one interface for target %q", ovnNetworkTypeStr, target)
+		}
+
+		selected[target] = iface
+	}
+
+	if len(selected) != len(availableNetworks) {
+		return selected, fmt.Errorf("Failed to add OVN %s network: Some peers don't have a selected interface", ovnNetworkTypeStr)
+	}
+
+	return selected, nil
+}
+
+func selectIPConfig(c *CmdControl, ovnNetworkType service.OVNNetworkType, config map[string]string) error {
+	ovnNetworkTypeStr := strings.ToLower(ovnNetworkType.String())
+	for _, ip := range []string{"IPv4", "IPv6"} {
+		validator := func(s string) error {
+			if s == "" {
+				return nil
+			}
+
+			addr, _, err := net.ParseCIDR(s)
+			if err != nil {
+				return err
+			}
+
+			if addr.To4() == nil && ip == "IPv4" {
+				return fmt.Errorf("Not a valid IPv4")
+			}
+
+			if addr.To4() != nil && ip == "IPv6" {
+				return fmt.Errorf("Not a valid IPv6")
+			}
+
+			return nil
+		}
+
+		msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the %s network (empty to skip %s): ", ip, ovnNetworkTypeStr, ip)
+		gateway, err := c.asker.AskString(msg, "", validator)
+		if err != nil {
+			return err
+		}
+
+		if gateway != "" {
+			validator := func(s string) error {
+				addr := net.ParseIP(s)
+				if addr == nil {
+					return fmt.Errorf("Invalid IP address %q", s)
+				}
+
+				if addr.To4() == nil && ip == "IPv4" {
+					return fmt.Errorf("Not a valid IPv4")
+				}
+
+				if addr.To4() != nil && ip == "IPv6" {
+					return fmt.Errorf("Not a valid IPv6")
+				}
+
+				return nil
+			}
+
+			if ip == "IPv4" {
+				rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
+				if err != nil {
+					return err
+				}
+
+				rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
+				if err != nil {
+					return err
+				}
+
+				config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+			} else {
+				config[gateway] = ""
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
 	_, bootstrap := systems[sh.Name]
 	lxd := sh.Services[types.LXD].(*service.LXDService)
@@ -604,33 +705,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	table := NewSelectableTable(header, data)
 	var selected map[string]string
 	c.askRetry("Retry selecting uplink interfaces?", autoSetup, func() error {
-		err := table.Render(table.rows)
-		if err != nil {
-			return err
-		}
-
-		answers, err := table.GetSelections()
-		if err != nil {
-			return err
-		}
-
-		selected = map[string]string{}
-		for _, answer := range answers {
-			target := table.SelectionValue(answer, "LOCATION")
-			iface := table.SelectionValue(answer, "IFACE")
-
-			if selected[target] != "" {
-				return fmt.Errorf("Failed to add OVN uplink network: Selected more than one interface for target %q", target)
-			}
-
-			selected[target] = iface
-		}
-
-		if len(selected) != len(networks) {
-			return fmt.Errorf("Failed to add OVN uplink network: Some peers don't have a selected interface")
-		}
-
-		return nil
+		selected, err = selectNetInterfaces(service.OVNUplinkNetwork, table, networks)
+		return err
 	})
 
 	for peer, iface := range selected {
@@ -645,68 +721,9 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	// Prepare the configuration.
 	config := map[string]string{}
 	if bootstrap {
-		for _, ip := range []string{"IPv4", "IPv6"} {
-			validator := func(s string) error {
-				if s == "" {
-					return nil
-				}
-
-				addr, _, err := net.ParseCIDR(s)
-				if err != nil {
-					return err
-				}
-
-				if addr.To4() == nil && ip == "IPv4" {
-					return fmt.Errorf("Not a valid IPv4")
-				}
-
-				if addr.To4() != nil && ip == "IPv6" {
-					return fmt.Errorf("Not a valid IPv6")
-				}
-
-				return nil
-			}
-
-			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
-			gateway, err := c.asker.AskString(msg, "", validator)
-			if err != nil {
-				return err
-			}
-
-			if gateway != "" {
-				validator := func(s string) error {
-					addr := net.ParseIP(s)
-					if addr == nil {
-						return fmt.Errorf("Invalid IP address %q", s)
-					}
-
-					if addr.To4() == nil && ip == "IPv4" {
-						return fmt.Errorf("Not a valid IPv4")
-					}
-
-					if addr.To4() != nil && ip == "IPv6" {
-						return fmt.Errorf("Not a valid IPv6")
-					}
-
-					return nil
-				}
-
-				if ip == "IPv4" {
-					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use with LXD: ", ip), "", validator)
-					if err != nil {
-						return err
-					}
-
-					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use with LXD: ", ip), "", validator)
-					if err != nil {
-						return err
-					}
-
-					config[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
-				} else {
-					config[gateway] = ""
-				}
-			}
+		err = selectIPConfig(c, service.OVNUplinkNetwork, config)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -728,9 +745,9 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 				system.JoinConfig = []api.ClusterMemberConfigKey{}
 			}
 
-			system.JoinConfig = append(system.JoinConfig, lxd.DefaultOVNNetworkJoinConfig(parent))
+			system.JoinConfig = append(system.JoinConfig, lxd.OVNNetworkJoinConfig(service.OVNUplinkNetwork, parent))
 		} else {
-			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(parent))
+			system.TargetNetworks = append(system.TargetNetworks, lxd.PendingOVNNetwork(service.OVNUplinkNetwork, parent))
 		}
 
 		systems[peer] = system
@@ -756,8 +773,126 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			}
 		}
 
-		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway)
+		uplink, ovn := lxd.OVNNetwork(service.OVNUplinkNetwork, ipv4Gateway, ipv4Ranges, ipv6Gateway)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
+		systems[sh.Name] = bootstrapSystem
+	}
+
+	// Underlay network selection table.
+	// Ask the user if they want an underlay network.
+	wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+	if err != nil {
+		return err
+	}
+
+	if !wantsDedicatedUnderlay {
+		return nil
+	}
+
+	// Check if there are enough interfaces to create an underlay network (we need at least one per peer)
+	networks = map[string][]api.Network{}
+	for _, d := range data {
+		peer := d[0]
+		iface := d[1]
+		ifaceType := d[2]
+
+		if ifaceType != "physical" {
+			continue
+		}
+
+		_, ok := selected[peer]
+		if ok {
+			continue
+		}
+
+		_, ok = networks[peer]
+		if !ok {
+			networks[peer] = []api.Network{{Name: iface, Type: ifaceType}}
+		} else {
+			networks[peer] = append(networks[peer], api.Network{Name: iface, Type: ifaceType})
+		}
+	}
+
+	if len(networks) != len(systems) {
+		fmt.Println("Not enough interfaces available to create an underlay network, skipping")
+		return nil
+	}
+
+	for peer, nets := range networks {
+		if len(nets) == 0 {
+			fmt.Printf("Not enough interfaces available to create an underlay network on %q, skipping\n", peer)
+			return nil
+		}
+	}
+
+	fmt.Println("Select exactly one network interface from each cluster member:")
+	data = [][]string{}
+	for peer, nets := range networks {
+		for _, net := range nets {
+			data = append(data, []string{peer, net.Name, net.Type})
+		}
+	}
+
+	table = NewSelectableTable(header, data)
+	selected = map[string]string{}
+	c.askRetry("Retry selecting underlay network interfaces?", autoSetup, func() error {
+		selected, err = selectNetInterfaces(service.OVNUnderlayNetwork, table, networks)
+		return err
+	})
+
+	for peer, iface := range selected {
+		fmt.Printf(" Using %q on %q for OVN underlay\n", iface, peer)
+	}
+
+	if len(selected) > 0 {
+		fmt.Println("")
+	}
+
+	config = map[string]string{}
+	if bootstrap {
+		err = selectIPConfig(c, service.OVNUnderlayNetwork, config)
+		if err != nil {
+			return err
+		}
+	}
+
+	for peer, parent := range selected {
+		system := systems[peer]
+		if !bootstrap {
+			if system.JoinConfig == nil {
+				system.JoinConfig = []api.ClusterMemberConfigKey{}
+			}
+
+			system.JoinConfig = append(system.JoinConfig, lxd.OVNNetworkJoinConfig(service.OVNUnderlayNetwork, parent))
+		} else {
+			system.TargetNetworks = append(system.TargetNetworks, lxd.PendingOVNNetwork(service.OVNUnderlayNetwork, parent))
+		}
+
+		systems[peer] = system
+	}
+
+	if bootstrap {
+		bootstrapSystem := systems[sh.Name]
+
+		var ipv4Gateway string
+		var ipv4Ranges string
+		var ipv6Gateway string
+		for gateway, ipRange := range config {
+			ip, _, err := net.ParseCIDR(gateway)
+			if err != nil {
+				return err
+			}
+
+			if ip.To4() != nil {
+				ipv4Gateway = gateway
+				ipv4Ranges = ipRange
+			} else {
+				ipv6Gateway = gateway
+			}
+		}
+
+		underlay, ovn := lxd.OVNNetwork(service.OVNUnderlayNetwork, ipv4Gateway, ipv4Ranges, ipv6Gateway)
+		bootstrapSystem.Networks = append(bootstrapSystem.Networks, underlay, ovn)
 		systems[sh.Name] = bootstrapSystem
 	}
 
