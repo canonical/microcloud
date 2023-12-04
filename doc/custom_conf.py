@@ -55,7 +55,7 @@ html_favicon = '.sphinx/_static/favicon.png'
 html_context = {
 
     # Change to the link to your product website (without "https://")
-    'product_page': 'microcloud.is',
+    'product_page': 'canonical.com/microcloud',
 
     # Add your product tag to ".sphinx/_static" and change the path
     # here (start with "_static"), default is the circle of friends
@@ -170,5 +170,6 @@ custom_tags = []
 ## Add any configuration that is not covered by the common conf.py file.
 
 intersphinx_mapping = {
-    'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None)
+    'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None),
+    'ceph': ('https://docs.ceph.com/en/latest/', None)
 }

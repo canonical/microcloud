@@ -220,7 +220,9 @@ Complete the following steps on each VM (``micro1``, ``micro2``, ``micro3``, and
 
 #. Install the required snaps::
 
-     snap install microceph microovn microcloud --cohort="+"
+     snap install microceph --cohort="+"
+     snap install microovn --cohort="+"
+     snap install microcloud --cohort="+"
 
    .. note::
       The ``--cohort="+"`` flag in the command ensures that the same version of the snap is installed on all machines.
@@ -839,7 +841,7 @@ You can, however, create a different network to isolate some instances from othe
 
 #.  Launch an Ubuntu container that uses the new network::
 
-     lxc launch images:ubuntu/22.04 u4 --network isolated
+     lxc launch ubuntu:22.04 u4 --network isolated
 
 #. Access the shell in ``u4``::
 

@@ -5,9 +5,12 @@ How to install MicroCloud
 
 To install MicroCloud, install all required :ref:`snaps` on all machines that you want to include in your cluster.
 
-To do so, enter the following command on all machines::
+To do so, enter the following commands on all machines::
 
-  sudo snap install lxd microceph microovn microcloud --cohort="+"
+  sudo snap install lxd --cohort="+"
+  sudo snap install microceph --cohort="+"
+  sudo snap install microovn --cohort="+"
+  sudo snap install microcloud --cohort="+"
 
 .. note::
    Make sure to install the same version of the snaps on all machines.

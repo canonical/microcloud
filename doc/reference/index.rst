@@ -28,6 +28,8 @@ If you want to add further machines after the initial initialisation, you can us
 To use local storage, each machine requires a local disk.
 To use distributed storage, at least three additional disks (not only partitions) for use by Ceph are required, and these disks must be on at least three different machines.
 
+Also see Ceph's :ref:`ceph:hardware-recommendations`.
+
 Networking requirements
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -40,6 +42,8 @@ Software requirements
 ~~~~~~~~~~~~~~~~~~~~~
 
 MicroCloud requires snapd version 2.59 or newer.
+
+Also see LXD's :ref:`lxd:requirements` and Ceph's :doc:`ceph:start/os-recommendations`.
 
 .. _snaps:
 

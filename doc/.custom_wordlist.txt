@@ -4,6 +4,7 @@ AGPL
 backend
 balancers
 Ceph
+Ceph's
 CIDR
 DCO
 DHCP
@@ -12,6 +13,7 @@ GiB
 IOV
 IPv
 LXD
+LXD's
 mDNS
 MicroCeph
 MicroCloud
