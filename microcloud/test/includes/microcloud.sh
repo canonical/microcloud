@@ -511,6 +511,10 @@ reset_system() {
 
     lxc exec "${name}" -- ip link del lxdfan0 || true
 
+    # Resync the time in case it got out of sync with the other VMs.
+    lxc exec "${name}" --  timedatectl set-ntp off
+    lxc exec "${name}" --  timedatectl set-ntp on
+
     # Rescan for any disks we hid from the previous run.
     lxc exec "${name}" -- sh -c "
       for h in /sys/class/scsi_host/host*; do
