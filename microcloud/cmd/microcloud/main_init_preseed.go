@@ -27,15 +27,17 @@ type Preseed struct {
 	LookupSubnet    string        `yaml:"lookup_subnet"`
 	LookupInterface string        `yaml:"lookup_interface"`
 	Systems         []System      `yaml:"systems"`
-	OVN             InitNetwork   `yaml:"ovn"`
+	OVNUplink       InitNetwork   `yaml:"ovn_uplink"`
+	OVNUnderlay     InitNetwork   `yaml:"ovn_underlay"`
 	Storage         StorageFilter `yaml:"storage"`
 }
 
 // System represents the structure of the systems we expect to find in the preseed yaml.
 type System struct {
-	Name            string      `yaml:"name"`
-	UplinkInterface string      `yaml:"ovn_uplink_interface"`
-	Storage         InitStorage `yaml:"storage"`
+	Name              string      `yaml:"name"`
+	UplinkInterface   string      `yaml:"ovn_uplink_interface"`
+	UnderlayInterface string      `yaml:"ovn_underlay_interface"`
+	Storage           InitStorage `yaml:"storage"`
 }
 
 // InitStorage separates the direct paths used for local and ceph disks.
@@ -163,6 +165,7 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 // validate validates the unmarshaled preseed input.
 func (p *Preseed) validate(name string, bootstrap bool) error {
 	uplinkCount := 0
+	underlayCount := 0
 	directCephCount := 0
 	directLocalCount := 0
 	localInit := false
@@ -186,6 +189,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 		if system.UplinkInterface != "" {
 			uplinkCount++
+		}
+
+		if system.UnderlayInterface != "" {
+			underlayCount++
 		}
 
 		if len(system.Storage.Ceph) > 0 {
@@ -213,6 +220,11 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("Some systems are missing an uplink interface")
 	}
 
+	containsUnderlay := underlayCount > 0
+	if containsUnderlay && underlayCount < len(p.Systems) {
+		return fmt.Errorf("Some systems are missing an underlay interface")
+	}
+
 	containsCephStorage = directCephCount > 0
 	if containsCephStorage && directCephCount < len(p.Systems) && len(p.Storage.Ceph) == 0 {
 		return fmt.Errorf("Some systems are missing ceph storage disks")
@@ -234,38 +246,65 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return err
 	}
 
-	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || containsUplinks
-	if bootstrap && usingOVN && len(p.Systems) < 3 {
-		return fmt.Errorf("At least 3 systems are required to configure distributed networking")
-	}
-
-	if p.OVN.IPv4Gateway == "" && p.OVN.IPv4Range != "" {
-		return fmt.Errorf("Cannot specify IPv4 range without IPv4 gateway")
-	}
-
-	if p.OVN.IPv4Gateway != "" {
-		_, _, err := net.ParseCIDR(p.OVN.IPv4Gateway)
-		if err != nil {
-			return err
+	validateOVN := func(ovnNetworkType service.OVNNetworkType) error {
+		var ovn InitNetwork
+		containsPhysLinks := false
+		switch ovnNetworkType {
+		case service.OVNUplinkNetwork:
+			ovn = p.OVNUplink
+			containsPhysLinks = containsUplinks
+		case service.OVNUnderlayNetwork:
+			ovn = p.OVNUnderlay
+			containsPhysLinks = containsUnderlay
+		default:
+			return fmt.Errorf("Invalid OVN network type")
 		}
 
-		if p.OVN.IPv4Range == "" {
+		usingOVN := ovn.IPv4Gateway != "" || ovn.IPv6Gateway != "" || containsPhysLinks
+		if bootstrap && usingOVN && len(p.Systems) < 3 {
+			return fmt.Errorf("At least 3 systems are required to configure distributed networking")
+		}
+
+		if ovn.IPv4Gateway == "" && ovn.IPv4Range != "" {
 			return fmt.Errorf("Cannot specify IPv4 range without IPv4 gateway")
 		}
 
-		start, end, ok := strings.Cut(p.OVN.IPv4Range, "-")
-		startIP := net.ParseIP(start)
-		endIP := net.ParseIP(end)
-		if !ok || startIP == nil || endIP == nil {
-			return fmt.Errorf("Invalid IPv4 range (must be of the form <ip>-<ip>)")
+		if ovn.IPv4Gateway != "" {
+			_, _, err := net.ParseCIDR(ovn.IPv4Gateway)
+			if err != nil {
+				return err
+			}
+
+			if ovn.IPv4Range == "" {
+				return fmt.Errorf("Cannot specify IPv4 range without IPv4 gateway")
+			}
+
+			start, end, ok := strings.Cut(ovn.IPv4Range, "-")
+			startIP := net.ParseIP(start)
+			endIP := net.ParseIP(end)
+			if !ok || startIP == nil || endIP == nil {
+				return fmt.Errorf("Invalid IPv4 range (must be of the form <ip>-<ip>)")
+			}
 		}
+
+		if ovn.IPv6Gateway != "" {
+			_, _, err := net.ParseCIDR(ovn.IPv4Gateway)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	if p.OVN.IPv6Gateway != "" {
-		_, _, err := net.ParseCIDR(p.OVN.IPv4Gateway)
-		if err != nil {
-			return err
-		}
+	err = validateOVN(service.OVNUplinkNetwork)
+	if err != nil {
+		return err
+	}
+
+	err = validateOVN(service.OVNUnderlayNetwork)
+	if err != nil {
+		return err
 	}
 
 	for _, filter := range p.Storage.Ceph {
@@ -390,73 +429,134 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 	}
 
 	lxd := s.Services[types.LXD].(*service.LXDService)
-	ifaceByPeer := map[string]string{}
+	ifacesByPeer := map[string]map[service.OVNNetworkType]string{}
 	for _, cfg := range p.Systems {
 		if cfg.UplinkInterface != "" {
-			ifaceByPeer[cfg.Name] = cfg.UplinkInterface
+			_, exists := ifacesByPeer[cfg.Name]
+			if !exists {
+				ifacesByPeer[cfg.Name] = make(map[service.OVNNetworkType]string)
+			}
+
+			ifacesByPeer[cfg.Name][service.OVNUplinkNetwork] = cfg.UplinkInterface
+		}
+
+		if cfg.UnderlayInterface != "" {
+			_, exists := ifacesByPeer[cfg.Name]
+			if !exists {
+				ifacesByPeer[cfg.Name] = make(map[service.OVNNetworkType]string)
+			}
+
+			ifacesByPeer[cfg.Name][service.OVNUnderlayNetwork] = cfg.UnderlayInterface
 		}
 	}
 
-	// If we have specified any part of OVN config, implicitly assume we want to set it up.
-	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || len(ifaceByPeer) != 0
-	if usingOVN {
-		// Only select systems not explicitly picked above.
-		infos := make([]mdns.ServerInfo, 0, len(systems))
-		for peer, system := range systems {
-			if ifaceByPeer[peer] == "" {
-				infos = append(infos, system.ServerInfo)
+	configureOVN := func(ovnNetworkType service.OVNNetworkType) error {
+		var ovn InitNetwork
+		switch ovnNetworkType {
+		case service.OVNUplinkNetwork:
+			ovn = p.OVNUplink
+		case service.OVNUnderlayNetwork:
+			ovn = p.OVNUnderlay
+		default:
+			return fmt.Errorf("Invalid OVN network type")
+		}
+
+		// If we have specified any part of OVN config, implicitly assume we want to set it up.
+		usingOVN := ovn.IPv4Gateway != "" || ovn.IPv6Gateway != "" || len(ifacesByPeer) != 0
+		if usingOVN {
+			// Only select systems not explicitly picked above.
+			infos := make([]mdns.ServerInfo, 0, len(systems))
+			for peer, system := range systems {
+				if ifacesByPeer[peer] == nil {
+					infos = append(infos, system.ServerInfo)
+				}
+			}
+
+			// Pick the first interface for any system without an explicitly chosen one.
+			networks, err := lxd.GetUplinkInterfaces(context.Background(), bootstrap, infos)
+			if err != nil {
+				return err
+			}
+
+			for peer, nets := range networks {
+				if len(nets) > 0 {
+					ifacesByPeer[peer] = make(map[service.OVNNetworkType]string)
+					ifacesByPeer[peer][ovnNetworkType] = nets[0].Name
+				}
 			}
 		}
 
-		// Pick the first interface for any system without an explicitly chosen one.
-		networks, err := lxd.GetUplinkInterfaces(context.Background(), bootstrap, infos)
-		if err != nil {
-			return nil, err
+		if usingOVN && bootstrap && len(ifacesByPeer) < 3 {
+			return fmt.Errorf("Failed to find at least 3 interfaces on 3 machines for OVN configuration")
 		}
 
-		for peer, nets := range networks {
-			if len(nets) > 0 {
-				ifaceByPeer[peer] = nets[0].Name
-			}
-		}
-	}
-
-	if usingOVN && bootstrap && len(ifaceByPeer) < 3 {
-		return nil, fmt.Errorf("Failed to find at least 3 interfaces on 3 machines for OVN configuration")
-	}
-
-	for peer, iface := range ifaceByPeer {
-		system := systems[peer]
-		if bootstrap {
-			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(iface))
-			if s.Name == peer {
-				uplink, ovn := lxd.DefaultOVNNetwork(p.OVN.IPv4Gateway, p.OVN.IPv4Range, p.OVN.IPv6Gateway)
-				system.Networks = append(system.Networks, uplink, ovn)
-			}
-		} else {
-			system.JoinConfig = append(system.JoinConfig, lxd.DefaultOVNNetworkJoinConfig(iface))
-		}
-
-		systems[peer] = system
-	}
-
-	// Setup FAN network if OVN not available.
-	if len(ifaceByPeer) == 0 {
-		for peer, system := range systems {
-			if bootstrap {
-				system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingFanNetwork())
-				if s.Name == peer {
-					final, err := lxd.DefaultFanNetwork()
-					if err != nil {
-						return nil, err
+		for peer, ifaces := range ifacesByPeer {
+			system := systems[peer]
+			for networkType, iface := range ifaces {
+				if networkType == ovnNetworkType {
+					if bootstrap {
+						system.TargetNetworks = append(system.TargetNetworks, lxd.PendingOVNNetwork(ovnNetworkType, iface))
+						if s.Name == peer {
+							link, ovn := lxd.OVNNetwork(ovnNetworkType, ovn.IPv4Gateway, ovn.IPv4Range, ovn.IPv6Gateway)
+							system.Networks = append(system.Networks, link, ovn)
+						}
+					} else {
+						system.JoinConfig = append(system.JoinConfig, lxd.OVNNetworkJoinConfig(ovnNetworkType, iface))
 					}
 
-					system.Networks = append(system.Networks, final)
+					break
 				}
 			}
 
 			systems[peer] = system
 		}
+
+		ifaceCountByOVNNetworkType := 0
+		for _, ifaces := range ifacesByPeer {
+			for t, iface := range ifaces {
+				if t == ovnNetworkType && iface != "" {
+					ifaceCountByOVNNetworkType++
+					break
+				}
+			}
+		}
+
+		if ovnNetworkType == service.OVNUplinkNetwork {
+			// Setup FAN network if OVN not available.
+			if ifaceCountByOVNNetworkType == 0 {
+				for peer, system := range systems {
+					if bootstrap {
+						system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingFanNetwork())
+						if s.Name == peer {
+							final, err := lxd.DefaultFanNetwork()
+							if err != nil {
+								return err
+							}
+
+							system.Networks = append(system.Networks, final)
+						}
+					}
+
+					systems[peer] = system
+				}
+			}
+		} else {
+			if usingOVN && ifaceCountByOVNNetworkType == 0 {
+				return fmt.Errorf("No systems have an underlay interface")
+			}
+		}
+
+		return nil
+	}
+
+	err = configureOVN(service.OVNUplinkNetwork)
+	if err != nil {
+		return nil, err
+	}
+
+	err = configureOVN(service.OVNUnderlayNetwork)
+	if err != nil {
+		return nil, err
 	}
 
 	directCephMatches := map[string]int{}
