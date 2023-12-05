@@ -29,6 +29,7 @@ ovn:
   ipv4_gateway: 10.1.123.1/24
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
 
 storage:
   local:
@@ -51,7 +52,7 @@ EOF
   lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
 
   for m in micro01 micro03 ; do
-    validate_system_lxd ${m} 3 disk1 2 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+    validate_system_lxd ${m} 3 disk1 2 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
     validate_system_microceph ${m} disk2 disk3
     validate_system_microovn ${m}
   done
