@@ -148,7 +148,26 @@ func Lookup(ctx context.Context, iface *net.Interface, service string, size int)
 	params.Interface = iface
 	params.Entries = entriesCh
 	params.Timeout = 100 * time.Millisecond
-	err := mdns.Query(params)
+	ipv4Supported, ipv6Supported, err := checkIPStatus(iface.Name)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check IP status: %w", err)
+	}
+
+	if !ipv4Supported {
+		logger.Info("IPv4 is not supported on this system network interface: disabling IPv4 mDNS", logger.Ctx{"iface": iface.Name})
+		params.DisableIPv4 = true
+	}
+
+	if !ipv6Supported {
+		logger.Info("IPv6 is not supported on this system network interface: disabling IPv6 mDNS", logger.Ctx{"iface": iface.Name})
+		params.DisableIPv6 = true
+	}
+
+	if params.DisableIPv4 && params.DisableIPv6 {
+		return nil, fmt.Errorf("No supported IP versions on the network interface %q", iface.Name)
+	}
+
+	err = mdns.Query(params)
 	if err != nil {
 		return nil, fmt.Errorf("Failed lookup: %w", err)
 	}
