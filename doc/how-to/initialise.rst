@@ -31,7 +31,7 @@ Complete the following steps to initialise MicroCloud:
 
      sudo microcloud init
 
-#. Select the IP address that you want to use for MicroCloud's internal traffic.
+#. Select the IP address that you want to use for MicroCloud's internal traffic (see :ref:`microcloud-networking-intracluster`).
    MicroCloud automatically detects the available addresses (IPv4 and IPv6) on the existing network interfaces and displays them in a table.
 
    You must select exactly one address.
@@ -75,7 +75,7 @@ Complete the following steps to initialise MicroCloud:
 
    If you choose ``yes``, configure the distributed networking:
 
-   1. Select the network interfaces that you want to use.
+   1. Select the network interfaces that you want to use (see :ref:`microcloud-networking-uplink`).
 
       You must select one network interface per machine.
    #. If you want to use IPv4, specify the IPv4 gateway on the uplink network (in CIDR notation) and the first and last IPv4 address in the range that you want to use with LXD.

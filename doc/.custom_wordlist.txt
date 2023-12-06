@@ -10,7 +10,9 @@ DCO
 DHCP
 DNS
 GiB
+intra
 IOV
+IPs
 IPv
 LTS
 LXD
@@ -22,6 +24,7 @@ MicroCloud's
 MicroOVN
 multicast
 OVN
+pre
 preseed
 rollout
 roadmap
