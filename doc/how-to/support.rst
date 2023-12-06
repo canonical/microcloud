@@ -28,7 +28,10 @@ The following channels are available for you to interact with the MicroCloud com
 Commercial support
 ------------------
 
-Commercial support for MicroCloud is available through `Ubuntu Pro`_.
+Commercial support for MicroCloud is available through `Ubuntu Pro`_ (Ubuntu Pro (Infra-only) or full Ubuntu Pro).
+The support will cover all LTS versions for five years starting from the day of the release.
+
+See the full `Ubuntu Pro service description`_ for detailed information about what support Ubuntu Pro provides.
 
 Documentation
 -------------
