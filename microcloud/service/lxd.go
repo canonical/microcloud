@@ -414,7 +414,7 @@ func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
 	}
 
 	if isInit {
-		return fmt.Errorf("LXD has already been initialized")
+		return fmt.Errorf("Detected pre-existing LXD storage pools. LXD might have already been initialized")
 	}
 
 	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
