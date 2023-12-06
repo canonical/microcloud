@@ -6,6 +6,16 @@ How to get support
 MicroCloud is not yet ready for production.
 
 We recommend using the default channels for all snaps required to run MicroCloud.
+These are:
+
+* For MicroCloud: ``latest/[stable|candidate|edge]``
+* For LXD: ``latest/[stable|candidate|edge]``
+* For MicroCeph: ``quincy/[stable|candidate|edge]``
+* For MicroOVN: ``22.03/[stable|candidate|edge]``
+
+.. note::
+
+   Currently, there is no LTS version of MicroCloud.
 
 Support and community
 ---------------------

@@ -21,6 +21,8 @@ MicroCloud currently provides only the ``latest`` track.
 .. tip::
    In general, you should use the default channels for all snaps required to run MicroCloud.
 
+   See :ref:`howto-support` for a list of supported channels that are orchestrated to work together.
+
 When installing a snap, specify the channel as follows::
 
   sudo snap install <snap_name> --channel=<channel>

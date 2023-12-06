@@ -12,6 +12,7 @@ DNS
 GiB
 IOV
 IPv
+LTS
 LXD
 LXD's
 mDNS
