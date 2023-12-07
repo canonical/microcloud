@@ -29,10 +29,11 @@ type LXDService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(ctx context.Context, name string, addr string, cloudDir string) (*LXDService, error) {
+func NewLXDService(ctx context.Context, name string, addr string, cloudDir string, config map[string]string) (*LXDService, error) {
 	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
@@ -43,6 +44,7 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 		name:    name,
 		address: addr,
 		port:    LXDPort,
+		config:  config,
 	}, nil
 }
 
@@ -262,6 +264,11 @@ func (s LXDService) Address() string {
 // Port returns the port of this Service instance.
 func (s LXDService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the init configuration for the LXD service.
+func (s *LXDService) SetConfig(config map[string]string) {
+	s.config = config
 }
 
 // HasExtension checks if the server supports the API extension.

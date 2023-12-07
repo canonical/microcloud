@@ -24,10 +24,11 @@ type CephService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewCephService creates a new MicroCeph service with a client attached.
-func NewCephService(ctx context.Context, name string, addr string, cloudDir string) (*CephService, error) {
+func NewCephService(ctx context.Context, name string, addr string, cloudDir string, config map[string]string) (*CephService, error) {
 	proxy := func(r *http.Request) (*url.URL, error) {
 		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
 			r.URL.Path = "/1.0/services/microceph" + r.URL.Path
@@ -46,6 +47,7 @@ func NewCephService(ctx context.Context, name string, addr string, cloudDir stri
 		name:    name,
 		address: addr,
 		port:    CephPort,
+		config:  config,
 	}, nil
 }
 
@@ -168,4 +170,9 @@ func (s CephService) Address() string {
 // Port returns the port of this Service instance.
 func (s CephService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the init configuration for the Ceph service.
+func (s *CephService) SetConfig(config map[string]string) {
+	s.config = config
 }

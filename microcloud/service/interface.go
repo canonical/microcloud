@@ -17,4 +17,5 @@ type Service interface {
 	Name() string
 	Address() string
 	Port() int64
+	SetConfig(config map[string]string)
 }

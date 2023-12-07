@@ -35,6 +35,7 @@ type InitSystem struct {
 	TargetNetworks     []lxdAPI.NetworksPost                  // Target specific network configuration.
 	TargetStoragePools []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
 	Networks           []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
+	OVNGeneveAddr      string                                 // Optional: The user can choose the IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system. If left empty, the system will choose to route the Geneve traffic through the management network.
 	StoragePools       []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
 	StorageVolumes     map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
 
@@ -81,7 +82,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
 	fmt.Println("Waiting for LXD to start...")
-	lxdService, err := service.NewLXDService(context.Background(), "", "", c.common.FlagMicroCloudDir)
+	lxdService, err := service.NewLXDService(context.Background(), "", "", c.common.FlagMicroCloudDir, nil)
 	if err != nil {
 		return err
 	}

@@ -29,6 +29,7 @@ type CloudService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // JoinConfig represents configuration for cluster joining.
@@ -39,7 +40,7 @@ type JoinConfig struct {
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
-func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
+func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool, config map[string]string) (*CloudService, error) {
 	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
 	if err != nil {
 		return nil, err
@@ -50,6 +51,7 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 		name:    name,
 		address: addr,
 		port:    CloudPort,
+		config:  config,
 	}, nil
 }
 
@@ -161,4 +163,9 @@ func (s CloudService) Address() string {
 // Port returns the port of this Service instance.
 func (s CloudService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the init configuration for this Service instance.
+func (s *CloudService) SetConfig(config map[string]string) {
+	s.config = config
 }
