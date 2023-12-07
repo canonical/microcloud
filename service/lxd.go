@@ -406,11 +406,17 @@ func defaultNetworkInterfacesFilter(clients map[string]lxd.InstanceServer, peer 
 				continue
 			}
 
-			addresses = append(addresses, address.Address)
+			addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
 		}
 	}
 
 	return false, addresses
+}
+
+// NetworkWithAllocatedIPs is a network with a slice of IP addresses allocated to it.
+type NetworkWithAllocatedIPs struct {
+	Network   api.Network
+	Addresses []string
 }
 
 // GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
@@ -433,6 +439,61 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 			}
 
 			candidates[peer] = append(candidates[peer], network)
+		}
+	}
+
+	return candidates, nil
+}
+
+// GetUnderlayInterfaces returns a map of peer name to slice of NetworkWithAllocatedIPs that may be used to setup an underlay network.
+func (s LXDService) GetUnderlayInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]NetworkWithAllocatedIPs, error) {
+	clients, networks, err := getClientsAndNetworks(s, ctx, bootstrap, peers)
+	if err != nil {
+		return nil, err
+	}
+
+	unusedAddresses := func(peer string, addresses []string) []string {
+		addressesWithoutNetmask := make([]string, len(addresses))
+		for i, addr := range addresses {
+			ipAddr, _, err := net.ParseCIDR(addr)
+			if err != nil {
+				return []string{}
+			}
+
+			addressesWithoutNetmask[i] = ipAddr.String()
+		}
+
+		usedAddresses := false
+		for _, p := range peers {
+			if p.Name == peer && shared.ValueInSlice(p.Address, addressesWithoutNetmask) {
+				usedAddresses = true
+				break
+			}
+		}
+
+		if usedAddresses {
+			return []string{}
+		}
+
+		return addresses
+	}
+
+	candidates := make(map[string][]NetworkWithAllocatedIPs)
+	for peer, nets := range networks {
+		for _, network := range nets {
+			filtered, addresses := defaultNetworkInterfacesFilter(clients, peer, network)
+			if filtered {
+				continue
+			}
+
+			if len(addresses) == 0 {
+				continue
+			}
+
+			addresses = unusedAddresses(peer, addresses)
+			if len(addresses) > 0 {
+				candidates[peer] = append(candidates[peer], NetworkWithAllocatedIPs{Network: network, Addresses: addresses})
+			}
 		}
 	}
 
@@ -496,7 +557,11 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfa
 			for _, addr := range iface.Addresses {
 				ip := net.ParseIP(addr)
 				if ip == nil {
-					return nil, fmt.Errorf("Invalid IP address: %v", addr)
+					// Attempt to parse the IP address as a CIDR.
+					ip, _, err = net.ParseCIDR(addr)
+					if err != nil {
+						return nil, fmt.Errorf("Could not parse either IP nor CIDR notation for address %q: %v", addr, err)
+					}
 				}
 
 				if (subnet.IP.To4() != nil && ip.To4() != nil && subnet.Contains(ip)) || (subnet.IP.To16() != nil && ip.To16() != nil && subnet.Contains(ip)) {
