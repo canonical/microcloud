@@ -1045,6 +1045,104 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		systems[sh.Name] = bootstrapSystem
 	}
 
+	// Underlay network.
+	underlayNetworks, err := sh.Services[types.LXD].(*service.LXDService).GetUnderlayInterfaces(context.Background(), bootstrap, infos)
+	if err != nil {
+		return err
+	}
+
+	if len(underlayNetworks) != len(systems) {
+		fmt.Println("Not enough interfaces available to create an underlay network, skipping")
+		return nil
+	}
+
+	canOVNUnderlay := len(underlayNetworks) > 0
+	for _, nets := range underlayNetworks {
+		if len(nets) == 0 {
+			canOVNUnderlay = false
+			break
+		}
+	}
+
+	if !canOVNUnderlay {
+		fmt.Println("No dedicated interfaces for OVN underlay detected, skipping the OVN underlay network setup")
+		return nil
+	}
+
+	// // Check if the current MicroOVN deployment supports custom encapsulation IP for the Geneve tunnel.
+	// hasFeatureCustomIPEncapsulationFeature, err := sh.Services[types.MicroOVN].(*service.OVNService).SupportsFeature(context.Background(), "custom_encapsulation_ip")
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if !hasFeatureCustomIPEncapsulationFeature {
+	// 	fmt.Println("Underlay network setup for MicroOVN was not applied because your MicroOVN memmbers do not support custom encapsulation IP for the Geneve tunnel, skipping")
+	// 	return nil
+	// }
+
+	wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+	if err != nil {
+		return err
+	}
+
+	if !wantsDedicatedUnderlay {
+		return nil
+	}
+
+	header = []string{"LOCATION", "IFACE", "TYPE", "IP ADDRESS (CIDR)"}
+	fmt.Println("Select exactly one network interface from each cluster member:")
+	data = [][]string{}
+	for peer, nets := range underlayNetworks {
+		for _, net := range nets {
+			for _, addr := range net.Addresses {
+				data = append(data, []string{peer, net.Network.Name, net.Network.Type, addr})
+			}
+		}
+	}
+
+	table = NewSelectableTable(header, data)
+	selected = map[string]string{}
+	c.askRetry("Retry selecting underlay network interfaces?", autoSetup, func() error {
+		err = table.Render(table.rows)
+		if err != nil {
+			return err
+		}
+
+		answers, err := table.GetSelections()
+		if err != nil {
+			return err
+		}
+
+		selected = map[string]string{}
+		for _, answer := range answers {
+			target := table.SelectionValue(answer, "LOCATION")
+			ipAddr := table.SelectionValue(answer, "IP ADDRESS (CIDR)")
+
+			if selected[target] != "" {
+				return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
+			}
+
+			selected[target] = ipAddr
+		}
+
+		if len(selected) != len(underlayNetworks) {
+			return fmt.Errorf("Failed to configure OVN underlay traffic: Some peers don't have a selected interface")
+		}
+
+		return nil
+	})
+
+	for peer, ipAddr := range selected {
+		system := systems[peer]
+		ip, _, err := net.ParseCIDR(ipAddr)
+		if err != nil {
+			return err
+		}
+
+		system.OVNGeneveAddr = ip.String()
+		systems[peer] = system
+	}
+
 	return nil
 }
 
