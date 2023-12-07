@@ -78,7 +78,7 @@ func servicesPut(state *state.State, r *http.Request) response.Response {
 		addr = req.Address
 	}
 
-	sh, err := service.NewHandler(state.Name(), addr, state.OS.StateDir, false, false, services...)
+	sh, err := service.NewHandler(state.Name(), addr, state.OS.StateDir, false, false, nil, services...)
 	if err != nil {
 		return response.SmartError(err)
 	}
