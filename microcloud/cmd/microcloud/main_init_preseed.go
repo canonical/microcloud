@@ -420,12 +420,24 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 
 		// Pick the first interface for any system without an explicitly chosen one.
-		networks, err := lxd.GetUplinkInterfaces(context.Background(), bootstrap, infos)
+		allNetworks, err := lxd.GetInterfaces(context.Background(), bootstrap, infos, service.UplinkInterface)
 		if err != nil {
 			return nil, err
 		}
 
-		for peer, nets := range networks {
+		uplinkNetworks := make(map[string][]lxdAPI.Network)
+		for peer, networks := range allNetworks {
+			for _, net := range networks {
+				_, ok := uplinkNetworks[peer]
+				if !ok {
+					uplinkNetworks[peer] = []lxdAPI.Network{net.Network}
+				} else {
+					uplinkNetworks[peer] = append(uplinkNetworks[peer], net.Network)
+				}
+			}
+		}
+
+		for peer, nets := range uplinkNetworks {
 			if len(nets) > 0 {
 				ifaceByPeer[peer] = nets[0].Name
 			}
