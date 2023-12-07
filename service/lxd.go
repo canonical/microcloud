@@ -31,7 +31,7 @@ type LXDService struct {
 }
 
 // NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(name string, addr string, cloudDir string) (*LXDService, error) {
+func NewLXDService(name string, addr string, cloudDir string, config map[string]string) (*LXDService, error) {
 	client, err := microcluster.App(microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func NewLXDService(name string, addr string, cloudDir string) (*LXDService, erro
 		name:    name,
 		address: addr,
 		port:    LXDPort,
-		config:  make(map[string]string),
+		config:  config,
 	}, nil
 }
 

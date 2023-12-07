@@ -38,7 +38,7 @@ type JoinConfig struct {
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
-func NewCloudService(name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
+func NewCloudService(name string, addr string, dir string, verbose bool, debug bool, config map[string]string) (*CloudService, error) {
 	client, err := microcluster.App(microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func NewCloudService(name string, addr string, dir string, verbose bool, debug b
 		name:    name,
 		address: addr,
 		port:    CloudPort,
-		config:  make(map[string]string),
+		config:  config,
 	}, nil
 }
 

@@ -53,13 +53,13 @@ func NewHandler(name string, addr string, stateDir string, debug bool, verbose b
 		var err error
 		switch serviceType {
 		case types.MicroCloud:
-			service, err = NewCloudService(name, addr, stateDir, verbose, debug)
+			service, err = NewCloudService(name, addr, stateDir, verbose, debug, map[string]string{})
 		case types.MicroCeph:
-			service, err = NewCephService(name, addr, stateDir)
+			service, err = NewCephService(name, addr, stateDir, map[string]string{})
 		case types.MicroOVN:
-			service, err = NewOVNService(name, addr, stateDir)
+			service, err = NewOVNService(name, addr, stateDir, map[string]string{})
 		case types.LXD:
-			service, err = NewLXDService(name, addr, stateDir)
+			service, err = NewLXDService(name, addr, stateDir, map[string]string{})
 		}
 
 		if err != nil {

@@ -101,7 +101,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
 					if err != nil {
-						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
+						logger.Error("Failed to create service handler for service", logger.Ctx{"service": serviceName, "error": err})
 						break
 					}
 
