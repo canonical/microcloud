@@ -410,6 +410,12 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 			LXDConfig:  info.JoinConfig,
 			CephConfig: info.MicroCephDisks,
 		}
+
+		if info.OVNGeneveAddr != "" {
+			p := joinConfig[peer]
+			p.OVNConfig = map[string]string{fmt.Sprintf("%s.ovn-encap-ip", info.ServerInfo.Name): info.OVNGeneveAddr}
+			joinConfig[peer] = p
+		}
 	}
 
 	_, bootstrap := systems[sh.Name]
@@ -720,6 +726,20 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 				if len(microCephBootstrapConf) > 0 {
 					s.SetConfig(microCephBootstrapConf)
+				}
+			}
+
+			if s.Type() == types.MicroOVN {
+				microOvnBootstrapConf := make(map[string]string)
+				for _, system := range systems {
+					// If the system needs to be bootstrapped with a custom ovn encapsulation ip for geneve, add it to the init config.
+					if system.OVNGeneveAddr != "" {
+						microOvnBootstrapConf[fmt.Sprintf("%s.ovn-encap-ip", system.ServerInfo.Name)] = system.OVNGeneveAddr
+					}
+				}
+
+				if len(microOvnBootstrapConf) > 0 {
+					s.SetConfig(microOvnBootstrapConf)
 				}
 			}
 
