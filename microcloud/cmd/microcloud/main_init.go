@@ -415,13 +415,46 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 	return nil
 }
 
+func getInitConfigs(s *service.Handler, systems map[string]InitSystem) map[types.ServiceType]map[string]string {
+	initConfigs := make(map[types.ServiceType]map[string]string)
+	for _, system := range systems {
+		// If the system needs to be bootstrapped with a custom ovn encapsulation ip for geneve, add it to the init config.
+		if system.OVNGeneveAddr != "" {
+			if initConfigs[types.MicroOVN] == nil {
+				initConfigs[types.MicroOVN] = map[string]string{}
+				initConfigs[types.MicroOVN][fmt.Sprintf("%s.ovn-encap-ip", system.ServerInfo.Name)] = system.OVNGeneveAddr
+			} else {
+				initConfigs[types.MicroOVN][fmt.Sprintf("%s.ovn-encap-ip", system.ServerInfo.Name)] = system.OVNGeneveAddr
+			}
+		}
+	}
+
+	return initConfigs
+}
+
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
 func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	_, bootstrap := systems[s.Name]
 	if bootstrap {
 		fmt.Println("Initializing a new cluster")
+
+		initConfigs := getInitConfigs(s, systems)
 		err := s.RunConcurrent(true, false, func(s service.Service) error {
+			// Update the service's config
+			switch s.Type() {
+			case types.MicroCloud:
+				s.SetConfig(initConfigs[types.MicroCloud])
+			case types.MicroCeph:
+				s.SetConfig(initConfigs[types.MicroCeph])
+			case types.MicroOVN:
+				s.SetConfig(initConfigs[types.MicroOVN])
+			case types.LXD:
+				s.SetConfig(initConfigs[types.LXD])
+			default:
+				return fmt.Errorf("Unknown service type %q", s.Type())
+			}
+
 			err := s.Bootstrap(context.Background())
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
