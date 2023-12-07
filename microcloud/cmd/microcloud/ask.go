@@ -544,14 +544,26 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		infos = append(infos, system.ServerInfo)
 	}
 
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
+	allNetworks, err := sh.Services[types.LXD].(*service.LXDService).GetInterfaces(context.Background(), bootstrap, infos, service.UplinkInterface)
 	if err != nil {
 		return err
 	}
 
+	uplinkNetworks := make(map[string][]api.Network)
+	for peer, networks := range allNetworks {
+		for _, net := range networks {
+			_, ok := uplinkNetworks[peer]
+			if !ok {
+				uplinkNetworks[peer] = []api.Network{net.Network}
+			} else {
+				uplinkNetworks[peer] = append(uplinkNetworks[peer], net.Network)
+			}
+		}
+	}
+
 	// Check if OVN is possible in the environment.
-	canOVN := len(networks) > 0
-	for _, nets := range networks {
+	canOVN := len(uplinkNetworks) > 0
+	for _, nets := range uplinkNetworks {
 		if len(nets) == 0 {
 			canOVN = false
 			break
@@ -573,8 +585,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		return nil
 	}
 
-	missingSystems := len(systems) != len(networks)
-	for _, nets := range networks {
+	missingSystems := len(systems) != len(uplinkNetworks)
+	for _, nets := range uplinkNetworks {
 		if len(nets) == 0 {
 			missingSystems = true
 			break
@@ -596,7 +608,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	header := []string{"LOCATION", "IFACE", "TYPE"}
 	fmt.Println("Select exactly one network interface from each cluster member:")
 	data := [][]string{}
-	for peer, nets := range networks {
+	for peer, nets := range uplinkNetworks {
 		for _, net := range nets {
 			data = append(data, []string{peer, net.Name, net.Type})
 		}
@@ -627,7 +639,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			selected[target] = iface
 		}
 
-		if len(selected) != len(networks) {
+		if len(selected) != len(uplinkNetworks) {
 			return fmt.Errorf("Failed to add OVN uplink network: Some peers don't have a selected interface")
 		}
 

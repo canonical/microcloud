@@ -308,8 +308,25 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 	return client.GetServerResources()
 }
 
-// GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
-func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
+// NetInterfaceType is a bitmask meant to be used for filtering network interfaces in GetInterfaces.
+// Some interfaces need an allocated IP address (for underlay), some don't (for uplink).
+type NetInterfaceType int
+
+const (
+	// UplinkInterface is an interface that is used for uplink.
+	UplinkInterface NetInterfaceType = 1 << iota
+	// UnderlayInterface is an interface that is used for underlay.
+	UnderlayInterface
+)
+
+// NetworkWithAllocatedIPs is a network with a slice of IP addresses allocated to it.
+type NetworkWithAllocatedIPs struct {
+	Network   api.Network
+	Addresses []string
+}
+
+// GetInterfaces returns a map of peer name to slice of NetworkWithAllocatedIPs that may be used with OVN.
+func (s LXDService) GetInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo, conf NetInterfaceType) (map[string][]NetworkWithAllocatedIPs, error) {
 	clients := map[string]lxd.InstanceServer{}
 	networks := map[string][]api.Network{}
 	if bootstrap {
@@ -345,7 +362,7 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 		clients[info.Name] = client
 	}
 
-	candidates := map[string][]api.Network{}
+	candidates := map[string][]NetworkWithAllocatedIPs{}
 	for peer, nets := range networks {
 		for _, network := range nets {
 			// Skip managed networks.
@@ -382,15 +399,21 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 						continue
 					}
 
-					addresses = append(addresses, address.Address)
+					addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
 				}
 			}
 
-			if len(addresses) > 0 {
-				continue
+			if conf&UnderlayInterface == 0 && conf&UplinkInterface != 0 {
+				if len(addresses) > 0 {
+					continue
+				}
+			} else if conf&UnderlayInterface != 0 && conf&UplinkInterface == 0 {
+				if len(addresses) == 0 {
+					continue
+				}
 			}
 
-			candidates[peer] = append(candidates[peer], network)
+			candidates[peer] = append(candidates[peer], NetworkWithAllocatedIPs{Network: network, Addresses: addresses})
 		}
 	}
 
