@@ -46,20 +46,37 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler with a client for each of the given services.
-func NewHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...types.ServiceType) (*Handler, error) {
+func NewHandler(name string, addr string, stateDir string, debug bool, verbose bool, initConfigs map[types.ServiceType]map[string]string, services ...types.ServiceType) (*Handler, error) {
 	servicesMap := make(map[types.ServiceType]Service, len(services))
 	for _, serviceType := range services {
 		var service Service
 		var err error
+		var initConfig map[string]string
 		switch serviceType {
 		case types.MicroCloud:
-			service, err = NewCloudService(context.Background(), name, addr, stateDir, verbose, debug)
+			if initConfigs != nil {
+				initConfig = initConfigs[types.MicroCloud]
+			}
+
+			service, err = NewCloudService(context.Background(), name, addr, stateDir, verbose, debug, initConfig)
 		case types.MicroCeph:
-			service, err = NewCephService(context.Background(), name, addr, stateDir)
+			if initConfigs != nil {
+				initConfig = initConfigs[types.MicroCeph]
+			}
+
+			service, err = NewCephService(context.Background(), name, addr, stateDir, initConfig)
 		case types.MicroOVN:
-			service, err = NewOVNService(context.Background(), name, addr, stateDir)
+			if initConfigs != nil {
+				initConfig = initConfigs[types.MicroOVN]
+			}
+
+			service, err = NewOVNService(context.Background(), name, addr, stateDir, initConfig)
 		case types.LXD:
-			service, err = NewLXDService(context.Background(), name, addr, stateDir)
+			if initConfigs != nil {
+				initConfig = initConfigs[types.LXD]
+			}
+
+			service, err = NewLXDService(context.Background(), name, addr, stateDir, initConfig)
 		}
 
 		if err != nil {

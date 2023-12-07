@@ -130,7 +130,7 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		return err
 	}
 
-	s, err := service.NewHandler(hostname, ip.String(), c.FlagMicroCloudDir, c.FlagLogDebug, c.FlagLogVerbose, services...)
+	s, err := service.NewHandler(hostname, ip.String(), c.FlagMicroCloudDir, c.FlagLogDebug, c.FlagLogVerbose, nil, services...)
 	if err != nil {
 		return err
 	}
