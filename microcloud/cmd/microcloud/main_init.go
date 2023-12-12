@@ -179,14 +179,12 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 		}()
 	}
 
-	var timeAfter <-chan time.Time
+	timeoutDuration := time.Minute
 	if autoSetup {
-		timeAfter = time.After(5 * time.Second)
+		timeoutDuration = 5 * time.Second
 	}
 
-	if len(expectedSystems) > 0 {
-		timeAfter = time.After(1 * time.Minute)
-	}
+	timeAfter := time.After(timeoutDuration)
 
 	expectedSystemsMap := make(map[string]bool, len(expectedSystems))
 	for _, system := range expectedSystems {
