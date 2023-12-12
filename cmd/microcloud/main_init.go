@@ -200,14 +200,13 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 		}()
 	}
 
-	var timeAfter <-chan time.Time
+	timeoutDuration := time.Minute
 	if autoSetup {
-		timeAfter = time.After(5 * time.Second)
+		timeoutDuration = 5 * time.Second
 	}
 
-	if len(expectedSystems) > 0 {
-		timeAfter = time.After(1 * time.Minute)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	defer cancel()
 
 	expectedSystemsMap := make(map[string]bool, len(expectedSystems))
 	for _, system := range expectedSystems {
@@ -219,7 +218,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 	done := false
 	for !done {
 		select {
-		case <-timeAfter:
+		case <-ctx.Done():
 			done = true
 		case err := <-selectionCh:
 			if err != nil {
@@ -235,7 +234,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 				break
 			}
 
-			peers, err := mdns.LookupPeers(context.Background(), iface, mdns.Version, s.Name)
+			peers, err := mdns.LookupPeers(ctx, iface, mdns.Version, s.Name)
 			if err != nil {
 				return err
 			}
