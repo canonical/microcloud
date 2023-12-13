@@ -31,8 +31,8 @@
 
 .. _snap: https://snapcraft.io/docs
 .. _Channels and tracks: https://snapcraft.io/docs/channels
-.. _Hold refreshes: https://snapcraft.io/docs/keeping-snaps-up-to-date#heading--hold
-.. _Control updates with system options: https://snapcraft.io/docs/keeping-snaps-up-to-date#heading--settings
+.. _Hold refreshes: https://snapcraft.io/docs/managing-updates#heading--hold
+.. _Control updates with system options: https://snapcraft.io/docs/managing-updates#heading--refresh-hold
 .. _Progressive releases: https://snapcraft.io/docs/progressive-releases
 .. _Snap Store Proxy documentation: https://docs.ubuntu.com/snap-store-proxy/
 .. _Configuring snap devices: https://docs.ubuntu.com/snap-store-proxy/en/devices
