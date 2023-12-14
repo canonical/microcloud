@@ -1,6 +1,6 @@
 ACL
 ACLs
-AGPL
+AGPLv
 backend
 balancers
 Ceph

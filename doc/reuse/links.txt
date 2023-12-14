@@ -12,7 +12,7 @@
 
 .. _`GitHub`: https://github.com/canonical/microcloud
 .. _`GitHub issues`: https://github.com/canonical/microcloud/issues/new
-.. _license: https://github.com/canonical/microcloud/blob/main/COPYING
+.. _licence: https://github.com/canonical/microcloud/blob/main/COPYING
 
 .. _discussion forum: https://discourse.ubuntu.com/c/lxd/microcloud/
 .. _Announcement: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871

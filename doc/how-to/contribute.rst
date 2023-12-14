@@ -13,11 +13,11 @@ Code of Conduct
 When contributing, you must adhere to the Code of Conduct.
 MicroCloud follows the `Ubuntu Code of Conduct`_.
 
-License and copyright
+Licence and copyright
 ---------------------
 
-By default, any contribution to this project is made under the AGPL-3.0 license.
-See the `license`_ in the MicroCloud GitHub repository for detailed information.
+By default, any contribution to this project is made under the AGPLv3 licence.
+See the `licence`_ in the MicroCloud GitHub repository for detailed information.
 
 All contributors must sign the `Canonical contributor licence agreement`_, which gives Canonical permission to use the contributions.
 The author of a change remains the copyright holder of their code (no copyright assignment).
