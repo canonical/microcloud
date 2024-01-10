@@ -26,8 +26,33 @@ Networking
 
 By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
 
-MicroOVN requires an uplink network that is an actual L2 subnet (which is usually not the case in a virtual cloud environment).
-In addition, MicroOVN requires its own dedicated network interface, for example, a dedicated physical network interface, a VLAN, or a virtual function on an :abbr:`SR-IOV (Single root I/O virtualisation)`-capable network interface.
+For external connectivity, MicroOVN requires an uplink network.
+This uplink network must support broadcast and multicast traffic (so that IP adverts and packets can flow between the OVN virtual router and the uplink network).
+Proper Ethernet networks generally fulfil these requirements, but virtual cloud environments often don't.
+
+Each machine in the MicroCloud cluster should have at least two available network interfaces (which can be connected to the same network or to different networks):
+
+.. _microcloud-networking-intracluster:
+
+Network interface for intra-cluster traffic
+  MicroCloud requires one network interface that is pre-configured with an IP address that is within the same subnet as the IPs of the other cluster members.
+  The network that it is connected to must support multicast.
+
+  This network interface can be, for example, a dedicated physical network interface, a VLAN, or a virtual function on an :abbr:`SR-IOV (Single root I/O virtualisation)`-capable network interface.
+  It serves as the dedicated network interface for MicroOVN and is used for multicast discovery (during setup) and all internal traffic between the MicroCloud, OVN, and Ceph members.
+
+.. _microcloud-networking-uplink:
+
+Network interface to connect to the uplink network
+  MicroCloud requires one network interface for connecting OVN to the uplink network.
+  This network interface must either be an unused interface that does not have an IP address configured, or a bridge.
+
+  MicroCloud configures this interface as an uplink interface that provides external connectivity to the MicroCloud cluster.
+
+  You can specify a different interface to be used as the uplink interface for each cluster member.
+  MicroCloud requires that all uplink interfaces are connected to the uplink network, using the gateway and IP address range information that you provide during the MicroCloud initialisation process.
+
+If you have a network interface that is configured as a Linux bridge, you can use it for both network interfaces.
 
 See :ref:`lxd:network-ovn` in the LXD documentation for more information.
 

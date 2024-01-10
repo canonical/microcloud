@@ -131,7 +131,7 @@ Complete the following steps to create the required disks in a LXD storage pool:
 3. Create a network
 -------------------
 
-MicroCloud requires an uplink network that the cluster members can use to communicate.
+MicroCloud requires an uplink network that the cluster members can use for external connectivity.
 See :ref:`explanation-networking` for more information.
 
 Complete the following steps to set up this network:
