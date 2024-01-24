@@ -222,24 +222,8 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 			if wantsDisks {
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return askRemotePool(systems, autoSetup, wipeAllDisks, sh)
+					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
 				})
-			} else {
-				// Add a space between the CLI and the response.
-				fmt.Println("")
-			}
-
-			usingCeph := false
-			for peer, system := range systems {
-				if len(system.MicroCephDisks) > 0 {
-					usingCeph = true
-					fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(system.MicroCephDisks), peer)
-				}
-			}
-
-			if usingCeph {
-				// Add a space between the CLI and the response.
-				fmt.Println("")
 			}
 		}
 	}
@@ -401,7 +385,7 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 	return nil
 }
 
-func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
+func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for peer, system := range systems {
@@ -502,11 +486,76 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 	}
 
 	_, checkMinSize := systems[sh.Name]
-	if !checkMinSize || diskCount >= 3 {
-		return nil
+	if checkMinSize && diskCount < 3 {
+		return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
 	}
 
-	return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
+	// Print a summary of what was chosen in this step.
+	if diskCount > 0 {
+		for peer, system := range systems {
+			if len(system.MicroCephDisks) > 0 {
+				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(system.MicroCephDisks), peer)
+			}
+		}
+
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
+	setupCephFS := false
+	_, bootstrap := systems[sh.Name]
+	if bootstrap && !autoSetup {
+		var err error
+		ext := "storage_cephfs_create_missing"
+		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
+		if err != nil {
+			return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
+		}
+
+		if hasCephFS {
+			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if !bootstrap {
+		d, err := sh.Services[types.LXD].(*service.LXDService).Client(context.Background(), "")
+		if err != nil {
+			return err
+		}
+
+		pools, err := d.GetStoragePools()
+		if err != nil {
+			return err
+		}
+
+		// If "cephfs" has been setup already, then set it up for the new system too.
+		for _, pool := range pools {
+			if pool.Driver == "cephfs" {
+				setupCephFS = true
+				break
+			}
+		}
+	}
+
+	if setupCephFS {
+		for name, system := range systems {
+			if bootstrap {
+				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
+				if sh.Name == name {
+					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())
+				}
+			} else {
+				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephFSStoragePoolJoinConfig())
+			}
+
+			systems[name] = system
+		}
+	}
+
+	return nil
 }
 
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
@@ -638,10 +687,13 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)
 	}
 
-	if len(selected) > 0 {
-		// Add a space between the CLI and the response.
-		fmt.Println("")
+	// If we didn't select anything, then abort network setup.
+	if len(selected) == 0 {
+		return nil
 	}
+
+	// Add a space between the CLI and the response.
+	fmt.Println("")
 
 	// Prepare the configuration.
 	ipConfig := map[string]string{}

@@ -21,6 +21,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 	cases := []struct {
 		desc    string
 		subnet  string
+		iface   string
 		systems []System
 		ovn     InitNetwork
 		storage StorageFilter
@@ -31,6 +32,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "No systems",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: nil,
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -44,6 +46,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Not enough systems",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", UplinkInterface: "eth0", Storage: InitStorage{}}},
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -65,8 +68,20 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			err:    errors.New("invalid CIDR address: "),
 		},
 		{
+			desc:    "Missing lookup interface",
+			subnet:  "10.0.0.1/24",
+			systems: []System{{Name: "n1"}, {Name: "n2"}},
+			storage: StorageFilter{
+				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
+			},
+
+			addErr: true,
+			err:    errors.New("Missing interface name for machine lookup"),
+		},
+		{
 			desc:    "Systems missing name",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "", UplinkInterface: "eth0"}, {Name: "n2", UplinkInterface: "eth0"}},
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -80,6 +95,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Too few systems for ceph filter",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
@@ -92,6 +108,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Too few systems for ceph direct",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}},
 			addErr:  false,
 			err:     errors.New("At least 3 systems must specify ceph storage disks"),
@@ -99,6 +116,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Incomplete ceph direct selection",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n3"}},
 			addErr:  false,
 			err:     errors.New("At least 3 systems must specify ceph storage disks"),
@@ -106,6 +124,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:   "Minimum ceph direct selection (3) with more systems (4)",
 			subnet: "10.0.0.1/24",
+			iface:  "enp5s0",
 			systems: []System{
 				{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
 				{Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
@@ -117,6 +136,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:   "Multiple disks on the same system don't count towards the minimum quota:",
 			subnet: "10.0.0.1/24",
+			iface:  "enp5s0",
 			systems: []System{
 				{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
 				{Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}, {Path: "def2"}}}},
@@ -127,6 +147,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Incomplete zfs direct selection",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", Storage: InitStorage{Local: DirectStorage{Path: "def"}}}, {Name: "n2", Storage: InitStorage{Local: DirectStorage{Path: "def"}}}, {Name: "n3"}},
 			addErr:  true,
 			err:     errors.New("Some systems are missing local storage disks"),
@@ -134,6 +155,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Invalid zfs filter constraint",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "abc", FindMin: 3, FindMax: 2, Wipe: false}},
@@ -144,6 +166,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Invalid zfs filter value",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "", FindMin: 3, FindMax: 2, Wipe: false}},
@@ -154,6 +177,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Invalid ceph filter min count",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}, {Name: "n3"}},
 			storage: StorageFilter{
 				Ceph: []DiskFilter{{Find: "def", FindMin: 0, FindMax: 2, Wipe: false}},
@@ -164,6 +188,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Invalid ceph filter min > max",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}, {Name: "n3"}},
 			storage: StorageFilter{
 				Ceph: []DiskFilter{{Find: "def", FindMin: 4, FindMax: 3, Wipe: false}},
@@ -174,6 +199,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Invalid ceph filter constraints",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}, {Name: "n3"}},
 			storage: StorageFilter{
 				Ceph: []DiskFilter{{Find: "", FindMin: 4, FindMax: 3, Wipe: false}},
@@ -184,6 +210,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Systems missing interface",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", UplinkInterface: ""}, {Name: "n2", UplinkInterface: "eth0"}, {Name: "n3", UplinkInterface: "eth0"}},
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -197,6 +224,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Too few systems for ovn",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", UplinkInterface: "eth0"}, {Name: "n2", UplinkInterface: "eth0"}},
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -209,6 +237,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "OVN IPv4 Ranges with no gateway",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", UplinkInterface: "eth0"}, {Name: "n2", UplinkInterface: "eth0"}, {Name: "n3", UplinkInterface: "eth0"}},
 			ovn:     InitNetwork{IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -222,6 +251,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc:    "Invalid OVN IPv4 Ranges",
 			subnet:  "10.0.0.1/24",
+			iface:   "enp5s0",
 			systems: []System{{Name: "n1", UplinkInterface: "eth0"}, {Name: "n2", UplinkInterface: "eth0"}, {Name: "n3", UplinkInterface: "eth0"}},
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100,10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
@@ -246,10 +276,11 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 	for _, c := range cases {
 		s.T().Log(c.desc)
 		p := Preseed{
-			LookupSubnet: c.subnet,
-			Systems:      c.systems,
-			OVN:          c.ovn,
-			Storage:      c.storage,
+			LookupSubnet:    c.subnet,
+			LookupInterface: c.iface,
+			Systems:         c.systems,
+			OVN:             c.ovn,
+			Storage:         c.storage,
 		}
 
 		err := p.validate("n1", true)

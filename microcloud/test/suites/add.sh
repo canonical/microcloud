@@ -92,8 +92,8 @@ test_add_auto() {
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
-    validate_system_lxd "${m}" 4 disk1 1
-    validate_system_microceph "${m}" disk2
+    validate_system_lxd "${m}" 4 disk1 1 0
+    validate_system_microceph "${m}" 0 disk2
     validate_system_microovn "${m}"
   done
 }
@@ -116,6 +116,7 @@ test_add_interactive() {
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
+  export SETUP_CEPHFS="yes"
   export CEPH_WIPE="yes"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
@@ -148,8 +149,8 @@ test_add_interactive() {
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
-    validate_system_lxd "${m}" 4 disk1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
-    validate_system_microceph "${m}" disk2
+    validate_system_lxd "${m}" 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+    validate_system_microceph "${m}" 1 disk2
     validate_system_microovn "${m}"
   done
 
