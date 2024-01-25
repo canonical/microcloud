@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	microClient "github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
@@ -143,6 +144,26 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 	return client.JoinServices(ctx, c, joinConfig)
 }
 
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
+func (s CloudService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
+	client, err := s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+	if err != nil {
+		return nil, err
+	}
+
+	client.Client.Client.Transport = &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	}
+
+	return clusterMembers(ctx, client)
+}
+
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.client.LocalClient()
@@ -150,6 +171,11 @@ func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, er
 		return nil, err
 	}
 
+	return clusterMembers(ctx, client)
+}
+
+// clusterMembers returns a map of cluster member names and addresses.
+func clusterMembers(ctx context.Context, client *microClient.Client) (map[string]string, error) {
 	members, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return nil, err

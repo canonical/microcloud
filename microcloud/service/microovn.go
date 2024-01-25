@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -91,6 +92,29 @@ func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
 }
 
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
+func (s OVNService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
+	client, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+	if err != nil {
+		return nil, err
+	}
+
+	client.Client.Client.Transport = &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+			if !strings.HasPrefix(r.URL.Path, "/1.0/services/microovn") {
+				r.URL.Path = "/1.0/services/microovn" + r.URL.Path
+			}
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	}
+
+	return clusterMembers(ctx, client)
+}
+
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client()
@@ -98,17 +122,7 @@ func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, erro
 		return nil, err
 	}
 
-	members, err := client.GetClusterMembers(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	genericMembers := make(map[string]string, len(members))
-	for _, member := range members {
-		genericMembers[member.Name] = member.Address.String()
-	}
-
-	return genericMembers, nil
+	return clusterMembers(ctx, client)
 }
 
 // Type returns the type of Service.
