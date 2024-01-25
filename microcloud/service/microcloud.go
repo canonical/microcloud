@@ -95,6 +95,26 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 	return s.client.NewJoinToken(peer)
 }
 
+// RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
+func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, secret string, peer string, serviceType types.ServiceType) (string, error) {
+	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))
+	if err != nil {
+		return "", err
+	}
+
+	c.Client.Client.Transport = &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	}
+
+	return client.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
+}
+
 // Join joins a cluster with the given token.
 func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
