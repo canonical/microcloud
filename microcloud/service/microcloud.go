@@ -126,19 +126,28 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 
-	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
-	if err != nil {
-		return err
-	}
+	var c *microClient.Client
+	var err error
+	if name == s.name {
+		c, err = s.client.LocalClient()
+		if err != nil {
+			return err
+		}
+	} else {
+		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
+		if err != nil {
+			return err
+		}
 
-	c.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
+		c.Client.Client.Transport = &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				r.Header.Set("X-MicroCloud-Auth", secret)
 
-			return shared.ProxyFromEnvironment(r)
-		},
+				return shared.ProxyFromEnvironment(r)
+			},
+		}
 	}
 
 	return client.JoinServices(ctx, c, joinConfig)
