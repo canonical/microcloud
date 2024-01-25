@@ -833,13 +833,13 @@ func (c *CmdControl) askClustered(s *service.Handler, autoSetup bool, systems ma
 	}
 
 	for serviceType := range expectedServices {
-		initializedSystem, err := checkClustered(s, autoSetup, serviceType, systems)
+		initializedSystem, _, err := checkClustered(s, autoSetup, serviceType, systems)
 		if err != nil {
 			return err
 		}
 
 		if initializedSystem != "" {
-			question := fmt.Sprintf("%q is already part of a %s cluster. Use this cluster to MicroCloud, or skip %s? (reuse/skip) [default=reuse]", initializedSystem, serviceType, serviceType)
+			question := fmt.Sprintf("%q is already part of a %s cluster. Use this cluster with MicroCloud, or skip %s? (reuse/skip) [default=reuse]: ", initializedSystem, serviceType, serviceType)
 			validator := func(s string) error {
 				if !shared.ValueInSlice[string](s, []string{"reuse", "skip"}) {
 					return fmt.Errorf("Invalid input, expected one of (reuse,skip) but got %q", s)
