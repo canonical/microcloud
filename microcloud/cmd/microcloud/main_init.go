@@ -356,7 +356,7 @@ func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer strin
 		}
 
 		for service := range clustered {
-			systems, err := sh.Services[service].ClusterMembers(context.Background())
+			systems, err := sh.Services[service].ClusterMembers(context.Background(), nil)
 			if err != nil {
 				return err
 			}
@@ -479,7 +479,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			}
 		} else {
 			cloud := s.Services[types.MicroCloud].(*service.CloudService)
-			clusterMap, err = cloud.ClusterMembers(context.Background())
+			clusterMap, err = cloud.ClusterMembers(context.Background(), nil)
 			if err != nil {
 				return err
 			}

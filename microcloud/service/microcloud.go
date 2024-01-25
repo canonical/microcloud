@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	microClient "github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // CloudService is a MicroCloud service.
@@ -76,7 +78,7 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("Timed out waiting for MicroCloud cluster to initialize")
 		default:
-			names, err := s.ClusterMembers(ctx)
+			names, err := s.ClusterMembers(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -144,10 +146,30 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, error) {
-	client, err := s.client.LocalClient()
-	if err != nil {
-		return nil, err
+// Optionally sends a remote request using the information in ServerInfo.
+func (s CloudService) ClusterMembers(ctx context.Context, info *mdns.ServerInfo) (map[string]string, error) {
+	var client *microClient.Client
+	var err error
+	if info != nil && info.Name != s.name {
+		client, err = s.client.RemoteClient(util.CanonicalNetworkAddress(info.Address, CloudPort))
+		if err != nil {
+			return nil, err
+		}
+
+		client.Client.Client.Transport = &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				r.Header.Set("X-MicroCloud-Auth", info.AuthSecret)
+
+				return shared.ProxyFromEnvironment(r)
+			},
+		}
+	} else {
+		client, err = s.client.LocalClient()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	members, err := client.GetClusterMembers(ctx)

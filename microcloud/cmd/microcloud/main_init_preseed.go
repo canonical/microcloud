@@ -141,7 +141,7 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 	}
 
 	if !init {
-		peers, err := s.Services[types.MicroCloud].ClusterMembers(context.Background())
+		peers, err := s.Services[types.MicroCloud].ClusterMembers(context.Background(), nil)
 		if err != nil {
 			return err
 		}

@@ -222,8 +222,16 @@ func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, error) {
-	client, err := s.Client(ctx, "")
+// Optionally sends a remote request using the information in ServerInfo.
+func (s LXDService) ClusterMembers(ctx context.Context, info *mdns.ServerInfo) (map[string]string, error) {
+	var client lxd.InstanceServer
+	var err error
+	if info != nil && info.Name != s.name {
+		client, err = s.remoteClient(info.AuthSecret, info.Address, CloudPort)
+	} else {
+		client, err = s.Client(ctx, "")
+	}
+
 	if err != nil {
 		return nil, err
 	}
