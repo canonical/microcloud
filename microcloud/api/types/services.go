@@ -36,3 +36,9 @@ type ServiceToken struct {
 	Service   ServiceType `json:"service" yaml:"service"`
 	JoinToken string      `json:"join_token" yaml:"join_token"`
 }
+
+// ServiceTokensPost represents a request to issue a join token for a MicroCloud service.
+type ServiceTokensPost struct {
+	ClusterAddress string `json:"cluster_address" yaml:"cluster_address"`
+	JoinerName     string `json:"joiner_name"     yaml:"joiner_name"`
+}
