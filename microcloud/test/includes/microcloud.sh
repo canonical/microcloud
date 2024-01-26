@@ -2,7 +2,7 @@
 
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
-  unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS \
+  unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS \
     SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
@@ -45,6 +45,16 @@ select-all                                                  # select all the sys
 ---
 $(true)                                                 # workaround for set -e
 "
+
+if [ -n "${REUSE_EXISTING}" ]; then
+  for i in $(seq 1 "${REUSE_EXISTING_COUNT}") ; do
+    setup=$(cat << EOF
+${setup}
+${REUSE_EXISTING}
+EOF
+)
+  done
+fi
 
 if [ -n "${SETUP_ZFS}" ]; then
   setup="${setup}
