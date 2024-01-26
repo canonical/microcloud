@@ -13,26 +13,28 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
-  LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
-  LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
-  SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
-  EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
-  SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
-  ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
-  ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
-  SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
-  CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
-  CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
-  SETUP_OVN=${SETUP_OVN:-}                       # (yes/no) input for initiating OVN network setup.
-  OVN_WARNING=${OVN_WARNING:-}                   # (yes/no) input for warning about eligible interface detection.
-  OVN_FILTER=${OVN_FILTER:-}                     # filter string for OVN interfaces.
-  IPV4_SUBNET=${IPV4_SUBNET:-}                   # OVN ipv4 gateway subnet.
-  IPV4_START=${IPV4_START:-}                     # OVN ipv4 range start.
-  IPV4_END=${IPV4_END:-}                         # OVN ipv4 range end.
-  DNS_ADDRESSES=${DNS_ADDRESSES:-}               # OVN custom DNS addresses.
-  IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
+  LOOKUP_IFACE=${LOOKUP_IFACE:-}                  # filter string for the lookup interface table.
+  LIMIT_SUBNET=${LIMIT_SUBNET:-}                  # (yes/no) input for limiting lookup of systems to the above subnet.
+  SKIP_SERVICE=${SKIP_SERVICE:-}                  # (yes/no) input to skip any missing services. Should be unset if all services are installed.
+  EXPECT_PEERS=${EXPECT_PEERS:-}                  # wait for this number of systems to be available to join the cluster.
+  REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered service.
+  REUSE_EXISTING_COUNT=${REUSE_EXISTING_COUNT:-0} # (number) number of existing clusters to incorporate.
+  SETUP_ZFS=${SETUP_ZFS:-}                        # (yes/no) input for initiating ZFS storage pool setup.
+  ZFS_FILTER=${ZFS_FILTER:-}                      # filter string for ZFS disks.
+  ZFS_WIPE=${ZFS_WIPE:-}                          # (yes/no) to wipe all disks.
+  SETUP_CEPH=${SETUP_CEPH:-}                      # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPHFS=${SETUP_CEPHFS:-}                  # (yes/no) input for initialising CephFS storage pool setup.
+  CEPH_WARNING=${CEPH_WARNING:-}                  # (yes/no) input for warning about eligible disk detection.
+  CEPH_FILTER=${CEPH_FILTER:-}                    # filter string for CEPH disks.
+  CEPH_WIPE=${CEPH_WIPE:-}                        # (yes/no) to wipe all disks.
+  SETUP_OVN=${SETUP_OVN:-}                        # (yes/no) input for initiating OVN network setup.
+  OVN_WARNING=${OVN_WARNING:-}                    # (yes/no) input for warning about eligible interface detection.
+  OVN_FILTER=${OVN_FILTER:-}                      # filter string for OVN interfaces.
+  IPV4_SUBNET=${IPV4_SUBNET:-}                    # OVN ipv4 gateway subnet.
+  IPV4_START=${IPV4_START:-}                      # OVN ipv4 range start.
+  IPV4_END=${IPV4_END:-}                          # OVN ipv4 range end.
+  DNS_ADDRESSES=${DNS_ADDRESSES:-}                # OVN custom DNS addresses.
+  IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
 
   setup="
 ${LOOKUP_IFACE}                                         # filter the lookup interface
