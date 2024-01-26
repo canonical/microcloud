@@ -316,3 +316,15 @@ func (s *preseedSuite) Test_preseedMatchDisksMemory() {
 	s.Equal(len(results), 1)
 	s.Equal(results[0], disks[0])
 }
+
+// Tests that ReuseExistingClusters only works when initializing, not when growing the cluster.
+func (s *preseedSuite) Test_restrictClusterReuse() {
+	p := Preseed{ReuseExistingClusters: true, LookupSubnet: "10.0.0.1/24", LookupInterface: "enp5s0", Systems: []System{{Name: "B"}, {Name: "C"}}}
+
+	s.NoError(p.validate("B", true))
+
+	s.Error(p.validate("A", false))
+
+	p.ReuseExistingClusters = false
+	s.NoError(p.validate("A", false))
+}
