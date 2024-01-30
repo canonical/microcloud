@@ -621,31 +621,10 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	return nil
 }
 
-func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
+func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	for peer, system := range systems {
-		if bootstrap {
-			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
-			if peer == sh.Name {
-				network, err := lxd.DefaultFanNetwork()
-				if err != nil {
-					return err
-				}
 
-				system.Networks = []api.NetworksPost{network}
-			}
-		}
-
-		systems[peer] = system
-	}
-
-	// Automatic setup gets a basic fan setup.
-	if autoSetup {
-		return nil
-	}
-
-	// Environments without OVN get a basic fan setup.
-	if sh.Services[types.MicroOVN] == nil {
+	if autoSetup || sh.Services[types.MicroOVN] == nil {
 		return nil
 	}
 
@@ -918,7 +897,6 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		}
 	}
 
-	// If interfaces were selected for OVN, remove the FAN config.
 	if len(selected) > 0 {
 		for peer, system := range systems {
 			system.TargetNetworks = []api.NetworksPost{}
@@ -967,6 +945,44 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
+	}
+
+	return nil
+}
+
+func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
+	err := c.askOVNNetwork(sh, systems, microCloudInternalSubnet, autoSetup, bootstrap)
+	if err != nil {
+		return err
+	}
+
+	for _, system := range systems {
+		if len(system.TargetNetworks) > 0 || len(system.Networks) > 0 {
+			return nil
+		}
+
+		for _, cfg := range system.JoinConfig {
+			if cfg.Name == service.DefaultOVNNetwork || cfg.Name == service.DefaultUplinkNetwork {
+				return nil
+			}
+		}
+	}
+
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	for peer, system := range systems {
+		if bootstrap {
+			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
+			if peer == sh.Name {
+				network, err := lxd.DefaultFanNetwork()
+				if err != nil {
+					return err
+				}
+
+				system.Networks = []api.NetworksPost{network}
+			}
+		}
+
+		systems[peer] = system
 	}
 
 	return nil
