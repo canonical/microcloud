@@ -77,6 +77,37 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 	return c, nil
 }
 
+// remoteClient returns an https client for the given address:port, using the MicroCloud proxy.
+func (s *CephService) remoteClient(secret string, address string) (*client.Client, error) {
+	c, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+	if err != nil {
+		return nil, err
+	}
+
+	transport, ok := c.Transport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("Invalid transport for http client: %w", err)
+	}
+
+	if transport.TLSClientConfig == nil {
+		transport.TLSClientConfig = &tls.Config{}
+	}
+
+	transport.TLSClientConfig.InsecureSkipVerify = true
+	transport.Proxy = func(r *http.Request) (*url.URL, error) {
+		r.Header.Set("X-MicroCloud-Auth", secret)
+		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
+			r.URL.Path = "/1.0/services/microceph" + r.URL.Path
+		}
+
+		return shared.ProxyFromEnvironment(r)
+	}
+
+	c.Transport = transport
+
+	return c, nil
+}
+
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap(ctx context.Context) error {
 	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
@@ -138,22 +169,9 @@ func (s CephService) ClusterMembers(ctx context.Context, info *mdns.ServerInfo) 
 	var client *client.Client
 	var err error
 	if info != nil && info.Name != s.name {
-		client, err = s.m.RemoteClient(util.CanonicalNetworkAddress(info.Address, CloudPort))
+		client, err = s.remoteClient(info.AuthSecret, info.Address)
 		if err != nil {
 			return nil, err
-		}
-
-		client.Client.Client.Transport = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				r.Header.Set("X-MicroCloud-Auth", info.AuthSecret)
-				if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
-					r.URL.Path = "/1.0/services/microceph" + r.URL.Path
-				}
-
-				return shared.ProxyFromEnvironment(r)
-			},
 		}
 	} else {
 		client, err = s.Client("", "")

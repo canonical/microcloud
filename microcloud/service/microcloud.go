@@ -55,6 +55,39 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 	}, nil
 }
 
+// Client returns a client to the MicroCloud unix socket.
+func (s CloudService) Client() (*microClient.Client, error) {
+	return s.client.LocalClient()
+}
+
+// remoteClient returns an https client for the given address:port, using the MicroCloud proxy.
+func (s *CloudService) remoteClient(secret string, address string) (*microClient.Client, error) {
+	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+	if err != nil {
+		return nil, err
+	}
+
+	transport, ok := c.Transport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("Invalid transport for http client: %w", err)
+	}
+
+	if transport.TLSClientConfig == nil {
+		transport.TLSClientConfig = &tls.Config{}
+	}
+
+	transport.TLSClientConfig.InsecureSkipVerify = true
+	transport.Proxy = func(r *http.Request) (*url.URL, error) {
+		r.Header.Set("X-MicroCloud-Auth", secret)
+
+		return shared.ProxyFromEnvironment(r)
+	}
+
+	c.Transport = transport
+
+	return c, nil
+}
+
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(service *Handler, endpoints []rest.Endpoint) error {
 	return s.client.Start(endpoints, nil, &config.Hooks{
@@ -99,19 +132,9 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
 func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, secret string, peer string, serviceType types.ServiceType) (string, error) {
-	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))
+	c, err := s.remoteClient(secret, clusterAddress)
 	if err != nil {
 		return "", err
-	}
-
-	c.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-
-			return shared.ProxyFromEnvironment(r)
-		},
 	}
 
 	return client.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
@@ -135,19 +158,9 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 			return err
 		}
 	} else {
-		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
+		c, err = s.remoteClient(secret, joinConfig.Address)
 		if err != nil {
 			return err
-		}
-
-		c.Client.Client.Transport = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				r.Header.Set("X-MicroCloud-Auth", secret)
-
-				return shared.ProxyFromEnvironment(r)
-			},
 		}
 	}
 
@@ -160,20 +173,11 @@ func (s CloudService) ClusterMembers(ctx context.Context, info *mdns.ServerInfo)
 	var client *microClient.Client
 	var err error
 	if info != nil && info.Name != s.name {
-		client, err = s.client.RemoteClient(util.CanonicalNetworkAddress(info.Address, CloudPort))
+		client, err = s.remoteClient(info.AuthSecret, info.Address)
 		if err != nil {
 			return nil, err
 		}
 
-		client.Client.Client.Transport = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				r.Header.Set("X-MicroCloud-Auth", info.AuthSecret)
-
-				return shared.ProxyFromEnvironment(r)
-			},
-		}
 	} else {
 		client, err = s.client.LocalClient()
 		if err != nil {

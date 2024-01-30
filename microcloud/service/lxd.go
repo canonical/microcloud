@@ -75,8 +75,15 @@ func (s LXDService) remoteClient(secret string, address string, port int) (lxd.I
 		return nil, err
 	}
 
+	serverCert, err := s.m.FileSystem.ServerCert()
+	if err != nil {
+		return nil, err
+	}
+
 	remoteURL := c.URL()
 	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
+		TLSClientCert:      string(serverCert.PublicKey()),
+		TLSClientKey:       string(serverCert.PrivateKey()),
 		HTTPClient:         c.Client.Client,
 		InsecureSkipVerify: true,
 		SkipGetServer:      true,
