@@ -176,26 +176,38 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		systems[peer] = system
 	}
 
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	client, err := lxd.Client(context.Background(), "")
+	if err != nil {
+		return err
+	}
+
+	storagePools, err := client.GetStoragePoolNames()
+	if err != nil {
+		return err
+	}
+
 	wantsDisks := true
-	if !autoSetup && foundDisks {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
+	if !shared.ValueInSlice[string](lxd.DefaultZFSStoragePool().Name, storagePools) {
+		if !autoSetup && foundDisks {
+			wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+		}
+
+		if !foundDisks {
+			wantsDisks = false
+		}
+
+		if wantsDisks {
+			c.askRetry("Retry selecting disks?", autoSetup, func() error {
+				return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
+			})
 		}
 	}
 
-	if !foundDisks {
-		wantsDisks = false
-	}
-
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-		})
-	}
-
-	if sh.Services[types.MicroCeph] != nil {
+	if sh.Services[types.MicroCeph] != nil && !shared.ValueInSlice[string](lxd.DefaultCephStoragePool().Name, storagePools) {
 		availableDisks := map[string][]api.ResourcesStorageDisk{}
 		for peer, system := range systems {
 			if len(system.AvailableDisks) > 0 {
