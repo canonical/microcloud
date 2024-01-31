@@ -5,7 +5,8 @@ unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
-    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
+    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
+    SKIP_LOOKUP
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -13,6 +14,7 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
+  SKIP_LOOKUP=${SKIP_LOOKUP:-}                   # whether or not to skip the whole lookup block in the interactive command list.
   LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
   LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
   SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
@@ -38,7 +40,9 @@ microcloud_interactive() {
   DNS_ADDRESSES=${DNS_ADDRESSES:-}               # OVN custom DNS addresses.
   IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
 
-  setup="
+  setup=""
+  if ! [ "${SKIP_LOOKUP}" = 1 ]; then
+    setup="
 ${LOOKUP_IFACE}                                         # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
@@ -49,14 +53,14 @@ select-all                                                  # select all the sys
 ---
 $(true)                                                 # workaround for set -e
 "
+  fi
 
 if [ -n "${REUSE_EXISTING}" ]; then
   for i in $(seq 1 "${REUSE_EXISTING_COUNT}") ; do
-    setup=$(cat << EOF
-${setup}
+    setup="${setup}
 ${REUSE_EXISTING}
-EOF
-)
+$(true)                                                 # workaround for set -e
+"
   done
 fi
 

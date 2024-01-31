@@ -1147,3 +1147,100 @@ EOF
 
   services_validator
 }
+
+test_add_services() {
+  unset_interactive_vars
+  # Set the default config for interactive setup.
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export SETUP_CEPHFS="yes"
+  export CEPH_FILTER="lxd_disk2"
+  export CEPH_WIPE="yes"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export CUSTOM_DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+
+  reset_systems 3 3 3
+  echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage
+  lxc exec micro01 -- snap disable microceph
+  unset SETUP_CEPH
+  export SKIP_SERVICE="yes"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  lxc exec micro01 -- snap enable microceph
+  export SETUP_CEPH="yes"
+  export SKIP_LOOKUP=1
+  unset SETUP_ZFS
+  unset SETUP_OVN
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo Add MicroOVN to MicroCloud that was set up without it, and setup ovn network
+  lxc exec micro01 -- snap disable microovn
+  export SETUP_ZFS="yes"
+  unset SKIP_LOOKUP
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  lxc exec micro01 -- snap enable microovn
+  export SETUP_OVN="yes"
+  export SKIP_LOOKUP=1
+  unset SETUP_ZFS
+  unset SETUP_CEPH
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo Add both MicroOVN and MicroCeph to a MicroCloud that was set up without it
+  lxc exec micro01 -- snap disable microovn
+  lxc exec micro01 -- snap disable microceph
+  export SETUP_ZFS="yes"
+  unset SKIP_LOOKUP
+  unset SETUP_OVN
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  lxc exec micro01 -- snap enable microovn
+  lxc exec micro01 -- snap enable microceph
+  export SETUP_OVN="yes"
+  export SETUP_CEPH="yes"
+  export SKIP_LOOKUP=1
+  unset SETUP_ZFS
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo Reuse a MicroCeph that was set up on one node of the MicroCloud
+  lxc exec micro01 -- snap disable microceph
+  lxc exec micro02 -- microceph cluster bootstrap
+  export SETUP_ZFS="yes"
+  unset SETUP_CEPH
+  unset SKIP_LOOKUP
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  lxc exec micro01 -- snap enable microceph
+  export REUSE_EXISTING_COUNT=1
+  export REUSE_EXISTING="reuse"
+  export SETUP_CEPH="yes"
+  export SKIP_LOOKUP=1
+  unset SETUP_ZFS
+  unset SETUP_OVN
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo Fail to add any services if they have been set up
+  export SETUP_ZFS="yes"
+  export SETUP_OVN="yes"
+  unset REUSE_EXISTING
+  unset REUSE_EXISTING_COUNT
+  unset SKIP_LOOKUP
+  unset SKIP_SERVICE
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  export SKIP_LOOKUP=1
+  ! microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out" || true
+}
