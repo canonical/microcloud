@@ -770,6 +770,26 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		if !shared.ValueInSlice(profile.Name, profiles) {
 			err = lxdClient.CreateProfile(profile)
 		} else {
+			// Ensure any pre-existing devices and config are carried over to the new profile, unless we are managing them.
+			existingProfile, _, err := lxdClient.GetProfile("default")
+			if err != nil {
+				return err
+			}
+
+			for k, v := range existingProfile.Config {
+				_, ok := profile.Config[k]
+				if !ok {
+					profile.Config[k] = v
+				}
+			}
+
+			for k, v := range existingProfile.Devices {
+				_, ok := profile.Devices[k]
+				if !ok {
+					profile.Devices[k] = v
+				}
+			}
+
 			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
 		}
 
