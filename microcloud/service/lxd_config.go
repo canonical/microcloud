@@ -101,11 +101,16 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 // DefaultPendingZFSStoragePool returns the default local storage configuration when
 // creating a pending pool on a specific cluster member target.
 func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.StoragePoolsPost {
+	cfg := map[string]string{"source": path}
+	if wipe {
+		cfg["source.wipe"] = strconv.FormatBool(wipe)
+	}
+
 	return api.StoragePoolsPost{
 		Name:   "local",
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
-			Config:      map[string]string{"source": path, "source.wipe": strconv.FormatBool(wipe)},
+			Config:      cfg,
 			Description: "Local storage on ZFS",
 		},
 	}
