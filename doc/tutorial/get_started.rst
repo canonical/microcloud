@@ -220,9 +220,9 @@ Complete the following steps on each VM (``micro1``, ``micro2``, ``micro3``, and
 
 #. Install the required snaps::
 
-     snap install microceph --cohort="+"
-     snap install microovn --cohort="+"
-     snap install microcloud --cohort="+"
+     snap install microceph --channel=quincy/stable --cohort="+"
+     snap install microovn --channel=22.03/stable --cohort="+"
+     snap install microcloud --channel=latest/stable --cohort="+"
 
    .. note::
       The ``--cohort="+"`` flag in the command ensures that the same version of the snap is installed on all machines.
