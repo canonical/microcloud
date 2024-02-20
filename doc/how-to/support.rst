@@ -3,10 +3,7 @@
 How to get support
 ==================
 
-MicroCloud is not yet ready for production.
-
-We recommend using the default channels for all snaps required to run MicroCloud.
-These are:
+We recommend using the following channels for the snaps required to run MicroCloud:
 
 * For MicroCloud: ``latest/[stable|candidate|edge]``
 * For LXD: ``latest/[stable|candidate|edge]``
