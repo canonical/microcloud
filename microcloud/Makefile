@@ -1,3 +1,5 @@
+GOMIN=1.22.0
+
 .PHONY: default
 default: build
 
@@ -35,7 +37,7 @@ endif
 .PHONY: update-gomod
 update-gomod:
 	go get -u ./...
-	go mod tidy
+	go mod tidy -go=$(GOMIN)
 
 # Update lxd-generate generated database helpers.
 .PHONY: update-schema
