@@ -29,10 +29,11 @@ type LXDService struct {
 	name    string
 	address string
 	port    int
+	config  map[string]string
 }
 
 // NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(ctx context.Context, name string, addr string, cloudDir string) (*LXDService, error) {
+func NewLXDService(ctx context.Context, name string, addr string, cloudDir string, config map[string]string) (*LXDService, error) {
 	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
@@ -43,6 +44,7 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 		name:    name,
 		address: addr,
 		port:    LXDPort,
+		config:  config,
 	}, nil
 }
 
@@ -264,6 +266,11 @@ func (s LXDService) Port() int {
 	return s.port
 }
 
+// SetConfig sets the init configuration for the LXD service.
+func (s *LXDService) SetConfig(config map[string]string) {
+	s.config = config
+}
+
 // HasExtension checks if the server supports the API extension.
 func (s *LXDService) HasExtension(ctx context.Context, target string, address string, secret string, apiExtension string) (bool, error) {
 	var err error
@@ -304,8 +311,25 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 	return client.GetServerResources()
 }
 
-// GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
-func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
+// NetInterfaceType is a bitmask meant to be used for filtering network interfaces in GetInterfaces.
+// Some interfaces need an allocated IP address (for underlay), some don't (for uplink).
+type NetInterfaceType int
+
+const (
+	// UplinkInterface is an interface that is used for uplink.
+	UplinkInterface NetInterfaceType = 1 << iota
+	// UnderlayInterface is an interface that is used for underlay.
+	UnderlayInterface
+)
+
+// NetworkWithAllocatedIPs is a network with a slice of IP addresses allocated to it.
+type NetworkWithAllocatedIPs struct {
+	Network   api.Network
+	Addresses []string
+}
+
+// GetInterfaces returns a map of peer name to slice of NetworkWithAllocatedIPs that may be used with OVN.
+func (s LXDService) GetInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo, conf NetInterfaceType) (map[string][]NetworkWithAllocatedIPs, error) {
 	clients := map[string]lxd.InstanceServer{}
 	networks := map[string][]api.Network{}
 	if bootstrap {
@@ -341,7 +365,7 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 		clients[info.Name] = client
 	}
 
-	candidates := map[string][]api.Network{}
+	candidates := map[string][]NetworkWithAllocatedIPs{}
 	for peer, nets := range networks {
 		for _, network := range nets {
 			// Skip managed networks.
@@ -378,15 +402,21 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 						continue
 					}
 
-					addresses = append(addresses, address.Address)
+					addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
 				}
 			}
 
-			if len(addresses) > 0 {
-				continue
+			if conf&UnderlayInterface == 0 && conf&UplinkInterface != 0 {
+				if len(addresses) > 0 {
+					continue
+				}
+			} else if conf&UnderlayInterface != 0 && conf&UplinkInterface == 0 {
+				if len(addresses) == 0 {
+					continue
+				}
 			}
 
-			candidates[peer] = append(candidates[peer], network)
+			candidates[peer] = append(candidates[peer], NetworkWithAllocatedIPs{Network: network, Addresses: addresses})
 		}
 	}
 

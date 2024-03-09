@@ -77,7 +77,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
+	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, nil, services...)
 	if err != nil {
 		return err
 	}
@@ -99,9 +99,9 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 						continue
 					}
 
-					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
+					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, nil, serviceName)
 					if err != nil {
-						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
+						logger.Error("Failed to create service handler for service", logger.Ctx{"service": serviceName, "error": err})
 						break
 					}
 
