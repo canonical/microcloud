@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // CephService is a MicroCeph service.
@@ -89,7 +91,7 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("Timed out waiting for MicroCeph cluster to initialize")
 		default:
-			names, err := s.ClusterMembers(ctx)
+			names, err := s.ClusterMembers(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -131,10 +133,33 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, error) {
-	client, err := s.Client("", "")
-	if err != nil {
-		return nil, err
+// Optionally sends a remote request using the information in ServerInfo.
+func (s CephService) ClusterMembers(ctx context.Context, info *mdns.ServerInfo) (map[string]string, error) {
+	var client *client.Client
+	var err error
+	if info != nil && info.Name != s.name {
+		client, err = s.m.RemoteClient(util.CanonicalNetworkAddress(info.Address, CloudPort))
+		if err != nil {
+			return nil, err
+		}
+
+		client.Client.Client.Transport = &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				r.Header.Set("X-MicroCloud-Auth", info.AuthSecret)
+				if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
+					r.URL.Path = "/1.0/services/microceph" + r.URL.Path
+				}
+
+				return shared.ProxyFromEnvironment(r)
+			},
+		}
+	} else {
+		client, err = s.Client("", "")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	members, err := client.GetClusterMembers(ctx)
