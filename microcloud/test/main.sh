@@ -144,6 +144,8 @@ if [ "${1:-"all"}" != "cluster" ]; then
   run_test test_add_interactive "add interactive"
   run_test test_add_auto "add auto"
   run_test test_preseed "preseed"
+  run_test test_reuse_cluster "reuse_cluster"
+  run_test test_add_services "add services"
 fi
 
 # shellcheck disable=SC2034

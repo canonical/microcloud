@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
@@ -175,26 +176,38 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		systems[peer] = system
 	}
 
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	client, err := lxd.Client(context.Background(), "")
+	if err != nil {
+		return err
+	}
+
+	storagePools, err := client.GetStoragePoolNames()
+	if err != nil {
+		return err
+	}
+
 	wantsDisks := true
-	if !autoSetup && foundDisks {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
+	if !shared.ValueInSlice[string](lxd.DefaultZFSStoragePool().Name, storagePools) {
+		if !autoSetup && foundDisks {
+			wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+		}
+
+		if !foundDisks {
+			wantsDisks = false
+		}
+
+		if wantsDisks {
+			c.askRetry("Retry selecting disks?", autoSetup, func() error {
+				return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
+			})
 		}
 	}
 
-	if !foundDisks {
-		wantsDisks = false
-	}
-
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-		})
-	}
-
-	if sh.Services[types.MicroCeph] != nil {
+	if sh.Services[types.MicroCeph] != nil && !shared.ValueInSlice[string](lxd.DefaultCephStoragePool().Name, storagePools) {
 		availableDisks := map[string][]api.ResourcesStorageDisk{}
 		for peer, system := range systems {
 			if len(system.AvailableDisks) > 0 {
@@ -561,20 +574,38 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
 	_, bootstrap := systems[sh.Name]
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	for peer, system := range systems {
-		if bootstrap {
-			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
-			if peer == sh.Name {
-				network, err := lxd.DefaultFanNetwork()
-				if err != nil {
-					return err
+
+	lxdClient, err := lxd.Client(context.Background(), "")
+	if err != nil {
+		return err
+	}
+
+	networkNames, err := lxdClient.GetNetworkNames()
+	if err != nil {
+		return err
+	}
+
+	networkExists := make(map[string]bool, len(networkNames))
+	for _, net := range networkNames {
+		networkExists[net] = true
+	}
+
+	if !networkExists[lxd.DefaultPendingFanNetwork().Name] {
+		for peer, system := range systems {
+			if bootstrap {
+				system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
+				if peer == sh.Name {
+					network, err := lxd.DefaultFanNetwork()
+					if err != nil {
+						return err
+					}
+
+					system.Networks = []api.NetworksPost{network}
 				}
-
-				system.Networks = []api.NetworksPost{network}
 			}
-		}
 
-		systems[peer] = system
+			systems[peer] = system
+		}
 	}
 
 	// Automatic setup gets a basic fan setup.
@@ -583,7 +614,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	}
 
 	// Environments without OVN get a basic fan setup.
-	if sh.Services[types.MicroOVN] == nil {
+	uplink, ovn := lxd.DefaultOVNNetwork("", "", "", "")
+	if sh.Services[types.MicroOVN] == nil || networkExists[uplink.Name] || networkExists[ovn.Name] {
 		return nil
 	}
 
@@ -593,7 +625,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		infos = append(infos, system.ServerInfo)
 	}
 
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
+	networks, err := lxd.GetUplinkInterfaces(context.Background(), bootstrap, infos)
 	if err != nil {
 		return err
 	}
@@ -815,6 +847,47 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, allDNSServers)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
+	}
+
+	return nil
+}
+
+// askClustered checks whether any of the selected systems have already initialized any expected services.
+// If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
+// If multiple systems have separately initialized the same service, we will abort initialization.
+// Preseed yamls will have a flag that sets whether to reuse the cluster.
+// In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
+func (c *CmdControl) askClustered(s *service.Handler, autoSetup bool, systems map[string]InitSystem) error {
+	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
+	for k, v := range s.Services {
+		expectedServices[k] = v
+	}
+
+	for serviceType := range expectedServices {
+		initializedSystem, _, err := checkClustered(s, autoSetup, serviceType, systems)
+		if err != nil {
+			return err
+		}
+
+		if initializedSystem != "" {
+			question := fmt.Sprintf("%q is already part of a %s cluster. Use this cluster with MicroCloud, or skip %s? (reuse/skip) [default=reuse]: ", initializedSystem, serviceType, serviceType)
+			validator := func(s string) error {
+				if !shared.ValueInSlice[string](s, []string{"reuse", "skip"}) {
+					return fmt.Errorf("Invalid input, expected one of (reuse,skip) but got %q", s)
+				}
+
+				return nil
+			}
+
+			reuseOrSkip, err := c.asker.AskString(question, "reuse", validator)
+			if err != nil {
+				return err
+			}
+
+			if reuseOrSkip != "reuse" {
+				delete(s.Services, serviceType)
+			}
+		}
 	}
 
 	return nil
