@@ -3,6 +3,8 @@ package mdns
 import (
 	"fmt"
 	"net"
+	"os"
+	"strings"
 
 	"github.com/hashicorp/mdns"
 )
@@ -47,4 +49,43 @@ func dnsTXTSlice(list []byte) []string {
 	parts = append(parts, dnsTXTSlice(list[255:])...)
 
 	return parts
+}
+
+// checkIPStatus checks if the interface is up, has multicast, and supports IPv4/IPv6.
+func checkIPStatus(iface string) (ipv4OK bool, ipv6OK bool, err error) {
+	netInterface, err := net.InterfaceByName(iface)
+	if err != nil {
+		return false, false, err
+	}
+
+	if netInterface.Flags&net.FlagUp != net.FlagUp {
+		return false, false, nil
+	}
+
+	if netInterface.Flags&net.FlagMulticast != net.FlagMulticast {
+		return false, false, nil
+	}
+
+	allIPv6IfacesDisabled, err := os.ReadFile("/proc/sys/net/ipv6/conf/all/disable_ipv6")
+	if err != nil {
+		return true, false, err
+	}
+
+	newIPv6IfacesDisabled, err := os.ReadFile("/proc/sys/net/ipv6/conf/default/disable_ipv6")
+	if err != nil {
+		return true, false, err
+	}
+
+	ifaceIPv6Disabled := false
+	if iface != "" {
+		ifaceIPv6DisabledBytes, err := os.ReadFile(fmt.Sprintf("/proc/sys/net/ipv6/conf/%s/disable_ipv6", iface))
+		if err != nil {
+			return true, false, err
+		}
+
+		ifaceIPv6Disabled = strings.TrimSpace(string(ifaceIPv6DisabledBytes)) == "0"
+	}
+
+	ipv6OK = strings.TrimSpace(string(allIPv6IfacesDisabled)) == "0" && strings.TrimSpace(string(newIPv6IfacesDisabled)) == "0" && ifaceIPv6Disabled
+	return true, ipv6OK, nil
 }
