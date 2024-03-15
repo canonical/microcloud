@@ -87,8 +87,8 @@ $([ "${SETUP_OVN}" = "yes" ] && printf -- "---")
 ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateways and ranges
 ${IPV4_START}
 ${IPV4_END}
-${CUSTOM_DNS_ADDRESSES}
 ${IPV6_SUBNET}
+${CUSTOM_DNS_ADDRESSES}
 EOF
 )
 fi
