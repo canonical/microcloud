@@ -36,3 +36,4 @@ UI
 Jira
 VM
 YAML
+CephFS

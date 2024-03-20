@@ -271,6 +271,7 @@ Complete the following steps:
    #. Select ``yes`` to confirm that there are fewer disks available than machines.
    #. Select all listed disks (these should be ``remote1``, ``remote2``, and ``remote3``).
    #. You don't need to wipe any disks (because we just created them).
+   #. Select ``yes`` to optionally configure the CephFS distributed file system.
    #. Select ``yes`` to configure distributed networking.
    #. Select all listed network interfaces (these should be ``enp6s0`` on the four different VMs).
    #. Specify the IPv4 address that you noted down for your ``microbr0`` network as the IPv4 gateway.
@@ -383,6 +384,7 @@ See the full initialisation process here:
     Using 1 disk(s) on "micro2" for remote storage pool
     Using 1 disk(s) on "micro3" for remote storage pool
 
+   Would you like to set up CephFS remote storage? (yes/no) [default=yes]:  yes
    Configure distributed networking? (yes/no) [default=yes]:  yes
    Select an available interface per system to provide external connectivity for distributed network(s):
    Space to select; enter to confirm; type to filter results.
@@ -405,6 +407,7 @@ See the full initialisation process here:
    Specify the first IPv4 address in the range to use on the uplink network: 192.0.2.100
    Specify the last IPv4 address in the range to use on the uplink network: 192.0.2.254
    Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001:db8:d:200::1/64
+   Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: 192.0.2.1,2001:db8:d:200::1):
 
    Initializing a new cluster
     Local MicroCloud is ready
@@ -492,13 +495,15 @@ You can now inspect your cluster setup.
       :host: micro1
       :scroll:
 
-      +--------+--------+-----------------------------+---------+---------+
-      |  NAME  | DRIVER |         DESCRIPTION         | USED BY |  STATE  |
-      +--------+--------+-----------------------------+---------+---------+
-      | local  | zfs    | Local storage on ZFS        | 8       | CREATED |
-      +--------+--------+-----------------------------+---------+---------+
-      | remote | ceph   | Distributed storage on Ceph | 1       | CREATED |
-      +--------+--------+-----------------------------+---------+---------+
+      +-----------+--------+--------------------------------------------+---------+---------+
+      |  NAME     | DRIVER |         DESCRIPTION                        | USED BY |  STATE  |
+      +-----------+--------+--------------------------------------------+---------+---------+
+      | local     | zfs    | Local storage on ZFS                       | 8       | CREATED |
+      +-----------+--------+--------------------------------------------+---------+---------+
+      | remote    | ceph   | Distributed storage on Ceph                | 1       | CREATED |
+      +-----------+--------+--------------------------------------------+---------+---------+
+      | remote-fs | cephfs | Distributed file-system storage using Ceph | 1       | CREATED |
+      +-----------+--------+--------------------------------------------+---------+---------+
       :input: lxc storage info local
       info:
         description: Local storage on ZFS
@@ -526,6 +531,14 @@ You can now inspect your cluster setup.
       used by:
         profiles:
         - default
+      :input: lxc storage info remote-fs
+      info:
+        description: Distributed file-system storage using CephFS
+        driver: cephfs
+        name: remote-fs
+        space used: 0B
+        total space: 29.67GiB
+      used by: {}
 
 #. Inspect the network setup:
 

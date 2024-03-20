@@ -26,9 +26,10 @@ systems:
 
 # `ovn` is optional and represents the OVN & uplink network configuration for LXD.
 ovn:
-  ipv4_gateway: 10.0.0.1/24
-  ipv4_range: 10.0.0.100-10.0.0.254
-  ipv6_gateway: cafe::1/64
+  ipv4_gateway: 192.0.2.1/24
+  ipv4_range: 192.0.2.100-192.0.2.254
+  ipv6_gateway: 2001:db8:d:200::1/64
+  dns_servers: 192.0.2.1,2001:db8:d:200::1
 
 # `storage` is optional and is used as basic filtering logic for finding disks across all systems.
 # Filters are checked in order of appearance.
@@ -39,7 +40,9 @@ ovn:
 # String values must not be in quotes unless the string contains a space.
 # Single quotes are fine, but double quotes must be escaped.
 # `find_min` and `find_max` can be used to validate the number of disks each filter finds.
+# `cephfs: true` can be used to optionally set up a CephFS file system alongside Ceph distributed storage.
 storage:
+  cephfs: true
   local:
     - find: size > 10GiB && size < 50GiB && type == nvme
       find_min: 1
