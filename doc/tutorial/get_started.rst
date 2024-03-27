@@ -879,6 +879,69 @@ You can, however, create a different network to isolate some instances from othe
 
    You will see that ``u2`` is not reachable, because it is on a different OVN subnet.
 
+10. Access the UI
+-----------------
+
+Instead of managing your instances and your LXD setup from the command line, you can also use the LXD UI.
+See :ref:`lxd:access-ui` for more information.
+
+1. Check the LXD cluster list to determine the IP addresses of the cluster members:
+
+   .. terminal::
+      :input: lxc cluster list
+      :user: root
+      :host: micro1
+      :scroll:
+
+      +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+      |  NAME  |             URL            |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
+      +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+      | micro1 | https://203.0.113.169:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
+      |        |                            | database         |              |                |             |        |                   |
+      +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+      | micro2 | https://203.0.113.170:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+      +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+      | micro3 | https://203.0.113.171:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+      +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+      | micro4 | https://203.0.113.172:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
+      +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+
+#. In your web browser, navigate to the URL of one of the machines.
+   For example, for ``micro1``, navigate to ``https://203.0.113.169:8443``.
+
+#. By default, MicroCloud uses a self-signed certificate, which will cause a security warning in your browser.
+   Use your browser’s mechanism to continue despite the security warning.
+
+   .. figure:: /images/ui_security_warning.png
+      :alt: Example for a security warning in Chrome
+
+      Example for a security warning in Chrome
+
+#. You should now see the LXD UI, prompting you to set up a certificate.
+
+   .. figure:: /images/ui_certificate_selection.png
+      :alt: Certificate selection in the LXD UI
+
+      Certificate selection in the LXD UI
+
+   Follow the instructions in the UI to set up the certificates.
+
+   .. note::
+      Since LXD 5.21, the LXD UI is enabled by default.
+
+      If you don't see the certificate screen, you might have an older version of LXD (run ``snap info lxd`` to check).
+      In this case, run the following commands on the machine that you're trying to access (for example, ``micro1``) to enable the UI::
+
+        snap set lxd ui.enable=true
+        systemctl reload snap.lxd.daemon
+
+#. You can now browse the UI and inspect, for example, the instances you created and the networks and storage that MicroCloud set up.
+
+   .. figure:: /images/ui_instances.png
+      :alt: Instances view in the LXD UI
+
+      Instances view in the LXD UI
+
 Next steps
 ----------
 
