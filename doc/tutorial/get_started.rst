@@ -878,3 +878,13 @@ You can, however, create a different network to isolate some instances from othe
       14 packets transmitted, 0 received, 100% packet loss, time 13301ms
 
    You will see that ``u2`` is not reachable, because it is on a different OVN subnet.
+
+Next steps
+----------
+
+Now that your MicroCloud is up and running, you can start using it!
+
+If you're already familiar with LXD, see :ref:`howto-commands` for a reference of the most common commands.
+
+If you're new to LXD, check out the :ref:`lxd:first-steps` tutorial to familiarise yourself with what you can do in LXD.
+You can skip the first section about installing and initialising LXD, because LXD is already operational as part of your MicroCloud setup.
