@@ -231,7 +231,7 @@ Complete the following steps on each VM (``micro1``, ``micro2``, ``micro3``, and
 #. The LXD snap is already installed.
    Refresh it to the latest version::
 
-     snap refresh lxd --channel=latest/stable --cohort="+"
+     snap refresh lxd --channel=5.21/stable --cohort="+"
 
 6. Initialise MicroCloud
 ------------------------
