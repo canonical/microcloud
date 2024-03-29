@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -20,16 +21,16 @@ import (
 
 const (
 	// OVNPort is the efault MicroOVN port.
-	OVNPort int = 6443
+	OVNPort int64 = 6443
 
 	// CephPort is the efault MicroCeph port.
-	CephPort int = 7443
+	CephPort int64 = 7443
 
 	// LXDPort is the efault LXD port.
-	LXDPort int = 8443
+	LXDPort int64 = 8443
 
 	// CloudPort is the efault MicroCloud port.
-	CloudPort int = 9443
+	CloudPort int64 = 9443
 )
 
 // Handler holds a set of services and an mdns server for communication between them.
@@ -39,7 +40,7 @@ type Handler struct {
 	Services map[types.ServiceType]Service
 	Name     string
 	Address  string
-	Port     int
+	Port     int64
 
 	AuthSecret string
 }
@@ -148,7 +149,11 @@ func (s *Handler) Broadcast() error {
 				return err
 			}
 
-			server, err := cloudMDNS.NewBroadcast(info.LookupKey(), iface, info.Address, s.Port, service, bytes)
+			if s.Port < 1 || s.Port > math.MaxUint16 {
+				return fmt.Errorf("Port number for service %q (%q) is out of range", s.Name, s.Port)
+			}
+
+			server, err := cloudMDNS.NewBroadcast(info.LookupKey(), iface, info.Address, int(s.Port), service, bytes)
 			if err != nil {
 				return err
 			}

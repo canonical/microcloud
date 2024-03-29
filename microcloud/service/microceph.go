@@ -23,7 +23,7 @@ type CephService struct {
 
 	name    string
 	address string
-	port    int
+	port    int64
 }
 
 // NewCephService creates a new MicroCeph service with a client attached.
@@ -166,6 +166,6 @@ func (s CephService) Address() string {
 }
 
 // Port returns the port of this Service instance.
-func (s CephService) Port() int {
+func (s CephService) Port() int64 {
 	return s.port
 }

@@ -28,7 +28,7 @@ type CloudService struct {
 
 	name    string
 	address string
-	port    int
+	port    int64
 }
 
 // JoinConfig represents configuration for cluster joining.
@@ -40,7 +40,7 @@ type JoinConfig struct {
 
 // NewCloudService creates a new MicroCloud service with a client attached.
 func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.Itoa(CloudPort), Debug: debug, Verbose: verbose})
+	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +159,6 @@ func (s CloudService) Address() string {
 }
 
 // Port returns the port of this Service instance.
-func (s CloudService) Port() int {
+func (s CloudService) Port() int64 {
 	return s.port
 }
