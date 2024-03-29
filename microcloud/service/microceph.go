@@ -121,7 +121,7 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	}
 
 	for _, disk := range joinConfig.CephConfig {
-		err := cephClient.AddDisk(ctx, c, &disk)
+		_, err := cephClient.AddDisk(ctx, c, &disk)
 		if err != nil {
 			return err
 		}
