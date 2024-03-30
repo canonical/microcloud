@@ -386,6 +386,66 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 	return nil
 }
 
+func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map[string]InitSystem, availableCephNetworkInterfaces map[string][]service.CephDedicatedInterface, askedCephSubnet string) error {
+	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
+	if err != nil {
+		return err
+	}
+
+	// List the detected network interfaces
+	for _, interfaces := range validatedCephInterfacesData {
+		for _, iface := range interfaces {
+			fmt.Printf("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0])
+		}
+	}
+
+	// Even though not all the cluster members might have OSDs,
+	// we check that all the machines have at least one interface to sustain the Ceph network
+	for systemName := range systems {
+		if len(validatedCephInterfacesData[systemName]) == 0 {
+			return fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
+		}
+	}
+
+	return nil
+}
+
+// getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
+// If the system passed as an argument is nil, we will fetch the local Ceph network configuration.
+func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetwork *net.IPNet, err error) {
+	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
+	if microCephService == nil {
+		return nil, fmt.Errorf("failed to get MicroCeph service")
+	}
+
+	var cephAddr string
+	var cephAuthSecret string
+	if s != nil && s.ServerInfo.Name != sh.Name {
+		cephAddr = s.ServerInfo.Address
+		cephAuthSecret = s.ServerInfo.AuthSecret
+	}
+
+	remoteCephConfigs, err := microCephService.ClusterConfig(context.Background(), cephAddr, cephAuthSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range remoteCephConfigs {
+		if key == "cluster_network" && value != "" {
+			// Sometimes, the default cluster_network value in the Ceph configuration
+			// is not a network range but a regular IP address. We need to extract the network range.
+			_, valueNet, err := net.ParseCIDR(value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
+			}
+
+			internalCephNetwork = valueNet
+		}
+	}
+
+	return internalCephNetwork, nil
+}
+
 func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
@@ -565,7 +625,7 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	return nil
 }
 
-func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, autoSetup bool) error {
+func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
 	_, bootstrap := systems[sh.Name]
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	for peer, system := range systems {
@@ -598,6 +658,99 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	infos := []mdns.ServerInfo{}
 	for _, system := range systems {
 		infos = append(infos, system.ServerInfo)
+	}
+
+	// Environments without Ceph don't need to configure the Ceph network.
+	if sh.Services[types.MicroCeph] != nil {
+		// Configure the Ceph networks.
+		lxdService := sh.Services[types.LXD].(*service.LXDService)
+		if lxdService == nil {
+			return fmt.Errorf("failed to get LXD service")
+		}
+
+		availableCephNetworkInterfaces, err := lxdService.GetCephInterfaces(context.Background(), bootstrap, infos)
+		if err != nil {
+			return err
+		}
+
+		if len(availableCephNetworkInterfaces) == 0 {
+			fmt.Println("No network interfaces found with IPs to set a dedicated Ceph network, skipping Ceph network setup")
+		} else {
+			if bootstrap {
+				// First, check if there are any initialized systems for MicroCeph.
+				var initializedMicroCephSystem *InitSystem
+				for peer, system := range systems {
+					if system.InitializedServices[types.MicroCeph][peer] != "" {
+						initializedMicroCephSystem = &system
+						break
+					}
+				}
+
+				var customTargetCephInternalNetwork string
+				if initializedMicroCephSystem != nil {
+					// If there is at least one initialized system with MicroCeph (we consider that more than one initialized MicroCeph systems are part of the same cluster),
+					// we need to fetch its Ceph configuration to validate against this to-be-bootstrapped cluster.
+					targetInternalCephNetwork, err := getTargetCephNetworks(sh, initializedMicroCephSystem)
+					if err != nil {
+						return err
+					}
+
+					if targetInternalCephNetwork.String() != microCloudInternalSubnet.String() {
+						customTargetCephInternalNetwork = targetInternalCephNetwork.String()
+					}
+				}
+
+				microCloudInternalNetworkAddr := microCloudInternalSubnet.IP.Mask(microCloudInternalSubnet.Mask)
+				ones, _ := microCloudInternalSubnet.Mask.Size()
+				microCloudInternalNetworkAddrCIDR := fmt.Sprintf("%s/%d", microCloudInternalNetworkAddr.String(), ones)
+
+				// If there is no remote Ceph cluster or is an existing remote Ceph has no configured networks
+				// other than the default one (internal MicroCloud network), we ask the user to configure the Ceph networks.
+				if customTargetCephInternalNetwork == "" {
+					internalCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: %s] ", microCloudInternalNetworkAddrCIDR), microCloudInternalNetworkAddrCIDR, validate.IsNetwork)
+					if err != nil {
+						return err
+					}
+
+					if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
+						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, internalCephSubnet)
+						if err != nil {
+							return err
+						}
+
+						bootstrapSystem := systems[sh.Name]
+						bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
+						systems[sh.Name] = bootstrapSystem
+					}
+				} else {
+					// Else, we validate that the systems to be bootstrapped comply with the network configuration of the existing remote Ceph cluster,
+					// and set their Ceph network configuration accordingly.
+					if customTargetCephInternalNetwork != "" && customTargetCephInternalNetwork != microCloudInternalNetworkAddrCIDR {
+						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, customTargetCephInternalNetwork)
+						if err != nil {
+							return err
+						}
+
+						bootstrapSystem := systems[sh.Name]
+						bootstrapSystem.MicroCephInternalNetworkSubnet = customTargetCephInternalNetwork
+						systems[sh.Name] = bootstrapSystem
+					}
+				}
+			} else {
+				// If we are not bootstrapping, we target the local MicroCeph and fetch its network cluster config.
+				localInternalCephNetwork, err := getTargetCephNetworks(sh, nil)
+				if err != nil {
+					return err
+				}
+
+				if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != microCloudInternalSubnet.String() {
+					err = validateCephInterfacesForSubnet(lxd, systems, availableCephNetworkInterfaces, localInternalCephNetwork.String())
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
 	}
 
 	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
@@ -780,7 +933,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		}
 	}
 
-	// If we are adding a new member, a MemberConfig entry should suffice to create the network on the node.
+	// If we are adding a new member, a MemberConfig entry should suffice to create the network on the cluster member.
 	for peer, parent := range selected {
 		system := systems[peer]
 		if !bootstrap {
