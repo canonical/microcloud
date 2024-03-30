@@ -30,6 +30,7 @@ type CloudService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // JoinConfig represents configuration for cluster joining.
@@ -51,6 +52,7 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 		name:    name,
 		address: addr,
 		port:    CloudPort,
+		config:  make(map[string]string),
 	}, nil
 }
 
@@ -216,4 +218,15 @@ func (s CloudService) Address() string {
 // Port returns the port of this Service instance.
 func (s CloudService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the config of this Service instance.
+func (s *CloudService) SetConfig(config map[string]string) {
+	if s.config == nil {
+		s.config = make(map[string]string)
+	}
+
+	for key, value := range config {
+		s.config[key] = value
+	}
 }

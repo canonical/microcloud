@@ -30,6 +30,7 @@ type LXDService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewLXDService creates a new LXD service with a client attached.
@@ -44,6 +45,7 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 		name:    name,
 		address: addr,
 		port:    LXDPort,
+		config:  make(map[string]string),
 	}, nil
 }
 
@@ -278,6 +280,17 @@ func (s LXDService) Address() string {
 // Port returns the port of this Service instance.
 func (s LXDService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the config of this Service instance.
+func (s *LXDService) SetConfig(config map[string]string) {
+	if s.config == nil {
+		s.config = make(map[string]string)
+	}
+
+	for key, value := range config {
+		s.config[key] = value
+	}
 }
 
 // HasExtension checks if the server supports the API extension.
