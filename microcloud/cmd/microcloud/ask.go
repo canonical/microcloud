@@ -696,8 +696,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	fmt.Println("")
 
 	// Prepare the configuration.
+	var dnsAddresses string
 	ipConfig := map[string]string{}
-	dnsConfig := map[string]string{}
 	if bootstrap {
 		for _, ip := range []string{"IPv4", "IPv6"} {
 			validator := func(s string) error {
@@ -740,24 +740,26 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 					}
 
 					ipConfig[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
-
-					gatewayAddr, _, err := net.ParseCIDR(gateway)
-					if err != nil {
-						return err
-					}
-
-					dnsAddresses, err := c.asker.AskString(fmt.Sprintf("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: %s): ", gatewayAddr.String()), gatewayAddr.String(), validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
-					if err != nil {
-						return err
-					}
-
-					if dnsAddresses != "" {
-						dnsConfig[gateway] = dnsAddresses
-					}
 				} else {
 					ipConfig[gateway] = ""
 				}
 			}
+		}
+
+		gateways := []string{}
+		for gateway := range ipConfig {
+			gatewayAddr, _, err := net.ParseCIDR(gateway)
+			if err != nil {
+				return err
+			}
+
+			gateways = append(gateways, gatewayAddr.String())
+		}
+
+		gatewayAddrs := strings.Join(gateways, ",")
+		dnsAddresses, err = c.asker.AskString(fmt.Sprintf("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: %s): ", gatewayAddrs), gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
+		if err != nil {
+			return err
 		}
 	}
 
@@ -807,12 +809,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			}
 		}
 
-		var allDNSServers string
-		for _, dnsAddr := range dnsConfig {
-			allDNSServers = dnsAddr
-		}
-
-		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, allDNSServers)
+		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
 	}
