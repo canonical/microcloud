@@ -43,7 +43,7 @@ Complete the following steps to initialise MicroCloud:
    See :ref:`automatic-server-detection` for more information.
 #. Select the machines that you want to add to the MicroCloud cluster.
 
-   MicroCloud displays all machines that it detects.
+   MicroCloud displays all machines that it detects. This list will periodically update as new machines are detected.
    Make sure that all machines that you select have the required snaps installed.
 #. Select whether you want to set up local storage.
 
@@ -71,6 +71,8 @@ Complete the following steps to initialise MicroCloud:
       You must select at least three disks.
    #. Select whether you want to wipe any of the disks.
       Wiping a disk will destroy all data on it.
+
+   #. You can choose to optionally set up a CephFS distributed file system.
 #. Select whether you want to set up distributed networking (using MicroOVN).
 
    If you choose ``yes``, configure the distributed networking:

@@ -15,9 +15,9 @@ Automatic server detection
 MicroCloud uses :abbr:`mDNS (multicast DNS)` to automatically detect other servers on the network.
 This method works in physical networks, but it is usually not supported in a cloud environment.
 
-By default, the scan is limited to the local subnet.
+The scan can be limited to the default local subnet of the network interface you select.
 
-MicroCloud will display all servers that it detects, and you can then select the ones you want to add to the MicroCloud cluster.
+MicroCloud will display all servers that it detects and periodically update the list. You can select the servers you want to add to the MicroCloud cluster.
 
 .. _bootstrapping-process:
 
@@ -56,13 +56,15 @@ After the initialisation is complete, you can look at the LXD configuration to c
    | micro03 | https://[2001:db8:d:100::171]:8443 | database        | aarch64      | default        |             | ONLINE | Fully operational |
    +---------+------------------------------------+-----------------+--------------+----------------+-------------+--------+-------------------+
    :input: lxc storage list
-   +--------+--------+-----------------------------+---------+---------+
-   |  NAME  | DRIVER |         DESCRIPTION         | USED BY |  STATE  |
-   +--------+--------+-----------------------------+---------+---------+
-   | local  | zfs    | Local storage on ZFS        | 10      | CREATED |
-   +--------+--------+-----------------------------+---------+---------+
-   | remote | ceph   | Distributed storage on Ceph | 7       | CREATED |
-   +--------+--------+-----------------------------+---------+---------+
+   +-----------+--------+--------------------------------------------+---------+---------+
+   |  NAME     | DRIVER |         DESCRIPTION                        | USED BY |  STATE  |
+   +-----------+--------+--------------------------------------------+---------+---------+
+   | local     | zfs    | Local storage on ZFS                       | 10      | CREATED |
+   +-----------+--------+--------------------------------------------+---------+---------+
+   | remote    | ceph   | Distributed storage on Ceph                | 7       | CREATED |
+   +-----------+--------+--------------------------------------------+---------+---------+
+   | remote-fs | cephfs | Distributed file-system storage using Ceph | 7       | CREATED |
+   +-----------+--------+--------------------------------------------+---------+---------+
    :input: lxc network list
    +----------+----------+---------+-----------------+---------------------------+-------------+---------+---------+
    |   NAME   |   TYPE   | MANAGED |      IPV4       |           IPV6            | DESCRIPTION | USED BY |  STATE  |
