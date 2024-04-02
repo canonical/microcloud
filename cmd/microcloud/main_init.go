@@ -34,14 +34,15 @@ type InitSystem struct {
 
 	AvailableDisks []lxdAPI.ResourcesStorageDisk // Disks as reported by LXD.
 
-	MicroCephDisks     []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
-	TargetNetworks     []lxdAPI.NetworksPost                  // Target specific network configuration.
-	TargetStoragePools []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
-	Networks           []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
-	StoragePools       []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
-	StorageVolumes     map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
+	MicroCephDisks                 []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
+	MicroCephInternalNetworkSubnet string                                 // MicroCephClusterNetworkSubnet is an optional the subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
+	TargetNetworks                 []lxdAPI.NetworksPost                  // Target specific network configuration.
+	TargetStoragePools             []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
+	Networks                       []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
+	StoragePools                   []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
+	StorageVolumes                 map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
 
-	JoinConfig []lxdAPI.ClusterMemberConfigKey // LXD Config for joining members.
+	JoinConfig []lxdAPI.ClusterMemberConfigKey
 }
 
 type cmdInit struct {
