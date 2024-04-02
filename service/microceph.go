@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
@@ -164,6 +165,49 @@ func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, err
 	}
 
 	return clusterMembers(ctx, client)
+}
+
+// ClusterConfig returns the Ceph cluster configuration.
+func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, targetSecret string) (map[string]string, error) {
+	var c *client.Client
+	var err error
+	if targetAddress == "" && targetSecret == "" {
+		c, err = s.Client("", "")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(targetAddress, CloudPort))
+		if err != nil {
+			return nil, err
+		}
+
+		c.Client.Client.Transport = &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				r.Header.Set("X-MicroCloud-Auth", targetSecret)
+				if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
+					r.URL.Path = "/1.0/services/microceph" + r.URL.Path
+				}
+
+				return shared.ProxyFromEnvironment(r)
+			},
+		}
+	}
+
+	data := cephTypes.Config{}
+	cs, err := cephClient.GetConfig(ctx, c, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	configs := make(map[string]string, len(cs))
+	for _, c := range cs {
+		configs[c.Key] = c.Value
+	}
+
+	return configs, nil
 }
 
 // Type returns the type of Service.
