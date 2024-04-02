@@ -694,7 +694,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 // configuration.
 func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	initializedServices := map[types.ServiceType]string{}
-	_, bootstrap := systems[s.Name]
+	bootstrapSystem, bootstrap := systems[s.Name]
 	if bootstrap {
 		for serviceType := range s.Services {
 			for peer, system := range systems {
@@ -711,6 +711,17 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			// If there's already an initialized system for this service, we don't need to bootstrap it.
 			if initializedServices[s.Type()] != "" {
 				return nil
+			}
+
+			if s.Type() == types.MicroCeph {
+				microCephBootstrapConf := make(map[string]string)
+				if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
+					microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+				}
+
+				if len(microCephBootstrapConf) > 0 {
+					s.SetConfig(microCephBootstrapConf)
+				}
 			}
 
 			err := s.Bootstrap(context.Background())
