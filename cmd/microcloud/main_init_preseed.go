@@ -12,6 +12,7 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/filter"
 	"github.com/canonical/lxd/shared/units"
+	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -29,6 +30,7 @@ type Preseed struct {
 	ReuseExistingClusters bool          `yaml:"reuse_existing_clusters"`
 	Systems               []System      `yaml:"systems"`
 	OVN                   InitNetwork   `yaml:"ovn"`
+	Ceph                  CephOptions   `yaml:"ceph"`
 	Storage               StorageFilter `yaml:"storage"`
 }
 
@@ -57,6 +59,11 @@ type InitNetwork struct {
 	IPv4Range   string `yaml:"ipv4_range"`
 	IPv6Gateway string `yaml:"ipv6_gateway"`
 	DNSServers  string `yaml:"dns_servers"`
+}
+
+// CephOptions represents the structure of the ceph options in the preseed yaml.
+type CephOptions struct {
+	InternalNetwork string `yaml:"internal_network"`
 }
 
 // StorageFilter separates the filters used for local and ceph disks.
@@ -248,6 +255,18 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 	if p.LookupInterface == "" {
 		return fmt.Errorf("Missing interface name for machine lookup")
+	}
+
+	usingCephInternalNetwork := p.Ceph.InternalNetwork != ""
+	if !containsCephStorage && usingCephInternalNetwork {
+		return fmt.Errorf("Cannot specify a Ceph internal network without Ceph storage disks")
+	}
+
+	if usingCephInternalNetwork {
+		err = validate.IsNetwork(p.Ceph.InternalNetwork)
+		if err != nil {
+			return fmt.Errorf("Invalid Ceph internal network subnet: %v", err)
+		}
 	}
 
 	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || containsUplinks
@@ -674,6 +693,75 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 
 		systems[peer] = system
+	}
+
+	// Configure Ceph networks.
+	infos := make([]mdns.ServerInfo, 0, len(systems))
+	for _, system := range systems {
+		infos = append(infos, system.ServerInfo)
+	}
+
+	var cephInterfaces map[string][]service.CephDedicatedInterface
+	if p.Ceph.InternalNetwork != "" || !bootstrap {
+		cephInterfaces, err = lxd.GetCephInterfaces(context.Background(), bootstrap, infos)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Initialize Ceph network if specified.
+	if bootstrap {
+		var initializedMicroCephSystem *InitSystem
+		for peer, system := range systems {
+			if system.InitializedServices[types.MicroCeph][peer] != "" {
+				initializedMicroCephSystem = &system
+				break
+			}
+		}
+
+		var customTargetCephInternalNetwork string
+		if initializedMicroCephSystem != nil {
+			// If there is at least one initialized system with MicroCeph (we consider that more than one initialized MicroCeph systems are part of the same cluster),
+			// we need to fetch its Ceph configuration to validate against this to-be-bootstrapped cluster.
+			targetInternalCephNetwork, err := getTargetCephNetworks(s, initializedMicroCephSystem)
+			if err != nil {
+				return nil, err
+			}
+
+			if targetInternalCephNetwork.String() != lookupSubnet.String() {
+				customTargetCephInternalNetwork = targetInternalCephNetwork.String()
+			}
+		}
+
+		var internalCephNetwork string
+		if customTargetCephInternalNetwork == "" {
+			internalCephNetwork = p.Ceph.InternalNetwork
+		} else {
+			internalCephNetwork = customTargetCephInternalNetwork
+		}
+
+		if internalCephNetwork != "" {
+			err = validateCephInterfacesForSubnet(lxd, systems, cephInterfaces, internalCephNetwork)
+			if err != nil {
+				return nil, err
+			}
+
+			bootstrapSystem := systems[s.Name]
+			bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephNetwork
+			systems[s.Name] = bootstrapSystem
+		}
+	} else {
+		localInternalCephNetwork, err := getTargetCephNetworks(s, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != lookupSubnet.String() {
+			err = validateCephInterfacesForSubnet(lxd, systems, cephInterfaces, localInternalCephNetwork.String())
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Check that the filters matched the correct amount of disks.
