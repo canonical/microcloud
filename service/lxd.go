@@ -481,6 +481,47 @@ func (s LXDService) GetCephInterfaces(ctx context.Context, bootstrap bool, peers
 	return candidates, nil
 }
 
+// ValidateCephInterfaces validates the given interfaces map against the given Ceph network subnet
+// and returns a map of peer name to interfaces that are in the subnet.
+func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfacesMap map[string][]CephDedicatedInterface) (map[string][][]string, error) {
+	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid CIDR subnet: %v", err)
+	}
+
+	ones, bits := subnet.Mask.Size()
+	if bits-ones == 0 {
+		return nil, fmt.Errorf("Invalid Ceph network subnet (must have more than one address)")
+	}
+
+	data := make(map[string][][]string)
+	for peer, interfaces := range interfacesMap {
+		for _, iface := range interfaces {
+			for _, addr := range iface.Addresses {
+				ip := net.ParseIP(addr)
+				if ip == nil {
+					return nil, fmt.Errorf("Invalid IP address: %v", addr)
+				}
+
+				if (subnet.IP.To4() != nil && ip.To4() != nil && subnet.Contains(ip)) || (subnet.IP.To16() != nil && ip.To16() != nil && subnet.Contains(ip)) {
+					_, ok := data[peer]
+					if !ok {
+						data[peer] = [][]string{{peer, iface.Name, addr, iface.Type}}
+					} else {
+						data[peer] = append(data[peer], []string{peer, iface.Name, addr, iface.Type})
+					}
+				}
+			}
+		}
+	}
+
+	if len(data) == 0 {
+		fmt.Println("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup")
+	}
+
+	return data, nil
+}
+
 // isInitialized checks if LXD is initialized by fetching the storage pools.
 // If none exist, that means LXD has not yet been set up.
 func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
