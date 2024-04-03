@@ -64,6 +64,12 @@ MicroCloud will still be usable, but you will see some limitations:
   As a result of this, network forwarding works at a basic level only, and external addresses must be forwarded to a specific cluster member and don't fail over.
 - There is no support for hardware acceleration, load balancers, or ACL functionality within the local network.
 
+Dedicated internal network for Ceph
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can set up a dedicated network for Ceph to separate the internal Ceph traffic from the rest of the MicroCloud cluster traffic.
+
+See :ref:`howto-ceph-networking` for how to set up a dedicated internal network for Ceph.
+
 Storage
 -------
 
