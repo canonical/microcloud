@@ -159,6 +159,11 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		}
 	}
 
+	err = validateSystems(s, systems)
+	if err != nil {
+		return err
+	}
+
 	return setupCluster(s, systems)
 }
 
