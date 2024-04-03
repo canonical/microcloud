@@ -3,7 +3,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"time"
 
@@ -138,10 +137,6 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(s, endpoints)
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
