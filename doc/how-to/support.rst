@@ -6,7 +6,7 @@ How to get support
 We recommend using the following channels for the snaps required to run MicroCloud:
 
 * For MicroCloud: ``latest/[stable|candidate|edge]``
-* For LXD: ``latest/[stable|candidate|edge]``
+* For LXD: ``5.21/[stable|candidate|edge]``
 * For MicroCeph: ``quincy/[stable|candidate|edge]``
 * For MicroOVN: ``22.03/[stable|candidate|edge]``
 
