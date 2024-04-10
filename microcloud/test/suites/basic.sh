@@ -161,13 +161,13 @@ EOF
   for m in c1 v1 ; do
     echo "Waiting up to 5 mins for ${m} to start"
     lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 300); do
-      if lxc info ${m} | grep -qF \"Status: READY\" ; then
+    for round in \$(seq 100); do
+      if lxc info ${m} | grep -qxF 'Status: READY'; then
 
          lxc rm ${m} -f
          return 0
       fi
-      sleep 1
+      sleep 3
     done
     return 1
     "
@@ -247,15 +247,15 @@ EOF
   for m in c1 v1 ; do
     echo "Waiting up to 5 mins for ${m} to start"
     lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 300); do
-      if lxc info ${m} | grep -qF \"Status: READY\" ; then
+    for round in \$(seq 100); do
+      if lxc info ${m} | grep -qxF 'Status: READY'; then
          lxc exec ${m} -- stat /cephfs
 
          lxc rm ${m} -f
 
          return 0
       fi
-      sleep 1
+      sleep 3
     done
     return 1
     "
