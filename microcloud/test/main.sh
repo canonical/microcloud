@@ -58,8 +58,7 @@ cleanup() {
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
 	else
 		echo "==> Cleaning up"
-
-    cleanup_systems
+		cleanup_systems
 	fi
 
 	echo ""
