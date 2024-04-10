@@ -926,7 +926,11 @@ setup_system() {
 
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
-    lxc exec "${name}" -- apt-get install --no-install-recommends -y snapd curl jq zfsutils-linux htop
+    if [ -n "${CLOUD_INSPECT:-}" ]; then
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
+    else
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+    fi
 
     lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install snapd"
 
