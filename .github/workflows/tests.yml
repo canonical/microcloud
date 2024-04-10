@@ -73,6 +73,95 @@ jobs:
         working-directory: microcloud
         run: make check-unit
 
+  system-tests:
+    eng:
+      DEBUG: "1"
+      SNAPSHOT_RESTORE: "1"
+    name: System
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.22.x"]
+
+    steps:
+      - name: Performance tuning
+        run: |
+          set -eux
+          # optimize ext4 FSes for performance, not reliability
+          for fs in $(findmnt --noheading --type ext4 --list --uniq | awk '{print $1}'); do
+            # nombcache and data=writeback cannot be changed on remount
+            sudo mount -o remount,noatime,barrier=0,commit=6000 "${fs}" || true
+          done
+
+          # disable dpkg from calling sync()
+          echo "force-unsafe-io" | sudo tee /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+
+      - name: Reclaim some space
+        run: |
+          set -eux
+
+          sudo snap remove lxd --purge
+          # Purge older snap revisions that are disabled/superseded by newer revisions of the same snap
+          snap list --all | while read -r name _ rev _ _ notes _; do
+            [[ "${notes}" =~ disabled$ ]] && sudo snap remove "${name}" --revision "${rev}" --purge
+          done || true
+
+          # This was inspired from https://github.com/easimon/maximize-build-space
+          df -h /
+          # dotnet
+          sudo rm -rf /usr/share/dotnet
+          # android
+          sudo rm -rf /usr/local/lib/android
+          # haskell
+          sudo rm -rf /opt/ghc
+          df -h /
+
+      - name: Remove docker
+        run: |
+          set -eux
+          sudo apt-get autopurge -y containerd.io moby-containerd docker docker-ce podman uidmap
+          sudo ip link delete docker0
+          sudo nft flush ruleset
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go (${{ matrix.go }})
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: "Run system tests (${{ matrix.go }})"
+        run: |
+          set -eux
+
+          # If the rootfs and the ephemeral part are on the same physical disk, giving the whole
+          # disk to microceph would wipe our rootfs. Since it is pretty rare for GitHub Action
+          # runners to have a single disk, we immediately bail rather than trying to gracefully
+          # handle it. Once snapd releases with https://github.com/snapcore/snapd/pull/13150,
+          # we will be able to stop worrying about that special case.
+          if [ "$(stat -c '%d' /)" = "$(stat -c '%d' /mnt)" ]; then
+            echo "FAIL: rootfs and ephemeral part on the same disk, aborting"
+            exit 1
+          fi
+
+          # Free-up the ephemeral disk to use it as storage device for LXD.
+          sudo swapoff /mnt/swapfile
+          ephemeral_disk="$(findmnt --noheadings --output SOURCE --target /mnt | sed 's/[0-9]\+$//')"
+          sudo umount /mnt
+          sudo wipefs -a "${ephemeral_disk}"
+          export TEST_STORAGE_SOURCE="${ephemeral_disk}"
+
+          # Setup host LXD
+          sudo snap install lxd --channel 5.21/stable || sudo snap refresh lxd --channel 5.21/stable
+          sudo lxd init --auto
+
+          chmod +x ~
+          cd microcloud/test
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh
+
+
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
     with:
