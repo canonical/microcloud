@@ -163,6 +163,7 @@ EOF
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
       if lxc info ${m} | grep -qxF 'Status: READY'; then
+         echo \"${m} booted successfully\"
 
          lxc rm ${m} -f
          return 0
@@ -250,6 +251,7 @@ EOF
     for round in \$(seq 100); do
       if lxc info ${m} | grep -qxF 'Status: READY'; then
          lxc exec ${m} -- stat /cephfs
+         echo \"${m} booted successfully\"
 
          lxc rm ${m} -f
 
