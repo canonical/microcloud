@@ -851,7 +851,12 @@ setup_lxd_project() {
 	  lxc project switch microcloud-test
 
     # Create a zfs pool so we can use fast snapshots.
-    lxc storage create zpool zfs volume.size=5GiB
+    if [ -z "${TEST_STORAGE_SOURCE:-}" ]; then
+      lxc storage create zpool zfs volume.size=5GiB
+    else
+      sudo wipefs --all --quiet "${TEST_STORAGE_SOURCE}"
+      lxc storage create zpool zfs source="${TEST_STORAGE_SOURCE}"
+    fi
 
     lxc remote list -f csv | cut -d',' -f1 | grep -qxF "ubuntu-minimal" || lxc remote add ubuntu-minimal https://cloud-images.ubuntu.com/minimal/releases/ --protocol simplestreams --auth-type none
 
