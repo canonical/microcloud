@@ -475,7 +475,7 @@ reset_snaps() {
       snap enable microcloud > /dev/null 2>&1 || true
       snap start lxd > /dev/null 2>&1 || true
       snap start microcloud > /dev/null 2>&1 || true
-      snap refresh lxd --channel latest/stable --cohort=+
+      snap refresh lxd --cohort=+
 
       lxd waitready
     "
@@ -952,7 +952,7 @@ setup_system() {
       fi
 
       while ! test -e /snap/bin/lxd ; do
-        snap install lxd --channel latest/stable --cohort='+' || true
+        snap install lxd --cohort='+' || true
         sleep 1
       done
     "
