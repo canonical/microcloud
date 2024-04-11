@@ -445,7 +445,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			}
 
 			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"peer": s.Name, "disk": disk.Path})
-			err = cephClient.AddDisk(context.Background(), c, &disk)
+			_, err = cephClient.AddDisk(context.Background(), c, &disk)
 			if err != nil {
 				return err
 			}
