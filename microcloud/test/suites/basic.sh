@@ -154,8 +154,8 @@ EOF
 "
 
   # Launch a container and VM with ZFS storage & FAN network.
-  lxc exec micro01 -- sh -c "lxc launch ubuntu-minimal:22.04 v1 --vm -s local -n lxdfan0"
-  lxc exec micro01 -- sh -c "lxc launch ubuntu-minimal:22.04 c1 -s local -n lxdfan0"
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s local -n lxdfan0
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
@@ -243,8 +243,8 @@ EOF
 "
 
   # Launch a container and VM with CEPH storage & OVN network.
-  lxc exec micro01 -- sh -c "lxc launch ubuntu-minimal:22.04 v1 --vm -s remote -n default"
-  lxc exec micro01 -- sh -c "lxc launch ubuntu-minimal:22.04 c1 -s remote -n default"
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
