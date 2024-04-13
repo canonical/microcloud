@@ -858,8 +858,6 @@ setup_lxd_project() {
       lxc storage create zpool zfs source="${TEST_STORAGE_SOURCE}"
     fi
 
-    lxc remote list -f csv | cut -d',' -f1 | grep -qxF "ubuntu-minimal" || lxc remote add ubuntu-minimal https://cloud-images.ubuntu.com/minimal/releases/ --protocol simplestreams --auth-type none
-
     # Setup default profile
     cat << EOF | lxc profile edit default
 config:
