@@ -110,7 +110,7 @@ test_instances_config() {
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -145,7 +145,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -201,7 +201,7 @@ test_instances_launch() {
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -277,7 +277,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
