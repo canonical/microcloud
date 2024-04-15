@@ -105,13 +105,13 @@ test_interactive() {
   done
 }
 
+
 test_instances_launch() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /root/preseed.yaml
+  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -130,17 +130,17 @@ systems:
     local:
       path: /dev/sdb
       wipe: true
-"
+EOF
 
-  lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
-
-  # Add cloud-init entry for checking ready state on launched instances.
+  # Delete any instances left behind.
   lxc exec micro01 -- sh -c "
   for m in \$(lxc ls -f csv -c n) ; do
     lxc rm \$m -f
   done
+"
 
-    cat << EOF | lxc profile edit default
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- lxc profile edit default << EOF
 config:
   cloud-init.user-data: |
     #cloud-config
@@ -151,7 +151,6 @@ config:
         path: /var/lib/cloud/scripts/per-boot/ready.sh
         permissions: \"0755\"
 EOF
-"
 
   # Launch a container and VM with ZFS storage & FAN network.
   lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
@@ -180,8 +179,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /root/preseed.yaml
+  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -212,17 +210,16 @@ ovn:
   ipv6_gateway: fd42:1:1234:1234::1/64
 storage:
   cephfs: true
-"
+EOF
 
-  lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
-
-  # Add cloud-init entry for checking ready state on launched instances.
+  # Delete any instances left behind.
   lxc exec micro01 -- sh -c "
   for m in \$(lxc ls -f csv -c n) ; do
     lxc rm \$m -f
   done
-
-    cat << EOF | lxc profile edit default
+"
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- lxc profile edit default << EOF
 config:
   cloud-init.user-data: |
     #cloud-config
@@ -240,7 +237,6 @@ devices:
     source: cephfs:lxd_cephfs/
     type: disk
 EOF
-"
 
   # Launch a container and VM with CEPH storage & OVN network.
   lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
@@ -266,7 +262,6 @@ EOF
     return 1
     "
   done
-
 }
 
 test_case() {
