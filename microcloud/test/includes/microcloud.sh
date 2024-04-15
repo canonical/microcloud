@@ -532,10 +532,12 @@ reset_system() {
       count_disks=\$(echo \"\${disks}\" | wc -l)
       for d in \${disks} ; do
         if [ \${count_disks} -gt ${num_disks} ]; then
+          echo \"Deleting /dev/\${d}\"
           echo 1 > /sys/block/\${d}/device/delete
         else
-          wipefs -af /dev/\${d}
-          dd if=/dev/zero of=/dev/\${d} bs=4096 count=100
+          echo \"Wiping /dev/\${d}\"
+          wipefs --quiet -af /dev/\${d}
+          dd if=/dev/zero of=/dev/\${d} bs=4096 count=100 status=none
         fi
 
         count_disks=\$((count_disks - 1))
