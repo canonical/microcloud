@@ -639,7 +639,7 @@ reset_systems() {
   num_disks=3
   num_ifaces=1
 
-	if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -Pq '\d+'; then
     num_vms="${1}"
     shift 1
   fi
@@ -674,9 +674,7 @@ reset_systems() {
     lxc pause "${name}" || true
   done
 
-  if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    wait
-  fi
+  wait
 }
 
 # restore_systems: Restores the systems from a snapshot at snap0.
@@ -729,9 +727,7 @@ restore_systems() {
     fi
   done
 
-  if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    wait
-  fi
+  wait
 }
 
 restore_system() {
