@@ -1025,40 +1025,16 @@ new_systems() {
     lxc profile device add default "eth${i}" nic network="microbr$((i - 1))" name="eth${i}"
   done
 
-  if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    for n in $(seq 1 "${num_vms}"); do
-      name=$(printf "micro%02d" "${n}")
-      create_system "${name}" "${num_disks}" &
-    done
+  for n in $(seq 1 "${num_vms}"); do
+    name=$(printf "micro%02d" "${n}")
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+      new_system "${name}" "${num_disks}" &
+    else
+      new_system "${name}" "${num_disks}"
+    fi
+  done
 
-    wait
-
-    for n in $(seq 1 "${num_vms}"); do
-      name=$(printf "micro%02d" "${n}")
-
-      (
-       lxd_wait_vm "${name}"
-       # Sleep some time so the vm is fully set up.
-       sleep 3
-       setup_system "${name}"
-      ) &
-
-    done
-
-    wait
-
-  else
-    for n in $(seq 1 "${num_vms}"); do
-      name="$(printf "micro%02d" "${n}")"
-      create_system "${name}" "${num_disks}"
-      lxd_wait_vm "${name}"
-
-      # Sleep some time so the vm is fully set up.
-      sleep 3
-
-      setup_system "${name}"
-    done
-  fi
+  wait
 }
 
 wait_snapd() {
