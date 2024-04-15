@@ -159,17 +159,19 @@ EOF
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
-    echo "Waiting up to 5 mins for ${m} to start"
+    echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
       if lxc info ${m} | grep -qxF 'Status: READY'; then
-         echo \"${m} booted successfully\"
+         echo \" ${m} booted successfully\"
 
          lxc rm ${m} -f
          return 0
       fi
+      echo -n .
       sleep 3
     done
+    echo FAIL
     return 1
     "
   done
@@ -246,19 +248,21 @@ EOF
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
-    echo "Waiting up to 5 mins for ${m} to start"
+    echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
       if lxc info ${m} | grep -qxF 'Status: READY'; then
          lxc exec ${m} -- stat /cephfs
-         echo \"${m} booted successfully\"
+         echo \" ${m} booted successfully\"
 
          lxc rm ${m} -f
 
          return 0
       fi
+      echo -n .
       sleep 3
     done
+    echo FAIL
     return 1
     "
   done
