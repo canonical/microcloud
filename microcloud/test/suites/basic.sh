@@ -77,11 +77,12 @@ test_interactive() {
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8" 
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd "${m}" 3 disk1 0 0 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+    validate_system_lxd "${m}" 3 disk1 0 0 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}" "${DNS_ADDRESSES}"
     validate_system_microovn "${m}"
   done
 
@@ -98,7 +99,7 @@ test_interactive() {
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}" "${DNS_ADDRESSES}"
     validate_system_microceph "${m}" 1 disk2
     validate_system_microovn "${m}"
   done
@@ -354,6 +355,7 @@ test_case() {
         IPV4_START="10.1.123.100"
         IPV4_END="10.1.123.254"
         IPV6_SUBNET="fd42:1:1234:1234::1/64"
+        DNS_ADDRESSES="10.1.123.1,8.8.8.8"
 
         expected_ovn_iface="enp6s0"
       else
@@ -367,7 +369,7 @@ test_case() {
       name="$(printf "micro%02d" "${i}")"
 
       if [ -n "${expected_ovn_iface}" ]; then
-        validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_cephfs}" "${expected_ovn_iface}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+        validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_cephfs}" "${expected_ovn_iface}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}" "${DNS_ADDRESSES}"
       else
         validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_cephfs}" "${expected_ovn_iface}"
       fi
