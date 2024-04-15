@@ -275,7 +275,7 @@ validate_system_lxd_ovn() {
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
-    dns_addresses=$(lxc exec "${name}" -- sh -c "lxc network get UPLINK dns.nameservers")
+    dns_addresses=$(lxc exec "local:${name}" -- sh -c "lxc network get UPLINK dns.nameservers")
     if [ "${dns_addresses}" != "${dns_namesersers}" ] ; then
       echo "ERROR: UPLINK network has wrong DNS server addresses: ${dns_addresses}"
       return 1
