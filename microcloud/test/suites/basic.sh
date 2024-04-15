@@ -243,11 +243,19 @@ config:
 EOF
 
   # Launch a container and VM with ZFS storage & FAN network.
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
+  if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    echo "::warning::SKIPPING VM LAUNCH TEST"
+  else
+    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
+  fi
   lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s local -n lxdfan0
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
+    if [ "${m}" = "v1" ] && [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+      continue
+    fi
+
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
@@ -329,11 +337,19 @@ devices:
 EOF
 
   # Launch a container and VM with CEPH storage & OVN network.
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    echo "::warning::SKIPPING VM LAUNCH TEST"
+  else
+    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  fi
   lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
+    if [ "${m}" = "v1" ] && [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+      continue
+    fi
+
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
