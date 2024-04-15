@@ -4,7 +4,7 @@ test_preseed() {
   lookup_addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
 
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${lookup_addr}/24
 lookup_interface: enp5s0
 systems:
@@ -60,7 +60,7 @@ EOF
   validate_system_microovn micro02
 
   # Grow the MicroCloud with a new node, with filter-based storage selection.
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud add --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed << EOF
 lookup_subnet: ${lookup_addr}/24
 lookup_interface: enp5s0
 systems:
@@ -88,7 +88,7 @@ EOF
   lookup_addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
 
   # Create a MicroCloud but don't set up storage or network (Should get a FAN setup).
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${lookup_addr}/24
 lookup_interface: enp5s0
 systems:
@@ -113,7 +113,7 @@ EOF
   sleep 1
 "
 
-  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${lookup_addr}/24
 lookup_interface: enp5s0
 systems:
