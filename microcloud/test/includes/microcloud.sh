@@ -849,8 +849,8 @@ setup_lxd_project() {
     fi
 
     lxc remote switch local
-	  lxc project create microcloud-test || true
-	  lxc project switch microcloud-test
+	lxc project create microcloud-test || true
+	lxc project switch microcloud-test
 
     # Create a zfs pool so we can use fast snapshots.
     if [ -z "${TEST_STORAGE_SOURCE:-}" ]; then
@@ -879,6 +879,7 @@ EOF
 
     lxc profile set default environment.TEST_CONSOLE=1
     lxc profile set default environment.DEBIAN_FRONTEND=noninteractive
+    lxc profile set default environment.PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
   )
 }
 
@@ -932,11 +933,10 @@ setup_system() {
       lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
     fi
 
-    lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install snapd"
+    lxc exec "${name}" -- snap install snapd
 
     # Snaps can occasionally fail to install properly, so repeatedly try.
     lxc exec "${name}" -- sh -c "
-      export PATH=\$PATH:/snap/bin
       while ! test -e /snap/bin/microceph ; do
         snap install microceph || true
         sleep 1
@@ -959,9 +959,9 @@ setup_system() {
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
-      lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install --devmode /root/microcloud.snap"
+      lxc exec "${name}" -- snap install --devmode /root/microcloud.snap
     else
-      lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install microcloud --channel latest/edge"
+      lxc exec "${name}" -- snap install microcloud --channel latest/edge
     fi
 
     set_debug_binaries "${name}"
