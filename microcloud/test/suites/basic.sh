@@ -105,6 +105,96 @@ test_interactive() {
   done
 }
 
+test_instances_config() {
+  reset_systems 3 3 2
+
+  # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro01
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+- name: micro02
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+- name: micro03
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+EOF
+
+  # Init a container and VM with ZFS storage & FAN network.
+  lxc exec micro01 -- lxc init --empty v1 --vm
+  lxc exec micro01 -- lxc init --empty c1
+
+  # Ensure proper storage pool and network selection by inspecting their used_by.
+  for m in c1 v1 ; do
+      lxc exec micro01 -- lxc storage show local   | grep -xF -- "- /1.0/instances/${m}"
+      lxc exec micro01 -- lxc network show lxdfan0 | grep -xF -- "- /1.0/instances/${m}"
+  done
+
+  reset_systems 3 3 2
+
+  # Create a MicroCloud with ceph and ovn setup.
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 -- TEST_CONSOLE=0 microcloud init --preseed << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro01
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+- name: micro02
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+- name: micro03
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+storage:
+  cephfs: true
+EOF
+
+  # Delete any instances left behind.
+  lxc exec micro01 -- sh -c "
+  for m in \$(lxc ls -f csv -c n) ; do
+    lxc rm \$m -f
+  done
+"
+
+  # Launch a container and VM with CEPH storage & OVN network.
+  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
+
+  # Ensure proper storage pool and network selection by inspecting their used_by.
+  for m in c1 v1 ; do
+      lxc exec micro01 -- lxc storage show remote  | grep -xF -- "- /1.0/instances/${m}"
+      lxc exec micro01 -- lxc network show default | grep -xF -- "- /1.0/instances/${m}"
+  done
+}
 
 test_instances_launch() {
   reset_systems 3 3 2
