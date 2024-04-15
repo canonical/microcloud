@@ -105,7 +105,7 @@ test_interactive() {
   done
 }
 
-test_instances() {
+test_instances_launch() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
