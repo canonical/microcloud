@@ -42,7 +42,6 @@ cleanup() {
 	lxc project switch microcloud-test
 	set +e
 
-
 	# Allow for inspection
 	if [ -n "${CLOUD_INSPECT:-}" ]; then
 		if [ "${TEST_RESULT}" != "success" ]; then
@@ -128,15 +127,13 @@ run_test() {
 # These nodes should be used across most tests and reset with the `reset_systems` function.
 new_systems 4 3 3
 
-# allow for running a specific set of tests
-if [ "$#" -gt 0 ] && [ "$1" != "all" ] && [ "$1" != "cluster" ] && [ "$1" != "standalone" ]; then
-	run_test "test_${1}"
-	# shellcheck disable=SC2034
-	TEST_RESULT=success
-	exit
-fi
+# test groups
+run_add_tests() {
+  run_test test_add_interactive "add interactive"
+  run_test test_add_auto "add auto"
+}
 
-if [ "${1:-"all"}" != "cluster" ]; then
+run_basic_tests() {
   run_test test_instances_config "instances config"
   run_test test_instances_launch "instances launch"
   run_test test_interactive "interactive"
@@ -144,9 +141,25 @@ if [ "${1:-"all"}" != "cluster" ]; then
   run_test test_disk_mismatch "disk mismatch"
   run_test test_interactive_combinations "interactive combinations"
   run_test test_auto "auto"
-  run_test test_add_interactive "add interactive"
-  run_test test_add_auto "add auto"
+}
+
+run_preseed_tests() {
   run_test test_preseed "preseed"
+}
+
+# allow for running a specific set of tests
+if [ "${1:-"all"}" = "all" ]; then
+  run_add_tests
+  run_basic_tests
+  run_preseed_tests
+elif [ "${1}" = "add" ]; then
+  run_add_tests
+elif [ "${1}" = "basic" ]; then
+  run_basic_tests
+elif [ "${1}" = "preseed" ]; then
+  run_preseed_tests
+else
+  run_test "test_${1}"
 fi
 
 # shellcheck disable=SC2034
