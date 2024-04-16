@@ -934,12 +934,12 @@ setup_system() {
     # Snaps can occasionally fail to install properly, so repeatedly try.
     lxc exec "${name}" -- sh -c "
       while ! test -e /snap/bin/microceph ; do
-        snap install microceph || true
+        snap install microceph --cohort='+' || true
         sleep 1
       done
 
       while ! test -e /snap/bin/microovn ; do
-        snap install microovn || true
+        snap install microovn --cohort='+' || true
         sleep 1
       done
 
@@ -957,7 +957,7 @@ setup_system() {
       lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --devmode /root/microcloud.snap
     else
-      lxc exec "${name}" -- snap install microcloud --channel latest/edge
+      lxc exec "${name}" -- snap install microcloud --channel latest/edge --cohort='+'
     fi
 
     set_debug_binaries "${name}"
