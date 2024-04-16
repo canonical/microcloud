@@ -124,6 +124,10 @@ run_test() {
 	echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
 }
 
+# Create 4 nodes with 3 disks and 3 extra interfaces.
+# These nodes should be used across most tests and reset with the `reset_systems` function.
+new_systems 4 3 3
+
 # allow for running a specific set of tests
 if [ "$#" -gt 0 ] && [ "$1" != "all" ] && [ "$1" != "cluster" ] && [ "$1" != "standalone" ]; then
 	run_test "test_${1}"
@@ -131,10 +135,6 @@ if [ "$#" -gt 0 ] && [ "$1" != "all" ] && [ "$1" != "cluster" ] && [ "$1" != "st
 	TEST_RESULT=success
 	exit
 fi
-
-# Create 4 nodes with 3 disks and 3 extra interfaces.
-# These nodes should be used across most tests and reset with the `reset_systems` function.
-new_systems 4 3 3
 
 if [ "${1:-"all"}" != "cluster" ]; then
   run_test test_instances_config "instances config"
