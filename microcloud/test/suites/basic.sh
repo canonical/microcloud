@@ -370,7 +370,7 @@ EOF
   done
 }
 
-test_case() {
+_test_case() {
     # Number of systems to use in the test.
     num_systems="${1}"
 
@@ -524,35 +524,35 @@ test_interactive_combinations() {
 
         for num_ifaces in $(seq 0 "${max_ifaces}") ; do
           # Run a test without forcibly skipping any services.
-          test_case "${num_systems}" "${num_disks}" "${num_ifaces}"
+          _test_case "${num_systems}" "${num_disks}" "${num_ifaces}"
 
           if [ "${num_systems}" -lt 3 ]; then
             if [ "${num_disks}" -gt 0 ] ; then
               # If we have fewer than 3 systems, we can still create ZFS so test forcibly skipping it.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
             fi
 
           # Only run additional tests with skipped services if we actually have devices to set up.
           elif [ "${num_ifaces}" = 1 ]; then
             if [ "${num_disks}" -gt 0 ] ; then
               # Test forcibly skipping ZFS, sending available disks to Ceph instead.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
               if [ "${num_disks}" -gt 1 ] ; then
                 # Test forcibly skipping Ceph only if we have extra disks after ZFS setup.
-                test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ceph"
+                _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ceph"
               fi
 
               # Test forcibly skipping both Ceph and ZFS to create no storage devices.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph"
 
               # Test forcibly skipping Ceph, ZFS, and OVN to get a FAN device.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph" "ovn"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph" "ovn"
             fi
           fi
 
           if [ "${num_systems}" -ge 3 ] && [ "${num_ifaces}" -gt 0 ]; then
               # Test forcibly skipping OVN whenever we can assign interfaces.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ovn"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ovn"
           fi
         done
     done
