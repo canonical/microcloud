@@ -966,14 +966,13 @@ setup_system() {
   # Sleep some time so the snaps are fully set up.
   sleep 3
 
-
-  lxc stop "${name}"
-
-  lxc snapshot "${name}" snap0
-
-  lxc start "${name}"
-
-  lxd_wait_vm "${name}"
+  # Create a snapshot so we can restore to this point.
+  if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
+    lxc stop "${name}"
+    lxc snapshot "${name}" snap0
+    lxc start "${name}"
+    lxd_wait_vm "${name}"
+  fi
 
   echo "==> ${name} Finished Setting up"
 }
