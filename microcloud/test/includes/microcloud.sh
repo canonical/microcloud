@@ -267,7 +267,7 @@ validate_system_lxd_ovn() {
     num_conns="${num_peers}"
   fi
 
-  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -q "${num_conns}"
+  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -qxF "${num_conns}"
 
   # Make sure there's no empty addresses.
   ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
@@ -343,8 +343,8 @@ validate_system_lxd() {
     set_remote microcloud-test "${name}"
 
     # Ensure we are clustered and online.
-    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep  -q "${name}"
-    lxc cluster list -f csv | wc -l | grep -q "${num_peers}"
+    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep  -qF "${name},ONLINE"
+    lxc cluster list -f csv | wc -l | grep -qxF "${num_peers}"
 
     has_microovn=0
     has_microceph=0
@@ -845,8 +845,8 @@ setup_lxd_project() {
     fi
 
     lxc remote switch local
-	lxc project create microcloud-test || true
-	lxc project switch microcloud-test
+    lxc project create microcloud-test || true
+    lxc project switch microcloud-test
 
     # Create a zfs pool so we can use fast snapshots.
     if [ -z "${TEST_STORAGE_SOURCE:-}" ]; then
