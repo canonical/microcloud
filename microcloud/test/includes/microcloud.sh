@@ -101,24 +101,24 @@ echo "${setup}" | sed -e '/^\s*#/d' -e '/^\s*$/d'
 set_debug_binaries() {
   name="${1}"
 
-    # Add debug binaries for MicroCloud.
-    if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
-      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloudd.debug
-      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloud.debug
+  if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
+    echo "==> Add debug binaries for MicroCloud."
+    lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloudd.debug
+    lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloud.debug
 
-      lxc file push "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
-      lxc file push "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
+    lxc file push "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
+    lxc file push "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
 
-      lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
-    fi
+    lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
+  fi
 
-    # Add a debug binary for LXD.
-    if [ -n "${LXD_DEBUG_PATH}" ]; then
-      lxc exec "${name}" -- rm -rf /var/snap/lxd/common/lxd.debug
-      lxc file push "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
-      lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
-      lxc exec "${name}" -- lxd waitready
-    fi
+  if [ -n "${LXD_DEBUG_PATH}" ]; then
+    echo "==> Add a debug binary for LXD."
+    lxc exec "${name}" -- rm -rf /var/snap/lxd/common/lxd.debug
+    lxc file push "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
+    lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
+    lxc exec "${name}" -- lxd waitready
+  fi
 }
 
 # set_remote: Adds and switches to the remote for the MicroCloud node with the given name.
