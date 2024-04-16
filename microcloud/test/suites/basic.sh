@@ -237,9 +237,9 @@ config:
     write_files:
       - content: |
           #!/bin/sh
-          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{\"state\": \"Ready\"}'
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{"state": "Ready"}'
         path: /var/lib/cloud/scripts/per-boot/ready.sh
-        permissions: \"0755\"
+        permissions: "0755"
 EOF
 
   # Launch a container and VM with ZFS storage & FAN network.
@@ -324,9 +324,9 @@ config:
     write_files:
       - content: |
           #!/bin/sh
-          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{\"state\": \"Ready\"}'
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{"state": "Ready"}'
         path: /var/lib/cloud/scripts/per-boot/ready.sh
-        permissions: \"0755\"
+        permissions: "0755"
 devices:
   fs:
     ceph.cluster_name: ceph
@@ -590,8 +590,8 @@ test_service_mismatch() {
   lxc exec micro01 -- tail -1 out | grep "Scanning for eligible servers" -q
 
   # Install the remaining services on the other systems.
-  lxc exec micro02 -- sh -c "snap install microceph microovn"
-  lxc exec micro03 -- sh -c "snap install microceph microovn"
+  lxc exec micro02 -- snap install microceph microovn
+  lxc exec micro03 -- snap install microceph microovn
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
@@ -608,9 +608,9 @@ test_service_mismatch() {
   reset_systems 3 3 1
 
   # Run all services on the other systems only.
-  lxc exec micro01 -- sh -c "snap disable microceph || true"
-  lxc exec micro01 -- sh -c "snap disable microovn || true"
-  lxc exec micro01 -- sh -c "snap restart microcloud"
+  lxc exec micro01 -- snap disable microceph || true
+  lxc exec micro01 -- snap disable microovn || true
+  lxc exec micro01 -- snap restart microcloud
 
 
   SKIP_SERVICE="yes"
@@ -625,8 +625,8 @@ test_service_mismatch() {
   done
 
   for m in micro02 micro03 ; do
-   lxc exec ${m} -- sh -c "microceph cluster list" 2>&1 | grep "Error: Daemon not yet initialized" -q
-   lxc exec ${m} -- sh -c "microovn cluster list" 2>&1 | grep "Error: Daemon not yet initialized" -q
+   lxc exec ${m} -- microceph cluster list 2>&1 | grep "Error: Daemon not yet initialized" -q
+   lxc exec ${m} -- microovn cluster list  2>&1 | grep "Error: Daemon not yet initialized" -q
   done
 }
 
@@ -667,13 +667,13 @@ test_disk_mismatch() {
 test_auto() {
   reset_systems 2 0 0
 
-  lxc exec micro02 -- sh -c "snap stop microcloud"
+  lxc exec micro02 -- snap stop microcloud
 
   echo MicroCloud auto setup without any peers.
   ! lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out 2>&1" || false
   lxc exec micro01 -- tail -1 out | grep -q "Error: Found no available systems"
 
-  lxc exec micro02 -- sh -c "snap start microcloud"
+  lxc exec micro02 -- snap start microcloud
 
   echo Auto-create a MicroCloud with 2 systems with no disks/interfaces.
   lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
@@ -683,7 +683,7 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Supress the first message from LXD.
-    lxc exec ${m} -- sh -c "lxc list > /dev/null 2>&1" || true
+    lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
     lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
@@ -699,8 +699,8 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
     lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
@@ -717,11 +717,11 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no ceph storage devices.
-    ! lxc exec ${m} -- sh -ceu "lxc storage ls -f csv" | grep -q "^remote,ceph" || false
+    ! lxc exec ${m} -- lxc storage ls -f csv | grep -q "^remote,ceph" || false
   done
 
   reset_systems 3 0 0
@@ -750,8 +750,8 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
     lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
@@ -767,8 +767,8 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no zfs storage devices.
     ! lxc exec ${m} -- lxc storage ls -f csv | grep -q "^local,zfs" || false
@@ -784,7 +784,7 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
   done
 }
