@@ -10,9 +10,6 @@ Get started with MicroCloud
 MicroCloud is quick to set up.
 Once :ref:`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
-If you are already familiar with LXD, you are good to go!
-Otherwise, see the :doc:`LXD documentation <lxd:index>` to get started.
-
 This tutorial guides you through installing MicroCloud in a confined environment and then starting some instances to see what you can do with MicroCloud.
 It uses virtual machines in LXD, so you don't need any extra hardware to follow the tutorial.
 
