@@ -32,7 +32,7 @@ test_add_auto() {
     lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec "${m}" -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec "${m}" -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   # Test with all systems.
@@ -62,10 +62,10 @@ test_add_auto() {
     validate_system_microovn "${m}"
 
     # Supress the first message from LXD.
-    lxc exec "${m}" -- sh -c "lxc ls >> /dev/null 2>&1" || true
+    lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec "${m}" -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec "${m}" -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   # Test with ZFS and Ceph disks.
