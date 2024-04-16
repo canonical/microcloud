@@ -1054,7 +1054,7 @@ lxd_wait_vm() {
   name="${1}"
 
   echo "==> ${name} Awaiting VM..."
-  for round in $(seq 640); do
+  for round in $(seq 160); do
     if lxc info "${name}" | grep -qF "Status: READY" ; then
       wait_snapd "${name}"
       echo "    ${name} VM is ready"
@@ -1062,12 +1062,12 @@ lxd_wait_vm() {
     fi
 
     # Sometimes the VM just won't start, so retry after 3 minutes.
-    if [ "$((round % 180))" = 0 ]; then
+    if [ "$((round % 45))" = 0 ]; then
       echo "==> ${name} Timeout (${round}s): Re-initializing VM"
       lxc restart "${name}" --force
     fi
 
-    sleep 1
+    sleep 4
   done
 
   echo "    ${name} VM failed to start"
