@@ -84,6 +84,7 @@ jobs:
       fail-fast: false
       matrix:
         go: ["1.22.x"]
+        suite: ["add", "basic", "preseed"]
 
     steps:
       - name: Performance tuning
@@ -133,7 +134,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: "Run system tests (${{ matrix.go }})"
+      - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
         run: |
           set -eux
 
@@ -160,8 +161,7 @@ jobs:
 
           chmod +x ~
           cd microcloud/test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh
-
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh ${{ matrix.suite }}
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
