@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
-	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/microcluster"
+	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/mdns"
@@ -419,6 +420,19 @@ func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
 	if isInit {
 		return fmt.Errorf("Detected pre-existing LXD storage pools. LXD might have already been initialized")
 	}
+
+	server, _, err := c.GetServer()
+	if err != nil {
+		return fmt.Errorf("Failed to get LXD server information: %w", err)
+	}
+
+	// As of LXD 5.21, the LXD snap should support content interfaces to automatically detect the presence of MicroOVN and MicroCeph.
+	// For older LXDs, we must restart to trigger the snap's detection of MicroOVN and MicroCeph to properly set up LXD's snap environment to work with them.
+	if semver.Compare(semver.Canonical(fmt.Sprintf("v%s", server.Environment.ServerVersion)), semver.Canonical(fmt.Sprintf("v%s", lxdMinVersion))) < 0 {
+		return nil
+	}
+
+	logger.Warnf("Detected LXD older than %s, attempting restart to detect MicroOVN and MicroCeph integration", lxdMinVersion)
 
 	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
 	if err != nil && err.Error() != "Shutdown already in progress" {

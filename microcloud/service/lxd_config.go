@@ -8,6 +8,9 @@ import (
 	"github.com/canonical/lxd/shared/api"
 )
 
+// lxdMinVersion is the minimum version of LXD that fully supports all MicroCloud features.
+const lxdMinVersion = "5.21"
+
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
 func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
