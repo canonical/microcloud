@@ -134,6 +134,16 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:dqlite/dev -y --no-update
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
+
+      - name: Build
+        working-directory: microcloud
+        run: make
+
       - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
         run: |
           set -eux
@@ -159,9 +169,16 @@ jobs:
           sudo snap install lxd --channel 5.21/stable || sudo snap refresh lxd --channel 5.21/stable
           sudo lxd init --auto
 
+          # Binaries to sideload
+          export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
+          export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
+
+          # strip debug binaries
+          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
+
           chmod +x ~
           cd microcloud/test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh ${{ matrix.suite }}
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh ${{ matrix.suite }}
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
