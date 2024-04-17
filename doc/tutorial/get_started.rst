@@ -10,9 +10,6 @@ Get started with MicroCloud
 MicroCloud is quick to set up.
 Once :ref:`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
-If you are already familiar with LXD, you are good to go!
-Otherwise, see the :doc:`LXD documentation <lxd:index>` to get started.
-
 This tutorial guides you through installing MicroCloud in a confined environment and then starting some instances to see what you can do with MicroCloud.
 It uses virtual machines in LXD, so you don't need any extra hardware to follow the tutorial.
 
@@ -937,8 +934,6 @@ See :ref:`lxd:access-ui` for more information.
 
       Certificate selection in the LXD UI
 
-   Follow the instructions in the UI to set up the certificates.
-
    .. note::
       Since LXD 5.21, the LXD UI is enabled by default.
 
@@ -947,6 +942,21 @@ See :ref:`lxd:access-ui` for more information.
 
         snap set lxd ui.enable=true
         systemctl reload snap.lxd.daemon
+
+#.  Follow the instructions in the UI to set up the certificates.
+
+    .. tip::
+       If you create a new certificate, you must transfer it to one of the cluster members to add it to the trust store.
+
+       To do this, use the :ref:`file push command <lxd:instances-access-files-push>`.
+       For example::
+
+         lxc file push lxd-ui.crt micro1/root/lxd-ui.crt
+
+       You can then access the shell on that cluster member and add the certificate to the trust store::
+
+         lxc exec micro1 -- bash
+         lxc config trust add lxd-ui.crt
 
 #. You can now browse the UI and inspect, for example, the instances you created and the networks and storage that MicroCloud set up.
 
