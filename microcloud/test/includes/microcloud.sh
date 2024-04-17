@@ -197,8 +197,8 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get "storage.backups_volume" --target "${name}" | grep -q '^local/backups$'
-  lxc config get "storage.images_volume" --target "${name}" | grep -q '^local/images$'
+  lxc config get "storage.backups_volume" --target "${name}" | grep -qxF 'local/backups'
+  lxc config get "storage.images_volume" --target "${name}"  | grep -qxF 'local/images'
 
   cfg=$(lxc storage show local)
   echo "${cfg}" | grep -q "config: {}"
@@ -245,7 +245,7 @@ validate_system_lxd_ceph() {
     echo "${cfg}" | grep -q "source: lxd_cephfs"
     echo "${cfg}" | grep -q "status: Created"
   else
-   ! lxc storage show remote-fs || true
+    ! lxc storage show remote-fs || true
   fi
 }
 
@@ -287,18 +287,18 @@ validate_system_lxd_ovn() {
   echo "${cfg}" | grep -q "type: physical"
 
   if [ -n "${ipv4_gateway}" ] ; then
-    echo "${cfg}" | grep -q "ipv4.gateway: ${ipv4_gateway}"
+    echo "${cfg}" | grep -qF "ipv4.gateway: ${ipv4_gateway}"
   fi
 
   if [ -n "${ipv4_ranges}" ] ; then
-    echo "${cfg}" | grep -q "ipv4.ovn.ranges: ${ipv4_ranges}"
+    echo "${cfg}" | grep -qF "ipv4.ovn.ranges: ${ipv4_ranges}"
   fi
 
   if [ -n "${ipv6_gateway}" ] ; then
-    echo "${cfg}" | grep -q "ipv6.gateway: ${ipv6_gateway}"
+    echo "${cfg}" | grep -qF "ipv6.gateway: ${ipv6_gateway}"
   fi
 
-  lxc network show UPLINK --target "${name}" | grep -q "parent: ${ovn_interface}"
+  lxc network show UPLINK --target "${name}" | grep -qF "parent: ${ovn_interface}"
 
   cfg=$(lxc network show default)
   echo "${cfg}" | grep -q "status: Created"
@@ -343,7 +343,7 @@ validate_system_lxd() {
     set_remote microcloud-test "${name}"
 
     # Ensure we are clustered and online.
-    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep  -qF "${name},ONLINE"
+    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
     lxc cluster list -f csv | wc -l | grep -qxF "${num_peers}"
 
     has_microovn=0
