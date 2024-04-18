@@ -321,6 +321,8 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
+    packages:
+    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -336,16 +338,17 @@ devices:
     type: disk
 EOF
 
-  # Launch a container and VM with CEPH storage & OVN network.
+  # Launch 2 containers and VM with CEPH storage & OVN network.
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
   lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c2 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
-  for m in c1 v1 ; do
+  for m in c1 c2 v1 ; do
     if [ "${m}" = "v1" ] && [ "${SKIP_VM_LAUNCH}" = "1" ]; then
       continue
     fi
@@ -357,8 +360,6 @@ EOF
          lxc exec ${m} -- stat /cephfs
          echo \" ${m} booted successfully\"
 
-         lxc rm ${m} -f
-
          return 0
       fi
       echo -n .
@@ -368,6 +369,35 @@ EOF
     return 1
     "
   done
+
+  echo "Test connectivity to lxdbr0"
+  IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
+  IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
+
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 "${IPV4_GW}"
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -4 "${IPV4_GW}"
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 "${IPV6_GW}"
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -6 "${IPV6_GW}"
+  if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -4 "${IPV4_GW}"
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -6 "${IPV6_GW}"
+  fi
+
+  echo "Test connectivity between instances"
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 c2
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -4 c1
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 c2
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -6 c1
+  if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+    lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 v1
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -4 c1
+    lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 v1
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -6 c1
+
+    lxc exec micro01 -- lxc delete -f v1
+  fi
+
+  lxc exec micro01 -- lxc delete -f c1 c2
 }
 
 _test_case() {
