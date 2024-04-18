@@ -330,29 +330,12 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 	return nil
 }
 
-// waitForJoin issues a token and instructs a system to request a join,
+// waitForJoin requests a system to join each service's respective cluster,
 // and then waits for the request to either complete or time out.
 // If the request was successful, it additionally waits until the cluster appears in the database.
 func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer string, cfg types.ServicesPut) error {
-	mut := sync.Mutex{}
-	err := sh.RunConcurrent(false, false, func(s service.Service) error {
-		token, err := s.IssueToken(context.Background(), peer)
-		if err != nil {
-			return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
-		}
-
-		mut.Lock()
-		cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
-		mut.Unlock()
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	err = cloud.RequestJoin(context.Background(), secret, peer, cfg)
+	err := cloud.RequestJoin(context.Background(), secret, peer, cfg)
 	if err != nil {
 		return fmt.Errorf("System %q failed to join the cluster: %w", peer, err)
 	}
@@ -407,6 +390,27 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 	if err != nil {
 		return fmt.Errorf("Failed to inspect existing cluster: %w", err)
 	}
+	// Concurrently issue a token for each joiner.
+	for peer := range systems {
+		mut := sync.Mutex{}
+		err := sh.RunConcurrent(false, false, func(s service.Service) error {
+			token, err = s.IssueToken(context.Background(), peer)
+			if err != nil {
+				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
+			}
+
+			mut.Lock()
+			cfg := joinConfig[peer]
+			cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
+			joinConfig[peer] = cfg
+			mut.Unlock()
+
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+ 	}
 
 	clusterSize := len(cluster)
 
