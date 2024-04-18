@@ -4,7 +4,7 @@
 unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS \
+    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
     SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
 }
 
@@ -13,28 +13,30 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
-  LOOKUP_IFACE=${LOOKUP_IFACE:-}                  # filter string for the lookup interface table.
-  LIMIT_SUBNET=${LIMIT_SUBNET:-}                  # (yes/no) input for limiting lookup of systems to the above subnet.
-  SKIP_SERVICE=${SKIP_SERVICE:-}                  # (yes/no) input to skip any missing services. Should be unset if all services are installed.
-  EXPECT_PEERS=${EXPECT_PEERS:-}                  # wait for this number of systems to be available to join the cluster.
+  LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
+  LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
+  SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
+  EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
   REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered service.
   REUSE_EXISTING_COUNT=${REUSE_EXISTING_COUNT:-0} # (number) number of existing clusters to incorporate.
-  SETUP_ZFS=${SETUP_ZFS:-}                        # (yes/no) input for initiating ZFS storage pool setup.
-  ZFS_FILTER=${ZFS_FILTER:-}                      # filter string for ZFS disks.
-  ZFS_WIPE=${ZFS_WIPE:-}                          # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}                      # (yes/no) input for initiating CEPH storage pool setup.
-  SETUP_CEPHFS=${SETUP_CEPHFS:-}                  # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_WARNING=${CEPH_WARNING:-}                  # (yes/no) input for warning about eligible disk detection.
-  CEPH_FILTER=${CEPH_FILTER:-}                    # filter string for CEPH disks.
-  CEPH_WIPE=${CEPH_WIPE:-}                        # (yes/no) to wipe all disks.
-  SETUP_OVN=${SETUP_OVN:-}                        # (yes/no) input for initiating OVN network setup.
-  OVN_WARNING=${OVN_WARNING:-}                    # (yes/no) input for warning about eligible interface detection.
-  OVN_FILTER=${OVN_FILTER:-}                      # filter string for OVN interfaces.
-  IPV4_SUBNET=${IPV4_SUBNET:-}                    # OVN ipv4 gateway subnet.
-  IPV4_START=${IPV4_START:-}                      # OVN ipv4 range start.
-  IPV4_END=${IPV4_END:-}                          # OVN ipv4 range end.
-  DNS_ADDRESSES=${DNS_ADDRESSES:-}                # OVN custom DNS addresses.
-  IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
+  SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
+  ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
+  ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
+  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
+  CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
+  CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
+  CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
+  CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet or Ceph public network if specified previously) input for setting up a cluster network.
+  IGNORE_CEPH_NETWORKING=${IGNORE_CEPH_NETWORKING:-} # (yes/no) input for ignoring Ceph network setup. Set it to `yes` during `microcloud add` .
+  SETUP_OVN=${SETUP_OVN:-}                       # (yes/no) input for initiating OVN network setup.
+  OVN_WARNING=${OVN_WARNING:-}                   # (yes/no) input for warning about eligible interface detection.
+  OVN_FILTER=${OVN_FILTER:-}                     # filter string for OVN interfaces.
+  IPV4_SUBNET=${IPV4_SUBNET:-}                   # OVN ipv4 gateway subnet.
+  IPV4_START=${IPV4_START:-}                     # OVN ipv4 range start.
+  IPV4_END=${IPV4_END:-}                         # OVN ipv4 range end.
+  DNS_ADDRESSES=${DNS_ADDRESSES:-}               # OVN custom DNS addresses.
+  IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
 
   setup="
 ${LOOKUP_IFACE}                                         # filter the lookup interface
@@ -86,6 +88,14 @@ $(true)                                                 # workaround for set -e
 "
 fi
 
+if [ -z "${IGNORE_CEPH_NETWORKING}" ]; then
+  if [ -n "${CEPH_CLUSTER_NETWORK}" ]; then
+    setup="${setup}
+${CEPH_CLUSTER_NETWORK}
+$(true)                                                 # workaround for set -e
+"
+  fi
+fi
 
 if [ -n "${SETUP_OVN}" ]; then
   setup="${setup}
@@ -163,9 +173,15 @@ validate_system_microceph() {
       shift 1
     fi
 
+    cluster_ceph_subnet=""
+    if echo "${1}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
+      cluster_ceph_subnet="${1}"
+      shift 1
+    fi
+
     disks="${*}"
 
-    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}"
+    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}"
 
     lxc remote switch local
     lxc exec "${name}" -- sh -ceu "
@@ -189,6 +205,12 @@ validate_system_microceph() {
         microceph.ceph fs get lxd_cephfs
         microceph.ceph osd pool get lxd_cephfs_meta size
         microceph.ceph osd pool get lxd_cephfs_data size
+      " > /dev/null
+    fi
+
+    if [ -n "${cluster_ceph_subnet}" ]; then
+      lxc exec "${name}" -- sh -ceu "
+        microceph.ceph config show osd.1 cluster_network | grep -q ${cluster_ceph_subnet}
       " > /dev/null
     fi
 }
@@ -1103,4 +1125,31 @@ lxd_wait_vm() {
 
   echo "    ${name} VM failed to start"
   return 1
+}
+
+# ip_prefix_by_netmask: Returns the prefix length of the given netmask.
+ip_prefix_by_netmask () {
+  # shellcheck disable=SC2048,SC2086
+  c=0 x=0$( printf '%o' ${1//./ } )
+  # shellcheck disable=SC2048,SC2086
+  while [ $x -gt 0 ]; do
+    (( c += x % 2, x >>= 1 ))
+  done
+
+  echo /$c ;
+}
+
+# ip_config_to_netaddr: Returns the IPv4 network address of the given interface.
+# e.g: ip_config_to_netaddr lxdbr0 (with inet: 10.233.6.X/24)-> 10.233.6.0/24
+ip_config_to_netaddr () {
+	local line ip mask net_addr
+  line=$(ifconfig -a "$1" | grep netmask | tr -s " ")
+  ip=$(echo "$line" | cut -f 3 -d " ")
+  mask=$(echo "$line" | cut -f 5 -d " ")
+
+	IFS=. read -r io1 io2 io3 io4 <<< "$ip"
+	IFS=. read -r mo1 mo2 mo3 mo4 <<< "$mask"
+	net_addr="$((io1 & mo1)).$((io2 & mo2)).$((io3 & mo3)).$((io4 & mo4))"
+
+	echo "${net_addr}$(ip_prefix_by_netmask "${mask}")"
 }
