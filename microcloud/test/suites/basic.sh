@@ -248,7 +248,7 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s local -n lxdfan0
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n lxdfan0
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
@@ -344,8 +344,8 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c2 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 c2 v1 ; do
