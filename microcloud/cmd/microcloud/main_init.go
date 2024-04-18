@@ -619,14 +619,40 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
 func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+	initializedServices := map[types.ServiceType]string{}
 	_, bootstrap := systems[s.Name]
 	if bootstrap {
+		for serviceType := range s.Services {
+			for peer, system := range systems {
+				if system.InitializedServices[serviceType] != nil {
+					initializedServices[serviceType] = peer
+					break
+				}
+			}
+		}
+
 		fmt.Println("Initializing a new cluster")
+		mu := sync.Mutex{}
 		err := s.RunConcurrent(true, false, func(s service.Service) error {
+			// If there's already an initialized system for this service, we don't need to bootstrap it.
+			if initializedServices[s.Type()] != "" {
+				return nil
+			}
+
 			err := s.Bootstrap(context.Background())
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}
+
+			mu.Lock()
+			clustered := systems[s.Name()]
+			if clustered.InitializedServices == nil {
+				clustered.InitializedServices = map[types.ServiceType]map[string]string{}
+			}
+
+			clustered.InitializedServices[s.Type()] = map[string]string{s.Name(): s.Address()}
+			systems[s.Name()] = clustered
+			mu.Unlock()
 
 			fmt.Printf(" Local %s is ready\n", s.Type())
 
@@ -635,28 +661,43 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		if err != nil {
 			return err
 		}
-
-		// Only add disks for the local MicroCeph as other systems will add their disks upon joining.
-		var c *client.Client
-		for _, disk := range systems[s.Name].MicroCephDisks {
-			if c == nil {
-				c, err = s.Services[types.MicroCeph].(*service.CephService).Client("", "")
-				if err != nil {
-					return err
-				}
-			}
-
-			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"peer": s.Name, "disk": disk.Path})
-			_, err = cephClient.AddDisk(context.Background(), c, &disk)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	err := AddPeers(s, systems)
 	if err != nil {
 		return err
+	}
+
+	if bootstrap {
+		// Joiners will add their disks as part of the join process, so only add disks here for the system we bootstrapped, or already existed.
+		peer := s.Name
+		microCeph := initializedServices[types.MicroCeph]
+		if microCeph != "" {
+			peer = microCeph
+		}
+
+		for name := range systems[peer].InitializedServices[types.MicroCeph] {
+			// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
+			if systems[name].ServerInfo.Name == "" {
+				continue
+			}
+
+			var c *client.Client
+			for _, disk := range systems[name].MicroCephDisks {
+				if c == nil {
+					c, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, systems[name].ServerInfo.AuthSecret)
+					if err != nil {
+						return err
+					}
+				}
+
+				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
+				_, err = cephClient.AddDisk(context.Background(), c, &disk)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	fmt.Println("Configuring cluster-wide devices ...")
