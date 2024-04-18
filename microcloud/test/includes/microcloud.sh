@@ -103,19 +103,19 @@ set_debug_binaries() {
 
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
-    lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloudd.debug
-    lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloud.debug
+    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
+    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
 
-    lxc file push "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
-    lxc file push "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
+    lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
+    lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
 
     lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
   fi
 
   if [ -n "${LXD_DEBUG_PATH}" ]; then
     echo "==> Add a debug binary for LXD."
-    lxc exec "${name}" -- rm -rf /var/snap/lxd/common/lxd.debug
-    lxc file push "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
+    lxc exec "${name}" -- rm -f /var/snap/lxd/common/lxd.debug
+    lxc file push --quiet "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
     lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
     lxc exec "${name}" -- lxd waitready
   fi
@@ -506,7 +506,7 @@ reset_system() {
     lxc start "${name}" || true
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
-      lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+      lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
     fi
 
     lxc exec "${name}" -- ip link del lxdfan0 || true
@@ -955,7 +955,7 @@ setup_system() {
     "
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
-      lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+      lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --devmode /root/microcloud.snap
     else
       lxc exec "${name}" -- snap install microcloud --channel latest/edge --cohort='+'
