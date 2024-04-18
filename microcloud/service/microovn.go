@@ -23,10 +23,11 @@ type OVNService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewOVNService creates a new MicroOVN service with a client attached.
-func NewOVNService(ctx context.Context, name string, addr string, cloudDir string) (*OVNService, error) {
+func NewOVNService(ctx context.Context, name string, addr string, cloudDir string, config map[string]string) (*OVNService, error) {
 	proxy := func(r *http.Request) (*url.URL, error) {
 		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microovn") {
 			r.URL.Path = "/1.0/services/microovn" + r.URL.Path
@@ -45,6 +46,7 @@ func NewOVNService(ctx context.Context, name string, addr string, cloudDir strin
 		name:    name,
 		address: addr,
 		port:    OVNPort,
+		config:  config,
 	}, nil
 }
 
@@ -55,7 +57,7 @@ func (s OVNService) Client() (*client.Client, error) {
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
 func (s OVNService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
+	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config, 2*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -129,4 +131,9 @@ func (s OVNService) Address() string {
 // Port returns the port of this Service instance.
 func (s OVNService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the init configuration for the OVN service.
+func (s *OVNService) SetConfig(config map[string]string) {
+	s.config = config
 }

@@ -599,14 +599,28 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		infos = append(infos, system.ServerInfo)
 	}
 
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
+	allNetworks, err := sh.Services[types.LXD].(*service.LXDService).GetInterfaces(context.Background(), bootstrap, infos, service.UnderlayInterface|service.UplinkInterface)
 	if err != nil {
 		return err
 	}
 
+	uplinkNetworks := make(map[string][]api.Network)
+	for peer, networks := range allNetworks {
+		for _, net := range networks {
+			if len(net.Addresses) == 0 {
+				_, ok := uplinkNetworks[peer]
+				if !ok {
+					uplinkNetworks[peer] = []api.Network{net.Network}
+				} else {
+					uplinkNetworks[peer] = append(uplinkNetworks[peer], net.Network)
+				}
+			}
+		}
+	}
+
 	// Check if OVN is possible in the environment.
-	canOVN := len(networks) > 0
-	for _, nets := range networks {
+	canOVN := len(uplinkNetworks) > 0
+	for _, nets := range uplinkNetworks {
 		if len(nets) == 0 {
 			canOVN = false
 			break
@@ -628,8 +642,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		return nil
 	}
 
-	missingSystems := len(systems) != len(networks)
-	for _, nets := range networks {
+	missingSystems := len(systems) != len(uplinkNetworks)
+	for _, nets := range uplinkNetworks {
 		if len(nets) == 0 {
 			missingSystems = true
 			break
@@ -651,7 +665,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	header := []string{"LOCATION", "IFACE", "TYPE"}
 	fmt.Println("Select an available interface per system to provide external connectivity for distributed network(s):")
 	data := [][]string{}
-	for peer, nets := range networks {
+	for peer, nets := range uplinkNetworks {
 		for _, net := range nets {
 			data = append(data, []string{peer, net.Name, net.Type})
 		}
@@ -682,7 +696,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			selected[target] = iface
 		}
 
-		if len(selected) != len(networks) {
+		if len(selected) != len(uplinkNetworks) {
 			return fmt.Errorf("Failed to add OVN uplink network: Some peers don't have a selected interface")
 		}
 
@@ -818,6 +832,111 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
+	}
+
+	// Underlay network selection table.
+	// Ask the user if they want an underlay network.
+	if bootstrap {
+		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+		if err != nil {
+			return err
+		}
+
+		if !wantsDedicatedUnderlay {
+			return nil
+		}
+	} else {
+		// If the bootstrapped node has an underlay network, then we don't need to ask. Else, return.
+		customUnderlayEnabled := false
+		for _, system := range systems {
+			if system.OVNGeneveAddr != "" {
+				customUnderlayEnabled = true
+				break
+			}
+		}
+
+		if !customUnderlayEnabled {
+			return nil
+		}
+	}
+
+	underlayNetworks := make(map[string][]service.NetworkWithAllocatedIPs)
+	for peer, networks := range allNetworks {
+		for _, net := range networks {
+			if len(net.Addresses) != 0 {
+				_, ok := underlayNetworks[peer]
+				if !ok {
+					underlayNetworks[peer] = []service.NetworkWithAllocatedIPs{net}
+				} else {
+					underlayNetworks[peer] = append(underlayNetworks[peer], net)
+				}
+			}
+		}
+	}
+
+	if len(underlayNetworks) != len(systems) {
+		fmt.Println("Not enough interfaces available to create an underlay network, skipping")
+		return nil
+	}
+
+	for peer, nets := range underlayNetworks {
+		if len(nets) == 0 {
+			fmt.Printf("Not enough interfaces available on %q to configure the underlay network, skipping\n", peer)
+			return nil
+		}
+	}
+
+	header = []string{"LOCATION", "IFACE", "TYPE", "IP ADDRESS (CIDR)"}
+	fmt.Println("Select exactly one network interface from each cluster member:")
+	data = [][]string{}
+	for peer, nets := range underlayNetworks {
+		for _, net := range nets {
+			for _, addr := range net.Addresses {
+				data = append(data, []string{peer, net.Network.Name, net.Network.Type, addr})
+			}
+		}
+	}
+
+	table = NewSelectableTable(header, data)
+	selected = map[string]string{}
+	c.askRetry("Retry selecting underlay network interfaces?", autoSetup, func() error {
+		err = table.Render(table.rows)
+		if err != nil {
+			return err
+		}
+
+		answers, err := table.GetSelections()
+		if err != nil {
+			return err
+		}
+
+		selected = map[string]string{}
+		for _, answer := range answers {
+			target := table.SelectionValue(answer, "LOCATION")
+			ipAddr := table.SelectionValue(answer, "IP ADDRESS (CIDR)")
+
+			if selected[target] != "" {
+				return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
+			}
+
+			selected[target] = ipAddr
+		}
+
+		if len(selected) != len(underlayNetworks) {
+			return fmt.Errorf("Failed to configure OVN underlay traffic: Some peers don't have a selected interface")
+		}
+
+		return nil
+	})
+
+	for peer, ipAddr := range selected {
+		system := systems[peer]
+		ip, _, err := net.ParseCIDR(ipAddr)
+		if err != nil {
+			return err
+		}
+
+		system.OVNGeneveAddr = ip.String()
 	}
 
 	return nil
