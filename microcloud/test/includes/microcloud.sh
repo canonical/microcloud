@@ -3,7 +3,7 @@ unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS \
-    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END CUSTOM_DNS_ADDRESSES IPV6_SUBNET
+    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -29,7 +29,7 @@ microcloud_interactive() {
   IPV4_SUBNET=${IPV4_SUBNET:-}                   # OVN ipv4 gateway subnet.
   IPV4_START=${IPV4_START:-}                     # OVN ipv4 range start.
   IPV4_END=${IPV4_END:-}                         # OVN ipv4 range end.
-  CUSTOM_DNS_ADDRESSES=${CUSTOM_DNS_ADDRESSES:-} # OVN custom DNS addresses.
+  DNS_ADDRESSES=${DNS_ADDRESSES:-}               # OVN custom DNS addresses.
   IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
 
   setup=$(cat << EOF
@@ -88,7 +88,7 @@ ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateway
 ${IPV4_START}
 ${IPV4_END}
 ${IPV6_SUBNET}
-${CUSTOM_DNS_ADDRESSES}
+${DNS_ADDRESSES}
 EOF
 )
 fi
@@ -275,7 +275,7 @@ validate_system_lxd_ovn() {
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
-    dns_addresses=$(lxc exec "${name}" -- sh -c "lxc network get UPLINK dns.nameservers")
+    dns_addresses=$(lxc exec "local:${name}" -- sh -c "lxc network get UPLINK dns.nameservers")
     if [ "${dns_addresses}" != "${dns_namesersers}" ] ; then
       echo "ERROR: UPLINK network has wrong DNS server addresses: ${dns_addresses}"
       return 1
