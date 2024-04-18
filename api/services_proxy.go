@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	lxd "github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/ws"
 	"github.com/canonical/microcluster/microcluster"
@@ -123,7 +123,7 @@ func microHandler(service string, stateDir string) func(*state.State, *http.Requ
 		r.URL.Scheme = "http"
 		r.URL.Host = "control.socket"
 		r.Host = r.URL.Host
-		client, err := microcluster.App(s.Context, microcluster.Args{StateDir: stateDir})
+		client, err := microcluster.App(microcluster.Args{StateDir: stateDir})
 		if err != nil {
 			return response.SmartError(err)
 		}

@@ -37,13 +37,13 @@ func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
-	m, err := microcluster.App(context.Background(), options)
+	m, err := microcluster.App(options)
 	if err != nil {
 		return err
 	}
 
 	query := args[0]
-	dump, batch, err := m.SQL(query)
+	dump, batch, err := m.SQL(context.Background(), query)
 	if err != nil {
 		return err
 	}

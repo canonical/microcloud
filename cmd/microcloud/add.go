@@ -43,12 +43,12 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return c.common.RunPreseed(cmd, false)
 	}
 
-	cloudApp, err := microcluster.App(context.Background(), microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
+	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
 	if err != nil {
 		return err
 	}
 
-	status, err := cloudApp.Status()
+	status, err := cloudApp.Status(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
 	}

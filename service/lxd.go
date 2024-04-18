@@ -34,8 +34,8 @@ type LXDService struct {
 }
 
 // NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(ctx context.Context, name string, addr string, cloudDir string) (*LXDService, error) {
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir})
+func NewLXDService(name string, addr string, cloudDir string) (*LXDService, error) {
+	client, err := microcluster.App(microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
 	}

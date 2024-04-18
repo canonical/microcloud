@@ -28,7 +28,7 @@ type OVNService struct {
 }
 
 // NewOVNService creates a new MicroOVN service with a client attached.
-func NewOVNService(ctx context.Context, name string, addr string, cloudDir string) (*OVNService, error) {
+func NewOVNService(name string, addr string, cloudDir string) (*OVNService, error) {
 	proxy := func(r *http.Request) (*url.URL, error) {
 		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microovn") {
 			r.URL.Path = "/1.0/services/microovn" + r.URL.Path
@@ -37,7 +37,7 @@ func NewOVNService(ctx context.Context, name string, addr string, cloudDir strin
 		return shared.ProxyFromEnvironment(r)
 	}
 
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir, Proxy: proxy})
+	client, err := microcluster.App(microcluster.Args{StateDir: cloudDir, Proxy: proxy})
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (s OVNService) Client() (*client.Client, error) {
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
 func (s OVNService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
+	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), nil)
 	if err != nil {
 		return err
 	}
@@ -86,12 +86,12 @@ func (s OVNService) Bootstrap(ctx context.Context) error {
 
 // IssueToken issues a token for the given peer.
 func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(peer)
+	return s.m.NewJoinToken(ctx, peer)
 }
 
 // Join joins a cluster with the given token.
 func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	return s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
+	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
 }
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
