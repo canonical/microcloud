@@ -333,7 +333,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 // waitForJoin requests a system to join each service's respective cluster,
 // and then waits for the request to either complete or time out.
 // If the request was successful, it additionally waits until the cluster appears in the database.
-func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer string, cfg types.ServicesPut) error {
+func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, secret string, peer string, cfg types.ServicesPut) error {
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
 	err := cloud.RequestJoin(context.Background(), secret, peer, cfg)
 	if err != nil {
@@ -341,24 +341,30 @@ func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer strin
 	}
 
 	clustered := make(map[types.ServiceType]bool, len(sh.Services))
-	for service := range sh.Services {
-		clustered[service] = false
+	for _, tokenInfo := range cfg.Tokens {
+		clustered[tokenInfo.Service] = false
 	}
 
+	// Iterate over all services until the database is updated with the new node across all of them.
 	now := time.Now()
 	for len(clustered) != 0 {
 		if time.Since(now) >= time.Second*30 {
 			return fmt.Errorf("Timed out waiting for cluster member %q to appear", peer)
 		}
 
+		// Check the size of the cluster for each service.
 		for service := range clustered {
 			systems, err := sh.Services[service].ClusterMembers(context.Background())
 			if err != nil {
 				return err
 			}
 
-			if len(systems) == clusterSize+1 {
+			// If the size of the cluster has been incremented by 1 from its initial value,
+			// then we don't need to check the corresponding service anymore.
+			// So remove the service from consideration and update the current cluster size for the next node.
+			if len(systems) == clusterSizes[service]+1 {
 				delete(clustered, service)
+				clusterSizes[service] = clusterSizes[service] + 1
 			}
 		}
 	}
@@ -369,60 +375,116 @@ func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer strin
 }
 
 func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
-	joinConfig := make(map[string]types.ServicesPut, len(systems))
-	secrets := make(map[string]string, len(systems))
-	for peer, info := range systems {
-		if peer == sh.Name {
-			continue
+	// Grab the systems that are clustered from the InitSystem map.
+	initializedServices := map[types.ServiceType]string{}
+	existingSystems := map[types.ServiceType]map[string]string{}
+	for serviceType := range sh.Services {
+		for peer, system := range systems {
+			if system.InitializedServices != nil && system.InitializedServices[serviceType] != nil {
+				initializedServices[serviceType] = peer
+				existingSystems[serviceType] = system.InitializedServices[serviceType]
+				break
+			}
 		}
+	}
 
+	// Prepare a JoinConfig to send to each joiner.
+	joinConfig := make(map[string]types.ServicesPut, len(systems))
+	for peer, info := range systems {
 		joinConfig[peer] = types.ServicesPut{
 			Tokens:     []types.ServiceToken{},
 			Address:    info.ServerInfo.Address,
 			LXDConfig:  info.JoinConfig,
 			CephConfig: info.MicroCephDisks,
 		}
-
-		secrets[peer] = info.ServerInfo.AuthSecret
 	}
 
-	cluster, err := sh.Services[types.MicroCloud].ClusterMembers(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to inspect existing cluster: %w", err)
+	_, bootstrap := systems[sh.Name]
+	clusterSize := map[types.ServiceType]int{}
+	if bootstrap {
+		for serviceType, clusterMembers := range existingSystems {
+			clusterSize[serviceType] = len(clusterMembers)
+		}
 	}
+
 	// Concurrently issue a token for each joiner.
 	for peer := range systems {
 		mut := sync.Mutex{}
 		err := sh.RunConcurrent(false, false, func(s service.Service) error {
-			token, err = s.IssueToken(context.Background(), peer)
-			if err != nil {
-				return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
-			}
+			// Only issue a token if the system isn't already part of that cluster.
+			if existingSystems[s.Type()][peer] == "" {
+				clusteredSystem := systems[initializedServices[s.Type()]]
 
-			mut.Lock()
-			cfg := joinConfig[peer]
-			cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
-			joinConfig[peer] = cfg
-			mut.Unlock()
+				var token string
+				var err error
+
+				// If the local node is part of the pre-existing cluster, or if we are growing the cluster, issue the token locally.
+				// Otherwise, use the MicroCloud proxy to ask an existing cluster member to issue the token.
+				if clusteredSystem.ServerInfo.Name == sh.Name || clusteredSystem.ServerInfo.Name == "" {
+					token, err = s.IssueToken(context.Background(), peer)
+					if err != nil {
+						return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
+					}
+				} else {
+					cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+					token, err = cloud.RemoteIssueToken(context.Background(), clusteredSystem.ServerInfo.Address, clusteredSystem.ServerInfo.AuthSecret, peer, s.Type())
+					if err != nil {
+						return err
+					}
+				}
+
+				// Fetch the current cluster sizes if we are adding a new node.
+				var currentCluster map[string]string
+				if !bootstrap {
+					currentCluster, err = s.ClusterMembers(context.Background())
+					if err != nil {
+						return fmt.Errorf("Failed to check for existing %s cluster size: %w", s.Type(), err)
+					}
+				}
+
+				mut.Lock()
+
+				if !bootstrap {
+					clusterSize[s.Type()] = len(currentCluster)
+				}
+
+				cfg := joinConfig[peer]
+				cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
+				joinConfig[peer] = cfg
+				mut.Unlock()
+			}
 
 			return nil
 		})
 		if err != nil {
 			return err
 		}
- 	}
-
-	clusterSize := len(cluster)
+	}
 
 	fmt.Println("Awaiting cluster formation ...")
+
+	// If the local node needs to join an existing cluster, do it first so we can proceed as normal.
+	if len(joinConfig[sh.Name].Tokens) > 0 {
+		cfg := joinConfig[sh.Name]
+		err := waitForJoin(sh, clusterSize, "", sh.Name, cfg)
+		if err != nil {
+			return err
+		}
+
+		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
+		time.Sleep(3 * time.Second)
+	}
+
 	for peer, cfg := range joinConfig {
+		if len(cfg.Tokens) == 0 || peer == sh.Name {
+			continue
+		}
+
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
 		err := waitForJoin(sh, clusterSize, systems[peer].ServerInfo.AuthSecret, peer, cfg)
 		if err != nil {
 			return err
 		}
-
-		clusterSize = clusterSize + 1
 
 		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
 		time.Sleep(3 * time.Second)
