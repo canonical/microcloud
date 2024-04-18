@@ -635,6 +635,8 @@ reset_systems() {
     return
   fi
 
+  echo "::group::reset_systems"
+
   num_vms=3
   num_disks=3
   num_ifaces=1
@@ -675,10 +677,14 @@ reset_systems() {
   done
 
   wait
+
+  echo "::endgroup::"
 }
 
 # restore_systems: Restores the systems from a snapshot at snap0.
 restore_systems() {
+  echo "::group::restore_systems"
+
   num_vms=3
   num_disks=3
   num_extra_ifaces=1
@@ -728,6 +734,8 @@ restore_systems() {
   done
 
   wait
+
+  echo "::endgroup::"
 }
 
 restore_system() {
@@ -994,6 +1002,8 @@ new_system() {
 }
 
 new_systems() {
+  echo "::group::new_systems"
+
   num_vms=3
   num_disks=3
   num_ifaces=1
@@ -1034,6 +1044,8 @@ new_systems() {
   done
 
   wait
+
+  echo "::endgroup::"
 }
 
 wait_snapd() {
