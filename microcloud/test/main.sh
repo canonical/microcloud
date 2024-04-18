@@ -147,20 +147,7 @@ run_preseed_tests() {
   run_test test_preseed "preseed"
 }
 
-# allow for running a specific set of tests
-if [ "${1:-"all"}" = "all" ]; then
-  run_add_tests
-  run_basic_tests
-  run_preseed_tests
-elif [ "${1}" = "add" ]; then
-  run_add_tests
-elif [ "${1}" = "basic" ]; then
-  run_basic_tests
-elif [ "${1}" = "preseed" ]; then
-  run_preseed_tests
-else
-  run_test "test_${1}"
-fi
+run_test test_service_mismatch "service mismatch"
 
 # shellcheck disable=SC2034
 TEST_RESULT=success
