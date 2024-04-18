@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +18,7 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
@@ -60,14 +59,7 @@ func (s LXDService) Client(ctx context.Context, secret string) (lxd.InstanceServ
 	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
 		HTTPClient:    c.Client.Client,
 		SkipGetServer: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
-				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		},
+		Proxy:         cloudClient.AuthProxy(secret, types.LXD),
 	})
 }
 
@@ -83,14 +75,7 @@ func (s LXDService) remoteClient(secret string, address string, port int64) (lxd
 		HTTPClient:         c.Client.Client,
 		InsecureSkipVerify: true,
 		SkipGetServer:      true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
-				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		},
+		Proxy:              cloudClient.AuthProxy(secret, types.LXD),
 	})
 	if err != nil {
 		return nil, err
