@@ -136,7 +136,6 @@ run_add_tests() {
 run_basic_tests() {
   run_test test_instances_config "instances config"
   run_test test_instances_launch "instances launch"
-  run_test test_interactive "interactive"
   run_test test_service_mismatch "service mismatch"
   run_test test_disk_mismatch "disk mismatch"
   run_test test_interactive_combinations "interactive combinations"
@@ -147,6 +146,7 @@ run_preseed_tests() {
   run_test test_preseed "preseed"
 }
 
+run_test test_interactive "interactive"
 run_test test_service_mismatch "service mismatch"
 
 # shellcheck disable=SC2034
