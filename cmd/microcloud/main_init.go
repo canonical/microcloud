@@ -718,7 +718,11 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 				}
 			}
 
-			err := s.Bootstrap(context.Background())
+			// set a 2 minute timeout to bootstrap a service in case the node is slow.
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			err := s.Bootstrap(ctx)
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}
