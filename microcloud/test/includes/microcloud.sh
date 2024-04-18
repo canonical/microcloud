@@ -147,7 +147,7 @@ validate_system_microceph() {
     shift 1
 
     cephfs=0
-    if echo "${1}" | grep -Pq '\d+'; then
+    if echo "${1}" | grep -qxE '[0-9]+'; then
       cephfs="${1}"
       shift 1
     fi
@@ -639,17 +639,17 @@ reset_systems() {
   num_disks=3
   num_ifaces=1
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_vms="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_ifaces="${1}"
     shift 1
   fi
@@ -683,17 +683,17 @@ restore_systems() {
   num_disks=3
   num_extra_ifaces=1
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_vms=${1}
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks=${1}
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_extra_ifaces=${1}
     shift 1
   fi
@@ -735,13 +735,13 @@ restore_system() {
   shift 1
 
   num_disks="0"
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks="${1}"
     shift 1
   fi
 
   num_extra_ifaces="0"
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_extra_ifaces="${1}"
     shift 1
   fi
@@ -998,17 +998,17 @@ new_systems() {
   num_disks=3
   num_ifaces=1
 
-  if echo "${1}" | grep -qP '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_vms="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qP '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qP '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_ifaces="${1}"
     shift 1
   fi
