@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -137,7 +138,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy(s),
 	}
 
-	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(s, endpoints)
+	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints)
 }
 
 func main() {
