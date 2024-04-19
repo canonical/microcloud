@@ -53,6 +53,11 @@ func NewCloudService(name string, addr string, dir string, verbose bool, debug b
 	}, nil
 }
 
+// Client returns a client to the MicroCloud unix socket.
+func (s CloudService) Client() (*microClient.Client, error) {
+	return s.client.LocalClient()
+}
+
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint) error {
 	return s.client.Start(ctx, endpoints, nil, nil, &config.Hooks{
