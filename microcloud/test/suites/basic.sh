@@ -620,8 +620,10 @@ test_service_mismatch() {
   lxc exec micro01 -- tail -1 out | grep "Scanning for eligible servers" -q
 
   # Install the remaining services on the other systems.
-  lxc exec micro02 -- snap install microceph microovn
-  lxc exec micro03 -- snap install microceph microovn
+  lxc exec micro02 -- snap install microceph --channel="${MICROCEPH_SNAP_CHANNEL}" --cohort="+"
+  lxc exec micro02 -- snap install microovn  --channel="${MICROOVN_SNAP_CHANNEL}"  --cohort="+"
+  lxc exec micro03 -- snap install microceph --channel="${MICROCEPH_SNAP_CHANNEL}" --cohort="+"
+  lxc exec micro03 -- snap install microovn  --channel="${MICROOVN_SNAP_CHANNEL}"  --cohort="+"
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
