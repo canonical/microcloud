@@ -918,10 +918,6 @@ setup_system() {
 
   echo "==> ${name} Setting up"
 
-  # Bring enp6s0 up but disable IPv6 (should do through netplan).
-  lxc exec "${name}" -- ip link set enp6s0 up
-  lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp6s0/disable_ipv6" > /dev/null
-
   (
     set -eu
 
