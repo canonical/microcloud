@@ -952,7 +952,6 @@ setup_system() {
       fi
 
       while ! test -e /snap/bin/lxd ; do
-        echo \"::warning::pulling LXD from latest/edge (https://github.com/canonical/lxd-pkg-snap/pull/426)\"
         snap install lxd --cohort='+' --channel=latest/edge || true
         sleep 1
       done
