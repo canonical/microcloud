@@ -35,9 +35,6 @@ import_subdir_files includes
 echo "==> Checking for dependencies"
 check_dependencies lxc lxd curl awk jq git python3 shuf rsync openssl
 
-echo "===> Checking that all snap channels are set to latest/edge"
-check_snap_channels
-
 cleanup() {
 	# Do not exit if commands fail on cleanup. (No need to reset -e as this is only run on test suite exit).
 	set -eux
@@ -130,6 +127,9 @@ fi
 set -u
 
 export MICROCLOUD_SNAP_PATH
+
+echo "===> Checking that all snap channels are set to latest/edge"
+check_snap_channels
 
 run_test() {
 	TEST_CURRENT="${1}"
