@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
@@ -137,6 +138,11 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	err = c.common.askNetwork(s, systems, c.flagAutoSetup)
+	if err != nil {
+		return err
+	}
+
+	err = validateSystems(s, systems)
 	if err != nil {
 		return err
 	}
@@ -409,6 +415,112 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 
 		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
 		time.Sleep(3 * time.Second)
+	}
+
+	return nil
+}
+
+// validateGatewayNet ensures that the ipv{4,6} gateway in a network's `config`
+// is a valid CIDR address and that any ovn.ranges if present fall within the
+// gateway. `ipPrefix` is one of "ipv4" or "ipv6".
+func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator func(string) error) (ovnIPRanges []*shared.IPRange, err error) {
+	gateway, hasGateway := config[ipPrefix+".gateway"]
+	ovnRanges, hasOVNRanges := config[ipPrefix+".ovn.ranges"]
+
+	var gatewayIP net.IP
+	var gatewayNet *net.IPNet
+
+	if hasGateway {
+		err = cidrValidator(gateway)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid %s.gateway %q: %w", ipPrefix, gateway, err)
+		}
+
+		gatewayIP, gatewayNet, err = net.ParseCIDR(gateway)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid %s.gateway %q: %w", ipPrefix, gateway, err)
+		}
+	}
+
+	if hasGateway && hasOVNRanges {
+		ovnIPRanges, err = shared.ParseIPRanges(ovnRanges, gatewayNet)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid %s.ovn.ranges %q: %w", ipPrefix, ovnRanges, err)
+		}
+	}
+
+	for _, ipRange := range ovnIPRanges {
+		if ipRange.ContainsIP(gatewayIP) {
+			return nil, fmt.Errorf("UPLINK %s.ovn.ranges must not include gateway address %q", ipPrefix, gatewayNet.IP)
+		}
+	}
+
+	return ovnIPRanges, nil
+}
+
+func validateSystems(s *service.Handler, systems map[string]InitSystem) (err error) {
+	curSystem, bootstrap := systems[s.Name]
+	if !bootstrap {
+		return nil
+	}
+
+	// Assume that the UPLINK network on each system is the same, so grab just
+	// the gateways from the current node's UPLINK to verify against the other
+	// systems' management addrs
+	var ip4OVNRanges, ip6OVNRanges []*shared.IPRange
+
+	for _, network := range curSystem.Networks {
+		if network.Type == "physical" && network.Name == "UPLINK" {
+			ip4OVNRanges, err = validateGatewayNet(network.Config, "ipv4", validate.IsNetworkAddressCIDRV4)
+			if err != nil {
+				return err
+			}
+
+			ip6OVNRanges, err = validateGatewayNet(network.Config, "ipv6", validate.IsNetworkAddressCIDRV6)
+			if err != nil {
+				return err
+			}
+
+			nameservers, hasNameservers := network.Config["dns.nameservers"]
+			if hasNameservers {
+				isIP := func(s string) error {
+					ip := net.ParseIP(s)
+					if ip == nil {
+						return fmt.Errorf("Invalid IP %q", s)
+					} else {
+						return nil
+					}
+				}
+
+				err = validate.IsListOf(isIP)(nameservers)
+				if err != nil {
+					return fmt.Errorf("Invalid dns.nameservers: %w", err)
+				}
+			}
+
+			break
+		}
+	}
+
+	// Ensure that no system's management address falls within the OVN ranges
+	// to prevent OVN from allocating an IP that's already in use.
+	for systemName, system := range systems {
+		systemAddr := net.ParseIP(system.ServerInfo.Address)
+		if systemAddr == nil {
+			return fmt.Errorf("Invalid address %q for system %q", system.ServerInfo.Address, systemName)
+		}
+
+		for _, ipRange := range ip4OVNRanges {
+			if ipRange.ContainsIP(systemAddr) {
+				return fmt.Errorf("UPLINK ipv4.ovn.ranges must not include system address %q", systemAddr)
+			}
+		}
+
+		for _, ipRange := range ip6OVNRanges {
+			if ipRange.ContainsIP(systemAddr) {
+				return fmt.Errorf("UPLINK ipv6.ovn.ranges must not include system address %q", systemAddr)
+			}
+		}
 	}
 
 	return nil
