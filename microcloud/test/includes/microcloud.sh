@@ -423,7 +423,7 @@ reset_snaps() {
       fi
 
       rm -rf /var/snap/lxd/common/lxd
-      rm -rf /var/snap/microcloud/*
+      rm -rf /var/snap/microcloud/*/*
     "
 
     echo "Resetting MicroCeph for ${name}"
@@ -440,7 +440,7 @@ reset_snaps() {
         modprobe -r rbd ceph
 
         # Wipe the snap state so we can start fresh.
-        rm -rf /var/snap/microceph/*
+        rm -rf /var/snap/microceph/*/*
         snap enable microceph > /dev/null 2>&1 || true
 
         # microceph.osd requires this directory to exist but doesn't create it after install.
@@ -464,7 +464,7 @@ reset_snaps() {
         fi
 
         # Wipe the snap state so we can start fresh.
-        rm -rf /var/snap/microovn/*
+        rm -rf /var/snap/microovn/*/*
         snap enable microovn > /dev/null 2>&1 || true
       fi
     "
