@@ -959,7 +959,7 @@ setup_system() {
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
-      lxc exec "${name}" -- snap install --devmode /root/microcloud.snap
+      lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
     else
       lxc exec "${name}" -- snap install microcloud --channel latest/edge --cohort='+'
     fi
