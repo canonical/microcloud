@@ -105,13 +105,12 @@ test_interactive() {
   done
 }
 
-test_instances() {
+test_instances_config() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /root/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -130,55 +129,23 @@ systems:
     local:
       path: /dev/sdb
       wipe: true
-"
-
-  lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
-
-  # Add cloud-init entry for checking ready state on launched instances.
-  lxc exec micro01 -- sh -c "
-  for m in \$(lxc ls -f csv -c n) ; do
-    lxc rm \$m -f
-  done
-
-    cat << EOF | lxc profile edit default
-config:
-  cloud-init.user-data: |
-    #cloud-config
-    write_files:
-      - content: |
-          #!/bin/sh
-          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{\"state\": \"Ready\"}'
-        path: /var/lib/cloud/scripts/per-boot/ready.sh
-        permissions: \"0755\"
 EOF
-"
 
-  # Launch a container and VM with ZFS storage & FAN network.
-  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 v1 --vm -s local -n lxdfan0"
-  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 c1 -s local -n lxdfan0"
+  # Init a container and VM with ZFS storage & FAN network.
+  lxc exec micro01 -- lxc init --empty v1 --vm
+  lxc exec micro01 -- lxc init --empty c1
 
-  # Ensure we can reach the launched instances.
+  # Ensure proper storage pool and network selection by inspecting their used_by.
   for m in c1 v1 ; do
-    echo "Waiting up to 5 mins for ${m} to start"
-    lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 300); do
-      if lxc info ${m} | grep -qF \"Status: READY\" ; then
-
-         lxc rm ${m} -f
-         return 0
-      fi
-      sleep 1
-    done
-    return 1
-    "
+      lxc exec micro01 -- lxc storage show local   | grep -xF -- "- /1.0/instances/${m}"
+      lxc exec micro01 -- lxc network show lxdfan0 | grep -xF -- "- /1.0/instances/${m}"
   done
 
   reset_systems 3 3 2
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /root/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -209,26 +176,159 @@ ovn:
   ipv6_gateway: fd42:1:1234:1234::1/64
 storage:
   cephfs: true
-"
+EOF
 
-  lxc exec micro01 -- sh -c "cat /root/preseed.yaml | TEST_CONSOLE=0 microcloud init --preseed"
-
-  # Add cloud-init entry for checking ready state on launched instances.
+  # Delete any instances left behind.
   lxc exec micro01 -- sh -c "
   for m in \$(lxc ls -f csv -c n) ; do
     lxc rm \$m -f
   done
+"
 
-    cat << EOF | lxc profile edit default
+  # Launch a container and VM with CEPH storage & OVN network.
+  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
+
+  # Ensure proper storage pool and network selection by inspecting their used_by.
+  for m in c1 v1 ; do
+      lxc exec micro01 -- lxc storage show remote  | grep -xF -- "- /1.0/instances/${m}"
+      lxc exec micro01 -- lxc network show default | grep -xF -- "- /1.0/instances/${m}"
+  done
+}
+
+test_instances_launch() {
+  reset_systems 3 3 2
+
+  # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro01
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+- name: micro02
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+- name: micro03
+  storage:
+    local:
+      path: /dev/sdb
+      wipe: true
+EOF
+
+  # Delete any instances left behind.
+  lxc exec micro01 -- sh -c "
+  for m in \$(lxc ls -f csv -c n) ; do
+    lxc rm \$m -f
+  done
+"
+
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- lxc profile edit default << EOF
 config:
   cloud-init.user-data: |
     #cloud-config
     write_files:
       - content: |
           #!/bin/sh
-          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{\"state\": \"Ready\"}'
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{"state": "Ready"}'
         path: /var/lib/cloud/scripts/per-boot/ready.sh
-        permissions: \"0755\"
+        permissions: "0755"
+EOF
+
+  # Launch a container and VM with ZFS storage & FAN network.
+  if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    echo "::warning::SKIPPING VM LAUNCH TEST"
+  else
+    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
+  fi
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n lxdfan0
+
+  # Ensure we can reach the launched instances.
+  for m in c1 v1 ; do
+    if [ "${m}" = "v1" ] && [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+      continue
+    fi
+
+    echo -n "Waiting up to 5 mins for ${m} to start "
+    lxc exec micro01 -- sh -ceu "
+    for round in \$(seq 100); do
+      if lxc info ${m} | grep -qxF 'Status: READY'; then
+         echo \" ${m} booted successfully\"
+
+         lxc rm ${m} -f
+         return 0
+      fi
+      echo -n .
+      sleep 3
+    done
+    echo FAIL
+    return 1
+    "
+  done
+
+  reset_systems 3 3 2
+
+  # Create a MicroCloud with ceph and ovn setup.
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro01
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+- name: micro02
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+- name: micro03
+  storage:
+    ceph:
+      - path: /dev/sdc
+        wipe: true
+      - path: /dev/sdd
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+storage:
+  cephfs: true
+EOF
+
+  # Delete any instances left behind.
+  lxc exec micro01 -- sh -c "
+  for m in \$(lxc ls -f csv -c n) ; do
+    lxc rm \$m -f
+  done
+"
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- lxc profile edit default << EOF
+config:
+  cloud-init.user-data: |
+    #cloud-config
+    packages:
+    - iputils-ping
+    write_files:
+      - content: |
+          #!/bin/sh
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{"state": "Ready"}'
+        path: /var/lib/cloud/scripts/per-boot/ready.sh
+        permissions: "0755"
 devices:
   fs:
     ceph.cluster_name: ceph
@@ -237,33 +337,70 @@ devices:
     source: cephfs:lxd_cephfs/
     type: disk
 EOF
-"
 
-  # Launch a container and VM with CEPH storage & OVN network.
-  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 v1 --vm -s remote -n default"
-  lxc exec micro01 -- sh -c "lxc launch ubuntu:22.04 c1 -s remote -n default"
+  # Launch 2 containers and VM with CEPH storage & OVN network.
+  if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    echo "::warning::SKIPPING VM LAUNCH TEST"
+  else
+    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  fi
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
-  for m in c1 v1 ; do
-    echo "Waiting up to 5 mins for ${m} to start"
-    lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 300); do
-      if lxc info ${m} | grep -qF \"Status: READY\" ; then
-         lxc exec ${m} -- stat /cephfs
+  for m in c1 c2 v1 ; do
+    if [ "${m}" = "v1" ] && [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+      continue
+    fi
 
-         lxc rm ${m} -f
+    echo -n "Waiting up to 5 mins for ${m} to start "
+    lxc exec micro01 -- sh -ceu "
+    for round in \$(seq 100); do
+      if lxc info ${m} | grep -qxF 'Status: READY'; then
+         lxc exec ${m} -- stat /cephfs
+         echo \" ${m} booted successfully\"
 
          return 0
       fi
-      sleep 1
+      echo -n .
+      sleep 3
     done
+    echo FAIL
     return 1
     "
   done
 
+  echo "Test connectivity to lxdbr0"
+  IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
+  IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
+
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 "${IPV4_GW}"
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -4 "${IPV4_GW}"
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 "${IPV6_GW}"
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -6 "${IPV6_GW}"
+  if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -4 "${IPV4_GW}"
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -6 "${IPV6_GW}"
+  fi
+
+  echo "Test connectivity between instances"
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 c2
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -4 c1
+  lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 c2
+  lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -6 c1
+  if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+    lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 v1
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -4 c1
+    lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 v1
+    lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -6 c1
+
+    lxc exec micro01 -- lxc delete -f v1
+  fi
+
+  lxc exec micro01 -- lxc delete -f c1 c2
 }
 
-test_case() {
+_test_case() {
     # Number of systems to use in the test.
     num_systems="${1}"
 
@@ -417,35 +554,35 @@ test_interactive_combinations() {
 
         for num_ifaces in $(seq 0 "${max_ifaces}") ; do
           # Run a test without forcibly skipping any services.
-          test_case "${num_systems}" "${num_disks}" "${num_ifaces}"
+          _test_case "${num_systems}" "${num_disks}" "${num_ifaces}"
 
           if [ "${num_systems}" -lt 3 ]; then
             if [ "${num_disks}" -gt 0 ] ; then
               # If we have fewer than 3 systems, we can still create ZFS so test forcibly skipping it.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
             fi
 
           # Only run additional tests with skipped services if we actually have devices to set up.
           elif [ "${num_ifaces}" = 1 ]; then
             if [ "${num_disks}" -gt 0 ] ; then
               # Test forcibly skipping ZFS, sending available disks to Ceph instead.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
               if [ "${num_disks}" -gt 1 ] ; then
                 # Test forcibly skipping Ceph only if we have extra disks after ZFS setup.
-                test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ceph"
+                _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ceph"
               fi
 
               # Test forcibly skipping both Ceph and ZFS to create no storage devices.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph"
 
               # Test forcibly skipping Ceph, ZFS, and OVN to get a FAN device.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph" "ovn"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph" "ovn"
             fi
           fi
 
           if [ "${num_systems}" -ge 3 ] && [ "${num_ifaces}" -gt 0 ]; then
               # Test forcibly skipping OVN whenever we can assign interfaces.
-              test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ovn"
+              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ovn"
           fi
         done
     done
@@ -483,8 +620,8 @@ test_service_mismatch() {
   lxc exec micro01 -- tail -1 out | grep "Scanning for eligible servers" -q
 
   # Install the remaining services on the other systems.
-  lxc exec micro02 -- sh -c "snap install microceph microovn"
-  lxc exec micro03 -- sh -c "snap install microceph microovn"
+  lxc exec micro02 -- snap install microceph microovn
+  lxc exec micro03 -- snap install microceph microovn
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
@@ -501,9 +638,9 @@ test_service_mismatch() {
   reset_systems 3 3 1
 
   # Run all services on the other systems only.
-  lxc exec micro01 -- sh -c "snap disable microceph || true"
-  lxc exec micro01 -- sh -c "snap disable microovn || true"
-  lxc exec micro01 -- sh -c "snap restart microcloud"
+  lxc exec micro01 -- snap disable microceph || true
+  lxc exec micro01 -- snap disable microovn || true
+  lxc exec micro01 -- snap restart microcloud
 
 
   SKIP_SERVICE="yes"
@@ -518,8 +655,8 @@ test_service_mismatch() {
   done
 
   for m in micro02 micro03 ; do
-   lxc exec ${m} -- sh -c "microceph cluster list" 2>&1 | grep "Error: Daemon not yet initialized" -q
-   lxc exec ${m} -- sh -c "microovn cluster list" 2>&1 | grep "Error: Daemon not yet initialized" -q
+   lxc exec ${m} -- microceph cluster list 2>&1 | grep "Error: Daemon not yet initialized" -q
+   lxc exec ${m} -- microovn cluster list  2>&1 | grep "Error: Daemon not yet initialized" -q
   done
 }
 
@@ -560,13 +697,13 @@ test_disk_mismatch() {
 test_auto() {
   reset_systems 2 0 0
 
-  lxc exec micro02 -- sh -c "snap stop microcloud"
+  lxc exec micro02 -- snap stop microcloud
 
   echo MicroCloud auto setup without any peers.
   ! lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out 2>&1" || false
   lxc exec micro01 -- tail -1 out | grep -q "Error: Found no available systems"
 
-  lxc exec micro02 -- sh -c "snap start microcloud"
+  lxc exec micro02 -- snap start microcloud
 
   echo Auto-create a MicroCloud with 2 systems with no disks/interfaces.
   lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
@@ -576,10 +713,10 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Supress the first message from LXD.
-    lxc exec ${m} -- sh -c "lxc list > /dev/null 2>&1" || true
+    lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   reset_systems 2 0 1
@@ -592,11 +729,11 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
 
@@ -610,11 +747,11 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no ceph storage devices.
-    ! lxc exec ${m} -- sh -ceu "lxc storage ls -f csv" | grep -q "^remote,ceph" || false
+    ! lxc exec ${m} -- lxc storage ls -f csv | grep -q "^remote,ceph" || false
   done
 
   reset_systems 3 0 0
@@ -630,7 +767,7 @@ test_auto() {
     lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   reset_systems 3 0 1
@@ -643,11 +780,11 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   reset_systems 3 1 1
@@ -660,11 +797,11 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no zfs storage devices.
-    ! lxc exec ${m} -- sh -ceu "lxc storage ls -f csv" | grep -q "^local,zfs" || false
+    ! lxc exec ${m} -- lxc storage ls -f csv | grep -q "^local,zfs" || false
   done
 
   reset_systems 3 3 1
@@ -677,7 +814,7 @@ test_auto() {
     validate_system_microovn "${m}"
 
     # Ensure we didn't create any other network devices.
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^default," || false
-    ! lxc exec ${m} -- sh -c "lxc network ls -f csv" | grep -q "^UPLINK," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
+    ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
   done
 }

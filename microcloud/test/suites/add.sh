@@ -32,7 +32,7 @@ test_add_auto() {
     lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec "${m}" -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec "${m}" -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   # Test with all systems.
@@ -62,10 +62,10 @@ test_add_auto() {
     validate_system_microovn "${m}"
 
     # Supress the first message from LXD.
-    lxc exec "${m}" -- sh -c "lxc ls >> /dev/null 2>&1" || true
+    lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec "${m}" -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
+    lxc exec "${m}" -- lxc storage ls -f csv | wc -l | grep -qxF 0
   done
 
   # Test with ZFS and Ceph disks.
@@ -74,7 +74,7 @@ test_add_auto() {
   # Disable extra nodes so we don't add them yet.
   # shellcheck disable=SC2043
   for m in micro04 ; do
-    lxc exec "${m}" -- sh -c "snap disable microcloud"
+    lxc exec "${m}" -- snap disable microcloud
   done
 
   lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
@@ -83,8 +83,8 @@ test_add_auto() {
   # Re-enable the nodes.
   # shellcheck disable=SC2043
   for m in micro04 ; do
-    lxc exec "${m}" -- sh -c "snap enable microcloud"
-    lxc exec "${m}" -- sh -c "snap start microcloud"
+    lxc exec "${m}" -- snap enable microcloud
+    lxc exec "${m}" -- snap start microcloud
   done
 
   # Add the nodes.
@@ -104,7 +104,7 @@ test_add_interactive() {
   # Disable extra nodes so we don't add them yet.
   # shellcheck disable=SC2043
   for m in micro04 ; do
-    lxc exec "${m}" -- sh -c "snap disable microcloud"
+    lxc exec "${m}" -- snap disable microcloud
   done
 
   echo "Test growing a MicroCloud with all services and devices set up"

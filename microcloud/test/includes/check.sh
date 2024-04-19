@@ -15,6 +15,12 @@ check_dependencies() {
 		echo "Missing dependencies: $missing" >&2
 		exit 1
 	fi
+
+	# Instances need to be able to self-report on their state
+	if ! lxc info | sed -ne '/^api_extensions:/,/^[^-]/ s/^- //p' | grep -qxF "instance_ready_state"; then
+		echo "Missing LXD instance_ready_state extension" >&2
+		exit 1
+	fi
 }
 
 check_empty() {

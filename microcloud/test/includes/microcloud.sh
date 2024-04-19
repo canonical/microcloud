@@ -101,24 +101,24 @@ echo "${setup}" | sed -e '/^\s*#/d' -e '/^\s*$/d'
 set_debug_binaries() {
   name="${1}"
 
-    # Add debug binaries for MicroCloud.
-    if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
-      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloudd.debug
-      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloud.debug
+  if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
+    echo "==> Add debug binaries for MicroCloud."
+    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
+    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
 
-      lxc file push "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
-      lxc file push "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
+    lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
+    lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
 
-      lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
-    fi
+    lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
+  fi
 
-    # Add a debug binary for LXD.
-    if [ -n "${LXD_DEBUG_PATH}" ]; then
-      lxc exec "${name}" -- rm -rf /var/snap/lxd/common/lxd.debug
-      lxc file push "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
-      lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
-      lxc exec "${name}" -- lxd waitready
-    fi
+  if [ -n "${LXD_DEBUG_PATH}" ]; then
+    echo "==> Add a debug binary for LXD."
+    lxc exec "${name}" -- rm -f /var/snap/lxd/common/lxd.debug
+    lxc file push --quiet "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
+    lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
+    lxc exec "${name}" -- lxd waitready
+  fi
 }
 
 # set_remote: Adds and switches to the remote for the MicroCloud node with the given name.
@@ -147,7 +147,7 @@ validate_system_microceph() {
     shift 1
 
     cephfs=0
-    if echo "${1}" | grep -Pq '\d+'; then
+    if echo "${1}" | grep -qxE '[0-9]+'; then
       cephfs="${1}"
       shift 1
     fi
@@ -189,7 +189,7 @@ validate_system_microovn() {
     echo "==> ${name} Validating MicroOVN"
 
     lxc remote switch local
-    lxc exec "${name}" -- sh -ceu "microovn cluster list | grep -q ${name}"
+    lxc exec "${name}" -- microovn cluster list | grep -q "${name}"
 }
 
 # validate_system_lxd_zfs: Ensures the node with the given name has the given disk set up for ZFS storage.
@@ -197,8 +197,8 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get "storage.backups_volume" --target "${name}" | grep -q '^local/backups$'
-  lxc config get "storage.images_volume" --target "${name}" | grep -q '^local/images$'
+  lxc config get "storage.backups_volume" --target "${name}" | grep -qxF 'local/backups'
+  lxc config get "storage.images_volume" --target "${name}"  | grep -qxF 'local/images'
 
   cfg=$(lxc storage show local)
   echo "${cfg}" | grep -q "config: {}"
@@ -245,7 +245,7 @@ validate_system_lxd_ceph() {
     echo "${cfg}" | grep -q "source: lxd_cephfs"
     echo "${cfg}" | grep -q "status: Created"
   else
-   ! lxc storage show remote-fs || true
+    ! lxc storage show remote-fs || true
   fi
 }
 
@@ -267,7 +267,7 @@ validate_system_lxd_ovn() {
     num_conns="${num_peers}"
   fi
 
-  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -q "${num_conns}"
+  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -qxF "${num_conns}"
 
   # Make sure there's no empty addresses.
   ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
@@ -275,7 +275,7 @@ validate_system_lxd_ovn() {
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
-    dns_addresses=$(lxc exec "local:${name}" -- sh -c "lxc network get UPLINK dns.nameservers")
+    dns_addresses=$(lxc exec "local:${name}" -- lxc network get UPLINK dns.nameservers)
     if [ "${dns_addresses}" != "${dns_namesersers}" ] ; then
       echo "ERROR: UPLINK network has wrong DNS server addresses: ${dns_addresses}"
       return 1
@@ -287,18 +287,18 @@ validate_system_lxd_ovn() {
   echo "${cfg}" | grep -q "type: physical"
 
   if [ -n "${ipv4_gateway}" ] ; then
-    echo "${cfg}" | grep -q "ipv4.gateway: ${ipv4_gateway}"
+    echo "${cfg}" | grep -qF "ipv4.gateway: ${ipv4_gateway}"
   fi
 
   if [ -n "${ipv4_ranges}" ] ; then
-    echo "${cfg}" | grep -q "ipv4.ovn.ranges: ${ipv4_ranges}"
+    echo "${cfg}" | grep -qF "ipv4.ovn.ranges: ${ipv4_ranges}"
   fi
 
   if [ -n "${ipv6_gateway}" ] ; then
-    echo "${cfg}" | grep -q "ipv6.gateway: ${ipv6_gateway}"
+    echo "${cfg}" | grep -qF "ipv6.gateway: ${ipv6_gateway}"
   fi
 
-  lxc network show UPLINK --target "${name}" | grep -q "parent: ${ovn_interface}"
+  lxc network show UPLINK --target "${name}" | grep -qF "parent: ${ovn_interface}"
 
   cfg=$(lxc network show default)
   echo "${cfg}" | grep -q "status: Created"
@@ -343,8 +343,8 @@ validate_system_lxd() {
     set_remote microcloud-test "${name}"
 
     # Ensure we are clustered and online.
-    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep  -q "${name}"
-    lxc cluster list -f csv | wc -l | grep -q "${num_peers}"
+    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
+    lxc cluster list -f csv | wc -l | grep -qxF "${num_peers}"
 
     has_microovn=0
     has_microceph=0
@@ -423,7 +423,7 @@ reset_snaps() {
       fi
 
       rm -rf /var/snap/lxd/common/lxd
-      rm -rf /var/snap/microcloud/*/*
+      rm -rf /var/snap/microcloud/*
     "
 
     echo "Resetting MicroCeph for ${name}"
@@ -440,7 +440,7 @@ reset_snaps() {
         modprobe -r rbd ceph
 
         # Wipe the snap state so we can start fresh.
-        rm -rf /var/snap/microceph/*/*
+        rm -rf /var/snap/microceph/*
         snap enable microceph > /dev/null 2>&1 || true
 
         # microceph.osd requires this directory to exist but doesn't create it after install.
@@ -464,7 +464,7 @@ reset_snaps() {
         fi
 
         # Wipe the snap state so we can start fresh.
-        rm -rf /var/snap/microovn/*/*
+        rm -rf /var/snap/microovn/*
         snap enable microovn > /dev/null 2>&1 || true
       fi
     "
@@ -475,7 +475,7 @@ reset_snaps() {
       snap enable microcloud > /dev/null 2>&1 || true
       snap start lxd > /dev/null 2>&1 || true
       snap start microcloud > /dev/null 2>&1 || true
-      snap refresh lxd --channel latest/stable --cohort=+
+      snap refresh lxd --cohort=+
 
       lxd waitready
     "
@@ -488,7 +488,7 @@ reset_snaps() {
 # Makes only `num_disks` and `num_ifaces` disks and interfaces available for the next test.
 reset_system() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
-    restore_system "${*}"
+    restore_system ${*}
     return
   fi
 
@@ -506,7 +506,7 @@ reset_system() {
     lxc start "${name}" || true
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
-      lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+      lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
     fi
 
     lxc exec "${name}" -- ip link del lxdfan0 || true
@@ -532,10 +532,12 @@ reset_system() {
       count_disks=\$(echo \"\${disks}\" | wc -l)
       for d in \${disks} ; do
         if [ \${count_disks} -gt ${num_disks} ]; then
+          echo \"Deleting /dev/\${d}\"
           echo 1 > /sys/block/\${d}/device/delete
         else
-          wipefs -af /dev/\${d}
-          dd if=/dev/zero of=/dev/\${d} bs=4096 count=100
+          echo \"Wiping /dev/\${d}\"
+          wipefs --quiet -af /dev/\${d}
+          dd if=/dev/zero of=/dev/\${d} bs=4096 count=100 status=none
         fi
 
         count_disks=\$((count_disks - 1))
@@ -629,7 +631,7 @@ cluster_reset() {
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
-    restore_systems "${*}"
+    restore_systems ${*}
     return
   fi
 
@@ -637,17 +639,17 @@ reset_systems() {
   num_disks=3
   num_ifaces=1
 
-	if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_vms="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_ifaces="${1}"
     shift 1
   fi
@@ -672,9 +674,7 @@ reset_systems() {
     lxc pause "${name}" || true
   done
 
-  if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    wait
-  fi
+  wait
 }
 
 # restore_systems: Restores the systems from a snapshot at snap0.
@@ -683,17 +683,17 @@ restore_systems() {
   num_disks=3
   num_extra_ifaces=1
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_vms=${1}
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks=${1}
     shift 1
   fi
 
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_extra_ifaces=${1}
     shift 1
   fi
@@ -727,9 +727,7 @@ restore_systems() {
     fi
   done
 
-  if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    wait
-  fi
+  wait
 }
 
 restore_system() {
@@ -737,13 +735,13 @@ restore_system() {
   shift 1
 
   num_disks="0"
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks="${1}"
     shift 1
   fi
 
   num_extra_ifaces="0"
-  if echo "${1}" | grep -Pq '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_extra_ifaces="${1}"
     shift 1
   fi
@@ -847,13 +845,16 @@ setup_lxd_project() {
     fi
 
     lxc remote switch local
-	  lxc project create microcloud-test || true
-	  lxc project switch microcloud-test
+    lxc project create microcloud-test || true
+    lxc project switch microcloud-test
 
     # Create a zfs pool so we can use fast snapshots.
-    lxc storage create zpool zfs volume.size=5GiB
-
-    lxc remote list -f csv | cut -d',' -f1 | grep -qxF "ubuntu-minimal" || lxc remote add ubuntu-minimal https://cloud-images.ubuntu.com/minimal/releases/ --protocol simplestreams --auth-type none
+    if [ -z "${TEST_STORAGE_SOURCE:-}" ]; then
+      lxc storage create zpool zfs volume.size=5GiB
+    else
+      sudo wipefs --all --quiet "${TEST_STORAGE_SOURCE}"
+      lxc storage create zpool zfs source="${TEST_STORAGE_SOURCE}"
+    fi
 
     # Setup default profile
     cat << EOF | lxc profile edit default
@@ -874,6 +875,7 @@ EOF
 
     lxc profile set default environment.TEST_CONSOLE=1
     lxc profile set default environment.DEBIAN_FRONTEND=noninteractive
+    lxc profile set default environment.PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
   )
 }
 
@@ -921,20 +923,23 @@ setup_system() {
 
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
-    lxc exec "${name}" -- apt-get install --no-install-recommends -y snapd curl jq zfsutils-linux htop
+    if [ -n "${CLOUD_INSPECT:-}" ]; then
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
+    else
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+    fi
 
-    lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install snapd"
+    lxc exec "${name}" -- snap install snapd
 
     # Snaps can occasionally fail to install properly, so repeatedly try.
     lxc exec "${name}" -- sh -c "
-      export PATH=\$PATH:/snap/bin
       while ! test -e /snap/bin/microceph ; do
-        snap install microceph || true
+        snap install microceph --cohort='+' || true
         sleep 1
       done
 
       while ! test -e /snap/bin/microovn ; do
-        snap install microovn || true
+        snap install microovn --cohort='+' || true
         sleep 1
       done
 
@@ -943,16 +948,17 @@ setup_system() {
       fi
 
       while ! test -e /snap/bin/lxd ; do
-        snap install lxd --channel latest/stable --cohort='+' || true
+        echo \"::warning::pulling LXD from latest/edge (https://github.com/canonical/lxd-pkg-snap/pull/426)\"
+        snap install lxd --cohort='+' --channel=latest/edge || true
         sleep 1
       done
     "
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
-      lxc file push "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
-      lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install --devmode /root/microcloud.snap"
+      lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
+      lxc exec "${name}" -- snap install --devmode /root/microcloud.snap
     else
-      lxc exec "${name}" -- sh -c "PATH=\$PATH:/snap/bin snap install microcloud --channel latest/edge"
+      lxc exec "${name}" -- snap install microcloud --channel latest/edge --cohort='+'
     fi
 
     set_debug_binaries "${name}"
@@ -961,14 +967,16 @@ setup_system() {
   # Sleep some time so the snaps are fully set up.
   sleep 3
 
+  # Create a snapshot so we can restore to this point.
+  if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
+    echo "::warning:: ==> XXX: working around LXD shutdown bug"
+    lxc exec "${name}" -- systemctl stop snap.lxd.daemon.service snap.lxd.daemon.unix.socket
 
-  lxc stop "${name}"
-
-  lxc snapshot "${name}" snap0
-
-  lxc start "${name}"
-
-  lxd_wait_vm "${name}"
+    lxc stop "${name}"
+    lxc snapshot "${name}" snap0
+    lxc start "${name}"
+    lxd_wait_vm "${name}"
+  fi
 
   echo "==> ${name} Finished Setting up"
 }
@@ -990,17 +998,17 @@ new_systems() {
   num_disks=3
   num_ifaces=1
 
-  if echo "${1}" | grep -qP '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_vms="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qP '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_disks="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qP '\d+'; then
+  if echo "${1}" | grep -qxE '[0-9]+'; then
     num_ifaces="${1}"
     shift 1
   fi
@@ -1016,40 +1024,16 @@ new_systems() {
     lxc profile device add default "eth${i}" nic network="microbr$((i - 1))" name="eth${i}"
   done
 
-  if [ "${CONCURRENT_SETUP}" = 1 ]; then
-    for n in $(seq 1 "${num_vms}"); do
-      name=$(printf "micro%02d" "${n}")
-      create_system "${name}" "${num_disks}" &
-    done
+  for n in $(seq 1 "${num_vms}"); do
+    name=$(printf "micro%02d" "${n}")
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+      new_system "${name}" "${num_disks}" &
+    else
+      new_system "${name}" "${num_disks}"
+    fi
+  done
 
-    wait
-
-    for n in $(seq 1 "${num_vms}"); do
-      name=$(printf "micro%02d" "${n}")
-
-      (
-       lxd_wait_vm "${name}"
-       # Sleep some time so the vm is fully set up.
-       sleep 3
-       setup_system "${name}"
-      ) &
-
-    done
-
-    wait
-
-  else
-    for n in $(seq 1 "${num_vms}"); do
-      name="$(printf "micro%02d" "${n}")"
-      create_system "${name}" "${num_disks}"
-      lxd_wait_vm "${name}"
-
-      # Sleep some time so the vm is fully set up.
-      sleep 3
-
-      setup_system "${name}"
-    done
-  fi
+  wait
 }
 
 wait_snapd() {
@@ -1071,7 +1055,7 @@ lxd_wait_vm() {
   name="${1}"
 
   echo "==> ${name} Awaiting VM..."
-  for round in $(seq 640); do
+  for round in $(seq 160); do
     if lxc info "${name}" | grep -qF "Status: READY" ; then
       wait_snapd "${name}"
       echo "    ${name} VM is ready"
@@ -1079,12 +1063,12 @@ lxd_wait_vm() {
     fi
 
     # Sometimes the VM just won't start, so retry after 3 minutes.
-    if [ "$((round % 180))" = 0 ]; then
+    if [ "$((round % 45))" = 0 ]; then
       echo "==> ${name} Timeout (${round}s): Re-initializing VM"
       lxc restart "${name}" --force
     fi
 
-    sleep 1
+    sleep 4
   done
 
   echo "    ${name} VM failed to start"
