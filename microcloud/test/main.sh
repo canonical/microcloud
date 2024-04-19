@@ -66,6 +66,11 @@ cleanup() {
 		echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION}"
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
+
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+        # kill our whole process group
+        kill -- -$$
+    fi
 }
 
 # Must be set before cleanup()
