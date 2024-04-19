@@ -30,3 +30,23 @@ check_empty() {
 		false
 	fi
 }
+
+check_snap_channels() {
+    non_edge=""
+    if [ "${LXD_SNAP_CHANNEL}" != "latest/edge" ]; then
+        non_edge="${non_edge} lxd"
+    fi
+    if [ "${MICROCEPH_SNAP_CHANNEL}" != "latest/edge" ]; then
+        non_edge="${non_edge} microceph"
+    fi
+    if [ "${MICROCLOUD_SNAP_CHANNEL}" != "latest/edge" ]; then
+        non_edge="${non_edge} microcloud"
+    fi
+    if [ "${MICROOVN_SNAP_CHANNEL}" != "latest/edge" ]; then
+        non_edge="${non_edge} microovn"
+    fi
+
+    for snap in ${non_edge}; do
+        echo "::warning::${snap} channel not set to latest/edge, continuing anyway"
+    done
+}
