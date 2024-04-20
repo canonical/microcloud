@@ -199,8 +199,8 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get "storage.backups_volume" --target "${name}" | grep -qxF 'local/backups'
-  lxc config get "storage.images_volume" --target "${name}"  | grep -qxF 'local/images'
+  lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
+  lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
 
   cfg=$(lxc storage show local)
   echo "${cfg}" | grep -q "config: {}"
@@ -269,11 +269,11 @@ validate_system_lxd_ovn() {
     num_conns="${num_peers}"
   fi
 
-  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -qxF "${num_conns}"
+  lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -qxF "${num_conns}"
 
   # Make sure there's no empty addresses.
-  ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
-  ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
+  ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
+  ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
@@ -377,7 +377,7 @@ validate_system_lxd() {
     elif [ -n "${local_disk}" ] ; then
        lxc profile device get default root pool | grep -q "local"
     else
-       ! lxc profile device list default | grep -q root || false
+       ! lxc profile device list default | grep -q "root" || false
     fi
 
     if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
