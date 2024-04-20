@@ -107,11 +107,9 @@ EOF
   lookup_addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
 
   # Create a MicroCloud if we don't have MicroOVN or MicroCeph installed.
-  lxc exec micro01 -- sh -c "
-  snap disable microceph
-  snap disable microovn
+  lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap disable microovn
   sleep 1
-"
 
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
 lookup_subnet: ${lookup_addr}/24
