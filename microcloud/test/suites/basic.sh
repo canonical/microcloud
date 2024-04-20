@@ -1,3 +1,5 @@
+#!/bin/bash
+
 test_interactive() {
   reset_systems 3 3 1
 
