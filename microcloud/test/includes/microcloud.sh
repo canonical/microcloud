@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS \
