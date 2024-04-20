@@ -1,3 +1,4 @@
+#!/bin/bash
 
 test_preseed() {
   reset_systems 4 3 2
