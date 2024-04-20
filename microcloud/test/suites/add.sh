@@ -1,3 +1,5 @@
+#!/bin/bash
+
 test_add_auto() {
   reset_systems 4 0 0
 
