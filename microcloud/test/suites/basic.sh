@@ -504,8 +504,8 @@ _test_case() {
 
     microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
     lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-    for i in $(seq 1 "${num_systems}") ; do
-      name="$(printf "micro%02d" "${i}")"
+    for i in $(seq -f "%02g" 1 "${num_systems}") ; do
+      name="micro${i}"
 
       if [ -n "${expected_ovn_iface}" ]; then
         validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_cephfs}" "${expected_ovn_iface}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}" "${DNS_ADDRESSES}"
