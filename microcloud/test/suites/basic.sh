@@ -261,7 +261,7 @@ EOF
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
-      if lxc info ${m} | grep -qxF 'Status: READY'; then
+      if lxc list -f csv -c s ${m} | grep -qxF READY; then
          echo \" ${m} booted successfully\"
 
          lxc rm ${m} -f
@@ -358,7 +358,7 @@ EOF
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
-      if lxc info ${m} | grep -qxF 'Status: READY'; then
+      if lxc list -f csv -c s ${m} | grep -qxF READY; then
          lxc exec ${m} -- stat /cephfs
          echo \" ${m} booted successfully\"
 
