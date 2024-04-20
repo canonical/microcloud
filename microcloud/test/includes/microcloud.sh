@@ -658,9 +658,9 @@ reset_systems() {
     shift 1
   fi
 
-  for i in $(seq 1 "${num_vms}") ; do
-    name=$(printf "micro%02d" "$i")
-    if [ "$i" = 1 ]; then
+  for i in $(seq -f "%02g" 1 "${num_vms}") ; do
+    name="micro${i}"
+    if [ "${name}" = "micro01" ]; then
       cluster_reset "${name}"
     fi
 
@@ -673,8 +673,8 @@ reset_systems() {
 
   # Pause any extra systems.
   total_machines="$(lxc list -f csv -c n micro | wc -l)"
-  for i in $(seq "$((1 + num_vms))" "${total_machines}"); do
-    name=$(printf "micro%02d" "$i")
+  for i in $(seq -f "%02g" "$((1 + num_vms))" "${total_machines}"); do
+    name="micro${i}"
     lxc pause "${name}" || true
   done
 
@@ -726,8 +726,8 @@ restore_systems() {
     done
   )
 
-  for n in $(seq 1 "${num_vms}") ; do
-    name="$(printf "micro%02d" "${n}")"
+  for n in $(seq -f "%02g" 1 "${num_vms}") ; do
+    name="micro${n}"
     if [ "${CONCURRENT_SETUP}" = 1 ]; then
       restore_system "${name}" "${num_disks}" "${num_extra_ifaces}" &
     else
@@ -1030,8 +1030,8 @@ new_systems() {
     lxc profile device add default "eth${i}" nic network="microbr$((i - 1))" name="eth${i}"
   done
 
-  for n in $(seq 1 "${num_vms}"); do
-    name=$(printf "micro%02d" "${n}")
+  for n in $(seq -f "%02g" 1 "${num_vms}"); do
+    name="micro${n}"
     if [ "${CONCURRENT_SETUP}" = 1 ]; then
       new_system "${name}" "${num_disks}" &
     else
