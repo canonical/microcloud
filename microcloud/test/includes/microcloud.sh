@@ -202,18 +202,20 @@ validate_system_lxd_zfs() {
   lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
   lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
 
-  cfg=$(lxc storage show local)
-  echo "${cfg}" | grep -q "config: {}"
-  echo "${cfg}" | grep -q "status: Created"
+  cfg="$(lxc storage show local)"
+  echo "${cfg}"
+  grep -q "config: {}" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
 
-  cfg=$(lxc storage show local --target "${name}")
-  echo "${cfg}" | grep -q "source: local"
-  echo "${cfg}" | grep -q "volatile.initial_source: .*${local_disk}"
-  echo "${cfg}" | grep -q "zfs.pool_name: local"
-  echo "${cfg}" | grep -q "driver: zfs"
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "/1.0/storage-pools/local/volumes/custom/backups?target=${name}"
-  echo "${cfg}" | grep -q "/1.0/storage-pools/local/volumes/custom/images?target=${name}"
+  cfg="$(lxc storage show local --target "${name}")"
+  echo "${cfg}"
+  grep -q "source: local" <<< "${cfg}"
+  grep -q "volatile.initial_source: .*${local_disk}" <<< "${cfg}"
+  grep -q "zfs.pool_name: local" <<< "${cfg}"
+  grep -q "driver: zfs" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "/1.0/storage-pools/local/volumes/custom/backups?target=${name}" <<< "${cfg}"
+  grep -q "/1.0/storage-pools/local/volumes/custom/images?target=${name}" <<< "${cfg}"
 }
 
 # validate_system_lxd_ceph: Ensures the node with the given name has ceph storage set up.
@@ -221,31 +223,35 @@ validate_system_lxd_ceph() {
   name=${1}
   cephfs=${2}
   echo "    ${name} Validating Ceph storage"
-  cfg=$(lxc storage show remote)
-  echo "${cfg}" | grep -q "ceph.cluster_name: ceph"
-  echo "${cfg}" | grep -q "ceph.osd.pg_num: \"32\""
-  echo "${cfg}" | grep -q "ceph.osd.pool_name: lxd_remote"
-  echo "${cfg}" | grep -q "ceph.rbd.du: \"false\""
-  echo "${cfg}" | grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten"
-  echo "${cfg}" | grep -q "ceph.user.name: admin"
-  echo "${cfg}" | grep -q "volatile.pool.pristine: \"true\""
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "driver: ceph"
+  cfg="$(lxc storage show remote)"
+  echo "${cfg}"
+  grep -q "ceph.cluster_name: ceph" <<< "${cfg}"
+  grep -q "ceph.osd.pg_num: \"32\"" <<< "${cfg}"
+  grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
+  grep -q "ceph.rbd.du: \"false\"" <<< "${cfg}"
+  grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten" <<< "${cfg}"
+  grep -q "ceph.user.name: admin" <<< "${cfg}"
+  grep -q "volatile.pool.pristine: \"true\"" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "driver: ceph" <<< "${cfg}"
 
-  cfg=$(lxc storage show remote --target "${name}")
-  echo "${cfg}" | grep -q "source: lxd_remote"
-  echo "${cfg}" | grep -q "status: Created"
+  cfg="$(lxc storage show remote --target "${name}")"
+  echo "${cfg}"
+  grep -q "source: lxd_remote" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
 
   if [ "${cephfs}" = 1 ]; then
-    cfg=$(lxc storage show remote-fs)
-    echo "${cfg}" | grep -q "status: Created"
-    echo "${cfg}" | grep -q "driver: cephfs"
-    echo "${cfg}" | grep -q "cephfs.meta_pool: lxd_cephfs_meta"
-    echo "${cfg}" | grep -q "cephfs.data_pool: lxd_cephfs_data"
+    cfg="$(lxc storage show remote-fs)"
+    echo "${cfg}"
+    grep -q "status: Created" <<< "${cfg}"
+    grep -q "driver: cephfs" <<< "${cfg}"
+    grep -q "cephfs.meta_pool: lxd_cephfs_meta" <<< "${cfg}"
+    grep -q "cephfs.data_pool: lxd_cephfs_data" <<< "${cfg}"
 
     cfg=$(lxc storage show remote-fs --target "${name}")
-    echo "${cfg}" | grep -q "source: lxd_cephfs"
-    echo "${cfg}" | grep -q "status: Created"
+    echo "${cfg}"
+    grep -q "source: lxd_cephfs" <<< "${cfg}"
+    grep -q "status: Created" <<< "${cfg}"
   else
     ! lxc storage show remote-fs || true
   fi
@@ -284,38 +290,41 @@ validate_system_lxd_ovn() {
     fi
   fi
 
-  cfg=$(lxc network show UPLINK)
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "type: physical"
+  cfg="$(lxc network show UPLINK)"
+  echo "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "type: physical" <<< "${cfg}"
 
   if [ -n "${ipv4_gateway}" ] ; then
-    echo "${cfg}" | grep -qF "ipv4.gateway: ${ipv4_gateway}"
+    grep -qF "ipv4.gateway: ${ipv4_gateway}" <<< "${cfg}"
   fi
 
   if [ -n "${ipv4_ranges}" ] ; then
-    echo "${cfg}" | grep -qF "ipv4.ovn.ranges: ${ipv4_ranges}"
+    grep -qF "ipv4.ovn.ranges: ${ipv4_ranges}" <<< "${cfg}"
   fi
 
   if [ -n "${ipv6_gateway}" ] ; then
-    echo "${cfg}" | grep -qF "ipv6.gateway: ${ipv6_gateway}"
+    grep -qF "ipv6.gateway: ${ipv6_gateway}" <<< "${cfg}"
   fi
 
   lxc network show UPLINK --target "${name}" | grep -qF "parent: ${ovn_interface}"
 
-  cfg=$(lxc network show default)
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "type: ovn"
-  echo "${cfg}" | grep -q 'network: UPLINK'
+  cfg="$(lxc network show default)"
+  echo "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "type: ovn" <<< "${cfg}"
+  grep -q "network: UPLINK" <<< "${cfg}"
 }
 
 # validate_system_lxd_fan: Ensures the node with the given name has the Ubuntu FAN network set up correctly.
 validate_system_lxd_fan() {
   name=${1}
   echo "    ${name} Validating FAN network"
-  cfg=$(lxc network show lxdfan0)
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "type: bridge"
-  echo "${cfg}" | grep -q 'bridge.mode: fan'
+  cfg="$(lxc network show lxdfan0)"
+  echo "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "type: bridge" <<< "${cfg}"
+  grep -q "bridge.mode: fan" <<< "${cfg}"
 }
 
 # validate_system_lxd: Ensures the node with the given name has correctly set up LXD with the given resources.
