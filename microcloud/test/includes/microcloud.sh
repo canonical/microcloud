@@ -817,7 +817,6 @@ cleanup_systems() {
   lxc project switch microcloud-test
   echo "==> Removing systems"
   lxc list -c n -f csv | xargs --no-run-if-empty lxc delete --force
-  lxc image list -c f -f csv | xargs --no-run-if-empty lxc image delete
 
   for profile in $(lxc profile list -f csv | cut -d, -f1 | grep -vxF default); do
     lxc profile delete "${profile}"
@@ -853,7 +852,7 @@ setup_lxd_project() {
     fi
 
     lxc remote switch local
-    lxc project create microcloud-test || true
+    lxc project create microcloud-test -c features.images=false || true
     lxc project switch microcloud-test
 
     # Create a zfs pool so we can use fast snapshots.
