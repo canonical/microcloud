@@ -1073,7 +1073,7 @@ lxd_wait_vm() {
 
   echo "==> ${name} Awaiting VM..."
   for round in $(seq 160); do
-    if lxc info "${name}" | grep -qF "Status: READY" ; then
+    if [ "$(lxc list -f csv -c s "${name}")" = "READY" ] ; then
       wait_snapd "${name}"
       echo "    ${name} VM is ready"
       return 0
