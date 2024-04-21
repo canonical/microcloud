@@ -275,7 +275,7 @@ validate_system_lxd_ovn() {
     num_conns="${num_peers}"
   fi
 
-  lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -qxF "${num_conns}"
+  [ "$(lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | wc -l)" = "${num_conns}" ]
 
   # Make sure there's no empty addresses.
   ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
@@ -355,7 +355,7 @@ validate_system_lxd() {
 
     # Ensure we are clustered and online.
     lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
-    lxc cluster list -f csv | wc -l | grep -qxF "${num_peers}"
+    [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
     has_microovn=0
     has_microceph=0
@@ -777,7 +777,7 @@ restore_system() {
     lxc remote switch local
     lxc project switch microcloud-test
 
-    if lxc list "${name}" -f csv -c s | grep -qxF "RUNNING"; then
+    if [ "$(lxc list "${name}" -f csv -c s)" = "RUNNING" ]; then
       lxc stop "${name}" --force
     fi
 
