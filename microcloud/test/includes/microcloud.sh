@@ -871,6 +871,7 @@ setup_lxd_project() {
       lxc storage create zpool zfs volume.size=5GiB
     else
       sudo wipefs --all --quiet "${TEST_STORAGE_SOURCE}"
+      sudo blkdiscard "${TEST_STORAGE_SOURCE}" || true
       lxc storage create zpool zfs source="${TEST_STORAGE_SOURCE}"
     fi
 
