@@ -54,6 +54,9 @@ cleanup() {
 		read -r _
 	fi
 
+	lxc list --all-projects || true
+	lxc exec micro01 -- lxc list || true
+
 	if [ -n "${GITHUB_ACTIONS:-}" ]; then
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
 	else
