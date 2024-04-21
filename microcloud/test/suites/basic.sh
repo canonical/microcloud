@@ -720,7 +720,7 @@ test_auto() {
     lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   reset_systems 2 0 1
@@ -737,7 +737,7 @@ test_auto() {
     ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
 
@@ -771,7 +771,7 @@ test_auto() {
     lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   reset_systems 3 0 1
@@ -788,7 +788,7 @@ test_auto() {
     ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   reset_systems 3 1 1
