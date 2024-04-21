@@ -34,7 +34,7 @@ test_add_auto() {
     lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec "${m}" -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec "${m}" -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   # Test with all systems.
@@ -67,7 +67,7 @@ test_add_auto() {
     lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec "${m}" -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec "${m}" -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   # Test with ZFS and Ceph disks.
