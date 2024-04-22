@@ -139,12 +139,12 @@ run_test() {
 	TEST_CURRENT="${1}"
 	TEST_CURRENT_DESCRIPTION="${2:-${1}}"
 
-	echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
+	echo "::notice::==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
 	START_TIME="$(date +%s)"
 	${TEST_CURRENT}
 	END_TIME="$(date +%s)"
 
-	echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
+	echo "::notice::==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
 }
 
 # Create 4 nodes with 3 disks and 3 extra interfaces.
