@@ -203,12 +203,10 @@ validate_system_lxd_zfs() {
   lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
 
   cfg="$(lxc storage show local)"
-  echo "${cfg}"
   grep -q "config: {}" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
   cfg="$(lxc storage show local --target "${name}")"
-  echo "${cfg}"
   grep -q "source: local" <<< "${cfg}"
   grep -q "volatile.initial_source: .*${local_disk}" <<< "${cfg}"
   grep -q "zfs.pool_name: local" <<< "${cfg}"
@@ -224,7 +222,6 @@ validate_system_lxd_ceph() {
   cephfs=${2}
   echo "    ${name} Validating Ceph storage"
   cfg="$(lxc storage show remote)"
-  echo "${cfg}"
   grep -q "ceph.cluster_name: ceph" <<< "${cfg}"
   grep -q "ceph.osd.pg_num: \"32\"" <<< "${cfg}"
   grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
@@ -236,20 +233,17 @@ validate_system_lxd_ceph() {
   grep -q "driver: ceph" <<< "${cfg}"
 
   cfg="$(lxc storage show remote --target "${name}")"
-  echo "${cfg}"
   grep -q "source: lxd_remote" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
   if [ "${cephfs}" = 1 ]; then
     cfg="$(lxc storage show remote-fs)"
-    echo "${cfg}"
     grep -q "status: Created" <<< "${cfg}"
     grep -q "driver: cephfs" <<< "${cfg}"
     grep -q "cephfs.meta_pool: lxd_cephfs_meta" <<< "${cfg}"
     grep -q "cephfs.data_pool: lxd_cephfs_data" <<< "${cfg}"
 
     cfg=$(lxc storage show remote-fs --target "${name}")
-    echo "${cfg}"
     grep -q "source: lxd_cephfs" <<< "${cfg}"
     grep -q "status: Created" <<< "${cfg}"
   else
@@ -291,7 +285,6 @@ validate_system_lxd_ovn() {
   fi
 
   cfg="$(lxc network show UPLINK)"
-  echo "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
   grep -q "type: physical" <<< "${cfg}"
 
@@ -310,7 +303,6 @@ validate_system_lxd_ovn() {
   lxc network show UPLINK --target "${name}" | grep -qF "parent: ${ovn_interface}"
 
   cfg="$(lxc network show default)"
-  echo "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
   grep -q "type: ovn" <<< "${cfg}"
   grep -q "network: UPLINK" <<< "${cfg}"
@@ -321,7 +313,6 @@ validate_system_lxd_fan() {
   name=${1}
   echo "    ${name} Validating FAN network"
   cfg="$(lxc network show lxdfan0)"
-  echo "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
   grep -q "type: bridge" <<< "${cfg}"
   grep -q "bridge.mode: fan" <<< "${cfg}"
