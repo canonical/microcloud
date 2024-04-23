@@ -505,9 +505,15 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 	// Ensure that no system's management address falls within the OVN ranges
 	// to prevent OVN from allocating an IP that's already in use.
 	for systemName, system := range systems {
-		systemAddr := net.ParseIP(system.ServerInfo.Address)
+		// If the system is ourselves, we don't have an mDNS payload so grab the address locally.
+		addr := system.ServerInfo.Address
+		if systemName == s.Name {
+			addr = s.Address
+		}
+
+		systemAddr := net.ParseIP(addr)
 		if systemAddr == nil {
-			return fmt.Errorf("Invalid address %q for system %q", system.ServerInfo.Address, systemName)
+			return fmt.Errorf("Invalid address %q for system %q", addr, systemName)
 		}
 
 		for _, ipRange := range ip4OVNRanges {
