@@ -536,7 +536,7 @@ reset_system() {
 
     reset_snaps "${name}"
 
-    lxc exec "${name}" -- zpool destroy -f local || true
+    timeout -k 5 10 lxc exec "${name}" -- zpool destroy -f local || true
 
     # Hide any extra disks for this run.
     lxc exec "${name}" -- sh -c "
