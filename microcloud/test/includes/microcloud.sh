@@ -974,9 +974,6 @@ setup_system() {
 
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
-    echo "::warning:: ==> XXX: working around LXD shutdown bug"
-    lxc exec "${name}" -- systemctl stop snap.lxd.daemon.service snap.lxd.daemon.unix.socket
-
     lxc stop "${name}"
     lxc snapshot "${name}" snap0
     lxc start "${name}"
