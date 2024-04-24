@@ -92,7 +92,7 @@ jobs:
         go: ["1.22.x"]
         suite:
           - "add"
-          - "auto"
+          - "instances"
           - "basic"
           - "interactive"
           - "mismatch"
