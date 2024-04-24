@@ -485,15 +485,12 @@ reset_snaps() {
     "
 
     echo "Enabling LXD and MicroCloud for ${name}"
-    lxc exec "${name}" -- sh -c "
-      snap enable lxd > /dev/null 2>&1 || true
-      snap enable microcloud > /dev/null 2>&1 || true
-      snap start lxd > /dev/null 2>&1 || true
-      snap start microcloud > /dev/null 2>&1 || true
-      snap refresh lxd --cohort=+
-
-      lxd waitready
-    "
+    lxc exec "${name}" -- snap enable lxd > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap enable microcloud > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap start lxd > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap start microcloud > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap refresh lxd --cohort=+ || true
+    lxc exec "${name}" -- lxd waitready
 
     set_debug_binaries "${name}"
   )
