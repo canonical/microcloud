@@ -1,5 +1,7 @@
 name: Tests
 on:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday at 00:00 UTC
   push:
     branches:
       - main
@@ -25,6 +27,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # A non-shallow clone is needed for the Differential ShellCheck
+          fetch-depth: 0
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
@@ -35,6 +40,7 @@ jobs:
         uses: redhat-plumbers-in-action/differential-shellcheck@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          strict-check-on-push: true
         if: github.event_name == 'pull_request'
 
       - name: Upload artifact with ShellCheck defects in SARIF format
@@ -84,7 +90,13 @@ jobs:
       fail-fast: false
       matrix:
         go: ["1.22.x"]
-        suite: ["add", "basic", "preseed"]
+        suite:
+          - "add"
+          - "auto"
+          - "basic"
+          - "interactive"
+          - "mismatch"
+          - "preseed"
 
     steps:
       - name: Performance tuning
@@ -142,9 +154,22 @@ jobs:
 
       - name: Build
         working-directory: microcloud
-        run: make
+        run: |
+          set -eux
 
-      - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
+          make
+
+          # Binaries to sideload
+          export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
+          export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
+
+          # strip debug binaries
+          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
+
+          echo "MICROCLOUD_DEBUG_PATH=${MICROCLOUD_DEBUG_PATH}"   >> "${GITHUB_ENV}"
+          echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
+
+      - name: "Free up the ephemeral disk"
         run: |
           set -eux
 
@@ -165,17 +190,17 @@ jobs:
           sudo wipefs -a "${ephemeral_disk}"
           export TEST_STORAGE_SOURCE="${ephemeral_disk}"
 
-          # Setup host LXD
-          sudo snap install lxd --channel 5.21/stable || sudo snap refresh lxd --channel 5.21/stable
+          echo "TEST_STORAGE_SOURCE=${TEST_STORAGE_SOURCE}" >> "${GITHUB_ENV}"
+
+      - name: "Setup host LXD"
+        run: |
+          set -eux
+          sudo snap install lxd --channel latest/edge || sudo snap refresh lxd --channel latest/edge
           sudo lxd init --auto
 
-          # Binaries to sideload
-          export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
-          export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
-
-          # strip debug binaries
-          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
-
+      - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
+        run: |
+          set -eux
           chmod +x ~
           cd microcloud/test
           sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh ${{ matrix.suite }}

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS \
@@ -147,7 +149,7 @@ validate_system_microceph() {
     shift 1
 
     cephfs=0
-    if echo "${1}" | grep -qxE '[0-9]+'; then
+    if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
       cephfs="${1}"
       shift 1
     fi
@@ -197,21 +199,21 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get "storage.backups_volume" --target "${name}" | grep -qxF 'local/backups'
-  lxc config get "storage.images_volume" --target "${name}"  | grep -qxF 'local/images'
+  lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
+  lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
 
-  cfg=$(lxc storage show local)
-  echo "${cfg}" | grep -q "config: {}"
-  echo "${cfg}" | grep -q "status: Created"
+  cfg="$(lxc storage show local)"
+  grep -q "config: {}" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
 
-  cfg=$(lxc storage show local --target "${name}")
-  echo "${cfg}" | grep -q "source: local"
-  echo "${cfg}" | grep -q "volatile.initial_source: .*${local_disk}"
-  echo "${cfg}" | grep -q "zfs.pool_name: local"
-  echo "${cfg}" | grep -q "driver: zfs"
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "/1.0/storage-pools/local/volumes/custom/backups?target=${name}"
-  echo "${cfg}" | grep -q "/1.0/storage-pools/local/volumes/custom/images?target=${name}"
+  cfg="$(lxc storage show local --target "${name}")"
+  grep -q "source: local" <<< "${cfg}"
+  grep -q "volatile.initial_source: .*${local_disk}" <<< "${cfg}"
+  grep -q "zfs.pool_name: local" <<< "${cfg}"
+  grep -q "driver: zfs" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "/1.0/storage-pools/local/volumes/custom/backups?target=${name}" <<< "${cfg}"
+  grep -q "/1.0/storage-pools/local/volumes/custom/images?target=${name}" <<< "${cfg}"
 }
 
 # validate_system_lxd_ceph: Ensures the node with the given name has ceph storage set up.
@@ -219,31 +221,31 @@ validate_system_lxd_ceph() {
   name=${1}
   cephfs=${2}
   echo "    ${name} Validating Ceph storage"
-  cfg=$(lxc storage show remote)
-  echo "${cfg}" | grep -q "ceph.cluster_name: ceph"
-  echo "${cfg}" | grep -q "ceph.osd.pg_num: \"32\""
-  echo "${cfg}" | grep -q "ceph.osd.pool_name: lxd_remote"
-  echo "${cfg}" | grep -q "ceph.rbd.du: \"false\""
-  echo "${cfg}" | grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten"
-  echo "${cfg}" | grep -q "ceph.user.name: admin"
-  echo "${cfg}" | grep -q "volatile.pool.pristine: \"true\""
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "driver: ceph"
+  cfg="$(lxc storage show remote)"
+  grep -q "ceph.cluster_name: ceph" <<< "${cfg}"
+  grep -q "ceph.osd.pg_num: \"32\"" <<< "${cfg}"
+  grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
+  grep -q "ceph.rbd.du: \"false\"" <<< "${cfg}"
+  grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten" <<< "${cfg}"
+  grep -q "ceph.user.name: admin" <<< "${cfg}"
+  grep -q "volatile.pool.pristine: \"true\"" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "driver: ceph" <<< "${cfg}"
 
-  cfg=$(lxc storage show remote --target "${name}")
-  echo "${cfg}" | grep -q "source: lxd_remote"
-  echo "${cfg}" | grep -q "status: Created"
+  cfg="$(lxc storage show remote --target "${name}")"
+  grep -q "source: lxd_remote" <<< "${cfg}"
+  grep -q "status: Created" <<< "${cfg}"
 
   if [ "${cephfs}" = 1 ]; then
-    cfg=$(lxc storage show remote-fs)
-    echo "${cfg}" | grep -q "status: Created"
-    echo "${cfg}" | grep -q "driver: cephfs"
-    echo "${cfg}" | grep -q "cephfs.meta_pool: lxd_cephfs_meta"
-    echo "${cfg}" | grep -q "cephfs.data_pool: lxd_cephfs_data"
+    cfg="$(lxc storage show remote-fs)"
+    grep -q "status: Created" <<< "${cfg}"
+    grep -q "driver: cephfs" <<< "${cfg}"
+    grep -q "cephfs.meta_pool: lxd_cephfs_meta" <<< "${cfg}"
+    grep -q "cephfs.data_pool: lxd_cephfs_data" <<< "${cfg}"
 
     cfg=$(lxc storage show remote-fs --target "${name}")
-    echo "${cfg}" | grep -q "source: lxd_cephfs"
-    echo "${cfg}" | grep -q "status: Created"
+    grep -q "source: lxd_cephfs" <<< "${cfg}"
+    grep -q "status: Created" <<< "${cfg}"
   else
     ! lxc storage show remote-fs || true
   fi
@@ -267,11 +269,11 @@ validate_system_lxd_ovn() {
     num_conns="${num_peers}"
   fi
 
-  lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | wc -l | grep -qxF "${num_conns}"
+  [ "$(lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | wc -l)" = "${num_conns}" ]
 
   # Make sure there's no empty addresses.
-  ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
-  ! lxc config get "network.ovn.northbound_connection" --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
+  ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
+  ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
@@ -282,38 +284,38 @@ validate_system_lxd_ovn() {
     fi
   fi
 
-  cfg=$(lxc network show UPLINK)
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "type: physical"
+  cfg="$(lxc network show UPLINK)"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "type: physical" <<< "${cfg}"
 
   if [ -n "${ipv4_gateway}" ] ; then
-    echo "${cfg}" | grep -qF "ipv4.gateway: ${ipv4_gateway}"
+    grep -qF "ipv4.gateway: ${ipv4_gateway}" <<< "${cfg}"
   fi
 
   if [ -n "${ipv4_ranges}" ] ; then
-    echo "${cfg}" | grep -qF "ipv4.ovn.ranges: ${ipv4_ranges}"
+    grep -qF "ipv4.ovn.ranges: ${ipv4_ranges}" <<< "${cfg}"
   fi
 
   if [ -n "${ipv6_gateway}" ] ; then
-    echo "${cfg}" | grep -qF "ipv6.gateway: ${ipv6_gateway}"
+    grep -qF "ipv6.gateway: ${ipv6_gateway}" <<< "${cfg}"
   fi
 
   lxc network show UPLINK --target "${name}" | grep -qF "parent: ${ovn_interface}"
 
-  cfg=$(lxc network show default)
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "type: ovn"
-  echo "${cfg}" | grep -q 'network: UPLINK'
+  cfg="$(lxc network show default)"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "type: ovn" <<< "${cfg}"
+  grep -q "network: UPLINK" <<< "${cfg}"
 }
 
 # validate_system_lxd_fan: Ensures the node with the given name has the Ubuntu FAN network set up correctly.
 validate_system_lxd_fan() {
   name=${1}
   echo "    ${name} Validating FAN network"
-  cfg=$(lxc network show lxdfan0)
-  echo "${cfg}" | grep -q "status: Created"
-  echo "${cfg}" | grep -q "type: bridge"
-  echo "${cfg}" | grep -q 'bridge.mode: fan'
+  cfg="$(lxc network show lxdfan0)"
+  grep -q "status: Created" <<< "${cfg}"
+  grep -q "type: bridge" <<< "${cfg}"
+  grep -q "bridge.mode: fan" <<< "${cfg}"
 }
 
 # validate_system_lxd: Ensures the node with the given name has correctly set up LXD with the given resources.
@@ -344,7 +346,7 @@ validate_system_lxd() {
 
     # Ensure we are clustered and online.
     lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
-    lxc cluster list -f csv | wc -l | grep -qxF "${num_peers}"
+    [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
     has_microovn=0
     has_microceph=0
@@ -375,7 +377,7 @@ validate_system_lxd() {
     elif [ -n "${local_disk}" ] ; then
        lxc profile device get default root pool | grep -q "local"
     else
-       ! lxc profile device list default | grep -q root || false
+       ! lxc profile device list default | grep -q "root" || false
     fi
 
     if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
@@ -423,7 +425,7 @@ reset_snaps() {
       fi
 
       rm -rf /var/snap/lxd/common/lxd
-      rm -rf /var/snap/microcloud/*
+      rm -rf /var/snap/microcloud/*/*
     "
 
     echo "Resetting MicroCeph for ${name}"
@@ -440,7 +442,7 @@ reset_snaps() {
         modprobe -r rbd ceph
 
         # Wipe the snap state so we can start fresh.
-        rm -rf /var/snap/microceph/*
+        rm -rf /var/snap/microceph/*/*
         snap enable microceph > /dev/null 2>&1 || true
 
         # microceph.osd requires this directory to exist but doesn't create it after install.
@@ -464,7 +466,7 @@ reset_snaps() {
         fi
 
         # Wipe the snap state so we can start fresh.
-        rm -rf /var/snap/microovn/*
+        rm -rf /var/snap/microovn/*/*
         snap enable microovn > /dev/null 2>&1 || true
       fi
     "
@@ -635,28 +637,30 @@ reset_systems() {
     return
   fi
 
+  echo "::group::reset_systems"
+
   num_vms=3
   num_disks=3
   num_ifaces=1
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_vms="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_disks="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_ifaces="${1}"
     shift 1
   fi
 
-  for i in $(seq 1 "${num_vms}") ; do
-    name=$(printf "micro%02d" "$i")
-    if [ "$i" = 1 ]; then
+  for i in $(seq -f "%02g" 1 "${num_vms}") ; do
+    name="micro${i}"
+    if [ "${name}" = "micro01" ]; then
       cluster_reset "${name}"
     fi
 
@@ -669,31 +673,35 @@ reset_systems() {
 
   # Pause any extra systems.
   total_machines="$(lxc list -f csv -c n micro | wc -l)"
-  for i in $(seq "$((1 + num_vms))" "${total_machines}"); do
-    name=$(printf "micro%02d" "$i")
+  for i in $(seq -f "%02g" "$((1 + num_vms))" "${total_machines}"); do
+    name="micro${i}"
     lxc pause "${name}" || true
   done
 
   wait
+
+  echo "::endgroup::"
 }
 
 # restore_systems: Restores the systems from a snapshot at snap0.
 restore_systems() {
+  echo "::group::restore_systems"
+
   num_vms=3
   num_disks=3
   num_extra_ifaces=1
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_vms=${1}
     shift 1
   fi
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_disks=${1}
     shift 1
   fi
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_extra_ifaces=${1}
     shift 1
   fi
@@ -718,8 +726,8 @@ restore_systems() {
     done
   )
 
-  for n in $(seq 1 "${num_vms}") ; do
-    name="$(printf "micro%02d" "${n}")"
+  for n in $(seq -f "%02g" 1 "${num_vms}") ; do
+    name="micro${n}"
     if [ "${CONCURRENT_SETUP}" = 1 ]; then
       restore_system "${name}" "${num_disks}" "${num_extra_ifaces}" &
     else
@@ -728,6 +736,8 @@ restore_systems() {
   done
 
   wait
+
+  echo "::endgroup::"
 }
 
 restore_system() {
@@ -735,13 +745,13 @@ restore_system() {
   shift 1
 
   num_disks="0"
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_disks="${1}"
     shift 1
   fi
 
   num_extra_ifaces="0"
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_extra_ifaces="${1}"
     shift 1
   fi
@@ -758,7 +768,7 @@ restore_system() {
     lxc remote switch local
     lxc project switch microcloud-test
 
-    if lxc list "${name}" -f csv -c s | grep -qxF "RUNNING"; then
+    if [ "$(lxc list "${name}" -f csv -c s)" = "RUNNING" ]; then
       lxc stop "${name}" --force
     fi
 
@@ -809,7 +819,6 @@ cleanup_systems() {
   lxc project switch microcloud-test
   echo "==> Removing systems"
   lxc list -c n -f csv | xargs --no-run-if-empty lxc delete --force
-  lxc image list -c f -f csv | xargs --no-run-if-empty lxc image delete
 
   for profile in $(lxc profile list -f csv | cut -d, -f1 | grep -vxF default); do
     lxc profile delete "${profile}"
@@ -845,7 +854,7 @@ setup_lxd_project() {
     fi
 
     lxc remote switch local
-    lxc project create microcloud-test || true
+    lxc project create microcloud-test -c features.images=false || true
     lxc project switch microcloud-test
 
     # Create a zfs pool so we can use fast snapshots.
@@ -853,6 +862,7 @@ setup_lxd_project() {
       lxc storage create zpool zfs volume.size=5GiB
     else
       sudo wipefs --all --quiet "${TEST_STORAGE_SOURCE}"
+      sudo blkdiscard "${TEST_STORAGE_SOURCE}" || true
       lxc storage create zpool zfs source="${TEST_STORAGE_SOURCE}"
     fi
 
@@ -910,10 +920,6 @@ setup_system() {
 
   echo "==> ${name} Setting up"
 
-  # Bring enp6s0 up but disable IPv6 (should do through netplan).
-  lxc exec "${name}" -- ip link set enp6s0 up
-  lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp6s0/disable_ipv6" > /dev/null
-
   (
     set -eu
 
@@ -934,12 +940,12 @@ setup_system() {
     # Snaps can occasionally fail to install properly, so repeatedly try.
     lxc exec "${name}" -- sh -c "
       while ! test -e /snap/bin/microceph ; do
-        snap install microceph --cohort='+' || true
+        snap install microceph --channel=\"${MICROCEPH_SNAP_CHANNEL}\" --cohort='+' || true
         sleep 1
       done
 
       while ! test -e /snap/bin/microovn ; do
-        snap install microovn --cohort='+' || true
+        snap install microovn --channel=\"${MICROOVN_SNAP_CHANNEL}\" --cohort='+' || true
         sleep 1
       done
 
@@ -948,17 +954,16 @@ setup_system() {
       fi
 
       while ! test -e /snap/bin/lxd ; do
-        echo \"::warning::pulling LXD from latest/edge (https://github.com/canonical/lxd-pkg-snap/pull/426)\"
-        snap install lxd --cohort='+' --channel=latest/edge || true
+        snap install lxd --channel=\"${LXD_SNAP_CHANNEL}\" --cohort='+' || true
         sleep 1
       done
     "
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
-      lxc exec "${name}" -- snap install --devmode /root/microcloud.snap
+      lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
     else
-      lxc exec "${name}" -- snap install microcloud --channel latest/edge --cohort='+'
+      lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
     fi
 
     set_debug_binaries "${name}"
@@ -969,9 +974,6 @@ setup_system() {
 
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
-    echo "::warning:: ==> XXX: working around LXD shutdown bug"
-    lxc exec "${name}" -- systemctl stop snap.lxd.daemon.service snap.lxd.daemon.unix.socket
-
     lxc stop "${name}"
     lxc snapshot "${name}" snap0
     lxc start "${name}"
@@ -994,21 +996,23 @@ new_system() {
 }
 
 new_systems() {
+  echo "::group::new_systems"
+
   num_vms=3
   num_disks=3
   num_ifaces=1
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_vms="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_disks="${1}"
     shift 1
   fi
 
-  if echo "${1}" | grep -qxE '[0-9]+'; then
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
     num_ifaces="${1}"
     shift 1
   fi
@@ -1024,8 +1028,8 @@ new_systems() {
     lxc profile device add default "eth${i}" nic network="microbr$((i - 1))" name="eth${i}"
   done
 
-  for n in $(seq 1 "${num_vms}"); do
-    name=$(printf "micro%02d" "${n}")
+  for n in $(seq -f "%02g" 1 "${num_vms}"); do
+    name="micro${n}"
     if [ "${CONCURRENT_SETUP}" = 1 ]; then
       new_system "${name}" "${num_disks}" &
     else
@@ -1034,6 +1038,8 @@ new_systems() {
   done
 
   wait
+
+  echo "::endgroup::"
 }
 
 wait_snapd() {
@@ -1055,20 +1061,21 @@ lxd_wait_vm() {
   name="${1}"
 
   echo "==> ${name} Awaiting VM..."
-  for round in $(seq 160); do
-    if lxc info "${name}" | grep -qF "Status: READY" ; then
+  sleep 5
+  for round in $(seq 1 5 150); do
+    if [ "$(lxc list -f csv -c s "${name}")" = "READY" ] ; then
       wait_snapd "${name}"
       echo "    ${name} VM is ready"
       return 0
     fi
 
     # Sometimes the VM just won't start, so retry after 3 minutes.
-    if [ "$((round % 45))" = 0 ]; then
+    if [ "$((round % 60))" = 0 ]; then
       echo "==> ${name} Timeout (${round}s): Re-initializing VM"
       lxc restart "${name}" --force
     fi
 
-    sleep 4
+    sleep 5
   done
 
   echo "    ${name} VM failed to start"

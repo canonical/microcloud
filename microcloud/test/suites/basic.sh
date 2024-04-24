@@ -1,3 +1,5 @@
+#!/bin/bash
+
 test_interactive() {
   reset_systems 3 3 1
 
@@ -259,7 +261,7 @@ EOF
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
-      if lxc info ${m} | grep -qxF 'Status: READY'; then
+      if lxc list -f csv -c s ${m} | grep -qxF READY; then
          echo \" ${m} booted successfully\"
 
          lxc rm ${m} -f
@@ -356,7 +358,7 @@ EOF
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
     for round in \$(seq 100); do
-      if lxc info ${m} | grep -qxF 'Status: READY'; then
+      if lxc list -f csv -c s ${m} | grep -qxF READY; then
          lxc exec ${m} -- stat /cephfs
          echo \" ${m} booted successfully\"
 
@@ -502,8 +504,8 @@ _test_case() {
 
     microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
     lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-    for i in $(seq 1 "${num_systems}") ; do
-      name="$(printf "micro%02d" "${i}")"
+    for i in $(seq -f "%02g" 1 "${num_systems}") ; do
+      name="micro${i}"
 
       if [ -n "${expected_ovn_iface}" ]; then
         validate_system_lxd "${name}" "${num_systems}" "${expected_zfs_disk}" "${expected_ceph_disks}" "${expected_cephfs}" "${expected_ovn_iface}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}" "${DNS_ADDRESSES}"
@@ -620,8 +622,10 @@ test_service_mismatch() {
   lxc exec micro01 -- tail -1 out | grep "Scanning for eligible servers" -q
 
   # Install the remaining services on the other systems.
-  lxc exec micro02 -- snap install microceph microovn
-  lxc exec micro03 -- snap install microceph microovn
+  lxc exec micro02 -- snap install microceph --channel="${MICROCEPH_SNAP_CHANNEL}" --cohort="+"
+  lxc exec micro02 -- snap install microovn  --channel="${MICROOVN_SNAP_CHANNEL}"  --cohort="+"
+  lxc exec micro03 -- snap install microceph --channel="${MICROCEPH_SNAP_CHANNEL}" --cohort="+"
+  lxc exec micro03 -- snap install microovn  --channel="${MICROOVN_SNAP_CHANNEL}"  --cohort="+"
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
@@ -716,7 +720,7 @@ test_auto() {
     lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   reset_systems 2 0 1
@@ -733,7 +737,7 @@ test_auto() {
     ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
 
@@ -767,7 +771,7 @@ test_auto() {
     lxc exec ${m} -- lxc list > /dev/null 2>&1 || true
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   reset_systems 3 0 1
@@ -784,7 +788,7 @@ test_auto() {
     ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
 
     # Ensure we created no storage devices.
-    lxc exec ${m} -- lxc storage ls -f csv | wc -l | grep -qxF 0
+    [ "$(lxc exec ${m} -- lxc storage ls -f csv | wc -l)" = "0" ]
   done
 
   reset_systems 3 1 1

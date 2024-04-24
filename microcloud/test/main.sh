@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/bash
+set -eu
 [ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
 
 # Don't translate lxc output for parsing in it in tests.
@@ -53,6 +54,9 @@ cleanup() {
 		read -r _
 	fi
 
+	lxc list --all-projects || true
+	lxc exec micro01 -- lxc list || true
+
 	if [ -n "${GITHUB_ACTIONS:-}" ]; then
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
 	else
@@ -66,6 +70,11 @@ cleanup() {
 		echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION}"
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
+
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+        # kill our whole process group
+        kill -- -$$
+    fi
 }
 
 # Must be set before cleanup()
@@ -78,6 +87,18 @@ trap cleanup EXIT HUP INT TERM
 
 # Import all the testsuites
 import_subdir_files suites
+
+LXD_SNAP_CHANNEL="${LXD_SNAP_CHANNEL:-latest/edge}"
+export LXD_SNAP_CHANNEL
+
+MICROCEPH_SNAP_CHANNEL="${MICROCEPH_SNAP_CHANNEL:-latest/edge}"
+export MICROCEPH_SNAP_CHANNEL
+
+MICROCLOUD_SNAP_CHANNEL="${MICROCLOUD_SNAP_CHANNEL:-latest/edge}"
+export MICROCLOUD_SNAP_CHANNEL
+
+MICROOVN_SNAP_CHANNEL="${MICROOVN_SNAP_CHANNEL:-22.03/edge}"
+export MICROOVN_SNAP_CHANNEL
 
 CONCURRENT_SETUP=${CONCURRENT_SETUP:-0}
 export CONCURRENT_SETUP
@@ -111,16 +132,19 @@ set -u
 
 export MICROCLOUD_SNAP_PATH
 
+echo "===> Checking that all snap channels are set to latest/edge"
+check_snap_channels
+
 run_test() {
 	TEST_CURRENT="${1}"
 	TEST_CURRENT_DESCRIPTION="${2:-${1}}"
 
-	echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
+	echo "::notice::==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
 	START_TIME="$(date +%s)"
 	${TEST_CURRENT}
 	END_TIME="$(date +%s)"
 
-	echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
+	echo "::notice::==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
 }
 
 # Create 4 nodes with 3 disks and 3 extra interfaces.
@@ -131,16 +155,29 @@ new_systems 4 3 3
 run_add_tests() {
   run_test test_add_interactive "add interactive"
   run_test test_add_auto "add auto"
+  run_test test_auto "auto"
+}
+
+run_auto_tests() {
+  run_test test_add_auto "add auto"
+  run_test test_auto "auto"
 }
 
 run_basic_tests() {
   run_test test_instances_config "instances config"
   run_test test_instances_launch "instances launch"
-  run_test test_interactive "interactive"
   run_test test_service_mismatch "service mismatch"
   run_test test_disk_mismatch "disk mismatch"
+}
+
+run_interactive_tests() {
+  run_test test_interactive "interactive"
   run_test test_interactive_combinations "interactive combinations"
-  run_test test_auto "auto"
+}
+
+run_mismatch_tests() {
+  run_test test_service_mismatch "service mismatch"
+  run_test test_disk_mismatch "disk mismatch"
 }
 
 run_preseed_tests() {
@@ -154,8 +191,14 @@ if [ "${1:-"all"}" = "all" ]; then
   run_preseed_tests
 elif [ "${1}" = "add" ]; then
   run_add_tests
+elif [ "${1}" = "auto" ]; then
+  run_auto_tests
 elif [ "${1}" = "basic" ]; then
   run_basic_tests
+elif [ "${1}" = "interactive" ]; then
+  run_interactive_tests
+elif [ "${1}" = "mismatch" ]; then
+  run_mismatch_tests
 elif [ "${1}" = "preseed" ]; then
   run_preseed_tests
 else
