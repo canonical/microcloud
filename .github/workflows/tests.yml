@@ -90,7 +90,13 @@ jobs:
       fail-fast: false
       matrix:
         go: ["1.22.x"]
-        suite: ["add", "basic", "preseed"]
+        suite:
+          - "add"
+          - "auto"
+          - "basic"
+          - "interactive"
+          - "mismatch"
+          - "preseed"
 
     steps:
       - name: Performance tuning
