@@ -105,8 +105,15 @@ set_debug_binaries() {
 
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
+    lxc exec "${name}" -- sh -c "
+      if test -e /var/snap/microcloud/common/microcloudd.debug ; then
+        rm -f /var/snap/microcloud/common/microcloudd.debug
+      fi
+
+      if test -e /var/snap/microcloud/common/microcloud.debug ; then
+        rm -f /var/snap/microcloud/common/microcloud.debug
+      fi
+    "
 
     lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
     lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
@@ -116,7 +123,13 @@ set_debug_binaries() {
 
   if [ -n "${LXD_DEBUG_PATH}" ]; then
     echo "==> Add a debug binary for LXD."
-    lxc exec "${name}" -- rm -f /var/snap/lxd/common/lxd.debug
+
+    lxc exec "${name}" -- sh -c "
+      if test -e /var/snap/lxd/common/lxd.debug ; then
+        rm -f /var/snap/lxd/common/lxd.debug
+      fi
+    "
+
     lxc file push --quiet "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
     lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
     lxc exec "${name}" -- lxd waitready
