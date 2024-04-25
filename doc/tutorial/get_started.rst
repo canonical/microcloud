@@ -225,10 +225,13 @@ Complete the following steps on each VM (``micro1``, ``micro2``, ``micro3``, and
       The ``--cohort="+"`` flag in the command ensures that the same version of the snap is installed on all machines.
       See :ref:`howto-snap-cluster` for more information.
 
-#. The LXD snap is already installed.
-   Refresh it to the latest version::
+#. If the LXD snap is already installed, refresh it to the latest LTS version::
 
      snap refresh lxd --channel=5.21/stable --cohort="+"
+
+   Otherwise, install it::
+
+     snap install lxd --channel=5.21/stable --cohort="+"
 
 6. Initialise MicroCloud
 ------------------------
