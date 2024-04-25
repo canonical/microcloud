@@ -536,7 +536,14 @@ reset_system() {
 
     reset_snaps "${name}"
 
-    timeout -k 5 10 lxc exec "${name}" -- zpool destroy -f local || true
+    # the `zpool` command seems to get wiped between runs sometimes, potential bug in the LXD snap?
+    lxc exec "${name}" -- sh -c "
+      if ! test -e /usr/sbin/zpool ; then
+        apt-get install zfsutils-linux --no-install-recommends -y
+      fi
+    "
+
+    timeout -k 5 10 lxc exec "${name}" -- /usr/sbin/zpool destroy -f local || true
 
     # Hide any extra disks for this run.
     lxc exec "${name}" -- sh -c "
