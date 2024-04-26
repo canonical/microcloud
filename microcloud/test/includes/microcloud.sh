@@ -34,21 +34,20 @@ microcloud_interactive() {
   DNS_ADDRESSES=${DNS_ADDRESSES:-}               # OVN custom DNS addresses.
   IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
 
-  setup=$(cat << EOF
+  setup="
 ${LOOKUP_IFACE}                                         # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
 ${LIMIT_SUBNET}                                             # limit lookup subnet (yes/no)
-$([ "yes" = "${SKIP_SERVICE}" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
+$([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
 expect ${EXPECT_PEERS}                                      # wait until the systems show up
 select-all                                                  # select all the systems
 ---
-EOF
-)
+$(true)                                                 # workaround for set -e
+"
 
 if [ -n "${SETUP_ZFS}" ]; then
-  setup=$(cat << EOF
-${setup}
+  setup="${setup}
 ${SETUP_ZFS}                                            # add local disks (yes/no)
 $([ "${SETUP_ZFS}" = "yes" ] && printf "wait 300ms")    # wait for the table to populate
 ${ZFS_FILTER}                                           # filter zfs disks
@@ -56,13 +55,12 @@ $([ "${SETUP_ZFS}" = "yes" ] && printf "select-all")    # select all disk matchi
 $([ "${SETUP_ZFS}" = "yes" ] && printf -- "---" )
 $([ "${ZFS_WIPE}"  = "yes" ] && printf "select-all")    # wipe all disks
 $([ "${SETUP_ZFS}" = "yes" ] && printf -- "---")
-EOF
-)
+$(true)                                                 # workaround for set -e
+"
 fi
 
 if [ -n "${SETUP_CEPH}" ]; then
-  setup=$(cat << EOF
-${setup}
+  setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
 ${CEPH_WARNING}                                         # continue with some peers missing disks? (yes/no)
 $([ "${SETUP_CEPH}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
@@ -72,14 +70,13 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 ${SETUP_CEPHFS}
-EOF
-)
+$(true)                                                 # workaround for set -e
+"
 fi
 
 
 if [ -n "${SETUP_OVN}" ]; then
-  setup=$(cat << EOF
-${setup}
+  setup="${setup}
 ${SETUP_OVN}                                           # agree to setup OVN
 ${OVN_WARNING}                                         # continue with some peers missing an interface? (yes/no)
 $([ "${SETUP_OVN}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
@@ -91,12 +88,12 @@ ${IPV4_START}
 ${IPV4_END}
 ${IPV6_SUBNET}
 ${DNS_ADDRESSES}
-EOF
-)
+$(true)                                                 # workaround for set -e
+"
 fi
 
-# clear comments and empty lines.
-echo "${setup}" | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # clear comments and empty lines.
+  echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d'
 }
 
 # set_debug_binaries: Adds {app}.debug binaries if the corresponding {APP}_DEBUG_PATH environment variable is set.
