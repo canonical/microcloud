@@ -43,6 +43,7 @@ $([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroO
 expect ${EXPECT_PEERS}                                      # wait until the systems show up
 select-all                                                  # select all the systems
 ---
+$(true)                                                 # workaround for set -e
 "
 
 if [ -n "${SETUP_ZFS}" ]; then
@@ -54,6 +55,7 @@ $([ "${SETUP_ZFS}" = "yes" ] && printf "select-all")    # select all disk matchi
 $([ "${SETUP_ZFS}" = "yes" ] && printf -- "---" )
 $([ "${ZFS_WIPE}"  = "yes" ] && printf "select-all")    # wipe all disks
 $([ "${SETUP_ZFS}" = "yes" ] && printf -- "---")
+$(true)                                                 # workaround for set -e
 "
 fi
 
@@ -68,6 +70,7 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 ${SETUP_CEPHFS}
+$(true)                                                 # workaround for set -e
 "
 fi
 
@@ -85,6 +88,7 @@ ${IPV4_START}
 ${IPV4_END}
 ${IPV6_SUBNET}
 ${DNS_ADDRESSES}
+$(true)                                                 # workaround for set -e
 "
 fi
 
