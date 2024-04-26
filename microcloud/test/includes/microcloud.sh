@@ -95,8 +95,8 @@ EOF
 )
 fi
 
-# clear comments and empty lines.
-echo "${setup}" | sed -e '/^\s*#/d' -e '/^\s*$/d'
+  # clear comments and empty lines.
+  echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d'
 }
 
 # set_debug_binaries: Adds {app}.debug binaries if the corresponding {APP}_DEBUG_PATH environment variable is set.
