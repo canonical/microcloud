@@ -39,7 +39,7 @@ ${LOOKUP_IFACE}                                         # filter the lookup inte
 $([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
 ${LIMIT_SUBNET}                                             # limit lookup subnet (yes/no)
-$([ "yes" = "${SKIP_SERVICE}" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
+$([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
 expect ${EXPECT_PEERS}                                      # wait until the systems show up
 select-all                                                  # select all the systems
 ---
