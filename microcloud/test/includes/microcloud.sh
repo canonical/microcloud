@@ -934,6 +934,9 @@ setup_system() {
     echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet debugfs=off mitigations=off"' | lxc exec "${name}" -- tee /etc/default/grub.d/zz-lxd-speed.cfg
     lxc exec "${name}" -- update-grub
 
+    # Faster apt
+    echo "force-unsafe-io" | lxc exec "${name}" -- tee /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ]; then
