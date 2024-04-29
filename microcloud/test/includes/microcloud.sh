@@ -901,6 +901,9 @@ create_system() {
 
     lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
 
+    # Disable vGPU to save RAM
+    lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
+
     for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
       lxc storage volume create zpool "${disk}" size=5GiB --type=block
