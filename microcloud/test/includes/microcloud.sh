@@ -930,6 +930,10 @@ setup_system() {
     lxc exec "${name}" -- systemctl mask --now cloud-init-hotplugd.socket lvm2-lvmpolld.socket lxd-installer.socket iscsid.socket systemd-journald-dev-log.socket
     lxc exec "${name}" -- systemctl mask --now dev-hugepages.mount sys-kernel-debug.mount sys-kernel-tracing.mount
 
+    # Turn off debugfs and mitigations
+    echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet debugfs=off mitigations=off"' | lxc exec "${name}" -- tee /etc/default/grub.d/zz-lxd-speed.cfg
+    lxc exec "${name}" -- update-grub
+
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ]; then
