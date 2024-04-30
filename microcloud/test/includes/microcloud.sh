@@ -586,8 +586,8 @@ cluster_reset() {
       lxc storage rm local || true
     "
 
-    lxc exec "${name}" -- sh -c "
-      if snap list microceph; then
+    if lxc exec "${name}" -- snap list microceph > /dev/null 2>&1; then
+      lxc exec "${name}" -- sh -c "
         # Ceph might not be responsive if we haven't set it up yet.
         microceph_setup=0
         if timeout -k 3 3 microceph cluster list ; then
@@ -619,8 +619,8 @@ cluster_reset() {
             rm -rf /var/snap/microceph/common/data/osd/ceph-\${osd}
           done
         fi
-      fi
-    "
+      "
+    fi
   )
 }
 
