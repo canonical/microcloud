@@ -11,6 +11,12 @@ import (
 // lxdMinVersion is the minimum version of LXD that fully supports all MicroCloud features.
 const lxdMinVersion = "5.21"
 
+// DefaultUplinkNetwork is the name of the default OVN uplink network.
+const DefaultUplinkNetwork = "UPLINK"
+
+// DefaultOVNNetwork is the name of te default OVN network.
+const DefaultOVNNetwork = "default"
+
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
 func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
@@ -50,7 +56,7 @@ func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
 func (s LXDService) DefaultPendingOVNNetwork(parent string) api.NetworksPost {
 	return api.NetworksPost{
 		NetworkPut: api.NetworkPut{Config: map[string]string{"parent": parent}},
-		Name:       "UPLINK",
+		Name:       DefaultUplinkNetwork,
 		Type:       "physical",
 	}
 }
@@ -60,7 +66,7 @@ func (s LXDService) DefaultPendingOVNNetwork(parent string) api.NetworksPost {
 func (s LXDService) DefaultOVNNetworkJoinConfig(parent string) api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "network",
-		Name:   "UPLINK",
+		Name:   DefaultUplinkNetwork,
 		Key:    "parent",
 		Value:  parent,
 	}
@@ -75,7 +81,7 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 		NetworkPut: api.NetworkPut{
 			Config:      map[string]string{},
 			Description: "Uplink for OVN networks"},
-		Name: "UPLINK",
+		Name: DefaultUplinkNetwork,
 		Type: "physical",
 	}
 
@@ -93,8 +99,8 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 	}
 
 	ovnNetwork := api.NetworksPost{
-		NetworkPut: api.NetworkPut{Config: map[string]string{"network": "UPLINK"}, Description: "Default OVN network"},
-		Name:       "default",
+		NetworkPut: api.NetworkPut{Config: map[string]string{"network": DefaultUplinkNetwork}, Description: "Default OVN network"},
+		Name:       DefaultOVNNetwork,
 		Type:       "ovn",
 	}
 
