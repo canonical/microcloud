@@ -43,6 +43,10 @@ cleanup() {
 	lxc project switch microcloud-test
 	set +e
 
+	if [ "${TEST_CURRENT}" = "setup" ] && [ "${TEST_RESULT}" = "success" ]; then
+		return
+	fi
+
 	# Allow for inspection
 	if [ -n "${CLOUD_INSPECT:-}" ]; then
 		if [ "${TEST_RESULT}" != "success" ]; then
@@ -112,6 +116,9 @@ export SKIP_VM_LAUNCH
 SNAPSHOT_RESTORE=${SNAPSHOT_RESTORE:-0}
 export SNAPSHOT_RESTORE
 
+TESTBED_READY=${TESTBED_READY:-0}
+export TESTBED_READY
+
 set +u
 if [ -z "${MICROCLOUD_SNAP_PATH}" ] || ! [ -e "${MICROCLOUD_SNAP_PATH}" ]; then
   MICROCLOUD_SNAP_PATH=""
@@ -136,6 +143,10 @@ echo "===> Checking that all snap channels are set to latest/edge"
 check_snap_channels
 
 run_test() {
+    if [ "${TESTBED_READY}" = 0 ]; then
+        testbed_setup
+    fi
+
 	TEST_CURRENT="${1}"
 	TEST_CURRENT_DESCRIPTION="${2:-${1}}"
 
@@ -149,7 +160,16 @@ run_test() {
 
 # Create 4 nodes with 3 disks and 3 extra interfaces.
 # These nodes should be used across most tests and reset with the `reset_systems` function.
-new_systems 4 3 3
+testbed_setup() {
+  echo "::notice::==> SETUP STARTED"
+  START_TIME="$(date +%s)"
+
+  new_systems 4 3 3
+  TESTBED_READY=1
+
+  END_TIME="$(date +%s)"
+  echo "::notice::==> SETUP DONE ($((END_TIME - START_TIME))s)"
+}
 
 # test groups
 run_add_tests() {
@@ -201,6 +221,8 @@ elif [ "${1}" = "mismatch" ]; then
   run_mismatch_tests
 elif [ "${1}" = "preseed" ]; then
   run_preseed_tests
+elif [ "${1}" = "setup" ]; then
+  testbed_setup
 else
   run_test "test_${1}"
 fi
