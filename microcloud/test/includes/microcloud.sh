@@ -568,19 +568,13 @@ cluster_reset() {
     fi
 
     lxc exec "${name}" -- sh -c "
-      if lxc ls -f csv -c n > /dev/null
-      then
-        for m in \$(lxc ls -f csv -c n) ; do
-          lxc rm \$m -f
-        done
-      fi
+      for m in \$(lxc ls -f csv -c n) ; do
+        lxc rm \$m -f
+      done
 
-      if lxc image ls -f csv -c f > /dev/null
-      then
-        for f in \$(lxc image ls -f csv -c f) ; do
-          lxc image rm \$f
-        done
-      fi
+      for f in \$(lxc image ls -f csv -c f) ; do
+        lxc image rm \$f
+      done
 
       echo 'config: {}' | lxc profile edit default || true
       lxc storage rm local || true
