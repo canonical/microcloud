@@ -400,9 +400,9 @@ reset_snaps() {
     # These are set to always pass in case the snaps are already disabled.
     echo "Disabling LXD and MicroCloud for ${name}"
     lxc exec "${name}" -- sh -c "
-      rm -rf /var/snap/lxd/common/lxd.debug
-      rm -rf /var/snap/microcloud/common/microcloudd.debug
-      rm -rf /var/snap/microcloud/common/microcloud.debug
+      rm -f /var/snap/lxd/common/lxd.debug
+      rm -f /var/snap/microcloud/common/microcloudd.debug
+      rm -f /var/snap/microcloud/common/microcloud.debug
 
       for app in lxd lxd.debug microcloud microcloud.debug microcloudd microcloudd.debug ; do
         if pidof -q \${app} > /dev/null; then
