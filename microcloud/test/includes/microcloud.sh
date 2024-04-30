@@ -335,9 +335,6 @@ validate_system_lxd() {
 
     lxc remote switch local
 
-    # Call lxc list once to supress the welcome message.
-    lxc exec "${name}" -- lxc list > /dev/null 2>&1
-
     # Add the peer as a remote.
     set_remote microcloud-test "${name}"
 
@@ -975,6 +972,9 @@ setup_system() {
         sleep 1
       done
     "
+
+    # Call lxc list once to supress the welcome message.
+    lxc exec "${name}" -- lxc list > /dev/null 2>&1
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
