@@ -950,6 +950,10 @@ setup_system() {
 
     lxc exec "${name}" -- snap install snapd
 
+    # Free disk blocks
+    lxc exec "${name}" -- apt-get clean
+    lxc exec "${name}" -- systemctl start fstrim.service
+
     # Snaps can occasionally fail to install properly, so repeatedly try.
     lxc exec "${name}" -- sh -c "
       while ! test -e /snap/bin/microceph ; do
