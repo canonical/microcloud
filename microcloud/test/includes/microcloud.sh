@@ -986,15 +986,15 @@ setup_system() {
     set_debug_binaries "${name}"
   )
 
-  # Sleep some time so the snaps are fully set up.
-  sleep 3
-
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     lxc stop "${name}"
     lxc snapshot "${name}" snap0
     lxc start "${name}"
     lxd_wait_vm "${name}"
+  else
+    # Sleep some time so the snaps are fully set up.
+    sleep 3
   fi
 
   echo "==> ${name} Finished Setting up"
