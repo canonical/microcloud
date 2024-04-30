@@ -423,8 +423,8 @@ reset_snaps() {
     "
 
     echo "Resetting MicroCeph for ${name}"
-    lxc exec "${name}" -- sh -c "
-      if snap list microceph; then
+    if lxc exec "${name}" -- snap list microceph > /dev/null 2>&1; then
+      lxc exec "${name}" -- sh -c "
         snap disable microceph > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
@@ -443,12 +443,12 @@ reset_snaps() {
         # OSDs won't show up and ceph will freeze creating volumes without it, so make it here.
         mkdir -p /var/snap/microceph/current/run
         snap run --shell microceph -c 'snapctl restart microceph.osd' || true
-      fi
-    "
+      "
+    fi
 
     echo "Resetting MicroOVN for ${name}"
-    lxc exec "${name}" -- sh -c "
-      if snap list microovn; then
+    if lxc exec "${name}" -- snap list microovn > /dev/null 2>&1; then
+      lxc exec "${name}" -- sh -c "
         microovn.ovn-appctl exit || true
         microovn.ovs-appctl exit --cleanup || true
         microovn.ovs-dpctl del-dp system@ovs-system || true
@@ -462,8 +462,8 @@ reset_snaps() {
         # Wipe the snap state so we can start fresh.
         rm -rf /var/snap/microovn/*/*
         snap enable microovn > /dev/null 2>&1 || true
-      fi
-    "
+      "
+    fi
 
     echo "Enabling LXD and MicroCloud for ${name}"
     lxc exec "${name}" -- sh -c "
