@@ -984,8 +984,6 @@ setup_system() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     lxc stop "${name}"
     lxc snapshot "${name}" snap0
-    lxc start "${name}"
-    lxd_wait_vm "${name}"
   else
     # Sleep some time so the snaps are fully set up.
     sleep 3
