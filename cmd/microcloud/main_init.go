@@ -524,7 +524,7 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 
 	for _, ipRange := range ovnIPRanges {
 		if ipRange.ContainsIP(gatewayIP) {
-			return nil, fmt.Errorf("UPLINK %s.ovn.ranges must not include gateway address %q", ipPrefix, gatewayNet.IP)
+			return nil, fmt.Errorf("%s %s.ovn.ranges must not include gateway address %q", service.DefaultUplinkNetwork, ipPrefix, gatewayNet.IP)
 		}
 	}
 
@@ -543,7 +543,7 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 	var ip4OVNRanges, ip6OVNRanges []*shared.IPRange
 
 	for _, network := range curSystem.Networks {
-		if network.Type == "physical" && network.Name == "UPLINK" {
+		if network.Type == "physical" && network.Name == service.DefaultUplinkNetwork {
 			ip4OVNRanges, err = validateGatewayNet(network.Config, "ipv4", validate.IsNetworkAddressCIDRV4)
 			if err != nil {
 				return err
@@ -591,13 +591,13 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 
 		for _, ipRange := range ip4OVNRanges {
 			if ipRange.ContainsIP(systemAddr) {
-				return fmt.Errorf("UPLINK ipv4.ovn.ranges must not include system address %q", systemAddr)
+				return fmt.Errorf("%s ipv4.ovn.ranges must not include system address %q", service.DefaultUplinkNetwork, systemAddr)
 			}
 		}
 
 		for _, ipRange := range ip6OVNRanges {
 			if ipRange.ContainsIP(systemAddr) {
-				return fmt.Errorf("UPLINK ipv6.ovn.ranges must not include system address %q", systemAddr)
+				return fmt.Errorf("%s ipv6.ovn.ranges must not include system address %q", service.DefaultUplinkNetwork, systemAddr)
 			}
 		}
 	}
@@ -874,7 +874,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		profile := lxdAPI.ProfilesPost{ProfilePut: lxdAPI.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
 
 		for _, network := range system.Networks {
-			if network.Name == "default" || profile.Devices["eth0"] == nil {
+			if network.Name == service.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
 				profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
 			}
 
