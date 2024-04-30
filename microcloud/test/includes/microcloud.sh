@@ -424,7 +424,7 @@ reset_snaps() {
 
     echo "Resetting MicroCeph for ${name}"
     lxc exec "${name}" -- sh -c "
-      if snap list | grep -q microceph ; then
+      if snap list microceph; then
         snap disable microceph > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
@@ -448,7 +448,7 @@ reset_snaps() {
 
     echo "Resetting MicroOVN for ${name}"
     lxc exec "${name}" -- sh -c "
-      if snap list | grep -q microovn ; then
+      if snap list microovn; then
         microovn.ovn-appctl exit || true
         microovn.ovs-appctl exit --cleanup || true
         microovn.ovs-dpctl del-dp system@ovs-system || true
@@ -587,7 +587,7 @@ cluster_reset() {
     "
 
     lxc exec "${name}" -- sh -c "
-      if snap list | grep -q microceph ; then
+      if snap list microceph; then
         # Ceph might not be responsive if we haven't set it up yet.
         microceph_setup=0
         if timeout -k 3 3 microceph cluster list ; then
