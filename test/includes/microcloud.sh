@@ -617,6 +617,7 @@ cluster_reset() {
             microceph.ceph osd pool rm \${pool} \${pool} --yes-i-really-really-mean-it
           done
 
+          microceph.ceph osd set noup
           for osd in \$(microceph.ceph osd ls) ; do
             microceph.ceph config set osd.\${osd} osd_pool_default_crush_rule \$(microceph.ceph osd crush rule dump microceph_auto_osd | jq '.rule_id')
             microceph.ceph osd crush reweight osd.\${osd} 0
