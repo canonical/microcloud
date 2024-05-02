@@ -534,6 +534,8 @@ reset_system() {
 
     reset_snaps "${name}"
 
+    # Attempt to destroy the zpool as we may have left dangling volumes when we wiped the LXD database earlier.
+    # This is slightly faster than deleting the volumes by hand on each system.
     lxc exec "${name}" -- zpool destroy -f local || true
 
     # Hide any extra disks for this run.
@@ -591,7 +593,6 @@ cluster_reset() {
       done
 
       echo 'config: {}' | lxc profile edit default || true
-      lxc storage rm local || true
     "
 
     if lxc exec "${name}" -- snap list microceph > /dev/null 2>&1; then
@@ -949,7 +950,7 @@ setup_system() {
 
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
-    if [ -n "${CLOUD_INSPECT:-}" ]; then
+    if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
       lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
     else
       lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
