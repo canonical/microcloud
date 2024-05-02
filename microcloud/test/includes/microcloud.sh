@@ -102,8 +102,18 @@ set_debug_binaries() {
 
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
+
+    # lxc exec may lock up on fast-running commands if running in the background, so we need to sleep 1s.
+    lxc exec "${name}" -- sh -c "
+      sleep 1
+      if test -e /var/snap/microcloud/common/microcloudd.debug ; then
+        rm -f /var/snap/microcloud/common/microcloudd.debug
+      fi
+
+      if test -e /var/snap/microcloud/common/microcloud.debug ; then
+        rm -f /var/snap/microcloud/common/microcloud.debug
+      fi
+    "
 
     lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
     lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
@@ -113,7 +123,15 @@ set_debug_binaries() {
 
   if [ -n "${LXD_DEBUG_PATH}" ]; then
     echo "==> Add a debug binary for LXD."
-    lxc exec "${name}" -- rm -f /var/snap/lxd/common/lxd.debug
+
+    # lxc exec may lock up on fast-running commands if running in the background, so we need to sleep 1s.
+    lxc exec "${name}" -- sh -c "
+      sleep 1
+      if test -e /var/snap/lxd/common/lxd.debug ; then
+        rm -f /var/snap/lxd/common/lxd.debug
+      fi
+    "
+
     lxc file push --quiet "${LXD_DEBUG_PATH}" "${name}"/var/snap/lxd/common/lxd.debug
     lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
     lxc exec "${name}" -- lxd waitready
@@ -520,7 +538,8 @@ reset_system() {
 
     reset_snaps "${name}"
 
-    lxc exec "${name}" -- zpool destroy -f local || true
+    # lxc exec may lock up on fast-running commands if running in the background, so we need to sleep 1s.
+    lxc exec "${name}" -- sh -c "sleep 1 ; zpool destroy -f local" || true
 
     # Hide any extra disks for this run.
     lxc exec "${name}" -- sh -c "
@@ -544,14 +563,18 @@ reset_system() {
     max_ifaces=$(lxc network ls -f csv | grep -cF microbr)
     for i in $(seq 1 "${max_ifaces}") ; do
       iface="enp$((i + 5))s0"
-      lxc exec "${name}" -- ip link set "${iface}" down
+
+      # lxc exec may lock up on fast-running commands if running in the background, so we need to sleep 1s.
+      lxc exec "${name}" -- sh -c "sleep 1 ; ip link set ${iface} down"
     done
 
     # Re-enable as many interfaces as we want for this run.
     for i in $(seq 1 "${num_ifaces}") ; do
       iface="enp$((i + 5))s0"
-      lxc exec "${name}" -- ip link set "${iface}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
+
+      # lxc exec may lock up on fast-running commands if running in the background, so we need to sleep 1s.
+      lxc exec "${name}" -- sh -c "sleep 1 ; ip link set ${iface} up"
+      lxc exec "${name}" -- sh -c "sleep 1 ; echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
     done
   )
 
