@@ -175,20 +175,16 @@ testbed_setup() {
 run_add_tests() {
   run_test test_add_interactive "add interactive"
   run_test test_add_auto "add auto"
-  run_test test_auto "auto"
 }
 
-run_auto_tests() {
-  run_test test_add_auto "add auto"
-  run_test test_auto "auto"
+run_instances_tests() {
+  run_test test_instances_config "instances config"
+  run_test test_instances_launch "instances launch"
 }
 
 run_basic_tests() {
-  run_test test_instances_config "instances config"
-  run_test test_instances_launch "instances launch"
-  run_test test_service_mismatch "service mismatch"
-  run_test test_disk_mismatch "disk mismatch"
   run_test test_reuse_cluster "reuse_cluster"
+  run_test test_auto "auto"
 }
 
 run_interactive_tests() {
@@ -208,12 +204,15 @@ run_preseed_tests() {
 # allow for running a specific set of tests
 if [ "${1:-"all"}" = "all" ]; then
   run_add_tests
+  run_instances_tests
   run_basic_tests
+  run_interactive_tests
+  run_mismatch_tests
   run_preseed_tests
 elif [ "${1}" = "add" ]; then
   run_add_tests
-elif [ "${1}" = "auto" ]; then
-  run_auto_tests
+elif [ "${1}" = "instances" ]; then
+  run_instances_tests
 elif [ "${1}" = "basic" ]; then
   run_basic_tests
 elif [ "${1}" = "interactive" ]; then
