@@ -487,7 +487,6 @@ reset_snaps() {
     lxc exec "${name}" -- snap enable microcloud > /dev/null 2>&1 || true
     lxc exec "${name}" -- snap start lxd > /dev/null 2>&1 || true
     lxc exec "${name}" -- snap start microcloud > /dev/null 2>&1 || true
-    lxc exec "${name}" -- snap refresh lxd --cohort=+ || true
     lxc exec "${name}" -- lxd waitready
 
     set_debug_binaries "${name}"
