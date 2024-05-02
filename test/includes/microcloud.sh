@@ -369,6 +369,11 @@ validate_system_lxd() {
       validate_system_lxd_fan "${name}"
     fi
 
+    if [ -n "${local_disk}" ] || [ "${remote_disks}" -gt 0 ] ; then
+      echo "Check LXD resources for disk ordering"
+      lxc exec "local:${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
+    fi
+
     if [ -n "${local_disk}" ]; then
       validate_system_lxd_zfs "${name}" "${local_disk}"
     fi
