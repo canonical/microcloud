@@ -131,6 +131,16 @@ jobs:
           sudo rm -rf /opt/ghc
           df -h /
 
+      - name: Reclaim some memory
+        run: |
+          set -eux
+
+          free -mt
+          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer phpsessionclean.timer update-notifier-download.timer update-notifier-motd.timer
+          sudo systemctl stop iscsid.socket multipathd.socket
+          sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
+          free -mt
+
       - name: Remove docker
         run: |
           set -eux
@@ -198,12 +208,20 @@ jobs:
           sudo snap install lxd --channel latest/edge || sudo snap refresh lxd --channel latest/edge
           sudo lxd init --auto
 
+      - name: "Prepare for system tests"
+        run: |
+          set -eux
+          chmod +x ~
+          cd microcloud/test
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh setup
+          echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
+
       - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
         run: |
           set -eux
           chmod +x ~
           cd microcloud/test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE ./main.sh ${{ matrix.suite }}
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh ${{ matrix.suite }}
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main

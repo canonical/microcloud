@@ -335,9 +335,6 @@ validate_system_lxd() {
 
     lxc remote switch local
 
-    # Call lxc list once to supress the welcome message.
-    lxc exec "${name}" -- lxc list > /dev/null 2>&1
-
     # Add the peer as a remote.
     set_remote microcloud-test "${name}"
 
@@ -403,9 +400,9 @@ reset_snaps() {
     # These are set to always pass in case the snaps are already disabled.
     echo "Disabling LXD and MicroCloud for ${name}"
     lxc exec "${name}" -- sh -c "
-      rm -rf /var/snap/lxd/common/lxd.debug
-      rm -rf /var/snap/microcloud/common/microcloudd.debug
-      rm -rf /var/snap/microcloud/common/microcloud.debug
+      rm -f /var/snap/lxd/common/lxd.debug
+      rm -f /var/snap/microcloud/common/microcloudd.debug
+      rm -f /var/snap/microcloud/common/microcloud.debug
 
       for app in lxd lxd.debug microcloud microcloud.debug microcloudd microcloudd.debug ; do
         if pidof -q \${app} > /dev/null; then
@@ -426,8 +423,8 @@ reset_snaps() {
     "
 
     echo "Resetting MicroCeph for ${name}"
-    lxc exec "${name}" -- sh -c "
-      if snap list | grep -q microceph ; then
+    if lxc exec "${name}" -- snap list microceph > /dev/null 2>&1; then
+      lxc exec "${name}" -- sh -c "
         snap disable microceph > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
@@ -446,12 +443,12 @@ reset_snaps() {
         # OSDs won't show up and ceph will freeze creating volumes without it, so make it here.
         mkdir -p /var/snap/microceph/current/run
         snap run --shell microceph -c 'snapctl restart microceph.osd' || true
-      fi
-    "
+      "
+    fi
 
     echo "Resetting MicroOVN for ${name}"
-    lxc exec "${name}" -- sh -c "
-      if snap list | grep -q microovn ; then
+    if lxc exec "${name}" -- snap list microovn > /dev/null 2>&1; then
+      lxc exec "${name}" -- sh -c "
         microovn.ovn-appctl exit || true
         microovn.ovs-appctl exit --cleanup || true
         microovn.ovs-dpctl del-dp system@ovs-system || true
@@ -465,8 +462,8 @@ reset_snaps() {
         # Wipe the snap state so we can start fresh.
         rm -rf /var/snap/microovn/*/*
         snap enable microovn > /dev/null 2>&1 || true
-      fi
-    "
+      "
+    fi
 
     echo "Enabling LXD and MicroCloud for ${name}"
     lxc exec "${name}" -- sh -c "
@@ -571,26 +568,20 @@ cluster_reset() {
     fi
 
     lxc exec "${name}" -- sh -c "
-      if lxc ls -f csv -c n > /dev/null
-      then
-        for m in \$(lxc ls -f csv -c n) ; do
-          lxc rm \$m -f
-        done
-      fi
+      for m in \$(lxc ls -f csv -c n) ; do
+        lxc rm \$m -f
+      done
 
-      if lxc image ls -f csv -c f > /dev/null
-      then
-        for f in \$(lxc image ls -f csv -c f) ; do
-          lxc image rm \$f
-        done
-      fi
+      for f in \$(lxc image ls -f csv -c f) ; do
+        lxc image rm \$f
+      done
 
       echo 'config: {}' | lxc profile edit default || true
       lxc storage rm local || true
     "
 
-    lxc exec "${name}" -- sh -c "
-      if snap list | grep -q microceph ; then
+    if lxc exec "${name}" -- snap list microceph > /dev/null 2>&1; then
+      lxc exec "${name}" -- sh -c "
         # Ceph might not be responsive if we haven't set it up yet.
         microceph_setup=0
         if timeout -k 3 3 microceph cluster list ; then
@@ -622,8 +613,8 @@ cluster_reset() {
             rm -rf /var/snap/microceph/common/data/osd/ceph-\${osd}
           done
         fi
-      fi
-    "
+      "
+    fi
   )
 }
 
@@ -901,6 +892,9 @@ create_system() {
 
     lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
 
+    # Disable vGPU to save RAM
+    lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
+
     for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
       lxc storage volume create zpool "${disk}" size=5GiB --type=block
@@ -924,6 +918,19 @@ setup_system() {
       exec > /dev/null
     fi
 
+    # Disable unneeded services/timers/sockets/mounts (source of noise/slowdown)
+    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service grub-common.service grub-initrd-fallback.service lvm2-monitor.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journald.service systemd-journal-flush.service unattended-upgrades.service
+    lxc exec "${name}" -- systemctl mask --now apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer e2scrub_all.timer fstrim.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
+    lxc exec "${name}" -- systemctl mask --now cloud-init-hotplugd.socket lvm2-lvmpolld.socket lxd-installer.socket iscsid.socket systemd-journald-dev-log.socket
+    lxc exec "${name}" -- systemctl mask --now dev-hugepages.mount sys-kernel-debug.mount sys-kernel-tracing.mount
+
+    # Turn off debugfs and mitigations
+    echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet debugfs=off mitigations=off"' | lxc exec "${name}" -- tee /etc/default/grub.d/zz-lxd-speed.cfg
+    lxc exec "${name}" -- update-grub
+
+    # Faster apt
+    echo "force-unsafe-io" | lxc exec "${name}" -- tee /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ]; then
@@ -933,6 +940,10 @@ setup_system() {
     fi
 
     lxc exec "${name}" -- snap install snapd
+
+    # Free disk blocks
+    lxc exec "${name}" -- apt-get clean
+    lxc exec "${name}" -- systemctl start fstrim.service
 
     # Snaps can occasionally fail to install properly, so repeatedly try.
     lxc exec "${name}" -- sh -c "
@@ -956,6 +967,9 @@ setup_system() {
       done
     "
 
+    # Call lxc list once to supress the welcome message.
+    lxc exec "${name}" -- lxc list > /dev/null 2>&1
+
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
@@ -966,15 +980,13 @@ setup_system() {
     set_debug_binaries "${name}"
   )
 
-  # Sleep some time so the snaps are fully set up.
-  sleep 3
-
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     lxc stop "${name}"
     lxc snapshot "${name}" snap0
-    lxc start "${name}"
-    lxd_wait_vm "${name}"
+  else
+    # Sleep some time so the snaps are fully set up.
+    sleep 3
   fi
 
   echo "==> ${name} Finished Setting up"
