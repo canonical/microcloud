@@ -79,7 +79,7 @@ test_interactive() {
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
-  export DNS_ADDRESSES="10.1.123.1,8.8.8.8" 
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -821,4 +821,135 @@ test_auto() {
     ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^default," || false
     ! lxc exec ${m} -- lxc network ls -f csv | grep -q "^UPLINK," || false
   done
+}
+
+# services_validator: A basic validator of 3 systems with typical expected inputs.
+services_validator() {
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd ${m} 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+    validate_system_microceph ${m} 1 disk2
+    validate_system_microovn ${m}
+  done
+}
+
+test_reuse_cluster() {
+  unset_interactive_vars
+
+  # Set the default config for interactive setup.
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export SETUP_CEPHFS="yes"
+  export CEPH_FILTER="lxd_disk2"
+  export CEPH_WIPE="yes"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing service"
+  export REUSE_EXISTING_COUNT=1
+  export REUSE_EXISTING="add"
+  lxc exec micro02 -- microceph cluster bootstrap
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing service on the local node"
+  lxc exec micro01 -- microceph cluster bootstrap
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN"
+  export REUSE_EXISTING_COUNT=2
+  export REUSE_EXISTING="add"
+  lxc exec micro02 -- microceph cluster bootstrap
+  lxc exec micro02 -- microovn cluster bootstrap
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN on different nodes"
+  lxc exec micro02 -- microceph cluster bootstrap
+  lxc exec micro03 -- microovn cluster bootstrap
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing service with multiple nodes from this cluster"
+  export REUSE_EXISTING_COUNT=1
+  export REUSE_EXISTING="add"
+  lxc exec micro02 -- microceph cluster bootstrap
+  token="$(lxc exec micro02 -- microceph cluster add micro01)"
+  lxc exec micro01 -- microceph cluster join "${token}"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing existing service with all nodes from this cluster"
+  lxc exec micro02 -- microceph cluster bootstrap
+  token="$(lxc exec micro02 -- microceph cluster add micro01)"
+  lxc exec micro01 -- microceph cluster join "${token}"
+  token="$(lxc exec micro02 -- microceph cluster add micro03)"
+  lxc exec micro03 -- microceph cluster join "${token}"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+
+  reset_systems 4 3 3
+  echo "Create a MicroCloud that re-uses an existing existing service with foreign cluster members"
+  lxc exec micro04 -- snap disable microcloud
+  lxc exec micro02 -- microceph cluster bootstrap
+  token="$(lxc exec micro02 -- microceph cluster add micro04)"
+  lxc exec micro04 -- microceph cluster join "${token}"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  services_validator
+  validate_system_microceph micro04 1
+
+  reset_systems 3 3 3
+  echo "Fail to create a MicroCloud due to an existing service if --auto specified"
+  lxc exec micro02 -- microceph cluster bootstrap
+  ! lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out" || true
+
+
+
+  echo "Fail to create a MicroCloud due to conflicting existing services"
+  lxc exec micro03 -- microceph cluster bootstrap
+  ! microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out" || true
+
+  reset_systems 3 3 3
+  echo "Create a MicroCloud that re-uses an existing service with preseed"
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 --  microcloud init --preseed << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+reuse_existing_clusters: true
+systems:
+- name: micro01
+- name: micro02
+- name: micro03
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8
+storage:
+  local:
+    - find: id == sdb
+      wipe: true
+  ceph:
+    - find: id == sdc
+      wipe: true
+  cephfs: true
+EOF
+
+  services_validator
 }

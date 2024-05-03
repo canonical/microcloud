@@ -90,6 +90,35 @@ Complete the following steps to initialise MicroCloud:
 
 See an example of the full initialisation process in the :ref:`Get started with MicroCloud <initialisation-process>` tutorial.
 
+Excluding MicroCeph or MicroOVN from MicroCloud
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the MicroOVN or MicroCeph snap is not installed on the system that runs :command:`microcloud init`, you will be prompted with the following question::
+
+    MicroCeph not found. Continue anyway? (yes/no) [default=yes]:
+
+    MicroOVN not found. Continue anyway? (yes/no) [default=yes]:
+
+If you choose ``yes``,  only existing services will be configured on all systems.
+If you choose ``no``, the setup will be cancelled.
+
+All other systems must have at least the same set of snaps installed as the system that runs :command:`microcloud init`, otherwise they will not be available to select from the list of systems.
+Any questions associated to these systems will be skipped. For example, if MicroCeph is not installed, you will not be prompted for distributed storage configuration.
+
+Reusing an existing MicroCeph or MicroOVN with MicroCloud
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If some of the systems are already part of a MicroCeph or MicroOVN cluster, you can choose to reuse this cluster when initialising MicroCloud when prompted with the following question::
+
+    "micro01" is already part of a MicroCeph cluster. Do you want to add this cluster to MicroCloud? (add/skip) [default=add]:
+
+    "micro01" is already part of a MicroOVN cluster. Do you want to add this cluster to MicroCloud? (add/skip) [default=add]:
+
+If you choose ``add``, MicroCloud will add the remaining systems selected for initialisation to the pre-existing cluster.
+If you choose ``skip``, the respective service will not be set up at all.
+
+If more than one MicroCeph or MicroOVN cluster exists among the systems, the MicroCloud initialisation will be cancelled.
+
 .. _howto-initialise-preseed:
 
 Non-interactive configuration

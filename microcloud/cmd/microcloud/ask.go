@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
@@ -818,6 +819,47 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
 		systems[sh.Name] = bootstrapSystem
+	}
+
+	return nil
+}
+
+// askClustered checks whether any of the selected systems have already initialized any expected services.
+// If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
+// If multiple systems have separately initialized the same service, we will abort initialization.
+// Preseed yamls will have a flag that sets whether to reuse the cluster.
+// In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
+func (c *CmdControl) askClustered(s *service.Handler, autoSetup bool, systems map[string]InitSystem) error {
+	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
+	for k, v := range s.Services {
+		expectedServices[k] = v
+	}
+
+	for serviceType := range expectedServices {
+		initializedSystem, _, err := checkClustered(s, autoSetup, serviceType, systems)
+		if err != nil {
+			return err
+		}
+
+		if initializedSystem != "" {
+			question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", initializedSystem, serviceType)
+			validator := func(s string) error {
+				if !shared.ValueInSlice[string](s, []string{"add", "skip"}) {
+					return fmt.Errorf("Invalid input, expected one of (add,skip) but got %q", s)
+				}
+
+				return nil
+			}
+
+			addOrSkip, err := c.asker.AskString(question, "add", validator)
+			if err != nil {
+				return err
+			}
+
+			if addOrSkip != "add" {
+				delete(s.Services, serviceType)
+			}
+		}
 	}
 
 	return nil

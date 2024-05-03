@@ -225,13 +225,28 @@ func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error)
 	return joinToken.String(), nil
 }
 
-// ClusterMembers returns a map of cluster member names and addresses.
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
+func (s LXDService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
+	client, err := s.remoteClient(secret, address, CloudPort)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.clusterMembers(client)
+}
+
+// ClusterMembers returns a map of cluster member names.
 func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client(ctx, "")
 	if err != nil {
 		return nil, err
 	}
 
+	return s.clusterMembers(client)
+}
+
+// clusterMembers returns a map of cluster member names and addresses.
+func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string, error) {
 	members, err := client.GetClusterMembers()
 	if err != nil {
 		return nil, err

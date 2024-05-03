@@ -188,6 +188,7 @@ run_basic_tests() {
   run_test test_instances_launch "instances launch"
   run_test test_service_mismatch "service mismatch"
   run_test test_disk_mismatch "disk mismatch"
+  run_test test_reuse_cluster "reuse_cluster"
 }
 
 run_interactive_tests() {

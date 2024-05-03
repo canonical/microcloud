@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	microClient "github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microcluster/rest"
@@ -95,19 +96,11 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 	return s.client.NewJoinToken(peer)
 }
 
-// Join joins a cluster with the given token.
-func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
-}
-
-// RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.
-func (s CloudService) RequestJoin(ctx context.Context, secret string, name string, joinConfig types.ServicesPut) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
-	defer cancel()
-
-	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
+// RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
+func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, secret string, peer string, serviceType types.ServiceType) (string, error) {
+	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	c.Client.Client.Transport = &http.Transport{
@@ -120,7 +113,64 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 		},
 	}
 
+	return client.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
+}
+
+// Join joins a cluster with the given token.
+func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
+	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
+}
+
+// RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.
+func (s CloudService) RequestJoin(ctx context.Context, secret string, name string, joinConfig types.ServicesPut) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+
+	var c *microClient.Client
+	var err error
+	if name == s.name {
+		c, err = s.client.LocalClient()
+		if err != nil {
+			return err
+		}
+	} else {
+		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
+		if err != nil {
+			return err
+		}
+
+		c.Client.Client.Transport = &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				r.Header.Set("X-MicroCloud-Auth", secret)
+
+				return shared.ProxyFromEnvironment(r)
+			},
+		}
+	}
+
 	return client.JoinServices(ctx, c, joinConfig)
+}
+
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
+func (s CloudService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
+	client, err := s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+	if err != nil {
+		return nil, err
+	}
+
+	client.Client.Client.Transport = &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			r.Header.Set("X-MicroCloud-Auth", secret)
+
+			return shared.ProxyFromEnvironment(r)
+		},
+	}
+
+	return clusterMembers(ctx, client)
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
@@ -130,6 +180,11 @@ func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, er
 		return nil, err
 	}
 
+	return clusterMembers(ctx, client)
+}
+
+// clusterMembers returns a map of cluster member names and addresses.
+func clusterMembers(ctx context.Context, client *microClient.Client) (map[string]string, error) {
 	members, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return nil, err

@@ -30,6 +30,8 @@ import (
 type InitSystem struct {
 	ServerInfo mdns.ServerInfo // Data reported by mDNS about this system.
 
+	InitializedServices map[types.ServiceType]map[string]string // A map of services and their cluster members, if initialized.
+
 	AvailableDisks []lxdAPI.ResourcesStorageDisk // Disks as reported by LXD.
 
 	MicroCephDisks     []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
@@ -128,6 +130,11 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+	if err != nil {
+		return err
+	}
+
+	err = c.common.askClustered(s, c.flagAutoSetup, systems)
 	if err != nil {
 		return err
 	}
@@ -323,52 +330,41 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 	return nil
 }
 
-// waitForJoin issues a token and instructs a system to request a join,
+// waitForJoin requests a system to join each service's respective cluster,
 // and then waits for the request to either complete or time out.
 // If the request was successful, it additionally waits until the cluster appears in the database.
-func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer string, cfg types.ServicesPut) error {
-	mut := sync.Mutex{}
-	err := sh.RunConcurrent(false, false, func(s service.Service) error {
-		token, err := s.IssueToken(context.Background(), peer)
-		if err != nil {
-			return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
-		}
-
-		mut.Lock()
-		cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
-		mut.Unlock()
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
+func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, secret string, peer string, cfg types.ServicesPut) error {
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	err = cloud.RequestJoin(context.Background(), secret, peer, cfg)
+	err := cloud.RequestJoin(context.Background(), secret, peer, cfg)
 	if err != nil {
 		return fmt.Errorf("System %q failed to join the cluster: %w", peer, err)
 	}
 
 	clustered := make(map[types.ServiceType]bool, len(sh.Services))
-	for service := range sh.Services {
-		clustered[service] = false
+	for _, tokenInfo := range cfg.Tokens {
+		clustered[tokenInfo.Service] = false
 	}
 
+	// Iterate over all services until the database is updated with the new node across all of them.
 	now := time.Now()
 	for len(clustered) != 0 {
 		if time.Since(now) >= time.Second*30 {
 			return fmt.Errorf("Timed out waiting for cluster member %q to appear", peer)
 		}
 
+		// Check the size of the cluster for each service.
 		for service := range clustered {
 			systems, err := sh.Services[service].ClusterMembers(context.Background())
 			if err != nil {
 				return err
 			}
 
-			if len(systems) == clusterSize+1 {
+			// If the size of the cluster has been incremented by 1 from its initial value,
+			// then we don't need to check the corresponding service anymore.
+			// So remove the service from consideration and update the current cluster size for the next node.
+			if len(systems) == clusterSizes[service]+1 {
 				delete(clustered, service)
+				clusterSizes[service] = clusterSizes[service] + 1
 			}
 		}
 	}
@@ -379,39 +375,116 @@ func waitForJoin(sh *service.Handler, clusterSize int, secret string, peer strin
 }
 
 func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
-	joinConfig := make(map[string]types.ServicesPut, len(systems))
-	secrets := make(map[string]string, len(systems))
-	for peer, info := range systems {
-		if peer == sh.Name {
-			continue
+	// Grab the systems that are clustered from the InitSystem map.
+	initializedServices := map[types.ServiceType]string{}
+	existingSystems := map[types.ServiceType]map[string]string{}
+	for serviceType := range sh.Services {
+		for peer, system := range systems {
+			if system.InitializedServices != nil && system.InitializedServices[serviceType] != nil {
+				initializedServices[serviceType] = peer
+				existingSystems[serviceType] = system.InitializedServices[serviceType]
+				break
+			}
 		}
+	}
 
+	// Prepare a JoinConfig to send to each joiner.
+	joinConfig := make(map[string]types.ServicesPut, len(systems))
+	for peer, info := range systems {
 		joinConfig[peer] = types.ServicesPut{
 			Tokens:     []types.ServiceToken{},
 			Address:    info.ServerInfo.Address,
 			LXDConfig:  info.JoinConfig,
 			CephConfig: info.MicroCephDisks,
 		}
-
-		secrets[peer] = info.ServerInfo.AuthSecret
 	}
 
-	cluster, err := sh.Services[types.MicroCloud].ClusterMembers(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to inspect existing cluster: %w", err)
+	_, bootstrap := systems[sh.Name]
+	clusterSize := map[types.ServiceType]int{}
+	if bootstrap {
+		for serviceType, clusterMembers := range existingSystems {
+			clusterSize[serviceType] = len(clusterMembers)
+		}
 	}
 
-	clusterSize := len(cluster)
+	// Concurrently issue a token for each joiner.
+	for peer := range systems {
+		mut := sync.Mutex{}
+		err := sh.RunConcurrent(false, false, func(s service.Service) error {
+			// Only issue a token if the system isn't already part of that cluster.
+			if existingSystems[s.Type()][peer] == "" {
+				clusteredSystem := systems[initializedServices[s.Type()]]
+
+				var token string
+				var err error
+
+				// If the local node is part of the pre-existing cluster, or if we are growing the cluster, issue the token locally.
+				// Otherwise, use the MicroCloud proxy to ask an existing cluster member to issue the token.
+				if clusteredSystem.ServerInfo.Name == sh.Name || clusteredSystem.ServerInfo.Name == "" {
+					token, err = s.IssueToken(context.Background(), peer)
+					if err != nil {
+						return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
+					}
+				} else {
+					cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+					token, err = cloud.RemoteIssueToken(context.Background(), clusteredSystem.ServerInfo.Address, clusteredSystem.ServerInfo.AuthSecret, peer, s.Type())
+					if err != nil {
+						return err
+					}
+				}
+
+				// Fetch the current cluster sizes if we are adding a new node.
+				var currentCluster map[string]string
+				if !bootstrap {
+					currentCluster, err = s.ClusterMembers(context.Background())
+					if err != nil {
+						return fmt.Errorf("Failed to check for existing %s cluster size: %w", s.Type(), err)
+					}
+				}
+
+				mut.Lock()
+
+				if !bootstrap {
+					clusterSize[s.Type()] = len(currentCluster)
+				}
+
+				cfg := joinConfig[peer]
+				cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
+				joinConfig[peer] = cfg
+				mut.Unlock()
+			}
+
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	fmt.Println("Awaiting cluster formation ...")
+
+	// If the local node needs to join an existing cluster, do it first so we can proceed as normal.
+	if len(joinConfig[sh.Name].Tokens) > 0 {
+		cfg := joinConfig[sh.Name]
+		err := waitForJoin(sh, clusterSize, "", sh.Name, cfg)
+		if err != nil {
+			return err
+		}
+
+		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
+		time.Sleep(3 * time.Second)
+	}
+
 	for peer, cfg := range joinConfig {
+		if len(cfg.Tokens) == 0 || peer == sh.Name {
+			continue
+		}
+
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
 		err := waitForJoin(sh, clusterSize, systems[peer].ServerInfo.AuthSecret, peer, cfg)
 		if err != nil {
 			return err
 		}
-
-		clusterSize = clusterSize + 1
 
 		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
 		time.Sleep(3 * time.Second)
@@ -532,17 +605,120 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 	return nil
 }
 
+// checkClustered checks whether any of the selected systems have already initialized a service.
+// Returns the first system we find that is initialized for the given service, along with all of that system's existing cluster members.
+func checkClustered(s *service.Handler, autoSetup bool, serviceType types.ServiceType, systems map[string]InitSystem) (firstInitializedSystem string, existingMembers map[string]string, err error) {
+	// LXD should always be uninitialized at this point, so we can just return default values that consider LXD uninitialized.
+	if serviceType == types.LXD {
+		return "", nil, nil
+	}
+
+	for peer, system := range systems {
+		var remoteClusterMembers map[string]string
+		var err error
+
+		// If the peer in question is ourselves, we can just use the unix socket.
+		if peer == s.Name {
+			remoteClusterMembers, err = s.Services[serviceType].ClusterMembers(context.Background())
+		} else {
+			remoteClusterMembers, err = s.Services[serviceType].RemoteClusterMembers(context.Background(), system.ServerInfo.AuthSecret, system.ServerInfo.Address)
+		}
+
+		if err != nil && err.Error() != "Daemon not yet initialized" {
+			return "", nil, fmt.Errorf("Failed to reach %s on system %q: %w", serviceType, peer, err)
+		}
+
+		// If we failed to retrieve cluster members due to the system not being initialized, we can ignore it.
+		if err != nil {
+			continue
+		}
+
+		clusterMembers := map[string]string{}
+		for k, v := range remoteClusterMembers {
+			host, _, err := net.SplitHostPort(v)
+			if err != nil {
+				return "", nil, err
+			}
+
+			clusterMembers[k] = host
+		}
+
+		if autoSetup {
+			return "", nil, fmt.Errorf("System %q is already clustered on %s", peer, serviceType)
+		}
+
+		// If this is the first clustered system we found, then record its cluster members.
+		if firstInitializedSystem == "" {
+			// Record that this system has initialized the service.
+			existingMembers = clusterMembers
+			if system.InitializedServices == nil {
+				system.InitializedServices = map[types.ServiceType]map[string]string{}
+			}
+
+			system.InitializedServices[serviceType] = clusterMembers
+			systems[peer] = system
+			firstInitializedSystem = peer
+
+			if clusterMembers[peer] != systems[peer].ServerInfo.Address && clusterMembers[peer] != "" {
+				return "", nil, fmt.Errorf("%s is already set up on %q on a different network", serviceType, peer)
+			}
+
+			continue
+		}
+
+		// If we've already encountered a clustered system, check if there's a mismatch in cluster members.
+		for k, v := range existingMembers {
+			if clusterMembers[k] != v {
+				return "", nil, fmt.Errorf("%q and %q are already part of different %s clusters. Aborting initialization", firstInitializedSystem, peer, serviceType)
+			}
+		}
+
+		// Ensure the maps are identical.
+		if len(clusterMembers) != len(existingMembers) {
+			return "", nil, fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
+		}
+	}
+
+	return firstInitializedSystem, existingMembers, nil
+}
+
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
 func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+	initializedServices := map[types.ServiceType]string{}
 	_, bootstrap := systems[s.Name]
 	if bootstrap {
+		for serviceType := range s.Services {
+			for peer, system := range systems {
+				if system.InitializedServices[serviceType] != nil {
+					initializedServices[serviceType] = peer
+					break
+				}
+			}
+		}
+
 		fmt.Println("Initializing a new cluster")
+		mu := sync.Mutex{}
 		err := s.RunConcurrent(true, false, func(s service.Service) error {
+			// If there's already an initialized system for this service, we don't need to bootstrap it.
+			if initializedServices[s.Type()] != "" {
+				return nil
+			}
+
 			err := s.Bootstrap(context.Background())
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}
+
+			mu.Lock()
+			clustered := systems[s.Name()]
+			if clustered.InitializedServices == nil {
+				clustered.InitializedServices = map[types.ServiceType]map[string]string{}
+			}
+
+			clustered.InitializedServices[s.Type()] = map[string]string{s.Name(): s.Address()}
+			systems[s.Name()] = clustered
+			mu.Unlock()
 
 			fmt.Printf(" Local %s is ready\n", s.Type())
 
@@ -551,28 +727,43 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		if err != nil {
 			return err
 		}
-
-		// Only add disks for the local MicroCeph as other systems will add their disks upon joining.
-		var c *client.Client
-		for _, disk := range systems[s.Name].MicroCephDisks {
-			if c == nil {
-				c, err = s.Services[types.MicroCeph].(*service.CephService).Client("", "")
-				if err != nil {
-					return err
-				}
-			}
-
-			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"peer": s.Name, "disk": disk.Path})
-			_, err = cephClient.AddDisk(context.Background(), c, &disk)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	err := AddPeers(s, systems)
 	if err != nil {
 		return err
+	}
+
+	if bootstrap {
+		// Joiners will add their disks as part of the join process, so only add disks here for the system we bootstrapped, or already existed.
+		peer := s.Name
+		microCeph := initializedServices[types.MicroCeph]
+		if microCeph != "" {
+			peer = microCeph
+		}
+
+		for name := range systems[peer].InitializedServices[types.MicroCeph] {
+			// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
+			if systems[name].ServerInfo.Name == "" {
+				continue
+			}
+
+			var c *client.Client
+			for _, disk := range systems[name].MicroCephDisks {
+				if c == nil {
+					c, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, systems[name].ServerInfo.AuthSecret)
+					if err != nil {
+						return err
+					}
+				}
+
+				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
+				_, err = cephClient.AddDisk(context.Background(), c, &disk)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	fmt.Println("Configuring cluster-wide devices ...")

@@ -24,11 +24,12 @@ import (
 
 // Preseed represents the structure of the supported preseed yaml.
 type Preseed struct {
-	LookupSubnet    string        `yaml:"lookup_subnet"`
-	LookupInterface string        `yaml:"lookup_interface"`
-	Systems         []System      `yaml:"systems"`
-	OVN             InitNetwork   `yaml:"ovn"`
-	Storage         StorageFilter `yaml:"storage"`
+	LookupSubnet          string        `yaml:"lookup_subnet"`
+	LookupInterface       string        `yaml:"lookup_interface"`
+	ReuseExistingClusters bool          `yaml:"reuse_existing_clusters"`
+	Systems               []System      `yaml:"systems"`
+	OVN                   InitNetwork   `yaml:"ovn"`
+	Storage               StorageFilter `yaml:"storage"`
 }
 
 // System represents the structure of the systems we expect to find in the preseed yaml.
@@ -202,6 +203,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		if system.Storage.Local.Path != "" {
 			directLocalCount++
 		}
+	}
+
+	if !bootstrap && p.ReuseExistingClusters {
+		return fmt.Errorf("Additional cluster members cannot be part of a pre-existing cluster")
 	}
 
 	if bootstrap && !localInit {
@@ -394,6 +399,24 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 	err = lookupPeers(s, true, lookupIface, lookupSubnet, expectedSystems, systems)
 	if err != nil {
 		return nil, err
+	}
+
+	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
+	for k, v := range s.Services {
+		expectedServices[k] = v
+	}
+
+	for serviceType := range expectedServices {
+		initializedSystem, _, err := checkClustered(s, false, serviceType, systems)
+		if err != nil {
+			return nil, err
+		}
+
+		if initializedSystem != "" && !p.ReuseExistingClusters {
+			fmt.Printf("Existing %s cluster on system %q is incompatible with MicroCloud, skipping %s setup\n", serviceType, initializedSystem, serviceType)
+
+			delete(s.Services, serviceType)
+		}
 	}
 
 	for name, system := range systems {

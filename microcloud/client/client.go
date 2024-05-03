@@ -23,3 +23,17 @@ func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut)
 
 	return nil
 }
+
+// RemoteIssueToken issues a token on the remote MicroCloud, trusted by the mDNS auth secret.
+func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.ServiceType, data types.ServiceTokensPost) (string, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	var token string
+	err := c.Query(queryCtx, "POST", api.NewURL().Path("services", string(serviceType), "tokens"), data, &token)
+	if err != nil {
+		return "", fmt.Errorf("Failed to issue remote token: %w", err)
+	}
+
+	return token, nil
+}
