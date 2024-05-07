@@ -496,6 +496,7 @@ reset_snaps() {
 # Makes only `num_disks` and `num_ifaces` disks and interfaces available for the next test.
 reset_system() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
+    # shellcheck disable=SC2048,SC2086
     restore_system ${*}
     return
   fi
@@ -633,6 +634,7 @@ cluster_reset() {
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
+    # shellcheck disable=SC2048,SC2086
     restore_systems ${*}
     return
   fi
