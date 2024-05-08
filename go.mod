@@ -6,15 +6,17 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/canonical/lxd v0.0.0-20240403135607-df45915ce961
-	github.com/canonical/microceph/microceph v0.0.0-20240403035153-450240f5dd0d
+	github.com/canonical/microceph/microceph v0.0.0-20240408171942-71f71782c501
 	github.com/canonical/microcluster v0.0.0-20240403200531-257dd2e18a69
 	github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252
 	github.com/creack/pty v1.1.21
+	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/mdns v1.0.5
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
+	golang.org/x/mod v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -29,7 +31,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/schema v1.3.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
@@ -55,7 +56,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zitadel/oidc/v2 v2.12.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
