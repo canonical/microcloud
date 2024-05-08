@@ -31,6 +31,16 @@ jobs:
           # A non-shallow clone is needed for the Differential ShellCheck
           fetch-depth: 0
 
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+
+      - name: Check compatibility with min Go version (1.22.0)
+        run: |
+          set -eux
+          go mod tidy -go=1.22.0
+
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         if: github.event_name == 'pull_request'
@@ -50,17 +60,6 @@ jobs:
           path: ${{ steps.ShellCheck.outputs.sarif }}
         if: github.event_name == 'pull_request'
 
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.22.x
-
-      - name: Check compatibility with min Go version (1.22.0)
-        working-directory: microcloud
-        run: |
-          set -eux
-          go mod tidy -go=1.22.0
-
       - name: Install dependencies
         run: |
           sudo add-apt-repository ppa:dqlite/dev -y --no-update
@@ -68,15 +67,12 @@ jobs:
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
       - name: Build
-        working-directory: microcloud
         run: make
 
       - name: Run static analysis
-        working-directory: microcloud
         run: make check-static
 
       - name: Unit tests
-        working-directory: microcloud
         run: make check-unit
 
   system-tests:
@@ -163,7 +159,6 @@ jobs:
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
       - name: Build
-        working-directory: microcloud
         run: |
           set -eux
 
@@ -212,7 +207,7 @@ jobs:
         run: |
           set -eux
           chmod +x ~
-          cd microcloud/test
+          cd test
           sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh setup
           echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
 
@@ -220,7 +215,7 @@ jobs:
         run: |
           set -eux
           chmod +x ~
-          cd microcloud/test
+          cd test
           sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh ${{ matrix.suite }}
 
   documentation-checks:
