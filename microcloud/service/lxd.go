@@ -443,11 +443,14 @@ func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
 
 	// As of LXD 5.21, the LXD snap should support content interfaces to automatically detect the presence of MicroOVN and MicroCeph.
 	// For older LXDs, we must restart to trigger the snap's detection of MicroOVN and MicroCeph to properly set up LXD's snap environment to work with them.
-	if semver.Compare(semver.Canonical(fmt.Sprintf("v%s", server.Environment.ServerVersion)), semver.Canonical(fmt.Sprintf("v%s", lxdMinVersion))) < 0 {
+	// semver.Compare will return 1 if the first argument is larger, 0 if the arguments are the same, and -1 if the first argument is smaller.
+	lxdVersion := semver.Canonical(fmt.Sprintf("v%s", server.Environment.ServerVersion))
+	expectedVersion := semver.Canonical(fmt.Sprintf("v%s", lxdMinVersion))
+	if semver.Compare(lxdVersion, expectedVersion) >= 0 {
 		return nil
 	}
 
-	logger.Warnf("Detected LXD older than %s, attempting restart to detect MicroOVN and MicroCeph integration", lxdMinVersion)
+	logger.Warnf("Detected LXD at version %q (older than %q), attempting restart to detect MicroOVN and MicroCeph integration", lxdVersion, expectedVersion)
 
 	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
 	if err != nil && err.Error() != "Shutdown already in progress" {
