@@ -31,6 +31,16 @@ jobs:
           # A non-shallow clone is needed for the Differential ShellCheck
           fetch-depth: 0
 
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+
+      - name: Check compatibility with min Go version (1.22.0)
+        run: |
+          set -eux
+          go mod tidy -go=1.22.0
+
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         if: github.event_name == 'pull_request'
@@ -49,16 +59,6 @@ jobs:
           name: Differential ShellCheck SARIF
           path: ${{ steps.ShellCheck.outputs.sarif }}
         if: github.event_name == 'pull_request'
-
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.22.x
-
-      - name: Check compatibility with min Go version (1.22.0)
-        run: |
-          set -eux
-          go mod tidy -go=1.22.0
 
       - name: Install dependencies
         run: |
