@@ -53,7 +53,8 @@ If you decide to not use MicroOVN, MicroCloud falls back on the Ubuntu fan for b
 This is just the beginning of MicroCloud. We’re very excited about what’s coming up next!
 
 ### **RESOURCES:**
- - Introduction: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871
- - Find the package at the Snap Store:
+
+- Introduction: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871
+- Find the package at the Snap Store:
 
  [![](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
