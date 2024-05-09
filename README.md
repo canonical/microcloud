@@ -25,13 +25,13 @@ Once the simple initialisation is complete, users can launch, run and manage the
 
 To get started, install the LXD, MicroCeph, MicroOVN and MicroCloud snaps. You can install them all at once with the following command:
 
-```
+```sh
 snap install lxd microceph microovn microcloud
 ```
 
 Then start the bootstrapping process with the following command:
 
-```
+```sh
 microcloud init
 ```
 
