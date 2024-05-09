@@ -16,7 +16,7 @@ To use local storage, each machine requires a local disk.
 To use distributed storage, at least three additional disks (not only partitions) for use by Ceph are required, and these disks must be on at least three different machines.
 
 <p align="center" width="100%">
-    <img width="33%" src="https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg">
+    <img alt="MicroCloud logo" width="33%" src="https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg">
 </p>
 
 Once the simple initialisation is complete, users can launch, run and manage their workloads using system containers or VMs, and otherwise utilise regular LXD functionality.
@@ -57,4 +57,4 @@ This is just the beginning of MicroCloud. We’re very excited about what’s co
 - Introduction: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871
 - Find the package at the Snap Store:
 
- [![](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
+ [![Snapcraft logo](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
