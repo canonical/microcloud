@@ -58,3 +58,5 @@ This is just the beginning of MicroCloud. We’re very excited about what’s co
 - Find the package at the Snap Store:
 
  [![Snapcraft logo](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
+
+- Snap package sources: [microcloud-pkg-snap](https://github.com/canonical/microcloud-pkg-snap)
