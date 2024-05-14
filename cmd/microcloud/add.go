@@ -84,7 +84,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe)
+	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe, false)
 	if err != nil {
 		return err
 	}
