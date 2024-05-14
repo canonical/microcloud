@@ -49,8 +49,9 @@ type InitStorage struct {
 
 // DirectStorage is a direct path to a disk, to be used to override DiskFilter.
 type DirectStorage struct {
-	Path string `yaml:"path"`
-	Wipe bool   `yaml:"wipe"`
+	Path    string `yaml:"path"`
+	Wipe    bool   `yaml:"wipe"`
+	Encrypt bool   `yaml:"encrypt"`
 }
 
 // InitNetwork represents the structure of the network config in the preseed yaml.
@@ -79,6 +80,7 @@ type DiskFilter struct {
 	FindMin int    `yaml:"find_min"`
 	FindMax int    `yaml:"find_max"`
 	Wipe    bool   `yaml:"wipe"`
+	Encrypt bool   `yaml:"encrypt"`
 }
 
 // DiskOperatorSet is the set of operators supported for filtering disks.
@@ -553,8 +555,9 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 			system.MicroCephDisks = append(
 				system.MicroCephDisks,
 				cephTypes.DisksPost{
-					Path: []string{disk.Path},
-					Wipe: disk.Wipe,
+					Path:    []string{disk.Path},
+					Wipe:    disk.Wipe,
+					Encrypt: disk.Encrypt,
 				},
 			)
 		}
@@ -628,8 +631,9 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 				system.MicroCephDisks = append(
 					system.MicroCephDisks,
 					cephTypes.DisksPost{
-						Path: []string{parseDiskPath(disk)},
-						Wipe: filter.Wipe,
+						Path:    []string{parseDiskPath(disk)},
+						Wipe:    filter.Wipe,
+						Encrypt: filter.Encrypt,
 					},
 				)
 				// There should only be one ceph pool per system.
