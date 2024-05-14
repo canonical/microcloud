@@ -224,7 +224,8 @@ custom_tags = []
 
 intersphinx_mapping = {
     'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None),
-    'ceph': ('https://docs.ceph.com/en/latest/', None)
+    'ceph': ('https://docs.ceph.com/en/latest/', None),
+    'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/reef-stable/', None)
 }
 
 # Define a :center: role that can be used to center the content of table cells.

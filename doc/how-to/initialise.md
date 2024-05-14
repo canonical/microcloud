@@ -71,6 +71,14 @@ Complete the following steps to initialise MicroCloud:
    1. Select whether you want to wipe any of the disks.
       Wiping a disk will destroy all data on it.
 
+   1. Select whether you want to encrypt any of the disks.
+      Encrypting a disk will store the encryption keys in the Ceph key ring inside the Ceph configuration folder.
+
+      ```{note}
+      Encryption requires a kernel with `dm_crypt` enabled.
+      See [how full disk encryption works](https://canonical-microceph.readthedocs-hosted.com/en/reef-stable/explanation/full-disk-encryption/) in the MicroCeph documentation for more information.
+      ```
+
    1. You can choose to optionally set up a CephFS distributed file system.
 1. Select either an IPv4 or IPv6 CIDR subnet for the Ceph internal traffic. You can leave it empty to use the default value, which is the MicroCloud internal network (see {ref}`howto-ceph-networking` for how to configure it).
 1. Select whether you want to set up distributed networking (using MicroOVN).
