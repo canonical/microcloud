@@ -4,7 +4,7 @@
 unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
+    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
 }
 
@@ -19,14 +19,15 @@ microcloud_interactive() {
   EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
   REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered service.
   REUSE_EXISTING_COUNT=${REUSE_EXISTING_COUNT:-0} # (number) number of existing clusters to incorporate.
-  SETUP_ZFS=${SETUP_ZFS:-}                        # (yes/no) input for initiating ZFS storage pool setup.
-  ZFS_FILTER=${ZFS_FILTER:-}                      # filter string for ZFS disks.
-  ZFS_WIPE=${ZFS_WIPE:-}                          # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}                      # (yes/no) input for initiating CEPH storage pool setup.
-  SETUP_CEPHFS=${SETUP_CEPHFS:-}                  # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_WARNING=${CEPH_WARNING:-}                  # (yes/no) input for warning about eligible disk detection.
-  CEPH_FILTER=${CEPH_FILTER:-}                    # filter string for CEPH disks.
-  CEPH_WIPE=${CEPH_WIPE:-}                        # (yes/no) to wipe all disks.
+  SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
+  ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
+  ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
+  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
+  CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
+  CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
+  CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
+  CEPH_ENCRYPT=${CEPH_ENCRYPT:-}                  # (yes/no) to encrypt all disks.
   CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet or Ceph public network if specified previously) input for setting up a cluster network.
   IGNORE_CEPH_NETWORKING=${IGNORE_CEPH_NETWORKING:-} # (yes/no) input for ignoring Ceph network setup. Set it to `yes` during `microcloud add` .
   PROCEED_WITH_NO_OVERLAY_NETWORKING=${PROCEED_WITH_NO_OVERLAY_NETWORKING:-} # (yes/no) input for proceeding without overlay networking.
@@ -84,6 +85,7 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matchi
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
+${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
 $(true)                                                 # workaround for set -e
 "
@@ -181,15 +183,27 @@ validate_system_microceph() {
       shift 1
     fi
 
+    encrypt=0
+    if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+      encrypt="${1}"
+      shift 1
+    fi
+
     cluster_ceph_subnet=""
     if echo "${1:-}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
       cluster_ceph_subnet="${1}"
       shift 1
     fi
 
+    if [ "${encrypt}" = 1 ]; then
+      local disks_to_encrypt="${1}"
+      shift 1
+      validate_ceph_encrypt "${name}" "${disks_to_encrypt}"
+    fi
+
     disks="${*}"
 
-    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}"
+    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}, Encrypt: {${encrypt}}"
 
     lxc remote switch local
     lxc exec "${name}" -- sh -ceu "
@@ -223,6 +237,33 @@ validate_system_microceph() {
     fi
 }
 
+# validate_ceph_encrypt: Ensures the node with the given name has an encrypted disk.
+validate_ceph_encrypt() {
+  name=${1}
+  shift 1
+  IFS=',' read -ra disks_list <<< "$1"
+
+  disks="${disks_list[*]}"
+  echo "==> ${name} Validating Ceph encryption. Using disks: {${disks}}"
+
+  lxc remote switch local
+  lxc exec "${name}" -- sh -ceu "
+    for disk in ${disks} ; do
+      ceph_disks=\$(microceph cluster sql \"select path from disks join internal_cluster_members on internal_cluster_members.id = disks.member_id where path like '%\${disk}' and name = '${name}'\")
+      disks_paths=\$(echo \"\${ceph_disks}\" | grep -o /dev/disk/by-id/scsi-.*_lxd_\${disk})
+      devname=\$(udevadm info --query=property --name=\"\$disks_paths\" | grep '^DEVNAME=' | cut -d'=' -f2 | cut -d'/' -f3)
+      result=\$(lsblk -l -o name,fstype | grep -E \"^\b\$devname\b.*crypto_LUKS\")
+
+      if [ -n \"\$result\" ]; then
+        echo \"\$devname is encrypted.\"
+      else
+        echo \"No corresponding encrypted /dev/sdX found.\"
+        exit 1
+      fi
+    done
+  "
+}
+
 # validate_system_microovn: Ensures the node with the given name has correctly set up MicroOVN with the given resources.
 validate_system_microovn() {
     name=${1}
@@ -233,10 +274,9 @@ validate_system_microovn() {
     lxc exec "${name}" -- microovn cluster list | grep -q "${name}"
 }
 
-# validate_system_lxd_zfs: Ensures the node with the given name has the given disk set up for ZFS storage.
+# validate_system_lxd_zfs: Ensures the node with the given name has a disk set up for ZFS storage.
 validate_system_lxd_zfs() {
   name=${1}
-  local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
   lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
   lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
@@ -245,9 +285,10 @@ validate_system_lxd_zfs() {
   grep -q "config: {}" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
+  # In microcloud auto mode, the disk number is not known in advance, we just know it's the first discovered disk.
   cfg="$(lxc storage show local --target "${name}")"
   grep -q "source: local" <<< "${cfg}"
-  grep -q "volatile.initial_source: .*${local_disk}" <<< "${cfg}"
+  grep -qE "volatile.initial_source: /[^/]+(/[^/]+)*" <<< "${cfg}"
   grep -q "zfs.pool_name: local" <<< "${cfg}"
   grep -q "driver: zfs" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
@@ -400,7 +441,7 @@ validate_system_lxd() {
     fi
 
     if [ -n "${local_disk}" ]; then
-      validate_system_lxd_zfs "${name}" "${local_disk}"
+      validate_system_lxd_zfs "${name}"
     fi
 
     if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
@@ -997,6 +1038,10 @@ setup_system() {
         sleep 1
       done
 
+      # dm-crypt needs to be manually connected for microceph full disk encyption.
+      snap connect microceph:dm-crypt
+      snap restart microceph.daemon
+
       while ! test -e /snap/bin/microovn ; do
         snap install microovn --channel=\"${MICROOVN_SNAP_CHANNEL}\" --cohort='+' || true
         sleep 1
@@ -1047,8 +1092,31 @@ new_system() {
   name=${1}
   num_disks=${2:-0}
 
-  create_system "${name}" "${num_disks}"
-  lxd_wait_vm "${name}"
+  (
+    set -eu
+    # Sometimes, the cloud-init user script fails to run in a CI environment,
+    # so we retry a few times.
+    for i in $(seq 5); do
+      create_system "${name}" "${num_disks}"
+
+      if ! lxd_wait_vm "${name}"; then
+        echo "lxd_wait_vm failed, removing ${name} and retrying (attempt ${i})"
+        lxc delete "${name}" -f
+        for n in $(seq 1 "${num_disks}") ; do
+          disk="${name}-disk${n}"
+          lxc storage volume delete zpool "${disk}"
+        done
+      else
+        break
+      fi
+
+      if [ "${i}" = 5 ]; then
+        echo "Failed to create ${name} after 5 attempts"
+        exit 1
+      fi
+    done
+  )
+
   # Sleep some time so the vm is fully set up.
   sleep 3
   setup_system "${name}"

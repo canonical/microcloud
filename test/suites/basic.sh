@@ -103,6 +103,7 @@ test_interactive() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_ENCRYPT="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -152,6 +153,7 @@ test_interactive() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_ENCRYPT="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -161,37 +163,18 @@ test_interactive() {
     validate_system_microovn "${m}"
   done
 
-  # Reset the systems and install microovn and microceph with a partially disaggregated ceph network setup.
-  reset_systems 3 3 3
+  # Reset the systems and install microovn and microceph (with Ceph encryption).
+  reset_systems 3 3 1
 
-  ceph_dedicated_subnet_prefix="10.0.1"
-  ceph_dedicated_subnet_iface="enp7s0"
-
-  for n in $(seq 2 4); do
-    dedicated_ip="${ceph_dedicated_subnet_prefix}.${n}/24"
-    lxc exec "micro0$((n-1))" -- ip addr add "${dedicated_ip}" dev "${ceph_dedicated_subnet_iface}"
-  done
-
-  echo "Creating a MicroCloud with ZFS, Ceph storage with a partially disaggregated Ceph networking setup, and OVN network"
-  export SETUP_ZFS="yes"
-  export ZFS_FILTER="lxd_disk1"
-  export ZFS_WIPE="yes"
-  export SETUP_CEPH="yes"
-  export SETUP_CEPHFS="yes"
-  export CEPH_FILTER="lxd_disk2"
-  export CEPH_WIPE="yes"
-  export CEPH_CLUSTER_NETWORK="${ceph_dedicated_subnet_prefix}.0/24"
-  export SETUP_OVN="yes"
-  export OVN_FILTER="enp6s0"
-  export IPV4_SUBNET="10.1.123.1/24"
-  export IPV4_START="10.1.123.100"
-  export IPV4_END="10.1.123.254"
+  echo "Creating a MicroCloud with ZFS and Ceph storage, and OVN network with Ceph encryption"
+  export CEPH_ENCRYPT="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
-    validate_system_microceph "${m}" 1 "${ceph_dedicated_subnet_prefix}.0/24" disk2
+    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}" "${DNS_ADDRESSES}"
+    # Check ceph encryption for disk2 as part of the microceph validation.
+    validate_system_microceph "${m}" 1 1 disk2 disk2
     validate_system_microovn "${m}"
   done
 
@@ -697,6 +680,7 @@ _test_case() {
         SETUP_CEPH="yes"
         SETUP_CEPHFS="yes"
         CEPH_WIPE="yes"
+        CEPH_ENCRYPT="no"
         expected_ceph_disks="${num_disks}"
         if [ -n "${expected_zfs_disk}" ]; then
           expected_ceph_disks="$((num_disks - 1))"
@@ -915,6 +899,7 @@ test_disk_mismatch() {
   export SETUP_CEPHFS="yes"
   export CEPH_WARNING="yes"
   export CEPH_WIPE="yes"
+  export CEPH_ENCRYPT="no"
   export SETUP_OVN="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
@@ -1080,6 +1065,7 @@ test_reuse_cluster() {
   export SETUP_CEPHFS="yes"
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
+  export CEPH_ENCRYPT="no"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
