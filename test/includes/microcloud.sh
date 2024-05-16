@@ -61,8 +61,9 @@ fi
 if [ -n "${SETUP_ZFS}" ]; then
   setup="${setup}
 ${SETUP_ZFS}                                            # add local disks (yes/no)
-$([ "${SETUP_ZFS}" = "yes" ] && printf "wait 300ms")    # wait for the table to populate
+$([ "${SETUP_ZFS}" = "yes" ] && printf "wait 500ms")    # wait for the table to populate
 ${ZFS_FILTER}                                           # filter zfs disks
+$([ "${SETUP_ZFS}" = "yes" ] && printf "wait 500ms")    # wait for the table to populate
 $([ "${SETUP_ZFS}" = "yes" ] && printf "select-all")    # select all disk matching the filter
 $([ "${SETUP_ZFS}" = "yes" ] && printf -- "---" )
 $([ "${ZFS_WIPE}"  = "yes" ] && printf "select-all")    # wipe all disks
@@ -75,8 +76,9 @@ if [ -n "${SETUP_CEPH}" ]; then
   setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
 ${CEPH_WARNING}                                         # continue with some peers missing disks? (yes/no)
-$([ "${SETUP_CEPH}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
+$([ "${SETUP_CEPH}" = "yes" ] && printf "wait 500ms")   # wait for the table to populate
 ${CEPH_FILTER}                                          # filter ceph disks
+$([ "${SETUP_CEPH}" = "yes" ] && printf "wait 500ms")   # wait for the table to populate
 $([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matching the filter
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
@@ -91,8 +93,9 @@ if [ -n "${SETUP_OVN}" ]; then
   setup="${setup}
 ${SETUP_OVN}                                           # agree to setup OVN
 ${OVN_WARNING}                                         # continue with some peers missing an interface? (yes/no)
-$([ "${SETUP_OVN}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
+$([ "${SETUP_OVN}" = "yes" ] && printf "wait 500ms")   # wait for the table to populate
 ${OVN_FILTER}                                          # filter interfaces
+$([ "${SETUP_OVN}" = "yes" ] && printf "wait 500ms")   # wait for the table to populate
 $([ "${SETUP_OVN}" = "yes" ] && printf "select-all")   # select all interfaces matching the filter
 $([ "${SETUP_OVN}" = "yes" ] && printf -- "---")
 ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateways and ranges
