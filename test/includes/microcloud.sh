@@ -5,7 +5,7 @@ unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
-    SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
+    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -19,24 +19,25 @@ microcloud_interactive() {
   EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
   REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered service.
   REUSE_EXISTING_COUNT=${REUSE_EXISTING_COUNT:-0} # (number) number of existing clusters to incorporate.
-  SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
-  ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
-  ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
-  SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
-  CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
-  CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
+  SETUP_ZFS=${SETUP_ZFS:-}                        # (yes/no) input for initiating ZFS storage pool setup.
+  ZFS_FILTER=${ZFS_FILTER:-}                      # filter string for ZFS disks.
+  ZFS_WIPE=${ZFS_WIPE:-}                          # (yes/no) to wipe all disks.
+  SETUP_CEPH=${SETUP_CEPH:-}                      # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPHFS=${SETUP_CEPHFS:-}                  # (yes/no) input for initialising CephFS storage pool setup.
+  CEPH_WARNING=${CEPH_WARNING:-}                  # (yes/no) input for warning about eligible disk detection.
+  CEPH_FILTER=${CEPH_FILTER:-}                    # filter string for CEPH disks.
+  CEPH_WIPE=${CEPH_WIPE:-}                        # (yes/no) to wipe all disks.
   CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet or Ceph public network if specified previously) input for setting up a cluster network.
   IGNORE_CEPH_NETWORKING=${IGNORE_CEPH_NETWORKING:-} # (yes/no) input for ignoring Ceph network setup. Set it to `yes` during `microcloud add` .
-  SETUP_OVN=${SETUP_OVN:-}                       # (yes/no) input for initiating OVN network setup.
-  OVN_WARNING=${OVN_WARNING:-}                   # (yes/no) input for warning about eligible interface detection.
-  OVN_FILTER=${OVN_FILTER:-}                     # filter string for OVN interfaces.
-  IPV4_SUBNET=${IPV4_SUBNET:-}                   # OVN ipv4 gateway subnet.
-  IPV4_START=${IPV4_START:-}                     # OVN ipv4 range start.
-  IPV4_END=${IPV4_END:-}                         # OVN ipv4 range end.
-  DNS_ADDRESSES=${DNS_ADDRESSES:-}               # OVN custom DNS addresses.
-  IPV6_SUBNET=${IPV6_SUBNET:-}                   # OVN ipv6 range.
+  PROCEED_WITH_NO_OVERLAY_NETWORKING=${PROCEED_WITH_NO_OVERLAY_NETWORKING:-} # (yes/no) input for proceeding without overlay networking.
+  SETUP_OVN=${SETUP_OVN:-}                        # (yes/no) input for initiating OVN network setup.
+  OVN_WARNING=${OVN_WARNING:-}                    # (yes/no) input for warning about eligible interface detection.
+  OVN_FILTER=${OVN_FILTER:-}                      # filter string for OVN interfaces.
+  IPV4_SUBNET=${IPV4_SUBNET:-}                    # OVN ipv4 gateway subnet.
+  IPV4_START=${IPV4_START:-}                      # OVN ipv4 range start.
+  IPV4_END=${IPV4_END:-}                          # OVN ipv4 range end.
+  DNS_ADDRESSES=${DNS_ADDRESSES:-}                # OVN custom DNS addresses.
+  IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
 
   setup="
 ${LOOKUP_IFACE}                                         # filter the lookup interface
@@ -84,6 +85,13 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 ${SETUP_CEPHFS}
+$(true)                                                 # workaround for set -e
+"
+fi
+
+if [ -n "${PROCEED_WITH_NO_OVERLAY_NETWORKING}" ]; then
+  setup="${setup}
+${PROCEED_WITH_NO_OVERLAY_NETWORKING}                   # agree to proceed without overlay networking (neither FAN nor OVN networking) (yes/no)
 $(true)                                                 # workaround for set -e
 "
 fi

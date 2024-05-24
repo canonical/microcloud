@@ -47,6 +47,46 @@ test_interactive() {
     validate_system_lxd "${m}" 3 disk1
   done
 
+  # Reset the systems with just LXD and no IPv6 support.
+  reset_systems 3 3 1
+
+  for m in micro01 micro02 micro03 ; do
+    lxc exec "${m}" -- echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+    lxc exec "${m}" -- snap disable microceph || true
+    lxc exec "${m}" -- snap disable microovn || true
+    lxc exec "${m}" -- snap restart microcloud
+  done
+
+  echo "Creating a MicroCloud with ZFS storage and no IPv6 support"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd "${m}" 3 disk1
+  done
+
+  # Reset the systems with just LXD and no IPv4 support.
+  gw_net_addr=$(lxc network get lxdbr0 ipv4.address)
+  lxc network set lxdbr0 ipv4.address none
+  reset_systems 3 3 1
+
+  for m in micro01 micro02 micro03 ; do
+    lxc exec "${m}" -- snap disable microceph || true
+    lxc exec "${m}" -- snap disable microovn || true
+    lxc exec "${m}" -- snap restart microcloud
+  done
+
+  export PROCEED_WITH_NO_OVERLAY_NETWORKING="no" # This will avoid to setup the cluster if no overlay networking is available.
+  echo "Creating a MicroCloud with ZFS storage and no IPv4 support"
+  ! microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init 2> err" || false
+
+  # Ensure we error out due to a lack of usable overlay networking.
+  lxc exec micro01 -- cat err | grep "cluster bootstrapping aborted due to lack of usable networking" -q
+
+  # Set the IPv4 address back to the original value.
+  lxc network set lxdbr0 ipv4.address "${gw_net_addr}"
+  unset PROCEED_WITH_NO_OVERLAY_NETWORKING
+
   # Reset the systems and install microceph.
   reset_systems 3 3 1
 
