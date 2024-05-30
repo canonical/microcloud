@@ -1051,6 +1051,7 @@ new_systems() {
     lxc profile device add default "eth${i}" nic network="microbr$((i - 1))" name="eth${i}"
   done
 
+  export CONCURRENT_SETUP=1
   for n in $(seq -f "%02g" 1 "${num_vms}"); do
     name="micro${n}"
     if [ "${CONCURRENT_SETUP}" = 1 ]; then
@@ -1059,6 +1060,8 @@ new_systems() {
       new_system "${name}" "${num_disks}"
     fi
   done
+
+  export CONCURRENT_SETUP=0
 
   wait
 
