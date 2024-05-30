@@ -139,6 +139,13 @@ systems:
       path: /dev/sdb
       wipe: true
 EOF
+
+  for m in micro01 micro02 micro03 ; do
+    echo "DEBUG (2): ${m}"
+    lxc exec "${name}" -- ls -l /dev/disk/by-id | grep "lxd_root.*sda"
+    echo "DEBUG END (2): ${m}"
+  done
+
 }
 
 test_instances_launch() {
