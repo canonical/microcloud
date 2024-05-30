@@ -110,6 +110,12 @@ test_interactive() {
 test_instances_config() {
   reset_systems 3 3 2
 
+  for m in micro01 micro02 micro03 ; do
+    echo "DEBUG (1): ${m}"
+    lxc exec "${m}" -- lsblk
+    lxc exec "${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
+    echo "DEBUG END (1): ${m}"
+  done
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
@@ -144,6 +150,13 @@ EOF
   done
 
   reset_systems 3 3 2
+
+  for m in micro01 micro02 micro03 ; do
+    echo "DEBUG (2): ${m}"
+    lxc exec "${m}" -- lsblk
+    lxc exec "${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
+    echo "DEBUG END (2): ${m}"
+  done
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)

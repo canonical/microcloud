@@ -205,28 +205,7 @@ run_preseed_tests() {
   run_test test_preseed "preseed"
 }
 
-# allow for running a specific set of tests
-if [ "${1:-"all"}" = "all" ]; then
-  run_add_tests
-  run_basic_tests
-  run_preseed_tests
-elif [ "${1}" = "add" ]; then
-  run_add_tests
-elif [ "${1}" = "auto" ]; then
-  run_auto_tests
-elif [ "${1}" = "basic" ]; then
-  run_basic_tests
-elif [ "${1}" = "interactive" ]; then
-  run_interactive_tests
-elif [ "${1}" = "mismatch" ]; then
-  run_mismatch_tests
-elif [ "${1}" = "preseed" ]; then
-  run_preseed_tests
-elif [ "${1}" = "setup" ]; then
-  testbed_setup
-else
-  run_test "test_${1}"
-fi
+run_test test_instances_config "instances config"
 
 # shellcheck disable=SC2034
 TEST_RESULT=success
