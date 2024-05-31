@@ -470,9 +470,6 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		if err != nil {
 			return err
 		}
-
-		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
-		time.Sleep(3 * time.Second)
 	}
 
 	for peer, cfg := range joinConfig {
@@ -485,9 +482,6 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		if err != nil {
 			return err
 		}
-
-		// Sleep 3 seconds to give the cluster roles time to reshuffle before adding more members.
-		time.Sleep(3 * time.Second)
 	}
 
 	return nil
