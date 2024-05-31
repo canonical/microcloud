@@ -5,6 +5,7 @@ backend
 balancers
 Ceph
 Ceph's
+CephFS
 CIDR
 DCO
 DHCP

@@ -1,14 +1,20 @@
 :orphan:
 
+.. vale off
+
 .. _cheat-sheet:
 
-reStructuredText cheat sheet
+ReStructuredText cheat sheet
 ============================
 
-This file contains the syntax for commonly used reST markup.
-See the `reStructuredText style guide`_ for detailed information and conventions.
+.. vale on
 
-Also see the `Sphinx reStructuredText Primer`_ for more details on reST, and the `Canonical Documentation Style Guide`_ for general style conventions.
+This file contains the syntax for commonly used reST markup.
+Open it in your text editor to quickly copy and paste the markup you need.
+
+See the `reStructuredText style guide <https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com/style-guide/>`_ for detailed information and conventions.
+
+Also see the `Sphinx reStructuredText Primer <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html>`_ for more details on reST, and the `Canonical Documentation Style Guide <https://docs.ubuntu.com/styleguide/en>`_ for general style conventions.
 
 H2 heading
 ----------
@@ -59,13 +65,12 @@ Links
 -----
 
 - `Canonical website <https://canonical.com/>`_
-- `Canonical website`_ (defined in ``reuse/links.txt``)
-- `Link defined at the bottom of the page`_
-- :spellexception:`https:\ //canonical.com/`
+- `Canonical website`_ (defined in ``reuse/links.txt`` or at the bottom of the page)
+- https:\ //canonical.com/
 - :ref:`a_section_target`
 - :ref:`Link text <a_section_target>`
-- :doc:`reference/index`
-- :doc:`Link text <reference/index>`
+- :doc:`index`
+- :doc:`Link text <index>`
 
 
 Navigation
@@ -116,6 +121,16 @@ Tables
 +----------------------+------------+
 | Cell 3               | Cell 4     |
 +----------------------+------------+
+
++----------------------+------------------+
+| :center:`Header 1`   | Header 2         |
++======================+==================+
+| Cell 1               | Cell 2           |
+|                      |                  |
+| Second paragraph     |                  |
++----------------------+------------------+
+| Cell 3               | :center:`Cell 4` |
++----------------------+------------------+
 
 .. list-table::
    :header-rows: 1
@@ -187,9 +202,9 @@ Reuse
 
 |reuse_key|
 
-.. include:: reference/index.rst
-   :start-after: You can mix different processor architectures within the same MicroCloud cluster.
-   :end-before: Networking requirements
+.. include:: index.rst
+   :start-after: include_start
+   :end-before: include_end
 
 Tabs
 ----
@@ -237,14 +252,27 @@ Related links at the top of the page::
 
 Terms that should not be checked by the spelling checker: :spellexception:`PurposelyWrong`
 
-A terminal view with input and output:
+A single-line terminal view that separates input from output:
 
 .. terminal::
    :input: command
    :user: root
    :host: vampyr
+   :dir: /home/user/directory/
 
    the output
+
+A multi-line version of the same:
+
+.. terminal::
+   :user: root
+   :host: vampyr
+   :dir: /home/user/directory/
+
+   :input: command 1
+   output 1
+   :input: command 2
+   output 2
 
 A link to a YouTube video:
 
@@ -254,6 +282,4 @@ A link to a YouTube video:
 
 
 .. LINKS
-.. _Link defined at the bottom of the page: https://canonical.com/
-.. wokeignore:rule=master
-.. _Sphinx reStructuredText Primer: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
+.. _Canonical website: https://canonical.com/
