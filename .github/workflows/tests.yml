@@ -79,7 +79,7 @@ jobs:
     env:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
-      SNAPSHOT_RESTORE: "1"
+      SNAPSHOT_RESTORE: "0"
     name: System
     runs-on: ubuntu-22.04
     strategy:
