@@ -369,6 +369,11 @@ validate_system_lxd() {
       validate_system_lxd_fan "${name}"
     fi
 
+    if [ -n "${local_disk}" ] || [ "${remote_disks}" -gt 0 ] ; then
+      echo "Check LXD resources for disk ordering"
+      lxc exec "local:${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
+    fi
+
     if [ -n "${local_disk}" ]; then
       validate_system_lxd_zfs "${name}" "${local_disk}"
     fi
@@ -478,15 +483,11 @@ reset_snaps() {
     fi
 
     echo "Enabling LXD and MicroCloud for ${name}"
-    lxc exec "${name}" -- sh -c "
-      snap enable lxd > /dev/null 2>&1 || true
-      snap enable microcloud > /dev/null 2>&1 || true
-      snap start lxd > /dev/null 2>&1 || true
-      snap start microcloud > /dev/null 2>&1 || true
-      snap refresh lxd --cohort=+
-
-      lxd waitready
-    "
+    lxc exec "${name}" -- snap enable lxd > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap enable microcloud > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap start lxd > /dev/null 2>&1 || true
+    lxc exec "${name}" -- snap start microcloud > /dev/null 2>&1 || true
+    lxc exec "${name}" -- lxd waitready
 
     set_debug_binaries "${name}"
   )
@@ -533,6 +534,8 @@ reset_system() {
 
     reset_snaps "${name}"
 
+    # Attempt to destroy the zpool as we may have left dangling volumes when we wiped the LXD database earlier.
+    # This is slightly faster than deleting the volumes by hand on each system.
     lxc exec "${name}" -- zpool destroy -f local || true
 
     # Hide any extra disks for this run.
@@ -590,7 +593,6 @@ cluster_reset() {
       done
 
       echo 'config: {}' | lxc profile edit default || true
-      lxc storage rm local || true
     "
 
     if lxc exec "${name}" -- snap list microceph > /dev/null 2>&1; then
@@ -615,6 +617,7 @@ cluster_reset() {
             microceph.ceph osd pool rm \${pool} \${pool} --yes-i-really-really-mean-it
           done
 
+          microceph.ceph osd set noup
           for osd in \$(microceph.ceph osd ls) ; do
             microceph.ceph config set osd.\${osd} osd_pool_default_crush_rule \$(microceph.ceph osd crush rule dump microceph_auto_osd | jq '.rule_id')
             microceph.ceph osd crush reweight osd.\${osd} 0
@@ -947,7 +950,7 @@ setup_system() {
 
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
-    if [ -n "${CLOUD_INSPECT:-}" ]; then
+    if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
       lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
     else
       lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
