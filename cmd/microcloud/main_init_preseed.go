@@ -498,8 +498,14 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		systems[peer] = system
 	}
 
+	// Check if FAN networking is usable.
+	fanUsable, _, err := lxd.FanNetworkUsable()
+	if err != nil {
+		return nil, err
+	}
+
 	// Setup FAN network if OVN not available.
-	if len(ifaceByPeer) == 0 {
+	if len(ifaceByPeer) == 0 && fanUsable {
 		for peer, system := range systems {
 			if bootstrap {
 				system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingFanNetwork())

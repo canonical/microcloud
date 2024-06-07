@@ -628,29 +628,46 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
 	_, bootstrap := systems[sh.Name]
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	for peer, system := range systems {
-		if bootstrap {
-			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
-			if peer == sh.Name {
-				network, err := lxd.DefaultFanNetwork()
-				if err != nil {
-					return err
+
+	// Check if FAN networking is usable.
+	fanUsable, _, err := lxd.FanNetworkUsable()
+	if err != nil {
+		return err
+	}
+
+	if fanUsable {
+		for peer, system := range systems {
+			if bootstrap {
+				system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
+				if peer == sh.Name {
+					network, err := lxd.DefaultFanNetwork()
+					if err != nil {
+						return err
+					}
+
+					system.Networks = []api.NetworksPost{network}
 				}
-
-				system.Networks = []api.NetworksPost{network}
 			}
-		}
 
-		systems[peer] = system
+			systems[peer] = system
+		}
 	}
 
 	// Automatic setup gets a basic fan setup.
 	if autoSetup {
+		if !fanUsable {
+			fmt.Println("FAN networking is not usable, skipping")
+		}
+
 		return nil
 	}
 
 	// Environments without OVN get a basic fan setup.
 	if sh.Services[types.MicroOVN] == nil {
+		if !fanUsable {
+			fmt.Println("FAN networking is not usable, skipping")
+		}
+
 		return nil
 	}
 
@@ -769,6 +786,10 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 
 	if !canOVN {
 		fmt.Println("No dedicated uplink interfaces detected, skipping distributed networking")
+		if !fanUsable {
+			fmt.Println("FAN networking is not usable, skipping")
+		}
+
 		return nil
 	}
 
