@@ -625,6 +625,19 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	return nil
 }
 
+func (c *CmdControl) askProceedIfNoOverlayNetwork() error {
+	proceedWithNoOverlayNetworking, err := c.asker.AskBool("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster? (yes/no) [default=no]: ", "no")
+	if err != nil {
+		return err
+	}
+
+	if proceedWithNoOverlayNetworking {
+		return nil
+	}
+
+	return fmt.Errorf("cluster bootstrapping aborted due to lack of usable networking")
+}
+
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
 	_, bootstrap := systems[sh.Name]
 	lxd := sh.Services[types.LXD].(*service.LXDService)
@@ -656,7 +669,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	// Automatic setup gets a basic fan setup.
 	if autoSetup {
 		if !fanUsable {
-			fmt.Println("FAN networking is not usable, skipping")
+			return c.askProceedIfNoOverlayNetwork()
 		}
 
 		return nil
@@ -665,7 +678,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	// Environments without OVN get a basic fan setup.
 	if sh.Services[types.MicroOVN] == nil {
 		if !fanUsable {
-			fmt.Println("FAN networking is not usable, skipping")
+			return c.askProceedIfNoOverlayNetwork()
 		}
 
 		return nil
@@ -787,7 +800,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	if !canOVN {
 		fmt.Println("No dedicated uplink interfaces detected, skipping distributed networking")
 		if !fanUsable {
-			fmt.Println("FAN networking is not usable, skipping")
+			return c.askProceedIfNoOverlayNetwork()
 		}
 
 		return nil
