@@ -28,20 +28,27 @@ import (
 
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
-	ServerInfo mdns.ServerInfo // Data reported by mDNS about this system.
-
-	InitializedServices map[types.ServiceType]map[string]string // A map of services and their cluster members, if initialized.
-
-	AvailableDisks []lxdAPI.ResourcesStorageDisk // Disks as reported by LXD.
-
-	MicroCephDisks                 []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
-	MicroCephInternalNetworkSubnet string                                 // MicroCephClusterNetworkSubnet is an optional the subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	TargetNetworks                 []lxdAPI.NetworksPost                  // Target specific network configuration.
-	TargetStoragePools             []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
-	Networks                       []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
-	StoragePools                   []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
-	StorageVolumes                 map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
-
+	// ServerInfo contains the data reported by mDNS about this system.
+	ServerInfo mdns.ServerInfo
+	// A map of services and their cluster members, if initialized.
+	InitializedServices map[types.ServiceType]map[string]string
+	// AvailableDisks contains the disks as reported by LXD.
+	AvailableDisks []lxdAPI.ResourcesStorageDisk
+	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
+	MicroCephDisks []cephTypes.DisksPost
+	// MicroCephClusterNetworkSubnet is an optional the subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
+	MicroCephInternalNetworkSubnet string
+	// TargetNetworks contains the network configuration for the target system.
+	TargetNetworks []lxdAPI.NetworksPost
+	// TargetStoragePools contains the storage pool configuration for the target system.
+	TargetStoragePools []lxdAPI.StoragePoolsPost
+	// Networks is the cluster-wide network configuration.
+	Networks []lxdAPI.NetworksPost
+	// StoragePools is the cluster-wide storage pool configuration.
+	StoragePools []lxdAPI.StoragePoolsPost
+	// StorageVolumes is the cluster-wide storage volume configuration.
+	StorageVolumes map[string][]lxdAPI.StorageVolumesPost
+	// JoinConfig is the LXD configuration for joining members.
 	JoinConfig []lxdAPI.ClusterMemberConfigKey
 }
 
