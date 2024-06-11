@@ -256,7 +256,12 @@ func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string
 
 	genericMembers := make(map[string]string, len(members))
 	for _, member := range members {
-		genericMembers[member.ServerName] = member.URL
+		url, err := url.Parse(member.URL)
+		if err != nil {
+			return nil, err
+		}
+
+		genericMembers[member.ServerName] = url.Host
 	}
 
 	return genericMembers, nil
