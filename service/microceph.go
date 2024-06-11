@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
@@ -25,6 +26,7 @@ type CephService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewCephService creates a new MicroCeph service with a client attached.
@@ -47,6 +49,7 @@ func NewCephService(ctx context.Context, name string, addr string, cloudDir stri
 		name:    name,
 		address: addr,
 		port:    CephPort,
+		config:  make(map[string]string),
 	}, nil
 }
 
@@ -78,7 +81,7 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
+	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config, 2*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -164,6 +167,49 @@ func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, err
 	return clusterMembers(ctx, client)
 }
 
+// ClusterConfig returns the Ceph cluster configuration.
+func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, targetSecret string) (map[string]string, error) {
+	var c *client.Client
+	var err error
+	if targetAddress == "" && targetSecret == "" {
+		c, err = s.Client("", "")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(targetAddress, CloudPort))
+		if err != nil {
+			return nil, err
+		}
+
+		c.Client.Client.Transport = &http.Transport{
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+			DisableKeepAlives: true,
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				r.Header.Set("X-MicroCloud-Auth", targetSecret)
+				if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
+					r.URL.Path = "/1.0/services/microceph" + r.URL.Path
+				}
+
+				return shared.ProxyFromEnvironment(r)
+			},
+		}
+	}
+
+	data := cephTypes.Config{}
+	cs, err := cephClient.GetConfig(ctx, c, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	configs := make(map[string]string, len(cs))
+	for _, c := range cs {
+		configs[c.Key] = c.Value
+	}
+
+	return configs, nil
+}
+
 // Type returns the type of Service.
 func (s CephService) Type() types.ServiceType {
 	return types.MicroCeph
@@ -182,4 +228,15 @@ func (s CephService) Address() string {
 // Port returns the port of this Service instance.
 func (s CephService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the config of this Service instance.
+func (s *CephService) SetConfig(config map[string]string) {
+	if s.config == nil {
+		s.config = make(map[string]string)
+	}
+
+	for key, value := range config {
+		s.config[key] = value
+	}
 }

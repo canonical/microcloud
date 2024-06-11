@@ -35,3 +35,7 @@ VLAN
 VM
 VMs
 ZFS
+disaggregated
+subnets
+GbE
+QSFP

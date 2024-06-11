@@ -2,7 +2,7 @@
 
 test_preseed() {
   reset_systems 4 3 2
-  lookup_addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lookup_addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
 
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
@@ -61,7 +61,7 @@ EOF
   validate_system_microovn micro02
 
   # Grow the MicroCloud with a new node, with filter-based storage selection.
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed <<EOF
 lookup_subnet: ${lookup_addr}/24
 lookup_interface: enp5s0
 systems:
@@ -86,7 +86,7 @@ EOF
   validate_system_microovn micro04
 
   reset_systems 3 3 2
-  lookup_addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lookup_addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
 
   # Create a MicroCloud but don't set up storage or network (Should get a FAN setup).
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
@@ -105,7 +105,7 @@ EOF
   done
 
   reset_systems 3 3 2
-  lookup_addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lookup_addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
 
   # Create a MicroCloud if we don't have MicroOVN or MicroCeph installed.
   lxc exec micro01 -- snap disable microceph

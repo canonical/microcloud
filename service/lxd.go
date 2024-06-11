@@ -30,6 +30,7 @@ type LXDService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewLXDService creates a new LXD service with a client attached.
@@ -44,6 +45,7 @@ func NewLXDService(ctx context.Context, name string, addr string, cloudDir strin
 		name:    name,
 		address: addr,
 		port:    LXDPort,
+		config:  make(map[string]string),
 	}, nil
 }
 
@@ -280,6 +282,17 @@ func (s LXDService) Port() int64 {
 	return s.port
 }
 
+// SetConfig sets the config of this Service instance.
+func (s *LXDService) SetConfig(config map[string]string) {
+	if s.config == nil {
+		s.config = make(map[string]string)
+	}
+
+	for key, value := range config {
+		s.config[key] = value
+	}
+}
+
 // HasExtension checks if the server supports the API extension.
 func (s *LXDService) HasExtension(ctx context.Context, target string, address string, secret string, apiExtension string) (bool, error) {
 	var err error
@@ -320,19 +333,20 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 	return client.GetServerResources()
 }
 
-// GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
-func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
-	clients := map[string]lxd.InstanceServer{}
-	networks := map[string][]api.Network{}
+// getClientsAndNetworks returns a map of clients and networks for the given LXDService and peers.
+func getClientsAndNetworks(s LXDService, ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (clients map[string]lxd.InstanceServer, networks map[string][]api.Network, err error) {
+	clients = make(map[string]lxd.InstanceServer)
+	networks = make(map[string][]api.Network)
+
 	if bootstrap {
 		client, err := s.Client(ctx, "")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		networks[s.Name()], err = client.GetNetworks()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		clients[s.Name()] = client
@@ -346,56 +360,76 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 
 		client, err := s.remoteClient(info.AuthSecret, info.Address, CloudPort)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		networks[info.Name], err = client.GetNetworks()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		clients[info.Name] = client
 	}
 
-	candidates := map[string][]api.Network{}
+	return clients, networks, nil
+}
+
+// defaultNetworkInterfacesFilter filters a network based on default rules and return whether it should be skipped and the addresses on the interface.
+func defaultNetworkInterfacesFilter(clients map[string]lxd.InstanceServer, peer string, network api.Network) (bool, []string) {
+	// Skip managed networks.
+	if network.Managed {
+		return true, []string{}
+	}
+
+	// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
+	if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
+		return true, []string{}
+	}
+
+	state, err := clients[peer].GetNetworkState(network.Name)
+	if err != nil {
+		return true, []string{}
+	}
+
+	// OpenVswitch only works with full L2 devices.
+	if state.Type != "broadcast" {
+		return true, []string{}
+	}
+
+	// Can't use interfaces that aren't up.
+	if state.State != "up" {
+		return true, []string{}
+	}
+
+	// Make sure the interface isn't in use by ensuring there's no global addresses on it.
+	addresses := []string{}
+
+	if network.Type != "bridge" {
+		for _, address := range state.Addresses {
+			if address.Scope != "global" {
+				continue
+			}
+
+			addresses = append(addresses, address.Address)
+		}
+	}
+
+	return false, addresses
+}
+
+// GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
+func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
+	clients, networks, err := getClientsAndNetworks(s, ctx, bootstrap, peers)
+	if err != nil {
+		return nil, err
+	}
+
+	candidates := make(map[string][]api.Network)
 	for peer, nets := range networks {
 		for _, network := range nets {
-			// Skip managed networks.
-			if network.Managed {
+			filtered, addresses := defaultNetworkInterfacesFilter(clients, peer, network)
+			if filtered {
 				continue
-			}
-
-			// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
-			if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
-				continue
-			}
-
-			state, err := clients[peer].GetNetworkState(network.Name)
-			if err != nil {
-				continue
-			}
-
-			// OpenVswitch only works with full L2 devices.
-			if state.Type != "broadcast" {
-				continue
-			}
-
-			// Can't use interfaces that aren't up.
-			if state.State != "up" {
-				continue
-			}
-
-			// Make sure the interface isn't in use by ensuring there's no global addresses on it.
-			addresses := []string{}
-
-			if network.Type != "bridge" {
-				for _, address := range state.Addresses {
-					if address.Scope != "global" {
-						continue
-					}
-
-					addresses = append(addresses, address.Address)
-				}
 			}
 
 			if len(addresses) > 0 {
@@ -407,6 +441,85 @@ func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, pee
 	}
 
 	return candidates, nil
+}
+
+// CephDedicatedInterface represents a dedicated interface for Ceph.
+type CephDedicatedInterface struct {
+	Name      string
+	Type      string
+	Addresses []string
+}
+
+// GetCephInterfaces returns a map of peer name to slice of CephDedicatedInterface that may be used to setup
+// a dedicated Ceph network.
+func (s LXDService) GetCephInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]CephDedicatedInterface, error) {
+	clients, networks, err := getClientsAndNetworks(s, ctx, bootstrap, peers)
+	if err != nil {
+		return nil, err
+	}
+
+	candidates := make(map[string][]CephDedicatedInterface)
+	for peer, nets := range networks {
+		for _, network := range nets {
+			filtered, addresses := defaultNetworkInterfacesFilter(clients, peer, network)
+			if filtered {
+				continue
+			}
+
+			if len(addresses) == 0 {
+				continue
+			}
+
+			candidates[peer] = append(candidates[peer], CephDedicatedInterface{
+				Name:      network.Name,
+				Type:      network.Type,
+				Addresses: addresses,
+			})
+		}
+	}
+
+	return candidates, nil
+}
+
+// ValidateCephInterfaces validates the given interfaces map against the given Ceph network subnet
+// and returns a map of peer name to interfaces that are in the subnet.
+func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfacesMap map[string][]CephDedicatedInterface) (map[string][][]string, error) {
+	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid CIDR subnet: %v", err)
+	}
+
+	ones, bits := subnet.Mask.Size()
+	if bits-ones == 0 {
+		return nil, fmt.Errorf("Invalid Ceph network subnet (must have more than one address)")
+	}
+
+	data := make(map[string][][]string)
+	for peer, interfaces := range interfacesMap {
+		for _, iface := range interfaces {
+			for _, addr := range iface.Addresses {
+				ip := net.ParseIP(addr)
+				if ip == nil {
+					return nil, fmt.Errorf("Invalid IP address: %v", addr)
+				}
+
+				if (subnet.IP.To4() != nil && ip.To4() != nil && subnet.Contains(ip)) || (subnet.IP.To16() != nil && ip.To16() != nil && subnet.Contains(ip)) {
+					_, ok := data[peer]
+					if !ok {
+						data[peer] = [][]string{{peer, iface.Name, addr, iface.Type}}
+					} else {
+						data[peer] = append(data[peer], []string{peer, iface.Name, addr, iface.Type})
+					}
+				}
+			}
+		}
+	}
+
+	if len(data) == 0 {
+		fmt.Println("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup")
+	}
+
+	return data, nil
 }
 
 // isInitialized checks if LXD is initialized by fetching the storage pools.

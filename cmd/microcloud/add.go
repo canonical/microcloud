@@ -89,7 +89,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}

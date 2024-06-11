@@ -24,6 +24,11 @@ systems:
 - name: micro04
   ovn_uplink_interface: eth1
 
+# `ceph` is optional and represents the Ceph global configuration
+ceph:
+  internal_network: 10.0.1.0/24
+  public_network: 10.0.2.0/24
+
 # `ovn` is optional and represents the OVN & uplink network configuration for LXD.
 ovn:
   ipv4_gateway: 192.0.2.1/24

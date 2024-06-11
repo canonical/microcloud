@@ -24,6 +24,7 @@ type OVNService struct {
 	name    string
 	address string
 	port    int64
+	config  map[string]string
 }
 
 // NewOVNService creates a new MicroOVN service with a client attached.
@@ -46,6 +47,7 @@ func NewOVNService(ctx context.Context, name string, addr string, cloudDir strin
 		name:    name,
 		address: addr,
 		port:    OVNPort,
+		config:  make(map[string]string),
 	}, nil
 }
 
@@ -143,4 +145,15 @@ func (s OVNService) Address() string {
 // Port returns the port of this Service instance.
 func (s OVNService) Port() int64 {
 	return s.port
+}
+
+// SetConfig sets the config of this Service instance.
+func (s *OVNService) SetConfig(config map[string]string) {
+	if s.config == nil {
+		s.config = make(map[string]string)
+	}
+
+	for key, value := range config {
+		s.config[key] = value
+	}
 }

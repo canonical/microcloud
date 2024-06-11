@@ -28,20 +28,28 @@ import (
 
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
-	ServerInfo mdns.ServerInfo // Data reported by mDNS about this system.
-
-	InitializedServices map[types.ServiceType]map[string]string // A map of services and their cluster members, if initialized.
-
-	AvailableDisks []lxdAPI.ResourcesStorageDisk // Disks as reported by LXD.
-
-	MicroCephDisks     []cephTypes.DisksPost                  // Disks intended to be passed to MicroCeph.
-	TargetNetworks     []lxdAPI.NetworksPost                  // Target specific network configuration.
-	TargetStoragePools []lxdAPI.StoragePoolsPost              // Target specific storage pool configuration.
-	Networks           []lxdAPI.NetworksPost                  // Cluster-wide network configuration.
-	StoragePools       []lxdAPI.StoragePoolsPost              // Cluster-wide storage pool configuration.
-	StorageVolumes     map[string][]lxdAPI.StorageVolumesPost // Cluster wide storage volume configuration.
-
-	JoinConfig []lxdAPI.ClusterMemberConfigKey // LXD Config for joining members.
+	// ServerInfo contains the data reported by mDNS about this system.
+	ServerInfo mdns.ServerInfo
+	// A map of services and their cluster members, if initialized.
+	InitializedServices map[types.ServiceType]map[string]string
+	// AvailableDisks contains the disks as reported by LXD.
+	AvailableDisks []lxdAPI.ResourcesStorageDisk
+	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
+	MicroCephDisks []cephTypes.DisksPost
+	// MicroCephClusterNetworkSubnet is an optional the subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
+	MicroCephInternalNetworkSubnet string
+	// TargetNetworks contains the network configuration for the target system.
+	TargetNetworks []lxdAPI.NetworksPost
+	// TargetStoragePools contains the storage pool configuration for the target system.
+	TargetStoragePools []lxdAPI.StoragePoolsPost
+	// Networks is the cluster-wide network configuration.
+	Networks []lxdAPI.NetworksPost
+	// StoragePools is the cluster-wide storage pool configuration.
+	StoragePools []lxdAPI.StoragePoolsPost
+	// StorageVolumes is the cluster-wide storage volume configuration.
+	StorageVolumes map[string][]lxdAPI.StorageVolumesPost
+	// JoinConfig is the LXD configuration for joining members.
+	JoinConfig []lxdAPI.ClusterMemberConfigKey
 }
 
 type cmdInit struct {
@@ -144,7 +152,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
 	if err != nil {
 		return err
 	}
@@ -680,7 +688,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 // configuration.
 func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	initializedServices := map[types.ServiceType]string{}
-	_, bootstrap := systems[s.Name]
+	bootstrapSystem, bootstrap := systems[s.Name]
 	if bootstrap {
 		for serviceType := range s.Services {
 			for peer, system := range systems {
@@ -697,6 +705,17 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			// If there's already an initialized system for this service, we don't need to bootstrap it.
 			if initializedServices[s.Type()] != "" {
 				return nil
+			}
+
+			if s.Type() == types.MicroCeph {
+				microCephBootstrapConf := make(map[string]string)
+				if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
+					microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+				}
+
+				if len(microCephBootstrapConf) > 0 {
+					s.SetConfig(microCephBootstrapConf)
+				}
 			}
 
 			err := s.Bootstrap(context.Background())
