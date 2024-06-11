@@ -104,6 +104,14 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	systems := map[string]InitSystem{}
 
+	setupMany := true
+	if !c.flagAutoSetup {
+		setupMany, err = c.common.asker.AskBool("Do you want to concurrently set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
+	}
+
 	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
@@ -137,14 +145,16 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
-	if err != nil {
-		return err
-	}
+	if setupMany {
+		err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+		if err != nil {
+			return err
+		}
 
-	err = c.common.askClustered(s, c.flagAutoSetup, systems)
-	if err != nil {
-		return err
+		err = c.common.askClustered(s, c.flagAutoSetup, systems)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
