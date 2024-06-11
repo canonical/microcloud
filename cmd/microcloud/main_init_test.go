@@ -21,7 +21,7 @@ func newSystemWithNetworks(address string, networks []lxdAPI.NetworksPost) InitS
 
 func newSystemWithUplinkNetConfig(address string, config map[string]string) InitSystem {
 	return newSystemWithNetworks(address, []lxdAPI.NetworksPost{{
-		Name: "UPLINK",
+		Name: service.DefaultUplinkNetwork,
 		Type: "physical",
 		NetworkPut: lxdAPI.NetworkPut{
 			Config: config,
