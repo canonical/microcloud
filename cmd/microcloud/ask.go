@@ -160,14 +160,47 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 	}
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	supportsLocal, _, err := lxd.SupportsPool(context.Background(), service.DefaultZFSPool)
+	supportsLocal, localExists, err := lxd.SupportsPool(context.Background(), service.DefaultZFSPool)
 	if err != nil {
 		return err
 	}
 
+	var supportsCeph bool
+	var cephExists bool
+	if sh.Services[types.MicroCeph] != nil {
+		supportsCeph, cephExists, err = lxd.SupportsPool(context.Background(), service.DefaultCephPool)
+		if err != nil {
+			return err
+		}
+	}
+
+	// If we are bootstrapping, but there is no local pool, fetch the disks from existing members to present.
+	var clusterMembers map[string]string
+	checkExisting := (supportsLocal && !localExists) || (supportsCeph && !cephExists)
+	if !bootstrap && checkExisting {
+		clusterMembers, err = sh.Services[types.LXD].ClusterMembers(context.Background())
+		if err != nil {
+			return err
+		}
+
+		client, err := lxd.Client(context.Background(), "")
+		if err != nil {
+			return err
+		}
+
+		for member := range clusterMembers {
+			target := client.UseTarget(member)
+			allResources[member], err = target.GetServerResources()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	foundDisks := false
+	askSystems := map[string]InitSystem{}
 	for peer, r := range allResources {
-		system := systems[peer]
+		system, ok := systems[peer]
 		system.AvailableDisks = make([]api.ResourcesStorageDisk, 0, len(r.Storage.Disks))
 		for _, disk := range r.Storage.Disks {
 			if len(disk.Partitions) == 0 {
@@ -179,7 +212,16 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 			foundDisks = true
 		}
 
-		systems[peer] = system
+		// Include any existing cluster members for whom we fetched disks.
+		if !ok {
+			system.ServerInfo.Name = peer
+			system.ServerInfo.Address, _, err = net.SplitHostPort(clusterMembers[peer])
+			if err != nil {
+				return err
+			}
+		}
+
+		askSystems[peer] = system
 	}
 
 	wantsDisks := true
@@ -196,29 +238,47 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		}
 
 		if wantsDisks {
-			c.askRetry("Retry selecting disks?", autoSetup, func() error {
-				return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-			})
-		}
-	}
+			// Create a temporary system map to assign disks. A system from the existing cluster may to be appended if it has no local pool.
+			zfsSystems := map[string]InitSystem{}
+			for peer, sys := range askSystems {
+				_, ok := systems[peer]
+				if ok {
+					zfsSystems[peer] = sys
+				} else if !localExists {
+					zfsSystems[peer] = sys
+				}
+			}
 
-	var supportsCeph bool
-	if sh.Services[types.MicroCeph] != nil {
-		supportsCeph, _, err = lxd.SupportsPool(context.Background(), service.DefaultCephPool)
-		if err != nil {
-			return err
+			c.askRetry("Retry selecting disks?", autoSetup, func() error {
+				return askLocalPool(zfsSystems, autoSetup, wipeAllDisks, *lxd)
+			})
+
+			// Update the entries in askSystem with the newly supplied disks.
+			for peer, sys := range zfsSystems {
+				askSystems[peer] = sys
+			}
 		}
 	}
 
 	if supportsCeph {
 		availableDisks := map[string][]api.ResourcesStorageDisk{}
-		for peer, system := range systems {
+		cephSystems := map[string]InitSystem{}
+		for peer, sys := range askSystems {
+			_, ok := systems[peer]
+			if ok {
+				cephSystems[peer] = sys
+			} else if !cephExists {
+				cephSystems[peer] = sys
+			}
+		}
+
+		for peer, system := range cephSystems {
 			if len(system.AvailableDisks) > 0 {
 				availableDisks[peer] = system.AvailableDisks
 			}
 		}
 
-		if bootstrap && len(availableDisks) < 3 {
+		if (bootstrap || !cephExists) && len(availableDisks) < 3 {
 			fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
 		} else {
 			wantsDisks = true
@@ -228,7 +288,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 					return err
 				}
 
-				if len(systems) != len(availableDisks) && wantsDisks {
+				if len(cephSystems) != len(availableDisks) && wantsDisks {
 					wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
 					if err != nil {
 						return err
@@ -238,8 +298,13 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 			if wantsDisks {
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
+					return c.askRemotePool(cephSystems, autoSetup, wipeAllDisks, sh)
 				})
+
+				// Update the systems list.
+				for peer, sys := range cephSystems {
+					askSystems[peer] = sys
+				}
 			}
 		}
 	}
@@ -255,6 +320,18 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 				systems[peer] = system
 			}
+		}
+	}
+
+	// Finally update the global systems map. If there are entries for existing cluster members, we only need to append them if they are going to add storage pools.
+	for peer, sys := range askSystems {
+		_, ok := systems[peer]
+		if !ok {
+			if len(sys.TargetStoragePools) > 0 || len(sys.JoinConfig) > 0 {
+				systems[peer] = sys
+			}
+		} else {
+			systems[peer] = sys
 		}
 	}
 
