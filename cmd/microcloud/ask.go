@@ -745,10 +745,46 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 		return nil
 	}
 
-	// Get the list of networks from all peers.
+	var clusterMembers map[string]string
+	if !bootstrap {
+		clusterMembers, err = sh.Services[types.LXD].ClusterMembers(context.Background())
+		if err != nil {
+			return err
+		}
+	}
+
+	// Get the list of networks from all peers. Exclude any existing systems if OVN has been set up.
 	infos := []mdns.ServerInfo{}
-	for _, system := range systems {
+	askSystems := map[string]InitSystem{}
+	for name, system := range systems {
+		if !bootstrap && clusterMembers[name] != "" && ovnExists {
+			continue
+		}
+
 		infos = append(infos, system.ServerInfo)
+		askSystems[name] = system
+	}
+
+	// If we are not bootstrapping, and don't have OVN set up, then fetch the networks from cluster members too.
+	if !bootstrap && !ovnExists {
+		for name, address := range clusterMembers {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+
+			info := mdns.ServerInfo{Name: name, Address: host}
+			infos = append(infos, info)
+			_, ok := askSystems[name]
+			if !ok {
+				askSystems[name] = InitSystem{ServerInfo: info}
+			}
+		}
+	}
+
+	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
+	if err != nil {
+		return err
 	}
 
 	// Environments without Ceph don't need to configure the Ceph network.
@@ -757,6 +793,11 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 		lxdService := sh.Services[types.LXD].(*service.LXDService)
 		if lxdService == nil {
 			return fmt.Errorf("failed to get LXD service")
+		}
+
+		infos := []mdns.ServerInfo{}
+		for _, system := range systems {
+			infos = append(infos, system.ServerInfo)
 		}
 
 		availableCephNetworkInterfaces, err := lxdService.GetCephInterfaces(context.Background(), bootstrap, infos)
@@ -770,7 +811,7 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 			if bootstrap {
 				// First, check if there are any initialized systems for MicroCeph.
 				var initializedMicroCephSystem *InitSystem
-				for peer, system := range systems {
+				for peer, system := range askSystems {
 					if system.InitializedServices[types.MicroCeph][peer] != "" {
 						initializedMicroCephSystem = &system
 						break
@@ -804,27 +845,27 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 					}
 
 					if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
-						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, internalCephSubnet)
+						err = validateCephInterfacesForSubnet(lxdService, askSystems, availableCephNetworkInterfaces, internalCephSubnet)
 						if err != nil {
 							return err
 						}
 
-						bootstrapSystem := systems[sh.Name]
+						bootstrapSystem := askSystems[sh.Name]
 						bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
-						systems[sh.Name] = bootstrapSystem
+						askSystems[sh.Name] = bootstrapSystem
 					}
 				} else {
 					// Else, we validate that the systems to be bootstrapped comply with the network configuration of the existing remote Ceph cluster,
 					// and set their Ceph network configuration accordingly.
 					if customTargetCephInternalNetwork != "" && customTargetCephInternalNetwork != microCloudInternalNetworkAddrCIDR {
-						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, customTargetCephInternalNetwork)
+						err = validateCephInterfacesForSubnet(lxdService, askSystems, availableCephNetworkInterfaces, customTargetCephInternalNetwork)
 						if err != nil {
 							return err
 						}
 
-						bootstrapSystem := systems[sh.Name]
+						bootstrapSystem := askSystems[sh.Name]
 						bootstrapSystem.MicroCephInternalNetworkSubnet = customTargetCephInternalNetwork
-						systems[sh.Name] = bootstrapSystem
+						askSystems[sh.Name] = bootstrapSystem
 					}
 				}
 			} else {
@@ -835,18 +876,13 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 				}
 
 				if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != microCloudInternalSubnet.String() {
-					err = validateCephInterfacesForSubnet(lxd, systems, availableCephNetworkInterfaces, localInternalCephNetwork.String())
+					err = validateCephInterfacesForSubnet(lxd, askSystems, availableCephNetworkInterfaces, localInternalCephNetwork.String())
 					if err != nil {
 						return err
 					}
 				}
 			}
 		}
-	}
-
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
-	if err != nil {
-		return err
 	}
 
 	// Check if OVN is possible in the environment.
@@ -873,7 +909,7 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 		return nil
 	}
 
-	missingSystems := len(systems) != len(networks)
+	missingSystems := len(askSystems) != len(networks)
 	for _, nets := range networks {
 		if len(nets) == 0 {
 			missingSystems = true
@@ -1015,17 +1051,17 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 	}
 
 	if len(selected) > 0 {
-		for peer, system := range systems {
+		for peer, system := range askSystems {
 			system.TargetNetworks = []api.NetworksPost{}
 			system.Networks = []api.NetworksPost{}
 
-			systems[peer] = system
+			askSystems[peer] = system
 		}
 	}
 
 	// If we are adding a new member, a MemberConfig entry should suffice to create the network on the cluster member.
 	for peer, parent := range selected {
-		system := systems[peer]
+		system := askSystems[peer]
 		if !bootstrap {
 			if system.JoinConfig == nil {
 				system.JoinConfig = []api.ClusterMemberConfigKey{}
@@ -1036,11 +1072,11 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(parent))
 		}
 
-		systems[peer] = system
+		askSystems[peer] = system
 	}
 
 	if bootstrap {
-		bootstrapSystem := systems[sh.Name]
+		bootstrapSystem := askSystems[sh.Name]
 
 		var ipv4Gateway string
 		var ipv4Ranges string
@@ -1061,7 +1097,19 @@ func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitS
 
 		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
-		systems[sh.Name] = bootstrapSystem
+		askSystems[sh.Name] = bootstrapSystem
+	}
+
+	// Finally update the global systems map. If there are entries for existing cluster members, we only need to append them if they are going to add storage pools.
+	for peer, sys := range askSystems {
+		_, ok := systems[peer]
+		if !ok {
+			if len(sys.TargetNetworks) > 0 || len(sys.JoinConfig) > 0 {
+				systems[peer] = sys
+			}
+		} else {
+			systems[peer] = sys
+		}
 	}
 
 	return nil
