@@ -84,15 +84,15 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe)
+	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe, false)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup, false)
 	if err != nil {
 		return err
 	}
 
-	return setupCluster(s, systems)
+	return setupCluster(s, false, systems)
 }

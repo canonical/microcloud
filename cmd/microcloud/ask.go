@@ -148,8 +148,7 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 	return listenAddr, iface, subnet, nil
 }
 
-func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool) error {
-	_, bootstrap := systems[sh.Name]
+func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, bootstrap bool) error {
 	allResources := make(map[string]*api.Resources, len(systems))
 	var err error
 	for peer, system := range systems {
@@ -191,7 +190,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	if wantsDisks {
 		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
+			return askLocalPool(systems, autoSetup, wipeAllDisks, bootstrap, *lxd)
 		})
 	}
 
@@ -223,7 +222,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 			if wantsDisks {
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
+					return c.askRemotePool(systems, autoSetup, wipeAllDisks, bootstrap, sh)
 				})
 			}
 		}
@@ -257,7 +256,7 @@ func parseDiskPath(disk api.ResourcesStorageDisk) string {
 	return devicePath
 }
 
-func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, lxd service.LXDService) error {
+func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, bootstrap bool, lxd service.LXDService) error {
 	data := [][]string{}
 	selected := map[string]string{}
 	for peer, system := range systems {
@@ -351,7 +350,6 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 		toWipe = selected
 	}
 
-	_, bootstrap := systems[lxd.Name()]
 	for target, path := range selected {
 		system := systems[target]
 		if bootstrap {
@@ -446,7 +444,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 	return internalCephNetwork, nil
 }
 
-func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
+func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, bootstrap bool, sh *service.Handler) error {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for peer, system := range systems {
@@ -536,7 +534,6 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 				system.TargetStoragePools = []api.StoragePoolsPost{}
 			}
 
-			_, bootstrap := systems[sh.Name]
 			if bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
 				if target == sh.Name {
@@ -570,7 +567,6 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	}
 
 	setupCephFS := false
-	_, bootstrap := systems[sh.Name]
 	if bootstrap && !autoSetup {
 		var err error
 		ext := "storage_cephfs_create_missing"
@@ -625,8 +621,7 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	return nil
 }
 
-func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
-	_, bootstrap := systems[sh.Name]
+func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	for peer, system := range systems {
 		if bootstrap {

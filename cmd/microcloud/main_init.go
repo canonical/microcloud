@@ -147,22 +147,22 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
+	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks, true)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup, true)
 	if err != nil {
 		return err
 	}
 
-	err = validateSystems(s, systems)
+	err = validateSystems(s, systems, true)
 	if err != nil {
 		return err
 	}
 
-	err = setupCluster(s, systems)
+	err = setupCluster(s, true, systems)
 	if err != nil {
 		return err
 	}
@@ -382,7 +382,7 @@ func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, se
 	return nil
 }
 
-func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
+func AddPeers(sh *service.Handler, systems map[string]InitSystem, bootstrap bool) error {
 	// Grab the systems that are clustered from the InitSystem map.
 	initializedServices := map[types.ServiceType]string{}
 	existingSystems := map[types.ServiceType]map[string]string{}
@@ -407,7 +407,6 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		}
 	}
 
-	_, bootstrap := systems[sh.Name]
 	clusterSize := map[types.ServiceType]int{}
 	if bootstrap {
 		for serviceType, clusterMembers := range existingSystems {
@@ -533,8 +532,8 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 	return ovnIPRanges, nil
 }
 
-func validateSystems(s *service.Handler, systems map[string]InitSystem) (err error) {
-	curSystem, bootstrap := systems[s.Name]
+func validateSystems(s *service.Handler, systems map[string]InitSystem, bootstrap bool) (err error) {
+	curSystem, _ := systems[s.Name]
 	if !bootstrap {
 		return nil
 	}
@@ -686,9 +685,9 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
-func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+func setupCluster(s *service.Handler, bootstrap bool, systems map[string]InitSystem) error {
 	initializedServices := map[types.ServiceType]string{}
-	bootstrapSystem, bootstrap := systems[s.Name]
+	bootstrapSystem := systems[s.Name]
 	if bootstrap {
 		for serviceType := range s.Services {
 			for peer, system := range systems {
@@ -746,7 +745,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		}
 	}
 
-	err := AddPeers(s, systems)
+	err := AddPeers(s, systems, bootstrap)
 	if err != nil {
 		return err
 	}
@@ -880,7 +879,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	}
 
 	// If bootstrapping, finalize setup of storage pools & networks, and update the default profile accordingly.
-	system, bootstrap := systems[s.Name]
+	system, _ := systems[s.Name]
 	if bootstrap {
 		lxd := s.Services[types.LXD].(*service.LXDService)
 		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
