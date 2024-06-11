@@ -172,7 +172,8 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		return err
 	}
 
-	return setupCluster(s, systems)
+	_, bootstrap := systems[s.Name]
+	return setupCluster(s, bootstrap, systems)
 }
 
 // validate validates the unmarshaled preseed input.

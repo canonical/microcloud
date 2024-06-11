@@ -162,7 +162,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup, true)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = setupCluster(s, systems)
+	err = setupCluster(s, true, systems)
 	if err != nil {
 		return err
 	}
@@ -696,9 +696,9 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
-func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+func setupCluster(s *service.Handler, bootstrap bool, systems map[string]InitSystem) error {
 	initializedServices := map[types.ServiceType]string{}
-	bootstrapSystem, bootstrap := systems[s.Name]
+	bootstrapSystem := systems[s.Name]
 	if bootstrap {
 		for serviceType := range s.Services {
 			for peer, system := range systems {

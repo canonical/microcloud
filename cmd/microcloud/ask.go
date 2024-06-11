@@ -637,8 +637,7 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	return nil
 }
 
-func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
-	_, bootstrap := systems[sh.Name]
+func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 
 	lxdClient, err := lxd.Client(context.Background(), "")

@@ -331,11 +331,11 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 
 	_, ok = availableServices[types.MicroOVN]
 	if ok {
-		err = c.common.askNetwork(s, systems, subnet, false)
+		err = c.common.askNetwork(s, systems, subnet, false, false)
 		if err != nil {
 			return err
 		}
 	}
 
-	return setupCluster(s, systems)
+	return setupCluster(s, false, systems)
 }
