@@ -19,6 +19,9 @@ const DefaultUplinkNetwork = "UPLINK"
 // DefaultOVNNetwork is the name of the default OVN network.
 const DefaultOVNNetwork = "default"
 
+// DefaultFANNetwork is the name of the default FAN network.
+const DefaultFANNetwork = "lxdfan0"
+
 // DefaultZFSPool is the name of the default ZFS storage pool.
 const DefaultZFSPool = "local"
 
@@ -31,12 +34,14 @@ const DefaultCephFSPool = "remote-fs"
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
 func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
-	return api.NetworksPost{Name: "lxdfan0", Type: "bridge"}
+	return api.NetworksPost{Name: DefaultFANNetwork, Type: "bridge"}
 }
 
 // DefaultFanNetwork returns the default Ubuntu Fan network configuration when
 // creating the finalized network.
 func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
+	network := s.defaultFanNetwork()
+
 	underlay, _, err := defaultGatewaySubnetV4()
 	if err != nil {
 		return api.NetworksPost{}, fmt.Errorf("Could not determine Fan overlay subnet: %w", err)
@@ -49,17 +54,23 @@ func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
 		underlay.IP = underlay.IP.Mask(underlay.Mask)
 	}
 
+	network.Config["fan.underlay_subnet"] = underlay.String()
+
+	return network, nil
+}
+
+// defaultFanNetwork is the bare payload for the FAN network without the underlay subnet.
+func (s LXDService) defaultFanNetwork() api.NetworksPost {
 	return api.NetworksPost{
 		NetworkPut: api.NetworkPut{
 			Config: map[string]string{
-				"bridge.mode":         "fan",
-				"fan.underlay_subnet": underlay.String(),
+				"bridge.mode": "fan",
 			},
 			Description: "Default Ubuntu fan powered bridge",
 		},
-		Name: "lxdfan0",
+		Name: DefaultFANNetwork,
 		Type: "bridge",
-	}, nil
+	}
 }
 
 // DefaultPendingOVNNetwork returns the default OVN uplink network configuration when
@@ -295,6 +306,52 @@ func (s LXDService) SupportsPool(ctx context.Context, name string) (poolSuppoted
 	for k, v := range cfg.Config {
 		if pool.Config[k] != v {
 			return false, true, fmt.Errorf("Pool %q has the wrong value for key %q, expected %q but got %q", name, k, v, pool.Config[k])
+		}
+	}
+
+	return true, true, nil
+}
+
+// SupportsNetwork checks whetherLXD has the networks that matches what MicroCloud expects, or has no networks at all, which is equally supported.
+func (s LXDService) SupportsNetwork(ctx context.Context, name string) (netSupported bool, netExists bool, err error) {
+	uplink, ovn := s.DefaultOVNNetwork("", "", "", "")
+	netMap := map[string]api.NetworksPost{
+		DefaultUplinkNetwork: uplink,
+		DefaultOVNNetwork:    ovn,
+		DefaultFANNetwork:    s.defaultFanNetwork(),
+	}
+
+	c, err := s.Client(ctx, "")
+	if err != nil {
+		return false, false, err
+	}
+
+	cfg, ok := netMap[name]
+	if !ok {
+		return false, false, fmt.Errorf("Network %q is not a supported MicroCloud network", name)
+	}
+
+	net, _, err := c.GetNetwork(name)
+	// If the network can't be found, then we can create it so return nil.
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return true, false, nil
+	}
+
+	if err != nil {
+		return false, false, err
+	}
+
+	if cfg.Type != net.Type {
+		return false, true, fmt.Errorf("Network %q does not have the correct type", name)
+	}
+
+	if net.Status != "Created" {
+		return false, true, fmt.Errorf("Network %q is not fully set up", name)
+	}
+
+	for k, v := range cfg.Config {
+		if net.Config[k] != v {
+			return false, true, fmt.Errorf("Network %q has the wrong value for key %q, expected %q but got %q", name, k, v, net.Config[k])
 		}
 	}
 
