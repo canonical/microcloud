@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/canonical/lxd/shared/api"
@@ -248,8 +250,53 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "remote-fs",
+		Name:   DefaultCephFSPool,
 		Key:    "source",
 		Value:  "lxd_cephfs",
 	}
+}
+
+// SupportsPool checks whether LXD has the storage pools that matches what MicroCloud expects, or has no storage pools at all, which is equally supported.
+func (s LXDService) SupportsPool(ctx context.Context, name string) (poolSuppoted bool, poolExists bool, err error) {
+	poolMap := map[string]api.StoragePoolsPost{
+		DefaultCephFSPool: s.DefaultCephFSStoragePool(),
+		DefaultZFSPool:    s.DefaultZFSStoragePool(),
+		DefaultCephPool:   s.DefaultCephStoragePool(),
+	}
+
+	c, err := s.Client(ctx, "")
+	if err != nil {
+		return false, false, err
+	}
+
+	cfg, ok := poolMap[name]
+	if !ok {
+		return false, false, fmt.Errorf("Pool %q is not a supported MicroCloud pool", name)
+	}
+
+	pool, _, err := c.GetStoragePool(name)
+	// If the pool can't be found, then we can create it so return nil.
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return true, false, nil
+	}
+
+	if err != nil {
+		return false, false, err
+	}
+
+	if cfg.Driver != pool.Driver {
+		return false, true, fmt.Errorf("Pool %q does not have the correct driver", name)
+	}
+
+	if pool.Status != "Created" {
+		return false, true, fmt.Errorf("Pool %q is not fully set up", name)
+	}
+
+	for k, v := range cfg.Config {
+		if pool.Config[k] != v {
+			return false, true, fmt.Errorf("Pool %q has the wrong value for key %q, expected %q but got %q", name, k, v, pool.Config[k])
+		}
+	}
+
+	return true, true, nil
 }

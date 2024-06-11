@@ -159,6 +159,12 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		}
 	}
 
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	supportsLocal, _, err := lxd.SupportsPool(context.Background(), service.DefaultZFSPool)
+	if err != nil {
+		return err
+	}
+
 	foundDisks := false
 	for peer, r := range allResources {
 		system := systems[peer]
@@ -176,19 +182,8 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		systems[peer] = system
 	}
 
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	client, err := lxd.Client(context.Background(), "")
-	if err != nil {
-		return err
-	}
-
-	storagePools, err := client.GetStoragePoolNames()
-	if err != nil {
-		return err
-	}
-
 	wantsDisks := true
-	if !shared.ValueInSlice[string](lxd.DefaultZFSStoragePool().Name, storagePools) {
+	if supportsLocal {
 		if !autoSetup && foundDisks {
 			wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
 			if err != nil {
@@ -207,7 +202,15 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		}
 	}
 
-	if sh.Services[types.MicroCeph] != nil && !shared.ValueInSlice[string](lxd.DefaultCephStoragePool().Name, storagePools) {
+	var supportsCeph bool
+	if sh.Services[types.MicroCeph] != nil {
+		supportsCeph, _, err = lxd.SupportsPool(context.Background(), service.DefaultCephPool)
+		if err != nil {
+			return err
+		}
+	}
+
+	if supportsCeph {
 		availableDisks := map[string][]api.ResourcesStorageDisk{}
 		for peer, system := range systems {
 			if len(system.AvailableDisks) > 0 {
@@ -592,9 +595,16 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 		}
 
 		if hasCephFS {
-			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+			supportsCephFS, _, err := lxd.SupportsPool(context.Background(), service.DefaultCephFSPool)
 			if err != nil {
 				return err
+			}
+
+			if supportsCephFS {
+				setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
