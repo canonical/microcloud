@@ -324,7 +324,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	_, _, subnet, err := c.common.askAddress(true, status.Address.Addr().String())
+	_, _, subnet, err := c.common.askAddress(true, status.Address.Addr().String(), true)
 	if err != nil {
 		return err
 	}

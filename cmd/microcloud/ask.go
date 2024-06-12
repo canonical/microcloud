@@ -74,7 +74,7 @@ func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs 
 	return services, nil
 }
 
-func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net.Interface, *net.IPNet, error) {
+func (c *CmdControl) askAddress(autoSetup bool, listenAddr string, setupMany bool) (string, *net.Interface, *net.IPNet, error) {
 	info, err := mdns.GetNetworkInfo()
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("Failed to find network interfaces: %w", err)
@@ -134,7 +134,7 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 		return "", nil, nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
 	}
 
-	if !autoSetup {
+	if !autoSetup && setupMany {
 		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
 			return "", nil, nil, err

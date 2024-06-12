@@ -112,7 +112,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress, setupMany)
 	if err != nil {
 		return err
 	}

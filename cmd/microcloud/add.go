@@ -57,7 +57,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String(), true)
 	if err != nil {
 		return err
 	}
