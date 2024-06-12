@@ -620,11 +620,6 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 // checkClustered checks whether any of the selected systems have already initialized a service.
 // Returns the first system we find that is initialized for the given service, along with all of that system's existing cluster members.
 func checkClustered(s *service.Handler, autoSetup bool, serviceType types.ServiceType, systems map[string]InitSystem) (firstInitializedSystem string, existingMembers map[string]string, err error) {
-	// LXD should always be uninitialized at this point, so we can just return default values that consider LXD uninitialized.
-	if serviceType == types.LXD {
-		return "", nil, nil
-	}
-
 	for peer, system := range systems {
 		var remoteClusterMembers map[string]string
 		var err error
@@ -636,7 +631,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 			remoteClusterMembers, err = s.Services[serviceType].RemoteClusterMembers(context.Background(), system.ServerInfo.AuthSecret, system.ServerInfo.Address)
 		}
 
-		if err != nil && err.Error() != "Daemon not yet initialized" {
+		if err != nil && err.Error() != "Daemon not yet initialized" && err.Error() != "Server is not clustered" {
 			return "", nil, fmt.Errorf("Failed to reach %s on system %q: %w", serviceType, peer, err)
 		}
 
@@ -655,6 +650,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 			clusterMembers[k] = host
 		}
 
+		// If the setup is automatic, just error out before we change any InitSystem.
 		if autoSetup {
 			return "", nil, fmt.Errorf("System %q is already clustered on %s", peer, serviceType)
 		}
