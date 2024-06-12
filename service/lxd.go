@@ -363,6 +363,17 @@ func getClientsAndNetworks(s LXDService, ctx context.Context, bootstrap bool, pe
 	for _, info := range peers {
 		// Don't include a local interface unless we are bootstrapping, in which case we shouldn't use the remote client.
 		if info.Name == s.Name() {
+			if clients[info.Name] == nil {
+				clients[info.Name], err = s.Client(ctx, "")
+				if err != nil {
+					return nil, nil, err
+				}
+
+				networks[info.Name], err = clients[info.Name].GetNetworks()
+				if err != nil {
+					return nil, nil, err
+				}
+			}
 			continue
 		}
 
