@@ -74,7 +74,7 @@ func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs 
 	return services, nil
 }
 
-func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net.Interface, *net.IPNet, error) {
+func (c *CmdControl) askAddress(autoSetup bool, listenAddr string, setupMany bool) (string, *net.Interface, *net.IPNet, error) {
 	info, err := mdns.GetNetworkInfo()
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("Failed to find network interfaces: %w", err)
@@ -134,7 +134,7 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 		return "", nil, nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
 	}
 
-	if !autoSetup {
+	if !autoSetup && setupMany {
 		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
 			return "", nil, nil, err
@@ -159,9 +159,48 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		}
 	}
 
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	supportsLocal, localExists, err := lxd.SupportsPool(context.Background(), service.DefaultZFSPool)
+	if err != nil {
+		return err
+	}
+
+	var supportsCeph bool
+	var cephExists bool
+	if sh.Services[types.MicroCeph] != nil {
+		supportsCeph, cephExists, err = lxd.SupportsPool(context.Background(), service.DefaultCephPool)
+		if err != nil {
+			return err
+		}
+	}
+
+	// If we are bootstrapping, but there is no local pool, fetch the disks from existing members to present.
+	var clusterMembers map[string]string
+	checkExisting := (supportsLocal && !localExists) || (supportsCeph && !cephExists)
+	if !bootstrap && checkExisting {
+		clusterMembers, err = sh.Services[types.LXD].ClusterMembers(context.Background())
+		if err != nil {
+			return err
+		}
+
+		client, err := lxd.Client(context.Background(), "")
+		if err != nil {
+			return err
+		}
+
+		for member := range clusterMembers {
+			target := client.UseTarget(member)
+			allResources[member], err = target.GetServerResources()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	foundDisks := false
+	askSystems := map[string]InitSystem{}
 	for peer, r := range allResources {
-		system := systems[peer]
+		system, ok := systems[peer]
 		system.AvailableDisks = make([]api.ResourcesStorageDisk, 0, len(r.Storage.Disks))
 		for _, disk := range r.Storage.Disks {
 			if len(disk.Partitions) == 0 {
@@ -173,37 +212,73 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 			foundDisks = true
 		}
 
-		systems[peer] = system
+		// Include any existing cluster members for whom we fetched disks.
+		if !ok {
+			system.ServerInfo.Name = peer
+			system.ServerInfo.Address, _, err = net.SplitHostPort(clusterMembers[peer])
+			if err != nil {
+				return err
+			}
+		}
+
+		askSystems[peer] = system
 	}
 
 	wantsDisks := true
-	if !autoSetup && foundDisks {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
+	if supportsLocal {
+		if !autoSetup && foundDisks {
+			wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+		}
+
+		if !foundDisks {
+			wantsDisks = false
+		}
+
+		if wantsDisks {
+			// Create a temporary system map to assign disks. A system from the existing cluster may to be appended if it has no local pool.
+			zfsSystems := map[string]InitSystem{}
+			for peer, sys := range askSystems {
+				_, ok := systems[peer]
+				if ok {
+					zfsSystems[peer] = sys
+				} else if !localExists {
+					zfsSystems[peer] = sys
+				}
+			}
+
+			c.askRetry("Retry selecting disks?", autoSetup, func() error {
+				return askLocalPool(zfsSystems, autoSetup, wipeAllDisks, *lxd)
+			})
+
+			// Update the entries in askSystem with the newly supplied disks.
+			for peer, sys := range zfsSystems {
+				askSystems[peer] = sys
+			}
 		}
 	}
 
-	if !foundDisks {
-		wantsDisks = false
-	}
-
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-		})
-	}
-
-	if sh.Services[types.MicroCeph] != nil {
+	if supportsCeph {
 		availableDisks := map[string][]api.ResourcesStorageDisk{}
-		for peer, system := range systems {
+		cephSystems := map[string]InitSystem{}
+		for peer, sys := range askSystems {
+			_, ok := systems[peer]
+			if ok {
+				cephSystems[peer] = sys
+			} else if !cephExists {
+				cephSystems[peer] = sys
+			}
+		}
+
+		for peer, system := range cephSystems {
 			if len(system.AvailableDisks) > 0 {
 				availableDisks[peer] = system.AvailableDisks
 			}
 		}
 
-		if bootstrap && len(availableDisks) < 3 {
+		if (bootstrap || !cephExists) && len(availableDisks) < 3 {
 			fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
 		} else {
 			wantsDisks = true
@@ -213,7 +288,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 					return err
 				}
 
-				if len(systems) != len(availableDisks) && wantsDisks {
+				if len(cephSystems) != len(availableDisks) && wantsDisks {
 					wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
 					if err != nil {
 						return err
@@ -223,8 +298,13 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 			if wantsDisks {
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
+					return c.askRemotePool(cephSystems, autoSetup, wipeAllDisks, sh)
 				})
+
+				// Update the systems list.
+				for peer, sys := range cephSystems {
+					askSystems[peer] = sys
+				}
 			}
 		}
 	}
@@ -240,6 +320,18 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 				systems[peer] = system
 			}
+		}
+	}
+
+	// Finally update the global systems map. If there are entries for existing cluster members, we only need to append them if they are going to add storage pools.
+	for peer, sys := range askSystems {
+		_, ok := systems[peer]
+		if !ok {
+			if len(sys.TargetStoragePools) > 0 || len(sys.JoinConfig) > 0 {
+				systems[peer] = sys
+			}
+		} else {
+			systems[peer] = sys
 		}
 	}
 
@@ -580,9 +672,16 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 		}
 
 		if hasCephFS {
-			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+			supportsCephFS, _, err := lxd.SupportsPool(context.Background(), service.DefaultCephFSPool)
 			if err != nil {
 				return err
+			}
+
+			if supportsCephFS {
+				setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -625,39 +724,67 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	return nil
 }
 
-func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
-	_, bootstrap := systems[sh.Name]
+func (c *CmdControl) askOVNNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	for peer, system := range systems {
-		if bootstrap {
-			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
-			if peer == sh.Name {
-				network, err := lxd.DefaultFanNetwork()
-				if err != nil {
-					return err
-				}
 
-				system.Networks = []api.NetworksPost{network}
-			}
+	if autoSetup || sh.Services[types.MicroOVN] == nil {
+		return nil
+	}
+
+	uplinkSupported, uplinkExists, err := lxd.SupportsNetwork(context.Background(), service.DefaultUplinkNetwork)
+	if err != nil {
+		return err
+	}
+
+	ovnSupported, ovnExists, err := lxd.SupportsNetwork(context.Background(), service.DefaultOVNNetwork)
+	if err != nil {
+		return err
+	}
+
+	if !uplinkSupported || !ovnSupported || ovnExists != uplinkExists {
+		return nil
+	}
+
+	var clusterMembers map[string]string
+	if !bootstrap {
+		clusterMembers, err = sh.Services[types.LXD].ClusterMembers(context.Background())
+		if err != nil {
+			return err
+		}
+	}
+
+	// Get the list of networks from all peers. Exclude any existing systems if OVN has been set up.
+	infos := []mdns.ServerInfo{}
+	askSystems := map[string]InitSystem{}
+	for name, system := range systems {
+		if !bootstrap && clusterMembers[name] != "" && ovnExists {
+			continue
 		}
 
-		systems[peer] = system
-	}
-
-	// Automatic setup gets a basic fan setup.
-	if autoSetup {
-		return nil
-	}
-
-	// Environments without OVN get a basic fan setup.
-	if sh.Services[types.MicroOVN] == nil {
-		return nil
-	}
-
-	// Get the list of networks from all peers.
-	infos := []mdns.ServerInfo{}
-	for _, system := range systems {
 		infos = append(infos, system.ServerInfo)
+		askSystems[name] = system
+	}
+
+	// If we are not bootstrapping, and don't have OVN set up, then fetch the networks from cluster members too.
+	if !bootstrap && !ovnExists {
+		for name, address := range clusterMembers {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+
+			info := mdns.ServerInfo{Name: name, Address: host}
+			infos = append(infos, info)
+			_, ok := askSystems[name]
+			if !ok {
+				askSystems[name] = InitSystem{ServerInfo: info}
+			}
+		}
+	}
+
+	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
+	if err != nil {
+		return err
 	}
 
 	// Environments without Ceph don't need to configure the Ceph network.
@@ -666,6 +793,11 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		lxdService := sh.Services[types.LXD].(*service.LXDService)
 		if lxdService == nil {
 			return fmt.Errorf("failed to get LXD service")
+		}
+
+		infos := []mdns.ServerInfo{}
+		for _, system := range systems {
+			infos = append(infos, system.ServerInfo)
 		}
 
 		availableCephNetworkInterfaces, err := lxdService.GetCephInterfaces(context.Background(), bootstrap, infos)
@@ -679,7 +811,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			if bootstrap {
 				// First, check if there are any initialized systems for MicroCeph.
 				var initializedMicroCephSystem *InitSystem
-				for peer, system := range systems {
+				for peer, system := range askSystems {
 					if system.InitializedServices[types.MicroCeph][peer] != "" {
 						initializedMicroCephSystem = &system
 						break
@@ -713,27 +845,27 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 					}
 
 					if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
-						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, internalCephSubnet)
+						err = validateCephInterfacesForSubnet(lxdService, askSystems, availableCephNetworkInterfaces, internalCephSubnet)
 						if err != nil {
 							return err
 						}
 
-						bootstrapSystem := systems[sh.Name]
+						bootstrapSystem := askSystems[sh.Name]
 						bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
-						systems[sh.Name] = bootstrapSystem
+						askSystems[sh.Name] = bootstrapSystem
 					}
 				} else {
 					// Else, we validate that the systems to be bootstrapped comply with the network configuration of the existing remote Ceph cluster,
 					// and set their Ceph network configuration accordingly.
 					if customTargetCephInternalNetwork != "" && customTargetCephInternalNetwork != microCloudInternalNetworkAddrCIDR {
-						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, customTargetCephInternalNetwork)
+						err = validateCephInterfacesForSubnet(lxdService, askSystems, availableCephNetworkInterfaces, customTargetCephInternalNetwork)
 						if err != nil {
 							return err
 						}
 
-						bootstrapSystem := systems[sh.Name]
+						bootstrapSystem := askSystems[sh.Name]
 						bootstrapSystem.MicroCephInternalNetworkSubnet = customTargetCephInternalNetwork
-						systems[sh.Name] = bootstrapSystem
+						askSystems[sh.Name] = bootstrapSystem
 					}
 				}
 			} else {
@@ -744,18 +876,13 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 				}
 
 				if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != microCloudInternalSubnet.String() {
-					err = validateCephInterfacesForSubnet(lxd, systems, availableCephNetworkInterfaces, localInternalCephNetwork.String())
+					err = validateCephInterfacesForSubnet(lxd, askSystems, availableCephNetworkInterfaces, localInternalCephNetwork.String())
 					if err != nil {
 						return err
 					}
 				}
 			}
 		}
-	}
-
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
-	if err != nil {
-		return err
 	}
 
 	// Check if OVN is possible in the environment.
@@ -782,7 +909,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		return nil
 	}
 
-	missingSystems := len(systems) != len(networks)
+	missingSystems := len(askSystems) != len(networks)
 	for _, nets := range networks {
 		if len(nets) == 0 {
 			missingSystems = true
@@ -923,19 +1050,18 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		}
 	}
 
-	// If interfaces were selected for OVN, remove the FAN config.
 	if len(selected) > 0 {
-		for peer, system := range systems {
+		for peer, system := range askSystems {
 			system.TargetNetworks = []api.NetworksPost{}
 			system.Networks = []api.NetworksPost{}
 
-			systems[peer] = system
+			askSystems[peer] = system
 		}
 	}
 
 	// If we are adding a new member, a MemberConfig entry should suffice to create the network on the cluster member.
 	for peer, parent := range selected {
-		system := systems[peer]
+		system := askSystems[peer]
 		if !bootstrap {
 			if system.JoinConfig == nil {
 				system.JoinConfig = []api.ClusterMemberConfigKey{}
@@ -946,11 +1072,11 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(parent))
 		}
 
-		systems[peer] = system
+		askSystems[peer] = system
 	}
 
 	if bootstrap {
-		bootstrapSystem := systems[sh.Name]
+		bootstrapSystem := askSystems[sh.Name]
 
 		var ipv4Gateway string
 		var ipv4Ranges string
@@ -971,7 +1097,64 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 
 		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
 		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
-		systems[sh.Name] = bootstrapSystem
+		askSystems[sh.Name] = bootstrapSystem
+	}
+
+	// Finally update the global systems map. If there are entries for existing cluster members, we only need to append them if they are going to add storage pools.
+	for peer, sys := range askSystems {
+		_, ok := systems[peer]
+		if !ok {
+			if len(sys.TargetNetworks) > 0 || len(sys.JoinConfig) > 0 {
+				systems[peer] = sys
+			}
+		} else {
+			systems[peer] = sys
+		}
+	}
+
+	return nil
+}
+
+func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool, bootstrap bool) error {
+	err := c.askOVNNetwork(sh, systems, microCloudInternalSubnet, autoSetup, bootstrap)
+	if err != nil {
+		return err
+	}
+
+	for _, system := range systems {
+		if len(system.TargetNetworks) > 0 || len(system.Networks) > 0 {
+			return nil
+		}
+
+		for _, cfg := range system.JoinConfig {
+			if cfg.Name == service.DefaultOVNNetwork || cfg.Name == service.DefaultUplinkNetwork {
+				return nil
+			}
+		}
+	}
+
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	fanSupported, fanExists, err := lxd.SupportsNetwork(context.Background(), service.DefaultFANNetwork)
+	if err != nil {
+		return err
+	}
+
+	if fanSupported {
+		for peer, system := range systems {
+			if bootstrap || !fanExists {
+				system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
+				if peer == sh.Name {
+					network, err := lxd.DefaultFanNetwork()
+					if err != nil {
+						return err
+					}
+
+					system.Networks = []api.NetworksPost{network}
+				}
+			}
+
+			systems[peer] = system
+		}
 	}
 
 	return nil

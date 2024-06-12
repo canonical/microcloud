@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudCli "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
@@ -34,8 +34,8 @@ type LXDService struct {
 }
 
 // NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(ctx context.Context, name string, addr string, cloudDir string) (*LXDService, error) {
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir})
+func NewLXDService(name string, addr string, cloudDir string) (*LXDService, error) {
+	client, err := microcluster.App(microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
 	}
@@ -60,14 +60,7 @@ func (s LXDService) Client(ctx context.Context, secret string) (lxd.InstanceServ
 	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
 		HTTPClient:    c.Client.Client,
 		SkipGetServer: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
-				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		},
+		Proxy:         cloudCli.AuthProxy(secret, types.LXD),
 	})
 }
 
@@ -78,19 +71,19 @@ func (s LXDService) remoteClient(secret string, address string, port int64) (lxd
 		return nil, err
 	}
 
+	serverCert, err := s.m.FileSystem.ServerCert()
+	if err != nil {
+		return nil, err
+	}
+
 	remoteURL := c.URL()
 	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
 		HTTPClient:         c.Client.Client,
+		TLSClientCert:      string(serverCert.PublicKey()),
+		TLSClientKey:       string(serverCert.PrivateKey()),
 		InsecureSkipVerify: true,
 		SkipGetServer:      true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/lxd") {
-				r.URL.Path = "/1.0/services/lxd" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		},
+		Proxy:              cloudCli.AuthProxy(secret, types.LXD),
 	})
 	if err != nil {
 		return nil, err
@@ -256,7 +249,12 @@ func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string
 
 	genericMembers := make(map[string]string, len(members))
 	for _, member := range members {
-		genericMembers[member.ServerName] = member.URL
+		url, err := url.Parse(member.URL)
+		if err != nil {
+			return nil, err
+		}
+
+		genericMembers[member.ServerName] = url.Host
 	}
 
 	return genericMembers, nil
@@ -355,6 +353,17 @@ func getClientsAndNetworks(s LXDService, ctx context.Context, bootstrap bool, pe
 	for _, info := range peers {
 		// Don't include a local interface unless we are bootstrapping, in which case we shouldn't use the remote client.
 		if info.Name == s.Name() {
+			if clients[info.Name] == nil {
+				clients[info.Name], err = s.Client(ctx, "")
+				if err != nil {
+					return nil, nil, err
+				}
+
+				networks[info.Name], err = clients[info.Name].GetNetworks()
+				if err != nil {
+					return nil, nil, err
+				}
+			}
 			continue
 		}
 

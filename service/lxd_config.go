@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/canonical/lxd/shared/api"
@@ -14,18 +16,32 @@ const lxdMinVersion = "5.21"
 // DefaultUplinkNetwork is the name of the default OVN uplink network.
 const DefaultUplinkNetwork = "UPLINK"
 
-// DefaultOVNNetwork is the name of te default OVN network.
+// DefaultOVNNetwork is the name of the default OVN network.
 const DefaultOVNNetwork = "default"
+
+// DefaultFANNetwork is the name of the default FAN network.
+const DefaultFANNetwork = "lxdfan0"
+
+// DefaultZFSPool is the name of the default ZFS storage pool.
+const DefaultZFSPool = "local"
+
+// DefaultCephPool is the name of the default Ceph storage pool.
+const DefaultCephPool = "remote"
+
+// DefaultCephFSPool is the name of the default CephFS storage pool.
+const DefaultCephFSPool = "remote-fs"
 
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
 func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
-	return api.NetworksPost{Name: "lxdfan0", Type: "bridge"}
+	return api.NetworksPost{Name: DefaultFANNetwork, Type: "bridge"}
 }
 
 // DefaultFanNetwork returns the default Ubuntu Fan network configuration when
 // creating the finalized network.
 func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
+	network := s.defaultFanNetwork()
+
 	underlay, _, err := defaultGatewaySubnetV4()
 	if err != nil {
 		return api.NetworksPost{}, fmt.Errorf("Could not determine Fan overlay subnet: %w", err)
@@ -38,17 +54,23 @@ func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
 		underlay.IP = underlay.IP.Mask(underlay.Mask)
 	}
 
+	network.Config["fan.underlay_subnet"] = underlay.String()
+
+	return network, nil
+}
+
+// defaultFanNetwork is the bare payload for the FAN network without the underlay subnet.
+func (s LXDService) defaultFanNetwork() api.NetworksPost {
 	return api.NetworksPost{
 		NetworkPut: api.NetworkPut{
 			Config: map[string]string{
-				"bridge.mode":         "fan",
-				"fan.underlay_subnet": underlay.String(),
+				"bridge.mode": "fan",
 			},
 			Description: "Default Ubuntu fan powered bridge",
 		},
-		Name: "lxdfan0",
+		Name: DefaultFANNetwork,
 		Type: "bridge",
-	}, nil
+	}
 }
 
 // DefaultPendingOVNNetwork returns the default OVN uplink network configuration when
@@ -116,7 +138,7 @@ func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.Sto
 	}
 
 	return api.StoragePoolsPost{
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config:      cfg,
@@ -129,7 +151,7 @@ func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.Sto
 // creating the finalized pool.
 func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Description: "Local storage on ZFS",
@@ -142,14 +164,14 @@ func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
 func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []api.ClusterMemberConfigKey {
 	wipeDisk := api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Key:    "source.wipe",
 		Value:  "true",
 	}
 
 	sourceTemplate := api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Key:    "source",
 	}
 
@@ -166,7 +188,7 @@ func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []ap
 // creating a pending pool on a specific cluster member target.
 func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote",
+		Name:   DefaultCephPool,
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -180,7 +202,7 @@ func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 // creating the finalized pool.
 func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote",
+		Name:   DefaultCephPool,
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -197,7 +219,7 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "remote",
+		Name:   DefaultCephPool,
 		Key:    "source",
 		Value:  "lxd_remote",
 	}
@@ -207,7 +229,7 @@ func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKe
 // creating a pending pool on a specific cluster member target.
 func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote-fs",
+		Name:   DefaultCephFSPool,
 		Driver: "cephfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -221,7 +243,7 @@ func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 // creating the finalized pool.
 func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote-fs",
+		Name:   DefaultCephFSPool,
 		Driver: "cephfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -239,8 +261,99 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "remote-fs",
+		Name:   DefaultCephFSPool,
 		Key:    "source",
 		Value:  "lxd_cephfs",
 	}
+}
+
+// SupportsPool checks whether LXD has the storage pools that matches what MicroCloud expects, or has no storage pools at all, which is equally supported.
+func (s LXDService) SupportsPool(ctx context.Context, name string) (poolSuppoted bool, poolExists bool, err error) {
+	poolMap := map[string]api.StoragePoolsPost{
+		DefaultCephFSPool: s.DefaultCephFSStoragePool(),
+		DefaultZFSPool:    s.DefaultZFSStoragePool(),
+		DefaultCephPool:   s.DefaultCephStoragePool(),
+	}
+
+	c, err := s.Client(ctx, "")
+	if err != nil {
+		return false, false, err
+	}
+
+	cfg, ok := poolMap[name]
+	if !ok {
+		return false, false, fmt.Errorf("Pool %q is not a supported MicroCloud pool", name)
+	}
+
+	pool, _, err := c.GetStoragePool(name)
+	// If the pool can't be found, then we can create it so return nil.
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return true, false, nil
+	}
+
+	if err != nil {
+		return false, false, err
+	}
+
+	if cfg.Driver != pool.Driver {
+		return false, true, fmt.Errorf("Pool %q does not have the correct driver", name)
+	}
+
+	if pool.Status != "Created" {
+		return false, true, fmt.Errorf("Pool %q is not fully set up", name)
+	}
+
+	for k, v := range cfg.Config {
+		if pool.Config[k] != v {
+			return false, true, fmt.Errorf("Pool %q has the wrong value for key %q, expected %q but got %q", name, k, v, pool.Config[k])
+		}
+	}
+
+	return true, true, nil
+}
+
+// SupportsNetwork checks whetherLXD has the networks that matches what MicroCloud expects, or has no networks at all, which is equally supported.
+func (s LXDService) SupportsNetwork(ctx context.Context, name string) (netSupported bool, netExists bool, err error) {
+	uplink, ovn := s.DefaultOVNNetwork("", "", "", "")
+	netMap := map[string]api.NetworksPost{
+		DefaultUplinkNetwork: uplink,
+		DefaultOVNNetwork:    ovn,
+		DefaultFANNetwork:    s.defaultFanNetwork(),
+	}
+
+	c, err := s.Client(ctx, "")
+	if err != nil {
+		return false, false, err
+	}
+
+	cfg, ok := netMap[name]
+	if !ok {
+		return false, false, fmt.Errorf("Network %q is not a supported MicroCloud network", name)
+	}
+
+	net, _, err := c.GetNetwork(name)
+	// If the network can't be found, then we can create it so return nil.
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return true, false, nil
+	}
+
+	if err != nil {
+		return false, false, err
+	}
+
+	if cfg.Type != net.Type {
+		return false, true, fmt.Errorf("Network %q does not have the correct type", name)
+	}
+
+	if net.Status != "Created" {
+		return false, true, fmt.Errorf("Network %q is not fully set up", name)
+	}
+
+	for k, v := range cfg.Config {
+		if net.Config[k] != v {
+			return false, true, fmt.Errorf("Network %q has the wrong value for key %q, expected %q but got %q", name, k, v, net.Config[k])
+		}
+	}
+
+	return true, true, nil
 }

@@ -2,15 +2,11 @@ package service
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	microClient "github.com/canonical/microcluster/client"
@@ -21,6 +17,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
+	cloudCli "github.com/canonical/microcloud/microcloud/client"
 )
 
 // CloudService is a MicroCloud service.
@@ -41,8 +38,8 @@ type JoinConfig struct {
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
-func NewCloudService(ctx context.Context, name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
+func NewCloudService(name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
+	client, err := microcluster.App(microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +53,14 @@ func NewCloudService(ctx context.Context, name string, addr string, dir string, 
 	}, nil
 }
 
+// Client returns a client to the MicroCloud unix socket.
+func (s CloudService) Client() (*microClient.Client, error) {
+	return s.client.LocalClient()
+}
+
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(service *Handler, endpoints []rest.Endpoint) error {
-	return s.client.Start(endpoints, nil, &config.Hooks{
+func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint) error {
+	return s.client.Start(ctx, endpoints, nil, nil, &config.Hooks{
 		PostBootstrap: func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
 		PostJoin:      func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
 		OnStart:       service.Start,
@@ -67,7 +69,7 @@ func (s *CloudService) StartCloud(service *Handler, endpoints []rest.Endpoint) e
 
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
 func (s CloudService) Bootstrap(ctx context.Context) error {
-	err := s.client.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), nil, 2*time.Minute)
+	err := s.client.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), nil)
 	if err != nil {
 		return err
 	}
@@ -95,7 +97,7 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 
 // IssueToken issues a token for the given peer.
 func (s CloudService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.client.NewJoinToken(peer)
+	return s.client.NewJoinToken(ctx, peer)
 }
 
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
@@ -105,14 +107,9 @@ func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress strin
 		return "", err
 	}
 
-	c.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-
-			return shared.ProxyFromEnvironment(r)
-		},
+	c, err = cloudCli.UseAuthProxy(c, secret, types.MicroCloud)
+	if err != nil {
+		return "", err
 	}
 
 	return client.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
@@ -120,7 +117,7 @@ func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress strin
 
 // Join joins a cluster with the given token.
 func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	return s.client.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
+	return s.client.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
 }
 
 // RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.
@@ -141,14 +138,9 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 			return err
 		}
 
-		c.Client.Client.Transport = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				r.Header.Set("X-MicroCloud-Auth", secret)
-
-				return shared.ProxyFromEnvironment(r)
-			},
+		c, err = cloudCli.UseAuthProxy(c, secret, types.MicroCloud)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -162,14 +154,9 @@ func (s CloudService) RemoteClusterMembers(ctx context.Context, secret string, a
 		return nil, err
 	}
 
-	client.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-
-			return shared.ProxyFromEnvironment(r)
-		},
+	client, err = cloudCli.UseAuthProxy(client, secret, types.MicroCloud)
+	if err != nil {
+		return nil, err
 	}
 
 	return clusterMembers(ctx, client)

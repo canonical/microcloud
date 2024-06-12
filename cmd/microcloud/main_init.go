@@ -92,7 +92,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
 	fmt.Println("Waiting for LXD to start...")
-	lxdService, err := service.NewLXDService(context.Background(), "", "", c.common.FlagMicroCloudDir)
+	lxdService, err := service.NewLXDService("", "", c.common.FlagMicroCloudDir)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,15 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	systems := map[string]InitSystem{}
 
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
+	setupMany := true
+	if !c.flagAutoSetup {
+		setupMany, err = c.common.asker.AskBool("Do you want to concurrently set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
+	}
+
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress, setupMany)
 	if err != nil {
 		return err
 	}
@@ -137,14 +145,16 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
-	if err != nil {
-		return err
-	}
+	if setupMany {
+		err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+		if err != nil {
+			return err
+		}
 
-	err = c.common.askClustered(s, c.flagAutoSetup, systems)
-	if err != nil {
-		return err
+		err = c.common.askClustered(s, c.flagAutoSetup, systems)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
@@ -152,7 +162,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup, true)
 	if err != nil {
 		return err
 	}
@@ -162,7 +172,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = setupCluster(s, systems)
+	err = setupCluster(s, true, systems)
 	if err != nil {
 		return err
 	}
@@ -610,11 +620,6 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 // checkClustered checks whether any of the selected systems have already initialized a service.
 // Returns the first system we find that is initialized for the given service, along with all of that system's existing cluster members.
 func checkClustered(s *service.Handler, autoSetup bool, serviceType types.ServiceType, systems map[string]InitSystem) (firstInitializedSystem string, existingMembers map[string]string, err error) {
-	// LXD should always be uninitialized at this point, so we can just return default values that consider LXD uninitialized.
-	if serviceType == types.LXD {
-		return "", nil, nil
-	}
-
 	for peer, system := range systems {
 		var remoteClusterMembers map[string]string
 		var err error
@@ -626,7 +631,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 			remoteClusterMembers, err = s.Services[serviceType].RemoteClusterMembers(context.Background(), system.ServerInfo.AuthSecret, system.ServerInfo.Address)
 		}
 
-		if err != nil && err.Error() != "Daemon not yet initialized" {
+		if err != nil && err.Error() != "Daemon not yet initialized" && err.Error() != "Server is not clustered" {
 			return "", nil, fmt.Errorf("Failed to reach %s on system %q: %w", serviceType, peer, err)
 		}
 
@@ -645,6 +650,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 			clusterMembers[k] = host
 		}
 
+		// If the setup is automatic, just error out before we change any InitSystem.
 		if autoSetup {
 			return "", nil, fmt.Errorf("System %q is already clustered on %s", peer, serviceType)
 		}
@@ -686,9 +692,9 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
-func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+func setupCluster(s *service.Handler, bootstrap bool, systems map[string]InitSystem) error {
 	initializedServices := map[types.ServiceType]string{}
-	bootstrapSystem, bootstrap := systems[s.Name]
+	bootstrapSystem := systems[s.Name]
 	if bootstrap {
 		for serviceType := range s.Services {
 			for peer, system := range systems {
@@ -718,7 +724,11 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 				}
 			}
 
-			err := s.Bootstrap(context.Background())
+			// set a 2 minute timeout to bootstrap a service in case the node is slow.
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			err := s.Bootstrap(ctx)
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}
@@ -747,34 +757,32 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		return err
 	}
 
-	if bootstrap {
-		// Joiners will add their disks as part of the join process, so only add disks here for the system we bootstrapped, or already existed.
-		peer := s.Name
-		microCeph := initializedServices[types.MicroCeph]
-		if microCeph != "" {
-			peer = microCeph
+	// Joiners will add their disks as part of the join process, so only add disks here for the system we bootstrapped, or already existed.
+	peer := s.Name
+	microCeph := initializedServices[types.MicroCeph]
+	if microCeph != "" {
+		peer = microCeph
+	}
+
+	for name := range systems[peer].InitializedServices[types.MicroCeph] {
+		// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
+		if systems[name].ServerInfo.Name == "" {
+			continue
 		}
 
-		for name := range systems[peer].InitializedServices[types.MicroCeph] {
-			// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
-			if systems[name].ServerInfo.Name == "" {
-				continue
-			}
-
-			var c *client.Client
-			for _, disk := range systems[name].MicroCephDisks {
-				if c == nil {
-					c, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, systems[name].ServerInfo.AuthSecret)
-					if err != nil {
-						return err
-					}
-				}
-
-				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
-				_, err = cephClient.AddDisk(context.Background(), c, &disk)
+		var c *client.Client
+		for _, disk := range systems[name].MicroCephDisks {
+			if c == nil {
+				c, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, systems[name].ServerInfo.AuthSecret)
 				if err != nil {
 					return err
 				}
+			}
+
+			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
+			_, err = cephClient.AddDisk(context.Background(), c, &disk)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -929,12 +937,34 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 
 		if !shared.ValueInSlice(profile.Name, profiles) {
 			err = lxdClient.CreateProfile(profile)
+			if err != nil {
+				return err
+			}
 		} else {
-			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
-		}
+			// Ensure any pre-existing devices and config are carried over to the new profile, unless we are managing them.
+			existingProfile, _, err := lxdClient.GetProfile("default")
+			if err != nil {
+				return err
+			}
 
-		if err != nil {
-			return err
+			for k, v := range existingProfile.Config {
+				_, ok := profile.Config[k]
+				if !ok {
+					profile.Config[k] = v
+				}
+			}
+
+			for k, v := range existingProfile.Devices {
+				_, ok := profile.Devices[k]
+				if !ok {
+					profile.Devices[k] = v
+				}
+			}
+
+			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+			if err != nil {
+				return err
+			}
 		}
 	}
 

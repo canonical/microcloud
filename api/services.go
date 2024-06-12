@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/lxd/util"
@@ -27,6 +29,17 @@ func authHandler(sh *service.Handler, f endpointHandler) endpointHandler {
 			logger.Debug("Allowing unauthenticated request through unix socket")
 
 			return f(s, r)
+		}
+
+		// Use certificate based authentication between cluster members.
+		if r.TLS != nil && r.Host == s.Address().URL.Host {
+			trustedCerts := s.Remotes().CertificatesNative()
+			for _, cert := range r.TLS.PeerCertificates {
+				trusted, _ := util.CheckTrustState(*cert, trustedCerts, nil, false)
+				if trusted {
+					return f(s, r)
+				}
+			}
 		}
 
 		secret := r.Header.Get("X-MicroCloud-Auth")
@@ -127,7 +140,11 @@ func servicesPut(state *state.State, r *http.Request) response.Response {
 	}
 
 	err = sh.RunConcurrent(true, true, func(s service.Service) error {
-		err = s.Join(state.Context, joinConfigs[s.Type()])
+		// set a 5 minute context for completing the join request in case the system is very slow.
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+		defer cancel()
+
+		err = s.Join(ctx, joinConfigs[s.Type()])
 		if err != nil {
 			return fmt.Errorf("Failed to join %q cluster: %w", s.Type(), err)
 		}

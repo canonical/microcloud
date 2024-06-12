@@ -43,12 +43,12 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return c.common.RunPreseed(cmd, false)
 	}
 
-	cloudApp, err := microcluster.App(context.Background(), microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
+	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
 	if err != nil {
 		return err
 	}
 
-	status, err := cloudApp.Status()
+	status, err := cloudApp.Status(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
 	}
@@ -57,7 +57,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String(), true)
 	if err != nil {
 		return err
 	}
@@ -84,15 +84,41 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
+	for k, v := range s.Services {
+		expectedServices[k] = v
+	}
+
+	// Check for clustered systems among the new joiners. If any exist, then the cluster will be mismatched so return an error.
+	for serviceType := range expectedServices {
+		initSystem, _, err := checkClustered(s, c.flagAutoSetup, serviceType, systems)
+		if err != nil {
+			return err
+		}
+
+		if initSystem != "" {
+			return fmt.Errorf("System %q is already part of a cluster, aborting setup", initSystem)
+		}
+	}
+
 	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup, false)
 	if err != nil {
 		return err
 	}
 
-	return setupCluster(s, systems)
+	// Rerun checkClustered in case we needed to add storage pools or networks for any existing clustered systems.
+	// These systems would have not been included in the system map before asking the above questions.
+	for serviceType := range expectedServices {
+		_, _, err := checkClustered(s, c.flagAutoSetup, serviceType, systems)
+		if err != nil {
+			return err
+		}
+	}
+
+	return setupCluster(s, false, systems)
 }
