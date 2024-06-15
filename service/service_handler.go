@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -53,13 +52,13 @@ func NewHandler(name string, addr string, stateDir string, debug bool, verbose b
 		var err error
 		switch serviceType {
 		case types.MicroCloud:
-			service, err = NewCloudService(context.Background(), name, addr, stateDir, verbose, debug)
+			service, err = NewCloudService(name, addr, stateDir, verbose, debug)
 		case types.MicroCeph:
-			service, err = NewCephService(context.Background(), name, addr, stateDir)
+			service, err = NewCephService(name, addr, stateDir)
 		case types.MicroOVN:
-			service, err = NewOVNService(context.Background(), name, addr, stateDir)
+			service, err = NewOVNService(name, addr, stateDir)
 		case types.LXD:
-			service, err = NewLXDService(context.Background(), name, addr, stateDir)
+			service, err = NewLXDService(name, addr, stateDir)
 		}
 
 		if err != nil {

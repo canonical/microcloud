@@ -92,7 +92,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
 	fmt.Println("Waiting for LXD to start...")
-	lxdService, err := service.NewLXDService(context.Background(), "", "", c.common.FlagMicroCloudDir)
+	lxdService, err := service.NewLXDService("", "", c.common.FlagMicroCloudDir)
 	if err != nil {
 		return err
 	}
@@ -718,7 +718,11 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 				}
 			}
 
-			err := s.Bootstrap(context.Background())
+			// set a 2 minute timeout to bootstrap a service in case the node is slow.
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			err := s.Bootstrap(ctx)
 			if err != nil {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}

@@ -30,7 +30,7 @@ type CephService struct {
 }
 
 // NewCephService creates a new MicroCeph service with a client attached.
-func NewCephService(ctx context.Context, name string, addr string, cloudDir string) (*CephService, error) {
+func NewCephService(name string, addr string, cloudDir string) (*CephService, error) {
 	proxy := func(r *http.Request) (*url.URL, error) {
 		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
 			r.URL.Path = "/1.0/services/microceph" + r.URL.Path
@@ -39,7 +39,7 @@ func NewCephService(ctx context.Context, name string, addr string, cloudDir stri
 		return shared.ProxyFromEnvironment(r)
 	}
 
-	client, err := microcluster.App(ctx, microcluster.Args{StateDir: cloudDir, Proxy: proxy})
+	client, err := microcluster.App(microcluster.Args{StateDir: cloudDir, Proxy: proxy})
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
 func (s CephService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config, 2*time.Minute)
+	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config)
 	if err != nil {
 		return err
 	}
@@ -109,12 +109,12 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 
 // IssueToken issues a token for the given peer.
 func (s CephService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(peer)
+	return s.m.NewJoinToken(ctx, peer)
 }
 
 // Join joins a cluster with the given token.
 func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	err := s.m.JoinCluster(s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil, 5*time.Minute)
+	err := s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
 	if err != nil {
 		return err
 	}
