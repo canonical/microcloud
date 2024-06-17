@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/mdns v1.0.5
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
