@@ -155,10 +155,10 @@ set_remote() {
     lxc remote remove "${remote}"
   fi
 
-  lxc exec "${name}" -- lxc config set core.trust_password test
+  token="$(lxc exec "${name}" -- lxc config trust add --name test --quiet)"
 
   # Suppress the confirmation as it's noisy.
-  lxc remote add "${remote}" "https://${addr}" --password "test" --accept-certificate > /dev/null 2>&1
+  lxc remote add "${remote}" "https://${addr}" --token "${token}" --accept-certificate > /dev/null 2>&1
   lxc remote switch "${remote}"
 }
 
