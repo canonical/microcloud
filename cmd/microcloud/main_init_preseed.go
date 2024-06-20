@@ -99,7 +99,9 @@ func DiskOperatorSet() filter.OperatorSet {
 }
 
 // RunPreseed initializes MicroCloud from a preseed yaml filepath input.
-func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
+func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
+	c.autoSetup = true
+
 	bytes, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("Failed to read from stdin: %w", err)
@@ -116,7 +118,7 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		return err
 	}
 
-	err = config.validate(hostname, init)
+	err = config.validate(hostname, c.bootstrap)
 	if err != nil {
 		return err
 	}
@@ -133,22 +135,24 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = c.askMissingServices(services, optionalServices, true)
+	services, err = c.askMissingServices(services, optionalServices)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(hostname, ip.String(), c.FlagMicroCloudDir, c.FlagLogDebug, c.FlagLogVerbose, services...)
+	c.name = hostname
+	c.address = ip.String()
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
 	}
 
-	systems, err := config.Parse(s, init)
+	systems, err := config.Parse(s, c)
 	if err != nil {
 		return err
 	}
 
-	if !init {
+	if !c.bootstrap {
 		peers, err := s.Services[types.MicroCloud].ClusterMembers(context.Background())
 		if err != nil {
 			return err
@@ -167,13 +171,12 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		}
 	}
 
-	_, bootstrap := systems[s.Name]
-	err = validateSystems(s, systems, bootstrap)
+	err = c.validateSystems(s)
 	if err != nil {
 		return err
 	}
 
-	return setupCluster(s, bootstrap, systems)
+	return c.setupCluster(s)
 }
 
 // validate validates the unmarshaled preseed input.
@@ -378,9 +381,9 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 }
 
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
-func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSystem, error) {
+func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSystem, error) {
 	systems := make(map[string]InitSystem, len(p.Systems))
-	if bootstrap {
+	if c.bootstrap {
 		systems[s.Name] = InitSystem{ServerInfo: mdns.ServerInfo{Name: s.Name}}
 	}
 
@@ -416,7 +419,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		return nil, fmt.Errorf("Failed to find lookup interface %q", p.LookupInterface)
 	}
 
-	err = lookupPeers(s, true, lookupIface, lookupSubnet, expectedSystems, systems)
+	err = c.lookupPeers(s, expectedSystems)
 	if err != nil {
 		return nil, err
 	}
@@ -468,7 +471,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 
 		// Pick the first interface for any system without an explicitly chosen one.
-		networks, err := lxd.GetUplinkInterfaces(context.Background(), bootstrap, infos)
+		networks, err := lxd.GetUplinkInterfaces(context.Background(), c.bootstrap, infos)
 		if err != nil {
 			return nil, err
 		}
@@ -480,13 +483,13 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 	}
 
-	if usingOVN && bootstrap && len(ifaceByPeer) < 3 {
+	if usingOVN && c.bootstrap && len(ifaceByPeer) < 3 {
 		return nil, fmt.Errorf("Failed to find at least 3 interfaces on 3 machines for OVN configuration")
 	}
 
 	for peer, iface := range ifaceByPeer {
 		system := systems[peer]
-		if bootstrap {
+		if c.bootstrap {
 			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(iface))
 			if s.Name == peer {
 				uplink, ovn := lxd.DefaultOVNNetwork(p.OVN.IPv4Gateway, p.OVN.IPv4Range, p.OVN.IPv6Gateway, p.OVN.DNSServers)
@@ -502,7 +505,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 	// Setup FAN network if OVN not available.
 	if len(ifaceByPeer) == 0 {
 		for peer, system := range systems {
-			if bootstrap {
+			if c.bootstrap {
 				system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingFanNetwork())
 				if s.Name == peer {
 					final, err := lxd.DefaultFanNetwork()
@@ -532,7 +535,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 
 		// Setup directly specified disks for ZFS pool.
 		if directLocal.Path != "" {
-			if bootstrap {
+			if c.bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(directLocal.Wipe, directLocal.Path))
 				if s.Name == peer {
 					system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
@@ -556,7 +559,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 
 		// Setup ceph pool for disks specified to MicroCeph.
 		if len(system.MicroCephDisks) > 0 {
-			if bootstrap {
+			if c.bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
 
 				if s.Name == peer {
@@ -629,7 +632,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 				)
 				// There should only be one ceph pool per system.
 				if !addedCephPool {
-					if bootstrap {
+					if c.bootstrap {
 						system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
 
 						if s.Name == peer {
@@ -680,7 +683,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 
 			if len(matched) > 0 {
 				zfsMachines[peer] = true
-				if bootstrap {
+				if c.bootstrap {
 					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, parseDiskPath(matched[0])))
 					if s.Name == peer {
 						system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
@@ -703,15 +706,15 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 	}
 
 	var cephInterfaces map[string][]service.CephDedicatedInterface
-	if p.Ceph.InternalNetwork != "" || !bootstrap {
-		cephInterfaces, err = lxd.GetCephInterfaces(context.Background(), bootstrap, infos)
+	if p.Ceph.InternalNetwork != "" || !c.bootstrap {
+		cephInterfaces, err = lxd.GetCephInterfaces(context.Background(), c.bootstrap, infos)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Initialize Ceph network if specified.
-	if bootstrap {
+	if c.bootstrap {
 		var initializedMicroCephSystem *InitSystem
 		for peer, system := range systems {
 			if system.InitializedServices[types.MicroCeph][peer] != "" {
@@ -786,17 +789,17 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 	}
 
-	if bootstrap && len(cephMachines)+len(directCephMatches) > 0 && len(cephMachines)+len(directCephMatches) < 3 {
+	if c.bootstrap && len(cephMachines)+len(directCephMatches) > 0 && len(cephMachines)+len(directCephMatches) < 3 {
 		return nil, fmt.Errorf("Failed to find at least 3 disks on 3 machines for MicroCeph configuration")
 	}
 
-	if bootstrap && len(zfsMachines)+len(directZFSMatches) > 0 && len(zfsMachines)+len(directZFSMatches) < len(systems) {
+	if c.bootstrap && len(zfsMachines)+len(directZFSMatches) > 0 && len(zfsMachines)+len(directZFSMatches) < len(systems) {
 		return nil, fmt.Errorf("Failed to find at least 1 disk on each machine for local storage pool configuration")
 	}
 
 	if len(cephMatches)+len(directCephMatches) > 0 && p.Storage.CephFS {
 		for name, system := range systems {
-			if bootstrap {
+			if c.bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
 				if s.Name == name {
 					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())

@@ -39,8 +39,17 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
+	cfg := initConfig{
+		bootstrap:    false,
+		autoSetup:    c.flagAutoSetup,
+		wipeAllDisks: c.flagWipe,
+		common:       c.common,
+		asker:        &c.common.asker,
+		systems:      map[string]InitSystem{},
+	}
+
 	if c.flagPreseed {
-		return c.common.RunPreseed(cmd, false)
+		return cfg.RunPreseed(cmd)
 	}
 
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
@@ -57,7 +66,9 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	cfg.name = status.Name
+	cfg.address = status.Address.Addr().String()
+	err = cfg.askAddress()
 	if err != nil {
 		return err
 	}
@@ -68,31 +79,30 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = c.common.askMissingServices(services, optionalServices, c.flagAutoSetup)
+	services, err = cfg.askMissingServices(services, optionalServices)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(status.Name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
 	}
 
-	systems := map[string]InitSystem{}
-	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+	err = cfg.lookupPeers(s, nil)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe, false)
+	err = cfg.askDisks(s)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup, false)
+	err = cfg.askNetwork(s)
 	if err != nil {
 		return err
 	}
 
-	return setupCluster(s, false, systems)
+	return cfg.setupCluster(s)
 }
