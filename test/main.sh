@@ -187,6 +187,10 @@ run_basic_tests() {
   run_test test_auto "auto"
 }
 
+run_recover_tests() {
+  run_test test_recover "recover"
+}
+
 run_interactive_tests() {
   run_test test_interactive "interactive"
   run_test test_interactive_combinations "interactive combinations"
@@ -206,6 +210,7 @@ if [ "${1:-"all"}" = "all" ]; then
   run_add_tests
   run_instances_tests
   run_basic_tests
+  run_recover_tests
   run_interactive_tests
   run_mismatch_tests
   run_preseed_tests
@@ -215,6 +220,8 @@ elif [ "${1}" = "instances" ]; then
   run_instances_tests
 elif [ "${1}" = "basic" ]; then
   run_basic_tests
+elif [ "${1}" = "recover" ]; then
+  run_recover_tests
 elif [ "${1}" = "interactive" ]; then
   run_interactive_tests
 elif [ "${1}" = "mismatch" ]; then
