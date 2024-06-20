@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/canonical/lxd/shared"
@@ -69,8 +70,10 @@ func (c *cmdClusterMembers) Run(cmd *cobra.Command, args []string) error {
 }
 
 type cmdClusterMembersList struct {
-	common     *CmdControl
+	common *CmdControl
+
 	flagFormat string
+	flagLocal  bool
 }
 
 func (c *cmdClusterMembersList) Command() *cobra.Command {
@@ -81,6 +84,7 @@ func (c *cmdClusterMembersList) Command() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", cli.TableFormatTable, "Format (csv|json|table|yaml|compact)")
+	cmd.Flags().BoolVarP(&c.flagLocal, "local", "l", false, "provide only the locally available cluster info (no database query)")
 
 	return cmd
 }
@@ -95,6 +99,10 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
+	}
+
+	if c.flagLocal {
+		return c.listLocalClusterMembers(m)
 	}
 
 	var client *client.Client
@@ -112,7 +120,11 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	clusterMembers, err := client.GetClusterMembers(context.Background())
+	return c.listClusterMembers(cmd.Context(), client)
+}
+
+func (c *cmdClusterMembersList) listClusterMembers(ctx context.Context, client *client.Client) error {
+	clusterMembers, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return err
 	}
@@ -131,6 +143,23 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	sort.Sort(cli.SortColumnsNaturally(data))
 
 	return cli.RenderTable(c.flagFormat, header, data, clusterMembers)
+}
+
+func (c *cmdClusterMembersList) listLocalClusterMembers(m *microcluster.MicroCluster) error {
+	members, err := m.GetDqliteClusterMembers()
+	if err != nil {
+		return err
+	}
+
+	data := make([][]string, len(members))
+	for i, member := range members {
+		data[i] = []string{strconv.FormatUint(member.DqliteID, 10), member.Name, member.Address, member.Role}
+	}
+
+	header := []string{"DQLITE ID", "NAME", "ADDRESS", "ROLE"}
+	sort.Sort(cli.SortColumnsNaturally(data))
+
+	return cli.RenderTable(c.flagFormat, header, data, members)
 }
 
 type cmdClusterMemberRemove struct {
