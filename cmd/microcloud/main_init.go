@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
@@ -50,6 +51,22 @@ type InitSystem struct {
 	StorageVolumes map[string][]lxdAPI.StorageVolumesPost
 	// JoinConfig is the LXD configuration for joining members.
 	JoinConfig []lxdAPI.ClusterMemberConfigKey
+}
+
+// initConfig holds the configuration for cluster formation based on the initial flags and answers provided to MicroCloud.
+type initConfig struct {
+	common *CmdControl
+	asker  *cli.Asker
+
+	address      string
+	bootstrap    bool
+	autoSetup    bool
+	wipeAllDisks bool
+
+	name         string
+	lookupIface  *net.Interface
+	lookupSubnet *net.IPNet
+	systems      map[string]InitSystem
 }
 
 type cmdInit struct {
