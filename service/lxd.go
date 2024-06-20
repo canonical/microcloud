@@ -200,7 +200,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 
 	err = op.WaitContext(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to configure cluster :%w", err)
+		return fmt.Errorf("Failed to configure cluster: %w", err)
 	}
 
 	return nil
