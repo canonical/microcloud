@@ -200,7 +200,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 
 	err = op.WaitContext(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to configure cluster :%w", err)
+		return fmt.Errorf("Failed to configure cluster: %w", err)
 	}
 
 	return nil
@@ -307,6 +307,14 @@ func (s *LXDService) HasExtension(ctx context.Context, target string, address st
 		if err != nil {
 			return false, err
 		}
+	}
+
+	// Fill the cache of API extensions.
+	// If the client's internal `server` field isn't yet populated
+	// a call to HasExtension will always return true for any extension.
+	_, _, err = client.GetServer()
+	if err != nil {
+		return false, err
 	}
 
 	return client.HasExtension(apiExtension), nil
