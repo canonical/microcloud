@@ -309,6 +309,14 @@ func (s *LXDService) HasExtension(ctx context.Context, target string, address st
 		}
 	}
 
+	// Fill the cache of API extensions.
+	// If the client's internal `server` field isn't yet populated
+	// a call to HasExtension will always return true for any extension.
+	_, _, err = client.GetServer()
+	if err != nil {
+		return false, err
+	}
+
 	return client.HasExtension(apiExtension), nil
 }
 
