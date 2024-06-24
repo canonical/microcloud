@@ -14,8 +14,17 @@ const lxdMinVersion = "5.21"
 // DefaultUplinkNetwork is the name of the default OVN uplink network.
 const DefaultUplinkNetwork = "UPLINK"
 
-// DefaultOVNNetwork is the name of te default OVN network.
+// DefaultOVNNetwork is the name of the default OVN network.
 const DefaultOVNNetwork = "default"
+
+// DefaultZFSPool is the name of the default ZFS storage pool.
+const DefaultZFSPool = "local"
+
+// DefaultCephPool is the name of the default Ceph storage pool.
+const DefaultCephPool = "remote"
+
+// DefaultCephFSPool is the name of the default CephFS storage pool.
+const DefaultCephFSPool = "remote-fs"
 
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
@@ -116,7 +125,7 @@ func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.Sto
 	}
 
 	return api.StoragePoolsPost{
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config:      cfg,
@@ -129,7 +138,7 @@ func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.Sto
 // creating the finalized pool.
 func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Driver: "zfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Description: "Local storage on ZFS",
@@ -142,14 +151,14 @@ func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
 func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []api.ClusterMemberConfigKey {
 	wipeDisk := api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Key:    "source.wipe",
 		Value:  "true",
 	}
 
 	sourceTemplate := api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "local",
+		Name:   DefaultZFSPool,
 		Key:    "source",
 	}
 
@@ -166,7 +175,7 @@ func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []ap
 // creating a pending pool on a specific cluster member target.
 func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote",
+		Name:   DefaultCephPool,
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -180,7 +189,7 @@ func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 // creating the finalized pool.
 func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote",
+		Name:   DefaultCephPool,
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -197,7 +206,7 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
-		Name:   "remote",
+		Name:   DefaultCephPool,
 		Key:    "source",
 		Value:  "lxd_remote",
 	}
@@ -207,7 +216,7 @@ func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKe
 // creating a pending pool on a specific cluster member target.
 func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote-fs",
+		Name:   DefaultCephFSPool,
 		Driver: "cephfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
@@ -221,7 +230,7 @@ func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 // creating the finalized pool.
 func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
-		Name:   "remote-fs",
+		Name:   DefaultCephFSPool,
 		Driver: "cephfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
