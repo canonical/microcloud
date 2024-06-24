@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
 // OVNService is a MicroOVN service.
@@ -101,17 +101,9 @@ func (s OVNService) RemoteClusterMembers(ctx context.Context, secret string, add
 		return nil, err
 	}
 
-	client.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/microovn") {
-				r.URL.Path = "/1.0/services/microovn" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		},
+	client, err = cloudClient.UseAuthProxy(client, secret, types.MicroOVN)
+	if err != nil {
+		return nil, err
 	}
 
 	return clusterMembers(ctx, client)

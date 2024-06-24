@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -17,6 +16,7 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
 // CephService is a MicroCeph service.
@@ -65,15 +65,9 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 		c = c.UseTarget(target)
 	}
 
-	if secret != "" {
-		c.Client.Client.Transport.(*http.Transport).Proxy = func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
-				r.URL.Path = "/1.0/services/microceph" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		}
+	c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCeph)
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil
@@ -141,17 +135,9 @@ func (s CephService) RemoteClusterMembers(ctx context.Context, secret string, ad
 		return nil, err
 	}
 
-	client.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-			if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
-				r.URL.Path = "/1.0/services/microceph" + r.URL.Path
-			}
-
-			return shared.ProxyFromEnvironment(r)
-		},
+	client, err = cloudClient.UseAuthProxy(client, secret, types.MicroCeph)
+	if err != nil {
+		return nil, err
 	}
 
 	return clusterMembers(ctx, client)
@@ -182,17 +168,9 @@ func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, ta
 			return nil, err
 		}
 
-		c.Client.Client.Transport = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				r.Header.Set("X-MicroCloud-Auth", targetSecret)
-				if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
-					r.URL.Path = "/1.0/services/microceph" + r.URL.Path
-				}
-
-				return shared.ProxyFromEnvironment(r)
-			},
+		c, err = cloudClient.UseAuthProxy(c, targetSecret, types.MicroCeph)
+		if err != nil {
+			return nil, err
 		}
 	}
 

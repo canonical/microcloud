@@ -2,15 +2,11 @@ package service
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	microClient "github.com/canonical/microcluster/client"
@@ -21,6 +17,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
 // CloudService is a MicroCloud service.
@@ -105,14 +102,9 @@ func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress strin
 		return "", err
 	}
 
-	c.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-
-			return shared.ProxyFromEnvironment(r)
-		},
+	c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCloud)
+	if err != nil {
+		return "", err
 	}
 
 	return client.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
@@ -141,14 +133,9 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 			return err
 		}
 
-		c.Client.Client.Transport = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				r.Header.Set("X-MicroCloud-Auth", secret)
-
-				return shared.ProxyFromEnvironment(r)
-			},
+		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCloud)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -162,14 +149,9 @@ func (s CloudService) RemoteClusterMembers(ctx context.Context, secret string, a
 		return nil, err
 	}
 
-	client.Client.Client.Transport = &http.Transport{
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			r.Header.Set("X-MicroCloud-Auth", secret)
-
-			return shared.ProxyFromEnvironment(r)
-		},
+	client, err = cloudClient.UseAuthProxy(client, secret, types.MicroCloud)
+	if err != nil {
+		return nil, err
 	}
 
 	return clusterMembers(ctx, client)
