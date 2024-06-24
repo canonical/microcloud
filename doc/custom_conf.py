@@ -9,6 +9,10 @@ import datetime
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+#
+# If you're not familiar with Sphinx and don't want to use advanced
+# features, it is sufficient to update the settings in the "Project
+# information" section.
 
 ############################################################
 ### Project information
@@ -39,26 +43,35 @@ html_title = ''
 
 copyright = '%s, %s' % (datetime.date.today().year, author)
 
-## Open Graph configuration - defines what is displayed in the website preview
-# The URL of the documentation output
+## Open Graph configuration - defines what is displayed as a link preview
+## when linking to the documentation from another website (see https://ogp.me/)
+# The URL where the documentation will be hosted (leave empty if you
+# don't know yet)
+# NOTE: If no ogp_* variable is defined (e.g. if you remove this section) the
+# sphinxext.opengraph extension will be disabled.
 ogp_site_url = 'https://canonical-microcloud.readthedocs-hosted.com/en/latest/'
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
-# An image or logo that is used in the preview
+# The URL of an image or logo that is used in the preview
 ogp_image = 'https://assets.ubuntu.com/v1/d53eeeac-Microcloud_favicon_64px_v2.png'
 
-# Update with the favicon for your product (default is the circle of friends)
+# Update with the local path to the favicon for your product
+# (default is the circle of friends)
 html_favicon = '.sphinx/_static/favicon.png'
 
 # (Some settings must be part of the html_context dictionary, while others
 #  are on root level. Don't move the settings.)
 html_context = {
 
-    # Change to the link to your product website (without "https://")
+    # Change to the link to the website of your product (without "https://")
+    # For example: "ubuntu.com/lxd" or "microcloud.is"
+    # If there is no product website, edit the header template to remove the
+    # link (see the readme for instructions).
     'product_page': 'canonical.com/microcloud',
 
-    # Add your product tag to ".sphinx/_static" and change the path
-    # here (start with "_static"), default is the circle of friends
+    # Add your product tag (the orange part of your logo, will be used in the
+    # header) to ".sphinx/_static" and change the path here (start with "_static")
+    # (default is the circle of friends)
     'product_tag': '_static/tag.png',
 
     # Change to the discourse instance you want to be able to link to
@@ -72,7 +85,16 @@ html_context = {
         'ubuntu': 'https://discourse.ubuntu.com/t/'
     },
 
-    # Change to the GitHub info for your project
+    # Change to the Mattermost channel you want to link to
+    # (use an empty value if you don't want to link)
+    'mattermost': '',
+
+    # Change to the Matrix channel you want to link to
+    # (use an empty value if you don't want to link)
+    'matrix': '',
+
+    # Change to the GitHub URL for your project
+    # This is used, for example, to link to the source files and allow creating GitHub issues directly from the documentation.
     'github_url': 'https://github.com/canonical/microcloud',
 
     # Change to the branch for this version of the documentation
@@ -88,7 +110,13 @@ html_context = {
 
     # Controls the existence of Previous / Next buttons at the bottom of pages
     # Valid options: none, prev, next, both
-    'sequential_nav': "both"
+    'sequential_nav': "both",
+
+    # Controls if to display the contributors of a file or not
+    "display_contributors": True,
+
+    # Controls time frame for showing the contributors
+    "display_contributors_since": ""
 }
 
 # If your project is on documentation.ubuntu.com, specify the project
@@ -101,7 +129,10 @@ slug = ""
 
 # Set up redirects (https://documatt.gitlab.io/sphinx-reredirects/usage.html)
 # For example: 'explanation/old-name.html': '../how-to/prettify.html',
-
+# You can also configure redirects in the Read the Docs project dashboard
+# (see https://docs.readthedocs.io/en/stable/guides/redirects.html).
+# NOTE: If this variable is not defined, set to None, or the dictionary is empty,
+# the sphinx_reredirects extension will be disabled.
 redirects = {
     'tutorial/index': 'get_started/'}
 
@@ -110,7 +141,6 @@ redirects = {
 ############################################################
 
 # Links to ignore when checking links
-
 linkcheck_ignore = [
     'http://127.0.0.1:8000',
     'http://localhost:8000'
@@ -130,17 +160,37 @@ custom_linkcheck_anchors_ignore_for_url = [
 ## The following settings are appended to the default configuration.
 ## Use them to extend the default functionality.
 
-# Add extensions
-custom_extensions = [
-    'sphinx.ext.intersphinx',
-]
-
-# Add MyST extensions
+# Remove this variable to disable the MyST parser extensions.
 custom_myst_extensions = []
+
+# Add custom Sphinx extensions as needed.
+# This array contains recommended extensions that should be used.
+# NOTE: The following extensions are handled automatically and do
+# not need to be added here: myst_parser, sphinx_copybutton, sphinx_design,
+# sphinx_reredirects, sphinxcontrib.jquery, sphinxext.opengraph
+custom_extensions = [
+    'sphinx_tabs.tabs',
+    'canonical.youtube-links',
+    'canonical.related-links',
+    'canonical.custom-rst-roles',
+    'canonical.terminal-output',
+    'notfound.extension',
+    'sphinx.ext.intersphinx',
+    ]
+
+# Add custom required Python modules that must be added to the
+# .sphinx/requirements.txt file.
+# NOTE: The following modules are handled automatically and do not need to be
+# added here: canonical-sphinx-extensions, furo, linkify-it-py, myst-parser,
+# pyspelling, sphinx, sphinx-autobuild, sphinx-copybutton, sphinx-design,
+# sphinx-notfound-page, sphinx-reredirects, sphinx-tabs, sphinxcontrib-jquery,
+# sphinxext-opengraph
+custom_required_modules = []
 
 # Add files or directories that should be excluded from processing.
 custom_excludes = [
-]
+    'doc-cheat-sheet*',
+    ]
 
 # Add CSS files (located in .sphinx/_static/)
 custom_html_css_files = []
@@ -163,6 +213,10 @@ disable_feedback_button = False
 # (https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#tags)
 custom_tags = []
 
+# If you are using the :manpage: role, set this variable to the URL for the version
+# that you want to link to:
+# manpages_url = "https://manpages.ubuntu.com/manpages/noble/en/man{section}/{page}.{section}.html"
+
 ############################################################
 ### Additional configuration
 ############################################################
@@ -173,3 +227,9 @@ intersphinx_mapping = {
     'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None),
     'ceph': ('https://docs.ceph.com/en/latest/', None)
 }
+
+# Define a :center: role that can be used to center the content of table cells.
+rst_prolog = '''
+.. role:: center
+   :class: align-center
+'''
