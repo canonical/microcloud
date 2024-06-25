@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -701,83 +700,6 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 	}
 
 	return nil
-}
-
-// checkClustered checks whether any of the selected systems have already initialized a service.
-// Returns the first system we find that is initialized for the given service, along with all of that system's existing cluster members.
-func checkClustered(s *service.Handler, autoSetup bool, serviceType types.ServiceType, systems map[string]InitSystem) (firstInitializedSystem string, existingMembers map[string]string, err error) {
-	// LXD should always be uninitialized at this point, so we can just return default values that consider LXD uninitialized.
-	if serviceType == types.LXD {
-		return "", nil, nil
-	}
-
-	for peer, system := range systems {
-		var remoteClusterMembers map[string]string
-		var err error
-
-		// If the peer in question is ourselves, we can just use the unix socket.
-		if peer == s.Name {
-			remoteClusterMembers, err = s.Services[serviceType].ClusterMembers(context.Background())
-		} else {
-			remoteClusterMembers, err = s.Services[serviceType].RemoteClusterMembers(context.Background(), system.ServerInfo.AuthSecret, system.ServerInfo.Address)
-		}
-
-		if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
-			return "", nil, fmt.Errorf("Failed to reach %s on system %q: %w", serviceType, peer, err)
-		}
-
-		// If we failed to retrieve cluster members due to the system not being initialized, we can ignore it.
-		if err != nil {
-			continue
-		}
-
-		clusterMembers := map[string]string{}
-		for k, v := range remoteClusterMembers {
-			host, _, err := net.SplitHostPort(v)
-			if err != nil {
-				return "", nil, err
-			}
-
-			clusterMembers[k] = host
-		}
-
-		if autoSetup {
-			return "", nil, fmt.Errorf("System %q is already clustered on %s", peer, serviceType)
-		}
-
-		// If this is the first clustered system we found, then record its cluster members.
-		if firstInitializedSystem == "" {
-			// Record that this system has initialized the service.
-			existingMembers = clusterMembers
-			if system.InitializedServices == nil {
-				system.InitializedServices = map[types.ServiceType]map[string]string{}
-			}
-
-			system.InitializedServices[serviceType] = clusterMembers
-			systems[peer] = system
-			firstInitializedSystem = peer
-
-			if clusterMembers[peer] != systems[peer].ServerInfo.Address && clusterMembers[peer] != "" {
-				return "", nil, fmt.Errorf("%s is already set up on %q on a different network", serviceType, peer)
-			}
-
-			continue
-		}
-
-		// If we've already encountered a clustered system, check if there's a mismatch in cluster members.
-		for k, v := range existingMembers {
-			if clusterMembers[k] != v {
-				return "", nil, fmt.Errorf("%q and %q are already part of different %s clusters. Aborting initialization", firstInitializedSystem, peer, serviceType)
-			}
-		}
-
-		// Ensure the maps are identical.
-		if len(clusterMembers) != len(existingMembers) {
-			return "", nil, fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
-		}
-	}
-
-	return firstInitializedSystem, existingMembers, nil
 }
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
