@@ -259,7 +259,10 @@ See :ref:`lxd:cluster-manage-instance` and :ref:`lxd:cluster-evacuate`.
 .. list-table::
    :widths: 2 3
 
-   * - Inspect the cluster status
+   * - Inspect the cluster status for all services at once
+     - :command:`microcloud service list`
+
+   * - Inspect the cluster status for each service
      - :command:`microcloud cluster list`
 
        :command:`lxc cluster list`
