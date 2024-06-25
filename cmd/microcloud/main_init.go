@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
@@ -26,6 +27,12 @@ import (
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
+
+// DefaultAutoLookupTimeout is the default time limit for automatically finding systems over mDNS.
+const DefaultAutoLookupTimeout time.Duration = 5 * time.Second
+
+// DefaultLookupTimeout is the default time limit for finding systems interactively.
+const DefaultLookupTimeout time.Duration = time.Minute
 
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
@@ -53,11 +60,44 @@ type InitSystem struct {
 	JoinConfig []lxdAPI.ClusterMemberConfigKey
 }
 
-// DefaultAutoLookupTimeout is the default time limit for automatically finding systems over mDNS.
-const DefaultAutoLookupTimeout time.Duration = 5 * time.Second
+// initConfig holds the configuration for cluster formation based on the initial flags and answers provided to MicroCloud.
+type initConfig struct {
+	// common holds information common to the CLI.
+	common *CmdControl
 
-// DefaultLookupTimeout is the default time limit for finding systems interactively.
-const DefaultLookupTimeout time.Duration = time.Minute
+	// asker is the CLI user input helper.
+	asker *cli.Asker
+
+	// address is the cluster address of the local system.
+	address string
+
+	// name is the cluster name for the local system.
+	name string
+
+	// bootstrap indicates whether we are setting up a new system from scratch.
+	bootstrap bool
+
+	// autoSetup indicates whether questions should automatically choose defaults.
+	autoSetup bool
+
+	// lookupTimeout is the duration to wait for mDNS records to appear during system lookup.
+	lookupTimeout time.Duration
+
+	// wipeAllDisks indicates whether all disks should be wiped, or if the user should be prompted.
+	wipeAllDisks bool
+
+	// lookupIface is the interface used for mDNS lookup.
+	lookupIface *net.Interface
+
+	// lookupSubnet is the subnet to limit mDNS lookup over.
+	lookupSubnet *net.IPNet
+
+	// systems is a map of system configuration to supply for cluster creation.
+	systems map[string]InitSystem
+
+	// state is the current state information for each system.
+	state map[string]service.SystemInformation
+}
 
 type cmdInit struct {
 	common *CmdControl
