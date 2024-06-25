@@ -339,6 +339,69 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 	return client.GetServerResources()
 }
 
+// GetStoragePools fetches the list of all storage pools from LXD, keyed by pool name.
+func (s LXDService) GetStoragePools(ctx context.Context, name string, address string, secret string) (map[string]api.StoragePool, error) {
+	var err error
+	var client lxd.InstanceServer
+	if name == s.Name() {
+		client, err = s.Client(ctx, "")
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	pools, err := client.GetStoragePools()
+	if err != nil {
+		return nil, err
+	}
+
+	poolMap := make(map[string]api.StoragePool, len(pools))
+	for _, pool := range pools {
+		poolMap[pool.Name] = pool
+	}
+
+	return poolMap, nil
+}
+
+// GetConfig returns the member-specific and cluster-wide configurations of LXD.
+// If LXD is not clustered, it just returns the member-specific configuration.
+func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, address string, secret string) (localConfig map[string]any, globalConfig map[string]any, err error) {
+	var client lxd.InstanceServer
+	if name == s.Name() {
+		client, err = s.Client(ctx, "")
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if clustered {
+		server, _, err := client.GetServer()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		localServer, _, err := client.UseTarget(name).GetServer()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return localServer.Writable().Config, server.Writable().Config, nil
+	}
+
+	server, _, err := client.GetServer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return server.Writable().Config, nil, nil
+}
+
 // defaultNetworkInterfacesFilter filters a network based on default rules and return whether it should be skipped and the addresses on the interface.
 func defaultNetworkInterfacesFilter(client lxd.InstanceServer, network api.Network) (bool, []string) {
 	// Skip managed networks.
