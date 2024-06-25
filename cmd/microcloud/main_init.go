@@ -611,9 +611,8 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 	return ovnIPRanges, nil
 }
 
-func validateSystems(s *service.Handler, systems map[string]InitSystem) (err error) {
-	curSystem, bootstrap := systems[s.Name]
-	if !bootstrap {
+func (c *initConfig) validateSystems(s *service.Handler) (err error) {
+	if !c.bootstrap {
 		return nil
 	}
 
@@ -622,7 +621,7 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 	// systems' management addrs
 	var ip4OVNRanges, ip6OVNRanges []*shared.IPRange
 
-	for _, network := range curSystem.Networks {
+	for _, network := range c.systems[s.Name].Networks {
 		if network.Type == "physical" && network.Name == service.DefaultUplinkNetwork {
 			ip4OVNRanges, err = validateGatewayNet(network.Config, "ipv4", validate.IsNetworkAddressCIDRV4)
 			if err != nil {
@@ -657,7 +656,7 @@ func validateSystems(s *service.Handler, systems map[string]InitSystem) (err err
 
 	// Ensure that no system's management address falls within the OVN ranges
 	// to prevent OVN from allocating an IP that's already in use.
-	for systemName, system := range systems {
+	for systemName, system := range c.systems {
 		// If the system is ourselves, we don't have an mDNS payload so grab the address locally.
 		addr := system.ServerInfo.Address
 		if systemName == s.Name {
