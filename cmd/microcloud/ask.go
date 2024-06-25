@@ -21,14 +21,14 @@ import (
 )
 
 // askRetry will print all errors and re-attempt the given function on user input.
-func (c *CmdControl) askRetry(question string, autoSetup bool, f func() error) {
+func (c *initConfig) askRetry(question string, f func() error) {
 	for {
 		retry := false
 		err := f()
 		if err != nil {
 			fmt.Println(err)
 
-			if !autoSetup {
+			if !c.autoSetup {
 				retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
 				if err != nil {
 					fmt.Println(err)
@@ -43,7 +43,7 @@ func (c *CmdControl) askRetry(question string, autoSetup bool, f func() error) {
 	}
 }
 
-func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs map[types.ServiceType]string, autoSetup bool) ([]types.ServiceType, error) {
+func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs map[types.ServiceType]string) ([]types.ServiceType, error) {
 	missingServices := []string{}
 	for serviceType, stateDir := range stateDirs {
 		if service.Exists(serviceType, stateDir) {
@@ -55,7 +55,7 @@ func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs 
 
 	if len(missingServices) > 0 {
 		serviceStr := strings.Join(missingServices, ", ")
-		if !autoSetup {
+		if !c.autoSetup {
 			confirm, err := c.asker.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
 			if err != nil {
 				return nil, err
@@ -74,26 +74,27 @@ func (c *CmdControl) askMissingServices(services []types.ServiceType, stateDirs 
 	return services, nil
 }
 
-func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net.Interface, *net.IPNet, error) {
+func (c *initConfig) askAddress() error {
 	info, err := mdns.GetNetworkInfo()
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("Failed to find network interfaces: %w", err)
+		return fmt.Errorf("Failed to find network interfaces: %w", err)
 	}
 
+	listenAddr := c.address
 	if listenAddr == "" {
 		if len(info) == 0 {
-			return "", nil, nil, fmt.Errorf("Found no valid network interfaces")
+			return fmt.Errorf("Found no valid network interfaces")
 		}
 
 		listenAddr = info[0].Address
-		if !autoSetup && len(info) > 1 {
+		if !c.autoSetup && len(info) > 1 {
 			data := make([][]string, 0, len(info))
 			for _, net := range info {
 				data = append(data, []string{net.Address, net.Interface.Name})
 			}
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
-			c.askRetry("Retry selecting an address?", autoSetup, func() error {
+			c.askRetry("Retry selecting an address?", func() error {
 				fmt.Println("Select an address for MicroCloud's internal traffic:")
 				err := table.Render(table.rows)
 				if err != nil {
@@ -131,13 +132,13 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 	}
 
 	if subnet == nil {
-		return "", nil, nil, fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
+		return fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
 	}
 
-	if !autoSetup {
+	if !c.autoSetup {
 		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
-			return "", nil, nil, err
+			return err
 		}
 
 		if !filter {
@@ -145,7 +146,11 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 		}
 	}
 
-	return listenAddr, iface, subnet, nil
+	c.address = listenAddr
+	c.lookupIface = iface
+	c.lookupSubnet = subnet
+
+	return nil
 }
 
 func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, encryptAllDisks bool) error {
