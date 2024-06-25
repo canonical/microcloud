@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
@@ -50,6 +51,42 @@ type InitSystem struct {
 	StorageVolumes map[string][]lxdAPI.StorageVolumesPost
 	// JoinConfig is the LXD configuration for joining members.
 	JoinConfig []lxdAPI.ClusterMemberConfigKey
+}
+
+// initConfig holds the configuration for cluster formation based on the initial flags and answers provided to MicroCloud.
+type initConfig struct {
+	// common holds information common to the CLI.
+	common *CmdControl
+
+	// asker is the CLI user input helper.
+	asker *cli.Asker
+
+	// address is the cluster address of the local system.
+	address string
+
+	// name is the cluster name for the local system.
+	name string
+
+	// bootstrap indicates whether we are setting up a new system from scratch.
+	bootstrap bool
+
+	// autoSetup indicates whether questions should automatically choose defaults.
+	autoSetup bool
+
+	// wipeAllDisks indicates whether all disks should be wiped, or if the user should be prompted.
+	wipeAllDisks bool
+
+	// lookupIface is the interface used for mDNS lookup.
+	lookupIface *net.Interface
+
+	// lookupSubnet is the subnet to limit mDNS lookup over.
+	lookupSubnet *net.IPNet
+
+	// systems is a map of system configuration to supply for cluster creation.
+	systems map[string]InitSystem
+
+	// state is the current state information for each system.
+	state map[string]service.SystemInformation
 }
 
 type cmdInit struct {
