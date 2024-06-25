@@ -1053,6 +1053,82 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	return nil
 }
 
+func (c *initConfig) askCephNetwork(sh *service.Handler) error {
+	if c.autoSetup {
+		return nil
+	}
+
+	availableCephNetworkInterfaces := map[string][]service.CephDedicatedInterface{}
+	for name, state := range c.state {
+		if len(state.AvailableCephInterfaces) == 0 {
+			fmt.Printf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup\n", name)
+
+			return nil
+		}
+
+		ifaces := make([]service.CephDedicatedInterface, 0, len(state.AvailableCephInterfaces))
+		for _, iface := range state.AvailableCephInterfaces {
+			ifaces = append(ifaces, iface)
+		}
+
+		availableCephNetworkInterfaces[name] = ifaces
+	}
+
+	var defaultCephNetwork *net.IPNet
+	for _, state := range c.state {
+		if state.CephConfig != nil {
+			value, ok := state.CephConfig["cluster_network"]
+			if !ok || value == "" {
+				continue
+			}
+
+			// Sometimes, the default cluster_network value in the Ceph configuration
+			// is not a network range but a regular IP address. We need to extract the network range.
+			_, valueNet, err := net.ParseCIDR(value)
+			if err != nil {
+				return fmt.Errorf("failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
+			}
+
+			defaultCephNetwork = valueNet
+			break
+		}
+	}
+
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	if defaultCephNetwork != nil {
+		if defaultCephNetwork.String() != "" && defaultCephNetwork.String() != c.lookupSubnet.String() {
+			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, defaultCephNetwork.String())
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	// MicroCeph is uninitialized, so ask the user for the network configuration.
+	microCloudInternalNetworkAddr := c.lookupSubnet.IP.Mask(c.lookupSubnet.Mask)
+	ones, _ := c.lookupSubnet.Mask.Size()
+	microCloudInternalNetworkAddrCIDR := fmt.Sprintf("%s/%d", microCloudInternalNetworkAddr.String(), ones)
+	internalCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: %s] ", microCloudInternalNetworkAddrCIDR), microCloudInternalNetworkAddrCIDR, validate.IsNetwork)
+	if err != nil {
+		return err
+	}
+
+	if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
+		err = validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, internalCephSubnet)
+		if err != nil {
+			return err
+		}
+
+		bootstrapSystem := c.systems[sh.Name]
+		bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
+		c.systems[sh.Name] = bootstrapSystem
+	}
+
+	return nil
+}
+
 // askClustered checks whether any of the selected systems have already initialized any expected services.
 // If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
 // In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
