@@ -1055,38 +1055,45 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 
 // askClustered checks whether any of the selected systems have already initialized any expected services.
 // If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
-// If multiple systems have separately initialized the same service, we will abort initialization.
-// Preseed yamls will have a flag that sets whether to reuse the cluster.
 // In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
-func (c *CmdControl) askClustered(s *service.Handler, autoSetup bool, systems map[string]InitSystem) error {
-	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
-	for k, v := range s.Services {
-		expectedServices[k] = v
+// This works by deleting the record for the service from the `service.Handler`, thus ignoring it for the remainder of the setup.
+func (c *initConfig) askClustered(s *service.Handler) error {
+	expectedServices := make(map[types.ServiceType]struct{}, len(s.Services))
+	for k := range s.Services {
+		expectedServices[k] = struct{}{}
 	}
 
 	for serviceType := range expectedServices {
-		initializedSystem, _, err := checkClustered(s, autoSetup, serviceType, systems)
-		if err != nil {
-			return err
-		}
+		for name, info := range c.state {
+			_, newSystem := c.systems[name]
+			if !newSystem {
+				continue
+			}
 
-		if initializedSystem != "" {
-			question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", initializedSystem, serviceType)
-			validator := func(s string) error {
-				if !shared.ValueInSlice[string](s, []string{"add", "skip"}) {
-					return fmt.Errorf("Invalid input, expected one of (add,skip) but got %q", s)
+			if info.ServiceClustered(serviceType) {
+				if c.autoSetup {
+					return fmt.Errorf("%s is already clustered on %q, aborting setup", serviceType, info.ClusterName)
 				}
 
-				return nil
-			}
+				question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", info.ClusterName, serviceType)
+				validator := func(s string) error {
+					if !shared.ValueInSlice(s, []string{"add", "skip"}) {
+						return fmt.Errorf("Invalid input, expected one of (add,skip) but got %q", s)
+					}
 
-			addOrSkip, err := c.asker.AskString(question, "add", validator)
-			if err != nil {
-				return err
-			}
+					return nil
+				}
 
-			if addOrSkip != "add" {
-				delete(s.Services, serviceType)
+				addOrSkip, err := c.asker.AskString(question, "add", validator)
+				if err != nil {
+					return err
+				}
+
+				if addOrSkip != "add" {
+					delete(s.Services, serviceType)
+				}
+
+				break
 			}
 		}
 	}
