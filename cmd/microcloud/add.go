@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -42,8 +43,25 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
+	cfg := initConfig{
+		bootstrap:    false,
+		autoSetup:    c.flagAutoSetup,
+		wipeAllDisks: c.flagWipe,
+		common:       c.common,
+		asker:        &c.common.asker,
+		systems:      map[string]InitSystem{},
+		state:        map[string]service.SystemInformation{},
+	}
+
+	cfg.lookupTimeout = DefaultLookupTimeout
+	if c.flagLookupTimeout > 0 {
+		cfg.lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
+	} else if c.flagAutoSetup || c.flagPreseed {
+		cfg.lookupTimeout = DefaultAutoLookupTimeout
+	}
+
 	if c.flagPreseed {
-		return c.common.RunPreseed(cmd, false, c.flagLookupTimeout)
+		return cfg.RunPreseed(cmd)
 	}
 
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
@@ -60,7 +78,9 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, status.Address.Addr().String())
+	cfg.name = status.Name
+	cfg.address = status.Address.Addr().String()
+	err = cfg.askAddress()
 	if err != nil {
 		return err
 	}
@@ -71,38 +91,70 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = c.common.askMissingServices(services, optionalServices, c.flagAutoSetup)
+	services, err = cfg.askMissingServices(services, optionalServices)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(status.Name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
 	}
 
-	lookupTimeout := DefaultLookupTimeout
-	if c.flagLookupTimeout > 0 {
-		lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
-	} else if c.flagAutoSetup {
-		lookupTimeout = DefaultAutoLookupTimeout
-	}
-
-	systems := map[string]InitSystem{}
-	err = lookupPeers(s, lookupTimeout, c.flagAutoSetup, iface, subnet, nil, systems)
+	err = cfg.lookupPeers(s, nil)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipe, false)
+	state, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	cfg.state[cfg.name] = *state
+
+	for _, system := range cfg.systems {
+		if system.ServerInfo.Name == "" || system.ServerInfo.Name == cfg.name {
+			continue
+		}
+
+		state, err := s.CollectSystemInformation(context.Background(), system.ServerInfo)
+		if err != nil {
+			return err
+		}
+
+		cfg.state[system.ServerInfo.Name] = *state
+	}
+
+	// Ensure LXD is not already clustered if we are running `microcloud init`.
+	for name, info := range cfg.state {
+		_, newSystem := cfg.systems[name]
+		if newSystem && info.ServiceClustered(types.LXD) {
+			return fmt.Errorf("%s is already clustered on %q, aborting setup", types.LXD, info.ClusterName)
+		}
+	}
+
+	// Ensure there are no existing cluster conflicts.
+	conflict, serviceType := service.ClustersConflict(cfg.state, []types.ServiceType{types.MicroOVN, types.MicroCloud})
+	if conflict {
+		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
+	}
+
+	// Ask to reuse existing clusters.
+	err = cfg.askClustered(s)
 	if err != nil {
 		return err
 	}
 
-	return setupCluster(s, systems)
+	err = cfg.askDisks(s)
+	if err != nil {
+		return err
+	}
+
+	err = cfg.askNetwork(s)
+	if err != nil {
+		return err
+	}
+
+	return cfg.setupCluster(s)
 }
