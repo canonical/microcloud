@@ -153,99 +153,15 @@ func (c *initConfig) askAddress() error {
 	return nil
 }
 
-func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool) error {
-	_, bootstrap := systems[sh.Name]
-	allResources := make(map[string]*api.Resources, len(systems))
-	var err error
-	for peer, system := range systems {
-		allResources[peer], err = sh.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
-		if err != nil {
-			return fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
-		}
+func (c *initConfig) askDisks(sh *service.Handler) error {
+	err := c.askLocalPool(sh)
+	if err != nil {
+		return err
 	}
 
-	foundDisks := false
-	for peer, r := range allResources {
-		system := systems[peer]
-		system.AvailableDisks = make([]api.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				system.AvailableDisks = append(system.AvailableDisks, disk)
-			}
-		}
-
-		if len(system.AvailableDisks) > 0 {
-			foundDisks = true
-		}
-
-		systems[peer] = system
-	}
-
-	wantsDisks := true
-	if !autoSetup && foundDisks {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
-	}
-
-	if !foundDisks {
-		wantsDisks = false
-	}
-
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-		})
-	}
-
-	if sh.Services[types.MicroCeph] != nil {
-		availableDisks := map[string][]api.ResourcesStorageDisk{}
-		for peer, system := range systems {
-			if len(system.AvailableDisks) > 0 {
-				availableDisks[peer] = system.AvailableDisks
-			}
-		}
-
-		if bootstrap && len(availableDisks) < 3 {
-			fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
-		} else {
-			wantsDisks = true
-			if !autoSetup {
-				wantsDisks, err = c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
-				if err != nil {
-					return err
-				}
-
-				if len(systems) != len(availableDisks) && wantsDisks {
-					wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
-					if err != nil {
-						return err
-					}
-				}
-			}
-
-			if wantsDisks {
-				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
-				})
-			}
-		}
-	}
-
-	if !bootstrap {
-		for peer, system := range systems {
-			if len(system.MicroCephDisks) > 0 {
-				if system.JoinConfig == nil {
-					system.JoinConfig = []api.ClusterMemberConfigKey{}
-				}
-
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
-
-				systems[peer] = system
-			}
-		}
+	err = c.askRemotePool(sh)
+	if err != nil {
+		return err
 	}
 
 	return nil
