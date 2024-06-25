@@ -31,8 +31,6 @@ import (
 type InitSystem struct {
 	// ServerInfo contains the data reported by mDNS about this system.
 	ServerInfo mdns.ServerInfo
-	// A map of services and their cluster members, if initialized.
-	InitializedServices map[types.ServiceType]map[string]string
 	// AvailableDisks contains the disks as reported by LXD.
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
@@ -119,14 +117,25 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	if c.flagPreseed {
-		return c.common.RunPreseed(cmd, true)
+	cfg := initConfig{
+		bootstrap:    true,
+		address:      c.flagAddress,
+		autoSetup:    c.flagAutoSetup,
+		wipeAllDisks: c.flagWipeAllDisks,
+		common:       c.common,
+		asker:        &c.common.asker,
+		systems:      map[string]InitSystem{},
+		state:        map[string]service.SystemInformation{},
 	}
 
-	return c.RunInteractive(cmd, args)
+	if c.flagPreseed {
+		return cfg.RunPreseed(cmd)
+	}
+
+	return cfg.RunInteractive(cmd, args)
 }
 
-func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
+func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
 	fmt.Println("Waiting for LXD to start...")
 	lxdService, err := service.NewLXDService("", "", c.common.FlagMicroCloudDir)
@@ -139,22 +148,20 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	systems := map[string]InitSystem{}
-
-	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
+	err = c.askAddress()
 	if err != nil {
 		return err
 	}
 
-	name, err := os.Hostname()
+	c.name, err = os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	systems[name] = InitSystem{
+	c.systems[c.name] = InitSystem{
 		ServerInfo: mdns.ServerInfo{
-			Name:    name,
-			Address: addr,
+			Name:    c.name,
+			Address: c.address,
 		},
 	}
 
@@ -164,42 +171,76 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = c.common.askMissingServices(services, optionalServices, c.flagAutoSetup)
+	services, err = c.askMissingServices(services, optionalServices)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(name, addr, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+	err = c.lookupPeers(s, nil)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askClustered(s, c.flagAutoSetup, systems)
+	state, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address, Services: services})
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
+	c.state[c.name] = *state
+
+	for _, system := range c.systems {
+		if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
+			continue
+		}
+
+		state, err := s.CollectSystemInformation(context.Background(), system.ServerInfo)
+		if err != nil {
+			return err
+		}
+
+		c.state[system.ServerInfo.Name] = *state
+	}
+
+	// Ensure LXD is not already clustered if we are running `microcloud init`.
+	for _, info := range c.state {
+		if info.ServiceClustered(types.LXD) {
+			return fmt.Errorf("%s is already clustered on %q, aborting setup", types.LXD, info.ClusterName)
+		}
+	}
+
+	// Ensure there are no existing cluster conflicts.
+	conflict, serviceType := service.ClustersConflict(c.state, services)
+	if conflict {
+		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
+	}
+
+	// Ask to reuse existing clusters.
+	err = c.askClustered(s)
 	if err != nil {
 		return err
 	}
 
-	err = c.common.askNetwork(s, systems, subnet, c.flagAutoSetup)
+	err = c.askDisks(s)
 	if err != nil {
 		return err
 	}
 
-	err = validateSystems(s, systems)
+	err = c.askNetwork(s)
 	if err != nil {
 		return err
 	}
 
-	err = setupCluster(s, systems)
+	err = c.validateSystems(s)
+	if err != nil {
+		return err
+	}
+
+	err = c.setupCluster(s)
 	if err != nil {
 		return err
 	}
