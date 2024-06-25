@@ -782,13 +782,13 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
-func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
+func (c *initConfig) setupCluster(s *service.Handler) error {
 	initializedServices := map[types.ServiceType]string{}
-	bootstrapSystem, bootstrap := systems[s.Name]
-	if bootstrap {
+	bootstrapSystem := c.systems[s.Name]
+	if c.bootstrap {
 		for serviceType := range s.Services {
-			for peer, system := range systems {
-				if system.InitializedServices[serviceType] != nil {
+			for peer := range c.systems {
+				if c.state[peer].ExistingServices[serviceType] != nil {
 					initializedServices[serviceType] = peer
 					break
 				}
@@ -823,14 +823,15 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 				return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 			}
 
+			// Since the system is now clustered, update its existing services map.
 			mu.Lock()
-			clustered := systems[s.Name()]
-			if clustered.InitializedServices == nil {
-				clustered.InitializedServices = map[types.ServiceType]map[string]string{}
+			clustered := c.state[s.Name()]
+			if clustered.ExistingServices == nil {
+				clustered.ExistingServices = map[types.ServiceType]map[string]string{}
 			}
 
-			clustered.InitializedServices[s.Type()] = map[string]string{s.Name(): s.Address()}
-			systems[s.Name()] = clustered
+			clustered.ExistingServices[s.Type()] = map[string]string{s.Name(): s.Address()}
+			c.state[s.Name()] = clustered
 			mu.Unlock()
 
 			fmt.Printf(" Local %s is ready\n", s.Type())
@@ -842,12 +843,12 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 		}
 	}
 
-	err := AddPeers(s, systems)
+	err := c.addPeers(s)
 	if err != nil {
 		return err
 	}
 
-	if bootstrap {
+	if c.bootstrap {
 		// Joiners will add their disks as part of the join process, so only add disks here for the system we bootstrapped, or already existed.
 		peer := s.Name
 		microCeph := initializedServices[types.MicroCeph]
@@ -855,23 +856,23 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			peer = microCeph
 		}
 
-		for name := range systems[peer].InitializedServices[types.MicroCeph] {
+		for name := range c.state[peer].ExistingServices[types.MicroCeph] {
 			// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
-			if systems[name].ServerInfo.Name == "" {
+			if c.systems[name].ServerInfo.Name == "" {
 				continue
 			}
 
-			var c *client.Client
-			for _, disk := range systems[name].MicroCephDisks {
-				if c == nil {
-					c, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, systems[name].ServerInfo.AuthSecret)
+			var client *client.Client
+			for _, disk := range c.systems[name].MicroCephDisks {
+				if client == nil {
+					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, c.systems[name].ServerInfo.AuthSecret)
 					if err != nil {
 						return err
 					}
 				}
 
 				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
-				_, err = cephClient.AddDisk(context.Background(), c, &disk)
+				_, err = cephClient.AddDisk(context.Background(), client, &disk)
 				if err != nil {
 					return err
 				}
@@ -884,19 +885,19 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
 		ovn := s.Services[types.MicroOVN].(*service.OVNService)
-		c, err := ovn.Client()
+		client, err := ovn.Client()
 		if err != nil {
 			return err
 		}
 
-		services, err := ovnClient.GetServices(context.Background(), c)
+		services, err := ovnClient.GetServices(context.Background(), client)
 		if err != nil {
 			return err
 		}
 
 		clusterMap := map[string]string{}
-		if bootstrap {
-			for peer, system := range systems {
+		if c.bootstrap {
+			for peer, system := range c.systems {
 				clusterMap[peer] = system.ServerInfo.Address
 			}
 		} else {
@@ -953,7 +954,7 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	}
 
 	// Create preliminary networks & storage pools on each target.
-	for name, system := range systems {
+	for name, system := range c.systems {
 		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
@@ -976,8 +977,8 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	}
 
 	// If bootstrapping, finalize setup of storage pools & networks, and update the default profile accordingly.
-	system, bootstrap := systems[s.Name]
-	if bootstrap {
+	system := c.systems[s.Name]
+	if c.bootstrap {
 		lxd := s.Services[types.LXD].(*service.LXDService)
 		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
@@ -1039,14 +1040,14 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 	}
 
 	// With storage pools set up, add some volumes for images & backups.
-	for name, system := range systems {
+	for name, system := range c.systems {
 		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
 		if err != nil {
 			return err
 		}
 
 		poolNames := []string{}
-		if bootstrap {
+		if c.bootstrap {
 			for _, pool := range system.TargetStoragePools {
 				poolNames = append(poolNames, pool.Name)
 			}
