@@ -254,11 +254,12 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 // - If `autoSetup` is true, all systems found in the first 5s will be recorded, and no other input is required.
 // - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
 // except it will wait up to a minute for exclusively these systems to be recorded.
-func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
+func (c *initConfig) lookupPeers(s *service.Handler, expectedSystems []string) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
 
+	autoSetup := c.autoSetup
 	if len(expectedSystems) > 0 {
 		autoSetup = true
 	}
@@ -313,7 +314,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 				break
 			}
 
-			peers, err := mdns.LookupPeers(context.Background(), iface, mdns.Version, s.Name)
+			peers, err := mdns.LookupPeers(context.Background(), c.lookupIface, mdns.Version, s.Name)
 			if err != nil {
 				return err
 			}
@@ -337,7 +338,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 					}
 
 					// If given a subnet, skip any peers that are broadcasting from a different subnet.
-					if subnet != nil && !subnet.Contains(net.ParseIP(info.Address)) {
+					if c.lookupSubnet != nil && !c.lookupSubnet.Contains(net.ParseIP(info.Address)) {
 						continue
 					}
 
@@ -384,7 +385,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 		iface := table.SelectionValue(answer, "IFACE")
 		for _, info := range totalPeers {
 			if info.Name == peer && info.Address == addr && info.Interface == iface {
-				systems[peer] = InitSystem{
+				c.systems[peer] = InitSystem{
 					ServerInfo: info,
 				}
 			}
@@ -393,7 +394,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 
 	if autoSetup {
 		for _, info := range totalPeers {
-			systems[info.Name] = InitSystem{
+			c.systems[info.Name] = InitSystem{
 				ServerInfo: info,
 			}
 		}
@@ -406,7 +407,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 		fmt.Println("")
 	}
 
-	for _, info := range systems {
+	for _, info := range c.systems {
 		fmt.Printf(" Selected %q at %q\n", info.ServerInfo.Name, info.ServerInfo.Address)
 	}
 
@@ -460,23 +461,23 @@ func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, se
 	return nil
 }
 
-func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
+func (c *initConfig) addPeers(sh *service.Handler) error {
 	// Grab the systems that are clustered from the InitSystem map.
 	initializedServices := map[types.ServiceType]string{}
 	existingSystems := map[types.ServiceType]map[string]string{}
 	for serviceType := range sh.Services {
-		for peer, system := range systems {
-			if system.InitializedServices != nil && system.InitializedServices[serviceType] != nil {
+		for peer := range c.systems {
+			if c.state[peer].ExistingServices != nil && c.state[peer].ExistingServices[serviceType] != nil {
 				initializedServices[serviceType] = peer
-				existingSystems[serviceType] = system.InitializedServices[serviceType]
+				existingSystems[serviceType] = c.state[peer].ExistingServices[serviceType]
 				break
 			}
 		}
 	}
 
 	// Prepare a JoinConfig to send to each joiner.
-	joinConfig := make(map[string]types.ServicesPut, len(systems))
-	for peer, info := range systems {
+	joinConfig := make(map[string]types.ServicesPut, len(c.systems))
+	for peer, info := range c.systems {
 		joinConfig[peer] = types.ServicesPut{
 			Tokens:     []types.ServiceToken{},
 			Address:    info.ServerInfo.Address,
@@ -485,21 +486,20 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		}
 	}
 
-	_, bootstrap := systems[sh.Name]
 	clusterSize := map[types.ServiceType]int{}
-	if bootstrap {
+	if c.bootstrap {
 		for serviceType, clusterMembers := range existingSystems {
 			clusterSize[serviceType] = len(clusterMembers)
 		}
 	}
 
 	// Concurrently issue a token for each joiner.
-	for peer := range systems {
+	for peer := range c.systems {
 		mut := sync.Mutex{}
 		err := sh.RunConcurrent(false, false, func(s service.Service) error {
 			// Only issue a token if the system isn't already part of that cluster.
 			if existingSystems[s.Type()][peer] == "" {
-				clusteredSystem := systems[initializedServices[s.Type()]]
+				clusteredSystem := c.systems[initializedServices[s.Type()]]
 
 				var token string
 				var err error
@@ -521,7 +521,7 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 
 				// Fetch the current cluster sizes if we are adding a new node.
 				var currentCluster map[string]string
-				if !bootstrap {
+				if !c.bootstrap {
 					currentCluster, err = s.ClusterMembers(context.Background())
 					if err != nil {
 						return fmt.Errorf("Failed to check for existing %s cluster size: %w", s.Type(), err)
@@ -530,7 +530,7 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 
 				mut.Lock()
 
-				if !bootstrap {
+				if !c.bootstrap {
 					clusterSize[s.Type()] = len(currentCluster)
 				}
 
@@ -564,7 +564,7 @@ func AddPeers(sh *service.Handler, systems map[string]InitSystem) error {
 		}
 
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
-		err := waitForJoin(sh, clusterSize, systems[peer].ServerInfo.AuthSecret, peer, cfg)
+		err := waitForJoin(sh, clusterSize, c.systems[peer].ServerInfo.AuthSecret, peer, cfg)
 		if err != nil {
 			return err
 		}
