@@ -216,7 +216,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	c.state[c.name] = *state
-
+	fmt.Println("Gathering system information...")
 	for _, system := range c.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
 			continue

@@ -112,7 +112,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg.state[cfg.name] = *state
-
+	fmt.Println("Gathering system information...")
 	for _, system := range cfg.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == cfg.name {
 			continue
