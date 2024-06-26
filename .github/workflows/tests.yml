@@ -82,7 +82,7 @@ jobs:
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
     name: System
-    runs-on: ubuntu-22.04
+    runs-on: GitHubMicrocloud
     strategy:
       fail-fast: false
       matrix:
