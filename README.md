@@ -58,7 +58,7 @@ This is just the beginning of MicroCloud. We’re very excited about what’s co
 
 ### **RESOURCES:**
 
-- Introduction: https://discuss.linuxcontainers.org/t/introducing-microcloud/15871
+- Documentation: https://canonical-microcloud.readthedocs-hosted.com/en/latest/
 - Find the package at the Snap Store:
 
  [![Snapcraft logo](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
