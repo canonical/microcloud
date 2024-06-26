@@ -186,6 +186,9 @@ jobs:
           # we will be able to stop worrying about that special case.
           if [ "$(stat -c '%d' /)" = "$(stat -c '%d' /mnt)" ]; then
             echo "FAIL: rootfs and ephemeral part on the same disk, aborting"
+            lsblk
+            blkid
+            sudo fdisk -l
             exit 1
           fi
 
