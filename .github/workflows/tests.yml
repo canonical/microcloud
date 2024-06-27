@@ -179,6 +179,12 @@ jobs:
         run: |
           set -eux
 
+          if ! mountpoint --quiet /mnt; then
+            echo "INFO: no ephemeral disk mounted on /mnt"
+            mount
+            exit 0
+          fi
+
           # If the rootfs and the ephemeral part are on the same physical disk, giving the whole
           # disk to microceph would wipe our rootfs. Since it is pretty rare for GitHub Action
           # runners to have a single disk, we immediately bail rather than trying to gracefully
