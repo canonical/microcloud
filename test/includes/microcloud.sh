@@ -4,7 +4,7 @@
 unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
+    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
     SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
 }
 
@@ -27,6 +27,7 @@ microcloud_interactive() {
   CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
   CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
   CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
+  CEPH_ENCRYPT=${CEPH_ENCRYPT:-}                  # (yes/no) to encrypt all disks.
   CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet or Ceph public network if specified previously) input for setting up a cluster network.
   IGNORE_CEPH_NETWORKING=${IGNORE_CEPH_NETWORKING:-} # (yes/no) input for ignoring Ceph network setup. Set it to `yes` during `microcloud add` .
   SETUP_OVN=${SETUP_OVN:-}                       # (yes/no) input for initiating OVN network setup.
@@ -83,6 +84,7 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matchi
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
+${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
 $(true)                                                 # workaround for set -e
 "
@@ -173,15 +175,27 @@ validate_system_microceph() {
       shift 1
     fi
 
+    encrypt=0
+    if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+      encrypt="${1}"
+      shift 1
+    fi
+
     cluster_ceph_subnet=""
     if echo "${1}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
       cluster_ceph_subnet="${1}"
       shift 1
     fi
 
+    if [ "${encrypt}" = 1 ]; then
+      local disks_to_encrypt="${1}"
+      shift 1
+      validate_ceph_encrypt "${name}" "${disks_to_encrypt}"
+    fi
+
     disks="${*}"
 
-    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}"
+    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}, Encrypt: {${encrypt}}"
 
     lxc remote switch local
     lxc exec "${name}" -- sh -ceu "
@@ -215,6 +229,33 @@ validate_system_microceph() {
     fi
 }
 
+# validate_ceph_encrypt: Ensures the node with the given name has an encrypted disk.
+validate_ceph_encrypt() {
+  name=${1}
+  shift 1
+  IFS=',' read -ra disks_list <<< "$1"
+
+  disks="${disks_list[*]}"
+  echo "==> ${name} Validating Ceph encryption. Using disks: {${disks}}"
+
+  lxc remote switch local
+  lxc exec "${name}" -- sh -ceu "
+    for disk in ${disks} ; do
+      ceph_disks=\$(microceph cluster sql \"select path from disks join internal_cluster_members on internal_cluster_members.id = disks.member_id where path like '%\${disk}' and name = '${name}'\")
+      disks_paths=\$(echo \"\${ceph_disks}\" | grep -o /dev/disk/by-id/scsi-.*_lxd_\${disk})
+      devname=\$(udevadm info --query=property --name=\"\$disks_paths\" | grep '^DEVNAME=' | cut -d'=' -f2 | cut -d'/' -f3)
+      result=\$(lsblk -l -o name,fstype | grep -E \"^\b\$devname\b.*crypto_LUKS\")
+
+      if [ -n \"\$result\" ]; then
+        echo \"\$devname is encrypted.\"
+      else
+        echo \"No corresponding encrypted /dev/sdX found.\"
+        exit 1
+      fi
+    done
+  "
+}
+
 # validate_system_microovn: Ensures the node with the given name has correctly set up MicroOVN with the given resources.
 validate_system_microovn() {
     name=${1}
@@ -225,10 +266,9 @@ validate_system_microovn() {
     lxc exec "${name}" -- microovn cluster list | grep -q "${name}"
 }
 
-# validate_system_lxd_zfs: Ensures the node with the given name has the given disk set up for ZFS storage.
+# validate_system_lxd_zfs: Ensures the node with the given name has a disk set up for ZFS storage.
 validate_system_lxd_zfs() {
   name=${1}
-  local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
   lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
   lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
@@ -237,9 +277,10 @@ validate_system_lxd_zfs() {
   grep -q "config: {}" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
+  # In microcloud auto mode, the disk number is not known in advance, we just know it's the first discovered disk.
   cfg="$(lxc storage show local --target "${name}")"
   grep -q "source: local" <<< "${cfg}"
-  grep -q "volatile.initial_source: .*${local_disk}" <<< "${cfg}"
+  grep -qE "volatile.initial_source: /[^/]+(/[^/]+)*" <<< "${cfg}"
   grep -q "zfs.pool_name: local" <<< "${cfg}"
   grep -q "driver: zfs" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
@@ -397,7 +438,7 @@ validate_system_lxd() {
     fi
 
     if [ -n "${local_disk}" ]; then
-      validate_system_lxd_zfs "${name}" "${local_disk}"
+      validate_system_lxd_zfs "${name}"
     fi
 
     if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
@@ -929,7 +970,7 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
+    lxc init ubuntu-minimal-daily:24.04 "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
 
     # Disable vGPU to save RAM
     lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
@@ -958,9 +999,9 @@ setup_system() {
     fi
 
     # Disable unneeded services/timers/sockets/mounts (source of noise/slowdown)
-    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service grub-common.service grub-initrd-fallback.service lvm2-monitor.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journald.service systemd-journal-flush.service unattended-upgrades.service
+    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service grub-common.service grub-initrd-fallback.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journald.service systemd-journal-flush.service unattended-upgrades.service
     lxc exec "${name}" -- systemctl mask --now apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer e2scrub_all.timer fstrim.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
-    lxc exec "${name}" -- systemctl mask --now cloud-init-hotplugd.socket lvm2-lvmpolld.socket lxd-installer.socket iscsid.socket systemd-journald-dev-log.socket
+    lxc exec "${name}" -- systemctl mask --now lxd-installer.socket iscsid.socket systemd-journald-dev-log.socket
     lxc exec "${name}" -- systemctl mask --now dev-hugepages.mount sys-kernel-debug.mount sys-kernel-tracing.mount
 
     # Turn off debugfs and mitigations
@@ -990,6 +1031,10 @@ setup_system() {
         snap install microceph --channel=\"${MICROCEPH_SNAP_CHANNEL}\" --cohort='+' || true
         sleep 1
       done
+
+      # dm-crypt needs to be manually connected for microceph full disk encyption.
+      snap connect microceph:dm-crypt
+      snap restart microceph.daemon
 
       while ! test -e /snap/bin/microovn ; do
         snap install microovn --channel=\"${MICROOVN_SNAP_CHANNEL}\" --cohort='+' || true
@@ -1036,8 +1081,31 @@ new_system() {
   name=${1}
   num_disks=${2:-0}
 
-  create_system "${name}" "${num_disks}"
-  lxd_wait_vm "${name}"
+  (
+    set -eu
+    # Sometimes, the cloud-init user script fails to run in a CI environment,
+    # so we retry a few times.
+    for i in $(seq 5); do
+      create_system "${name}" "${num_disks}"
+
+      if ! lxd_wait_vm "${name}"; then
+        echo "lxd_wait_vm failed, removing ${name} and retrying (attempt ${i})"
+        lxc delete "${name}" -f
+        for n in $(seq 1 "${num_disks}") ; do
+          disk="${name}-disk${n}"
+          lxc storage volume delete zpool "${disk}"
+        done
+      else
+        break
+      fi
+
+      if [ "${i}" = 5 ]; then
+        echo "Failed to create ${name} after 5 attempts"
+        exit 1
+      fi
+    done
+  )
+
   # Sleep some time so the vm is fully set up.
   sleep 3
   setup_system "${name}"

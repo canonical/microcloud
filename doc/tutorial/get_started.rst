@@ -268,6 +268,7 @@ Complete the following steps:
    #. Select ``yes`` to confirm that there are fewer disks available than machines.
    #. Select all listed disks (these should be ``remote1``, ``remote2``, and ``remote3``).
    #. You don't need to wipe any disks (because we just created them).
+   #. You don't need to encrypt any disks to get started.
    #. Select ``yes`` to optionally configure the CephFS distributed file system.
    #. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
    #. Select ``yes`` to configure distributed networking.
@@ -368,6 +369,17 @@ See the full initialisation process here:
           +----------+---------------+----------+------+------------------------------------------------------+
 
    Select which disks to wipe:
+   Space to select; enter to confirm; type to filter results.
+   Up/down to move; right to select all; left to select none.
+          +----------+---------------+----------+------+------------------------------------------------------+
+          | LOCATION |     MODEL     | CAPACITY | TYPE |                         PATH                         |
+          +----------+---------------+----------+------+------------------------------------------------------+
+   > [ ]  | micro1   | QEMU HARDDISK | 20.00GiB | scsi | /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_remote1 |
+     [ ]  | micro2   | QEMU HARDDISK | 20.00GiB | scsi | /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_remote2 |
+     [ ]  | micro3   | QEMU HARDDISK | 20.00GiB | scsi | /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_remote3 |
+          +----------+---------------+----------+------+------------------------------------------------------+
+
+   Select which disks to encrypt:
    Space to select; enter to confirm; type to filter results.
    Up/down to move; right to select all; left to select none.
           +----------+---------------+----------+------+------------------------------------------------------+
