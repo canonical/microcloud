@@ -176,26 +176,38 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 		systems[peer] = system
 	}
 
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	client, err := lxd.Client(context.Background(), "")
+	if err != nil {
+		return err
+	}
+
+	storagePools, err := client.GetStoragePoolNames()
+	if err != nil {
+		return err
+	}
+
 	wantsDisks := true
-	if !autoSetup && foundDisks {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
+	if !shared.ValueInSlice[string](lxd.DefaultZFSStoragePool().Name, storagePools) {
+		if !autoSetup && foundDisks {
+			wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+		}
+
+		if !foundDisks {
+			wantsDisks = false
+		}
+
+		if wantsDisks {
+			c.askRetry("Retry selecting disks?", autoSetup, func() error {
+				return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
+			})
 		}
 	}
 
-	if !foundDisks {
-		wantsDisks = false
-	}
-
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-		})
-	}
-
-	if sh.Services[types.MicroCeph] != nil {
+	if sh.Services[types.MicroCeph] != nil && !shared.ValueInSlice[string](lxd.DefaultCephStoragePool().Name, storagePools) {
 		availableDisks := map[string][]api.ResourcesStorageDisk{}
 		for peer, system := range systems {
 			if len(system.AvailableDisks) > 0 {
@@ -628,20 +640,38 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
 	_, bootstrap := systems[sh.Name]
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	for peer, system := range systems {
-		if bootstrap {
-			system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
-			if peer == sh.Name {
-				network, err := lxd.DefaultFanNetwork()
-				if err != nil {
-					return err
+
+	lxdClient, err := lxd.Client(context.Background(), "")
+	if err != nil {
+		return err
+	}
+
+	networkNames, err := lxdClient.GetNetworkNames()
+	if err != nil {
+		return err
+	}
+
+	networkExists := make(map[string]bool, len(networkNames))
+	for _, net := range networkNames {
+		networkExists[net] = true
+	}
+
+	if !networkExists[lxd.DefaultPendingFanNetwork().Name] {
+		for peer, system := range systems {
+			if bootstrap {
+				system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
+				if peer == sh.Name {
+					network, err := lxd.DefaultFanNetwork()
+					if err != nil {
+						return err
+					}
+
+					system.Networks = []api.NetworksPost{network}
 				}
-
-				system.Networks = []api.NetworksPost{network}
 			}
-		}
 
-		systems[peer] = system
+			systems[peer] = system
+		}
 	}
 
 	// Automatic setup gets a basic fan setup.
@@ -650,7 +680,8 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	}
 
 	// Environments without OVN get a basic fan setup.
-	if sh.Services[types.MicroOVN] == nil {
+	uplink, ovn := lxd.DefaultOVNNetwork("", "", "", "")
+	if sh.Services[types.MicroOVN] == nil || networkExists[uplink.Name] || networkExists[ovn.Name] {
 		return nil
 	}
 
