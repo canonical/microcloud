@@ -1,5 +1,7 @@
 # `lookup_subnet` limits the subnet when looking up systems with mDNS.
 lookup_subnet: 10.0.0.1/24
+# `lookup_interface` limits the interface when looking up systems with mDNS.
+lookup_interface: eth0
 
 # `systems` lists the systems we expect to find by their host name.
 #   `name` represents the host name
