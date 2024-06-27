@@ -88,7 +88,7 @@ $(true)                                                 # workaround for set -e
 "
 fi
 
-if [ -z "${IGNORE_CEPH_NETWORKING}" ]; then
+if [ -z "${IGNORE_CEPH_NETWORKING}" ] && [ "${SETUP_CEPH}" = "yes" ] ; then
   if [ -n "${CEPH_CLUSTER_NETWORK}" ]; then
     setup="${setup}
 ${CEPH_CLUSTER_NETWORK}
@@ -174,7 +174,7 @@ validate_system_microceph() {
     fi
 
     cluster_ceph_subnet=""
-    if echo "${1}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
+    if echo "${1:-}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
       cluster_ceph_subnet="${1}"
       shift 1
     fi
@@ -588,6 +588,7 @@ reset_system() {
     # Re-enable as many interfaces as we want for this run.
     for i in $(seq 1 "${num_ifaces}") ; do
       iface="enp$((i + 5))s0"
+      lxc exec "${name}" -- ip addr flush dev "${iface}"
       lxc exec "${name}" -- ip link set "${iface}" up
       lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
     done
