@@ -8,7 +8,7 @@ require (
 	github.com/canonical/lxd v0.0.0-20240617120737-bdc97dda1929
 	github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb
 	github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21
-	github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252
+	github.com/canonical/microovn/microovn v0.0.0-20240701085509-b6b860d04acd
 	github.com/creack/pty v1.1.21
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/mdns v1.0.5
