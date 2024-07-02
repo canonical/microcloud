@@ -1,9 +1,12 @@
 package service
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/canonical/lxd/shared/api"
 )
@@ -32,10 +35,42 @@ func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
 	return api.NetworksPost{Name: "lxdfan0", Type: "bridge"}
 }
 
+// FanNetworkUsable checks if the current host is capable of using a Fan network.
+// It actually checks if there is a default IPv4 gateway available.
+func (s LXDService) FanNetworkUsable() (available bool, ifaceName string, err error) {
+	file, err := os.Open("/proc/net/route")
+	if err != nil {
+		return false, "", err
+	}
+
+	defer func() { _ = file.Close() }()
+
+	scanner := bufio.NewReader(file)
+	for {
+		line, _, err := scanner.ReadLine()
+		if err != nil {
+			break
+		}
+
+		fields := strings.Fields(string(line))
+
+		if fields[1] == "00000000" && fields[7] == "00000000" {
+			ifaceName = fields[0]
+			break
+		}
+	}
+
+	if ifaceName == "" {
+		return false, "", nil // There is no default gateway for IPv4
+	}
+
+	return true, ifaceName, nil
+}
+
 // DefaultFanNetwork returns the default Ubuntu Fan network configuration when
 // creating the finalized network.
 func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
-	underlay, _, err := defaultGatewaySubnetV4()
+	underlay, _, err := s.defaultGatewaySubnetV4()
 	if err != nil {
 		return api.NetworksPost{}, fmt.Errorf("Could not determine Fan overlay subnet: %w", err)
 	}

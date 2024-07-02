@@ -1,12 +1,10 @@
 package service
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -637,33 +635,14 @@ func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer, timeou
 }
 
 // defaultGatewaySubnetV4 returns subnet of default gateway interface.
-func defaultGatewaySubnetV4() (*net.IPNet, string, error) {
-	file, err := os.Open("/proc/net/route")
+func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
+	available, ifaceName, err := s.FanNetworkUsable()
 	if err != nil {
 		return nil, "", err
 	}
 
-	defer func() { _ = file.Close() }()
-
-	ifaceName := ""
-
-	scanner := bufio.NewReader(file)
-	for {
-		line, _, err := scanner.ReadLine()
-		if err != nil {
-			break
-		}
-
-		fields := strings.Fields(string(line))
-
-		if fields[1] == "00000000" && fields[7] == "00000000" {
-			ifaceName = fields[0]
-			break
-		}
-	}
-
-	if ifaceName == "" {
-		return nil, "", fmt.Errorf("No default gateway for IPv4")
+	if !available {
+		return nil, "", fmt.Errorf("No default IPv4 gateway available")
 	}
 
 	iface, err := net.InterfaceByName(ifaceName)

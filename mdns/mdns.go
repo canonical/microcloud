@@ -48,3 +48,39 @@ func dnsTXTSlice(list []byte) []string {
 
 	return parts
 }
+
+// checkIPStatus checks if the interface is up, has multicast, and supports IPv4/IPv6.
+func checkIPStatus(iface string) (ipv4OK bool, ipv6OK bool, err error) {
+	netInterface, err := net.InterfaceByName(iface)
+	if err != nil {
+		return false, false, err
+	}
+
+	if netInterface.Flags&net.FlagUp != net.FlagUp {
+		return false, false, nil
+	}
+
+	if netInterface.Flags&net.FlagMulticast != net.FlagMulticast {
+		return false, false, nil
+	}
+
+	addrs, err := netInterface.Addrs()
+	if err != nil {
+		return false, false, err
+	}
+
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+
+		if ipNet.IP.To4() != nil {
+			ipv4OK = true
+		} else if ipNet.IP.To16() != nil {
+			ipv6OK = true
+		}
+	}
+
+	return ipv4OK, ipv6OK, nil
+}
