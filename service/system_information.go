@@ -276,16 +276,26 @@ func (s *SystemInformation) SupportsOVNNetwork() (hasNet bool, supportsNet bool)
 
 // SupportsFANNetwork checks if the SystemInformation supports a MicroCloud configured lxdfan0 network.
 // Additionally returns whether such a network already exists.
-func (s *SystemInformation) SupportsFANNetwork() (hasNet bool, supportsNet bool) {
+// If checkUsable is set, it will also check /proc/net/route to see if an interface that can support the FAN network is present.
+func (s *SystemInformation) SupportsFANNetwork(checkUsable bool) (hasNet bool, supportsNet bool, err error) {
 	if s.existingFanNetwork == nil {
-		return false, true
+		if checkUsable {
+			available, _, err := FanNetworkUsable()
+			if err != nil {
+				return false, false, err
+			}
+
+			return false, available, nil
+		}
+
+		return false, true, nil
 	}
 
 	if s.existingFanNetwork.Type == "bridge" && s.existingFanNetwork.Status == "Created" {
-		return true, true
+		return true, true, nil
 	}
 
-	return true, false
+	return true, false, nil
 }
 
 // ServiceClustered returns whether or not a particular service is already clustered

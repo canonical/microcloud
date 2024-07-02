@@ -654,7 +654,7 @@ func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer, timeou
 
 // defaultGatewaySubnetV4 returns subnet of default gateway interface.
 func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
-	available, ifaceName, err := s.FanNetworkUsable()
+	available, ifaceName, err := FanNetworkUsable()
 	if err != nil {
 		return nil, "", err
 	}

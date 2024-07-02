@@ -40,7 +40,7 @@ func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
 
 // FanNetworkUsable checks if the current host is capable of using a Fan network.
 // It actually checks if there is a default IPv4 gateway available.
-func (s LXDService) FanNetworkUsable() (available bool, ifaceName string, err error) {
+func FanNetworkUsable() (available bool, ifaceName string, err error) {
 	file, err := os.Open("/proc/net/route")
 	if err != nil {
 		return false, "", err
