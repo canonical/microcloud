@@ -1014,8 +1014,10 @@ setup_system() {
       done
     "
 
-    # Call lxc list once to supress the welcome message.
-    lxc exec "${name}" -- lxc list > /dev/null 2>&1
+    # Silence the "If this is your first time running LXD on this machine" banner
+    # on first invocation
+    lxc exec "${name}" -- mkdir -p /root/snap/lxd/common/config/
+    lxc exec "${name}" -- touch /root/snap/lxd/common/config/config.yml
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
