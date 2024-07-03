@@ -744,3 +744,22 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 
 	return subnet, ifaceName, nil
 }
+
+// SupportsFeature checks if the specified API feature of this Service instance if supported.
+func (s LXDService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+	c, err := s.Client(ctx, "")
+	if err != nil {
+		return false, err
+	}
+
+	server, _, err := c.GetServer()
+	if err != nil {
+		return false, err
+	}
+
+	if server.APIExtensions == nil {
+		return false, fmt.Errorf("API extensions not available when checking for a LXD feature")
+	}
+
+	return shared.ValueInSlice(feature, server.APIExtensions), nil
+}

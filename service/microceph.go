@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/client"
@@ -217,4 +218,19 @@ func (s *CephService) SetConfig(config map[string]string) {
 	for key, value := range config {
 		s.config[key] = value
 	}
+}
+
+// SupportsFeature checks if the specified API feature of this Service instance if supported.
+func (s *CephService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+	server, err := s.m.Status(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get MicroCeph server status while checking for features: %v", err)
+	}
+
+	if server.Extensions == nil {
+		logger.Warnf("MicroCeph server does not expose API extensions")
+		return false, nil
+	}
+
+	return server.Extensions.HasExtension(feature), nil
 }
