@@ -64,8 +64,12 @@ github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb h1:j
 github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb/go.mod h1:aOHQGMEt2ibrLVqbbEAY4My+bhAf3BvTRNziBYTKe8w=
 github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21 h1:fwfhkeAs8D3BzJy7VJyyg4s9Q6LeFwzowMszsyEqsr0=
 github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21/go.mod h1:e+5/TvKFuQaphV6Aaw7nGDZi2TJ6fls04FV9kBOjcDA=
+github.com/canonical/microcluster v0.0.0-20240627164504-db6075a4cf00 h1:p7Dy31jSPiaZ0g8FyZFeCHqMPLJiDoHLSKtoJ+TDF98=
+github.com/canonical/microcluster v0.0.0-20240627164504-db6075a4cf00/go.mod h1:hQyeUVMU2XaiXy5InYE8YkbNtyJdZp8BPXRTNL9G950=
 github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252 h1:Ib4EwuAx/k/527Ph69q86Kg8wbCMvFdnbQ5OVHQ+Ozo=
 github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252/go.mod h1:cFcxn0zO5BVvnDSLsGFk+TNBPIVZDCd3XxH1cQ+KmDo=
+github.com/canonical/microovn/microovn v0.0.0-20240703103351-546b832b3167 h1:rEMSn67Nd68PEDAt0GE/tUEQpOGEwfuY0eyDR0TBMWo=
+github.com/canonical/microovn/microovn v0.0.0-20240703103351-546b832b3167/go.mod h1:d0NHxbKZTvNjxAurMFNkAT/aCkBEg4owKB2HjNXZaMQ=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
