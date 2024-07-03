@@ -61,6 +61,12 @@ cleanup() {
 	lxc list --all-projects || true
 	lxc exec micro01 -- lxc list || true
 
+    for name in $(lxc list -c n -f csv micro); do
+    	echo "Check LXD resources on ${name} for disk ordering"
+    	lxc exec "${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
+    	lxc exec "${name}" -- lsblk
+    done
+
 	if [ -n "${GITHUB_ACTIONS:-}" ]; then
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
 	else
