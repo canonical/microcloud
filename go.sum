@@ -64,6 +64,8 @@ github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb h1:j
 github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb/go.mod h1:aOHQGMEt2ibrLVqbbEAY4My+bhAf3BvTRNziBYTKe8w=
 github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21 h1:fwfhkeAs8D3BzJy7VJyyg4s9Q6LeFwzowMszsyEqsr0=
 github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21/go.mod h1:e+5/TvKFuQaphV6Aaw7nGDZi2TJ6fls04FV9kBOjcDA=
+github.com/canonical/microcluster v0.0.0-20240703182409-ec0a2d6e0f31 h1:+ea1KwbFqKHUWmQsOiyAdBhkQ+Y4Kh66PF9Nmw5ucIU=
+github.com/canonical/microcluster v0.0.0-20240703182409-ec0a2d6e0f31/go.mod h1:hQyeUVMU2XaiXy5InYE8YkbNtyJdZp8BPXRTNL9G950=
 github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252 h1:Ib4EwuAx/k/527Ph69q86Kg8wbCMvFdnbQ5OVHQ+Ozo=
 github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252/go.mod h1:cFcxn0zO5BVvnDSLsGFk+TNBPIVZDCd3XxH1cQ+KmDo=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
