@@ -53,6 +53,9 @@ type InitSystem struct {
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
+	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// If left empty, the system will choose to route the Geneve traffic through the management network.
+	OVNGeneveAddr string
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
