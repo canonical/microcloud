@@ -966,9 +966,9 @@ setup_system() {
     fi
 
     # Disable unneeded services/timers/sockets/mounts (source of noise/slowdown)
-    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service grub-common.service grub-initrd-fallback.service lvm2-monitor.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journald.service systemd-journal-flush.service unattended-upgrades.service
+    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service grub-common.service grub-initrd-fallback.service lvm2-monitor.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journal-flush.service unattended-upgrades.service
     lxc exec "${name}" -- systemctl mask --now apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer e2scrub_all.timer fstrim.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
-    lxc exec "${name}" -- systemctl mask --now cloud-init-hotplugd.socket lvm2-lvmpolld.socket lxd-installer.socket iscsid.socket systemd-journald-dev-log.socket
+    lxc exec "${name}" -- systemctl mask --now cloud-init-hotplugd.socket lvm2-lvmpolld.socket lxd-installer.socket iscsid.socket
     lxc exec "${name}" -- systemctl mask --now dev-hugepages.mount sys-kernel-debug.mount sys-kernel-tracing.mount
 
     # Turn off debugfs and mitigations
