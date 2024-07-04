@@ -186,11 +186,6 @@ Keys can be defined at the top of a file, or in a `myst_substitutions` option in
 
 ### File inclusion
 
-```{include} index.md
-   :start-after: deploy your own fully functional cloud in minutes.
-   :end-before: MicroCloud is aimed at edge computing,
-```
-
 ## Tabs
 
 ````{tabs}
