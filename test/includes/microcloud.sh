@@ -932,7 +932,7 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=3 -c limits.memory=4GiB
+    lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
 
     # Disable vGPU to save RAM
     lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
