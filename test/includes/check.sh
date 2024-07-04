@@ -6,6 +6,9 @@ check_dependencies() {
 	local dep missing
 	missing=""
 
+	# XXX: make sure we don't detect lxd-installer wrapper by accident
+	[ -x /usr/sbin/lxc ] && chmod -x /usr/sbin/lxc /usr/sbin/lxd
+
 	for dep in "$@"; do
 		if ! command -v "$dep" >/dev/null 2>&1; then
 			[ "$missing" ] && missing="$missing $dep" || missing="$dep"
