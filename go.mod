@@ -1,13 +1,15 @@
 module github.com/canonical/microcloud/microcloud
 
-go 1.22.3
+go 1.22.4
+
+toolchain go1.22.5
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-	github.com/canonical/lxd v0.0.0-20240617120737-bdc97dda1929
-	github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb
-	github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21
+	github.com/canonical/lxd v0.0.0-20240620053341-f9f88f4e77ae
+	github.com/canonical/microceph/microceph v0.0.0-20240704155728-5a944d53179a
+	github.com/canonical/microcluster v0.0.0-20240620074518-efdde3f746b9
 	github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252
 	github.com/creack/pty v1.1.21
 	github.com/gorilla/mux v1.8.1
@@ -34,7 +36,7 @@ require (
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/gorilla/websocket v1.5.2 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/gosexy/gettext v0.0.0-20160830220431-74466a0a0c4a // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect

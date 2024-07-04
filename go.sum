@@ -60,10 +60,16 @@ github.com/canonical/go-dqlite v1.21.0 h1:4gLDdV2GF+vg0yv9Ff+mfZZNQ1JGhnQ3GnS2Ge
 github.com/canonical/go-dqlite v1.21.0/go.mod h1:Uvy943N8R4CFUAs59A1NVaziWY9nJ686lScY7ywurfg=
 github.com/canonical/lxd v0.0.0-20240617120737-bdc97dda1929 h1:ba0uCVHMPjm9LjjnKlM/lkmVMDwYnvZrM8oWAGfeeoY=
 github.com/canonical/lxd v0.0.0-20240617120737-bdc97dda1929/go.mod h1:uBBgAL3tdr3zallS0bZsG5CrQawKXpRc5HH3nVMIJSM=
+github.com/canonical/lxd v0.0.0-20240620053341-f9f88f4e77ae h1:hGqmOkL92DGFd0nxz7WaH2cTRyZ5zLtR6fUO2hSII5M=
+github.com/canonical/lxd v0.0.0-20240620053341-f9f88f4e77ae/go.mod h1:no3pt2T1PrTq/FME3rZ5N/JH4GtLClSEThhOtOUb1X8=
 github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb h1:j15Q40iUDzxoJ3l1Uuf0L3/W8AUCBrkL2vKytN449ug=
 github.com/canonical/microceph/microceph v0.0.0-20240612075738-556b907075eb/go.mod h1:aOHQGMEt2ibrLVqbbEAY4My+bhAf3BvTRNziBYTKe8w=
+github.com/canonical/microceph/microceph v0.0.0-20240704155728-5a944d53179a h1:2I2vVVaI921hhIQWi4l171X/Hnx8Oi8GXMIwDUbuMSA=
+github.com/canonical/microceph/microceph v0.0.0-20240704155728-5a944d53179a/go.mod h1:sKngTAtCWVem5WoLfYXHDdoTizM9eFEwUnr5ngn3yxo=
 github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21 h1:fwfhkeAs8D3BzJy7VJyyg4s9Q6LeFwzowMszsyEqsr0=
 github.com/canonical/microcluster v0.0.0-20240610151851-0870f2fa6a21/go.mod h1:e+5/TvKFuQaphV6Aaw7nGDZi2TJ6fls04FV9kBOjcDA=
+github.com/canonical/microcluster v0.0.0-20240620074518-efdde3f746b9 h1:ogzDv0S33LI3DG44gRdRwtKb2ozV+SkPLp2/cBR3ksE=
+github.com/canonical/microcluster v0.0.0-20240620074518-efdde3f746b9/go.mod h1:hQyeUVMU2XaiXy5InYE8YkbNtyJdZp8BPXRTNL9G950=
 github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252 h1:Ib4EwuAx/k/527Ph69q86Kg8wbCMvFdnbQ5OVHQ+Ozo=
 github.com/canonical/microovn/microovn v0.0.0-20240312054843-707732e1c252/go.mod h1:cFcxn0zO5BVvnDSLsGFk+TNBPIVZDCd3XxH1cQ+KmDo=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -191,6 +197,8 @@ github.com/gorilla/securecookie v1.1.2 h1:YCIWL56dvtr73r6715mJs5ZvhtnY73hBvEF8kX
 github.com/gorilla/securecookie v1.1.2/go.mod h1:NfCASbcHqRSY+3a8tlWJwsQap2VX5pwzwo4h3eOamfo=
 github.com/gorilla/websocket v1.5.2 h1:qoW6V1GT3aZxybsbC6oLnailWnB+qTMVwMreOso9XUw=
 github.com/gorilla/websocket v1.5.2/go.mod h1:0n9H61RBAcf5/38py2MCYbxzPIY9rOkpvvMT24Rqs30=
+github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
+github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/gosexy/gettext v0.0.0-20160830220431-74466a0a0c4a h1:N2b2mb4Gki1SlF3WuhR9P1YHOpl7oy/b+xxX4A3iM2E=
 github.com/gosexy/gettext v0.0.0-20160830220431-74466a0a0c4a/go.mod h1:IEJaV4/6J0VpoQ33kFCUUP6umRjrcBVEbOva6XCub/Q=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
