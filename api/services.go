@@ -125,7 +125,7 @@ func servicesPut(state *state.State, r *http.Request) response.Response {
 	services := make([]types.ServiceType, len(req.Tokens))
 	for i, cfg := range req.Tokens {
 		services[i] = types.ServiceType(cfg.Service)
-		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig, CephConfig: req.CephConfig}
+		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig, CephConfig: req.CephConfig, OVNConfig: req.OVNConfig}
 	}
 
 	// Default to the first iface if none specified.
