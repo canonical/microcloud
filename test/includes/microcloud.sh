@@ -182,7 +182,7 @@ validate_system_microceph() {
     fi
 
     cluster_ceph_subnet=""
-    if echo "${1}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
+    if echo "${1:-}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
       cluster_ceph_subnet="${1}"
       shift 1
     fi
