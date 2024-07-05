@@ -58,6 +58,7 @@ cleanup() {
 		read -r _
 	fi
 
+	echo "::group::debug-failure"
 	lxc list --all-projects || true
 	lxc exec micro01 -- lxc list || true
 
@@ -66,6 +67,7 @@ cleanup() {
     	lxc exec "${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
     	lxc exec "${name}" -- lsblk
     done
+    echo "::endgroup::"
 
 	if [ -n "${GITHUB_ACTIONS:-}" ]; then
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
