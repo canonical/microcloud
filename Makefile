@@ -50,6 +50,6 @@ update-schema:
 	@echo "Code generation completed"
 
 doc-%:
-	cd doc && $(MAKE) -f Makefile.sp sp-$*
+	cd doc && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
 
 doc: doc-clean-doc doc-html
