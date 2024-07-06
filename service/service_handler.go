@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -81,11 +82,12 @@ func NewHandler(name string, addr string, stateDir string, debug bool, verbose b
 // found, will join all known services.
 func (s *Handler) Start(state *state.State) error {
 	// If we are already initialized, there's nothing to do.
-	if state.Database.IsOpen() {
+	err := state.Database.IsOpen(context.Background())
+	if err == nil {
 		return nil
 	}
 
-	err := s.Services[types.LXD].(*LXDService).Restart(state.Context, 30)
+	err = s.Services[types.LXD].(*LXDService).Restart(state.Context, 30)
 	if err != nil {
 		logger.Error("Failed to restart LXD", logger.Ctx{"error": err})
 	}
