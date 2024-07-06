@@ -15,12 +15,12 @@ systems:
   ovn_uplink_interface: enp6s0
   storage:
     local:
-      path: /dev/sdc
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
       wipe: true
     ceph:
-      - path: /dev/sdb
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro03
   ovn_uplink_interface: enp6s0
@@ -34,16 +34,16 @@ ovn:
 storage:
   cephfs: true
   local:
-    - find: id == sdb
+    - find: device_id == *lxd_disk1
       find_min: 2
       find_max: 2
       wipe: true
   ceph:
-    - find: id == sdc
+    - find: device_id == *lxd_disk2
       find_min: 2
       find_max: 2
       wipe: true
-    - find: id == sdd
+    - find: device_id == *lxd_disk3
       find_min: 2
       find_max: 2
       wipe: true
@@ -56,7 +56,7 @@ EOF
   done
 
   # Disks on micro02 should have been manually selected.
-  validate_system_lxd micro02 3 sdc 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+  validate_system_lxd micro02 3 disk2 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
   validate_system_microceph micro02 1 disk1 disk3
   validate_system_microovn micro02
 
@@ -70,12 +70,12 @@ systems:
 storage:
   cephfs: true
   local:
-    - find: id == sdb
+    - find: device_id == *lxd_disk1
       find_min: 1
       find_max: 1
       wipe: true
   ceph:
-    - find: id == sdc
+    - find: device_id == *lxd_disk2
       find_min: 1
       find_max: 1
       wipe: true

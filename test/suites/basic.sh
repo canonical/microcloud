@@ -242,17 +242,17 @@ systems:
 - name: micro01
   storage:
     local:
-      path: /dev/sdb
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 - name: micro02
   storage:
     local:
-      path: /dev/sdb
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 - name: micro03
   storage:
     local:
-      path: /dev/sdb
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 EOF
 
@@ -277,23 +277,23 @@ systems:
 - name: micro01
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro02
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro03
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 ovn:
   ipv4_gateway: 10.1.123.1/24
@@ -333,17 +333,17 @@ systems:
 - name: micro01
   storage:
     local:
-      path: /dev/sdb
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 - name: micro02
   storage:
     local:
-      path: /dev/sdb
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 - name: micro03
   storage:
     local:
-      path: /dev/sdb
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 EOF
 
@@ -409,23 +409,23 @@ systems:
 - name: micro01
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro02
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro03
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 ovn:
   ipv4_gateway: 10.1.123.1/24
@@ -543,23 +543,23 @@ systems:
 - name: micro01
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro02
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 - name: micro03
   storage:
     ceph:
-      - path: /dev/sdc
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
-      - path: /dev/sdd
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
         wipe: true
 ovn:
   ipv4_gateway: 10.1.123.1/24
@@ -1177,10 +1177,10 @@ ovn:
   dns_servers: 10.1.123.1,8.8.8.8
 storage:
   local:
-    - find: id == sdb
+    - find: device_id == *lxd_disk1
       wipe: true
   ceph:
-    - find: id == sdc
+    - find: device_id == *lxd_disk2
       wipe: true
   cephfs: true
 EOF
