@@ -5,7 +5,7 @@ unset_interactive_vars() {
   unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
-    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
+    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -38,6 +38,8 @@ microcloud_interactive() {
   IPV4_START=${IPV4_START:-}                      # OVN ipv4 range start.
   IPV4_END=${IPV4_END:-}                          # OVN ipv4 range end.
   DNS_ADDRESSES=${DNS_ADDRESSES:-}                # OVN custom DNS addresses.
+  OVN_UNDERLAY_NETWORK=${OVN_UNDERLAY_NETWORK:-}  # (yes/no) set up a custom OVN underlay network.
+  OVN_UNDERLAY_FILTER=${OVN_UNDERLAY_FILTER:-}    # filter string for OVN underlay interfaces.
   IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
 
   setup="
@@ -122,6 +124,17 @@ ${IPV6_SUBNET}
 ${DNS_ADDRESSES}
 $(true)                                                 # workaround for set -e
 "
+
+  if [ -n "${OVN_UNDERLAY_NETWORK}" ]; then
+    setup="${setup}
+${OVN_UNDERLAY_NETWORK}
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "wait 300ms")
+${OVN_UNDERLAY_FILTER}
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "select-all")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf -- "---")
+$(true)                                                 # workaround for set -e
+"
+  fi
 fi
 
   # clear comments and empty lines.
@@ -267,11 +280,28 @@ validate_ceph_encrypt() {
 # validate_system_microovn: Ensures the node with the given name has correctly set up MicroOVN with the given resources.
 validate_system_microovn() {
     name=${1}
+    shift 1
 
     echo "==> ${name} Validating MicroOVN"
 
     lxc remote switch local
     lxc exec "${name}" -- microovn cluster list | grep -q "${name}"
+
+    ovn_underlay_subnet_prefix=""
+    if echo "${1}" | grep -Pq '^([0-9]{1,3}\.){2}[0-9]{1,3}$'; then
+      ovn_underlay_subnet_prefix="${1}"
+      shift 1
+    fi
+
+    # Instances are named micro01, micro02, etc.
+    # We need to extract the instance number to check the OVN Geneve tunnel IP.
+    instance_idx=$(echo "${name}" | grep -oE '[0-9]+$')
+    underlay_ip_idx=$((instance_idx + 1))
+    if [ -n "${ovn_underlay_subnet_prefix}" ]; then
+      lxc exec "${name}" -- sh -ceu "
+        microovn.ovn-sbctl --columns=ip,type find Encap type=geneve | grep -q ${ovn_underlay_subnet_prefix}.${underlay_ip_idx}
+      " > /dev/null
+    fi
 }
 
 # validate_system_lxd_zfs: Ensures the node with the given name has a disk set up for ZFS storage.
