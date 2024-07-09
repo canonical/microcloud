@@ -27,6 +27,7 @@ jobs:
     strategy:
       matrix:
         go: ["1.22.x"]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,12 +35,12 @@ jobs:
           # A non-shallow clone is needed for the Differential ShellCheck
           fetch-depth: 0
 
-      - name: Install Go (${{ matrix.go }})
+      - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: 1.22.x
 
-      - name: Check compatibility with min Go version (${{ matrix.go }})
+      - name: Check compatibility with min Go version (1.22.4)
         run: |
           set -eux
           GOMIN="$(sed -n 's/^GOMIN=\([0-9.]\+\)$/\1/p' Makefile)"
