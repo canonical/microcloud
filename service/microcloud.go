@@ -55,7 +55,21 @@ func NewCloudService(name string, addr string, dir string, verbose bool, debug b
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint) error {
-	return s.client.Start(ctx, endpoints, nil, nil, &config.Hooks{
+	s.client.AddServers([]rest.Server{
+		{
+			CoreAPI:   true,
+			PreInit:   true,
+			ServeUnix: true,
+			Resources: []rest.Resources{
+				{
+					PathPrefix: types.APIVersion,
+					Endpoints:  endpoints,
+				},
+			},
+		},
+	})
+
+	return s.client.Start(ctx, nil, nil, &config.Hooks{
 		PostBootstrap: func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
 		PostJoin:      func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
 		OnStart:       service.Start,

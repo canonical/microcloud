@@ -890,8 +890,8 @@ test_service_mismatch() {
   done
 
   for m in micro02 micro03 ; do
-   lxc exec ${m} -- microceph cluster list 2>&1 | grep "Error: Daemon not yet initialized" -q
-   lxc exec ${m} -- microovn cluster list  2>&1 | grep "Error: Daemon not yet initialized" -q
+   lxc exec ${m} -- microceph cluster list 2>&1 | grep "Error: Database is not yet initialized" -q
+   lxc exec ${m} -- microovn cluster list  2>&1 | grep "Error: Database is not yet initialized" -q
   done
 }
 
