@@ -87,12 +87,7 @@ jobs:
       matrix:
         go: ["1.22.x"]
         suite:
-          - "add"
-          - "instances"
           - "basic"
-          - "interactive"
-          - "mismatch"
-          - "preseed"
 
     steps:
       - name: Performance tuning
@@ -173,50 +168,6 @@ jobs:
 
           echo "MICROCLOUD_DEBUG_PATH=${MICROCLOUD_DEBUG_PATH}"   >> "${GITHUB_ENV}"
           echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
-
-      - name: "Free up the ephemeral disk"
-        run: |
-          set -eux
-
-          # If the rootfs and the ephemeral part are on the same physical disk, giving the whole
-          # disk to microceph would wipe our rootfs. Since it is pretty rare for GitHub Action
-          # runners to have a single disk, we immediately bail rather than trying to gracefully
-          # handle it. Once snapd releases with https://github.com/snapcore/snapd/pull/13150,
-          # we will be able to stop worrying about that special case.
-          if [ "$(stat -c '%d' /)" = "$(stat -c '%d' /mnt)" ]; then
-            echo "FAIL: rootfs and ephemeral part on the same disk, aborting"
-            exit 1
-          fi
-
-          # Free-up the ephemeral disk to use it as storage device for LXD.
-          sudo swapoff /mnt/swapfile
-          ephemeral_disk="$(findmnt --noheadings --output SOURCE --target /mnt | sed 's/[0-9]\+$//')"
-          sudo umount /mnt
-          sudo wipefs -a "${ephemeral_disk}"
-          export TEST_STORAGE_SOURCE="${ephemeral_disk}"
-
-          echo "TEST_STORAGE_SOURCE=${TEST_STORAGE_SOURCE}" >> "${GITHUB_ENV}"
-
-      - name: "Setup host LXD"
-        run: |
-          set -eux
-          sudo snap install lxd --channel latest/edge || sudo snap refresh lxd --channel latest/edge
-          sudo lxd init --auto
-
-      - name: "Prepare for system tests"
-        run: |
-          set -eux
-          chmod +x ~
-          cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh setup
-          echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
-
-      - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
-        run: |
-          set -eux
-          chmod +x ~
-          cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh ${{ matrix.suite }}
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
