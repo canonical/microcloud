@@ -2,8 +2,6 @@ module github.com/canonical/microcloud/microcloud
 
 go 1.22.4
 
-toolchain go1.22.5
-
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
