@@ -38,7 +38,7 @@ func main() {
 
 	useTestConsole := os.Getenv("TEST_CONSOLE")
 	if useTestConsole == "1" {
-		fmt.Printf("%s\n\n", `
+		fmt.Fprintf(os.Stderr, "%s\n\n", `
   Detected 'TEST_CONSOLE=1', MicroCloud CLI is in testing mode. Terminal interactivity is disabled.
 
   Interactive microcloud commands will read text instructions by line:
