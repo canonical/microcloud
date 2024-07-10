@@ -158,7 +158,7 @@ run_test() {
 	TEST_CURRENT="${1}"
 	TEST_CURRENT_DESCRIPTION="${2:-${1}}"
 
-	echo "::notice::==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
+	echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
 	START_TIME="$(date +%s)"
 	${TEST_CURRENT}
 	END_TIME="$(date +%s)"
@@ -169,7 +169,7 @@ run_test() {
 # Create 4 nodes with 3 disks and 3 extra interfaces.
 # These nodes should be used across most tests and reset with the `reset_systems` function.
 testbed_setup() {
-  echo "::notice::==> SETUP STARTED"
+  echo "==> SETUP STARTED"
   START_TIME="$(date +%s)"
 
   new_systems 4 3 3
