@@ -16,7 +16,7 @@ func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut)
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	err := c.Query(queryCtx, "PUT", api.NewURL().Path("services"), data, nil)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("services"), data, nil)
 	if err != nil {
 		return fmt.Errorf("Failed to update cluster status of services: %w", err)
 	}
@@ -30,7 +30,7 @@ func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.S
 	defer cancel()
 
 	var token string
-	err := c.Query(queryCtx, "POST", api.NewURL().Path("services", string(serviceType), "tokens"), data, &token)
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("services", string(serviceType), "tokens"), data, &token)
 	if err != nil {
 		return "", fmt.Errorf("Failed to issue remote token: %w", err)
 	}

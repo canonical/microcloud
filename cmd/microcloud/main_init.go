@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -625,7 +626,7 @@ func checkClustered(s *service.Handler, autoSetup bool, serviceType types.Servic
 			remoteClusterMembers, err = s.Services[serviceType].RemoteClusterMembers(context.Background(), system.ServerInfo.AuthSecret, system.ServerInfo.Address)
 		}
 
-		if err != nil && err.Error() != "Daemon not yet initialized" {
+		if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
 			return "", nil, fmt.Errorf("Failed to reach %s on system %q: %w", serviceType, peer, err)
 		}
 

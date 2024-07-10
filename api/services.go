@@ -35,7 +35,7 @@ func authHandler(sh *service.Handler, f endpointHandler) endpointHandler {
 		if r.TLS != nil && r.Host == s.Address().URL.Host {
 			trustedCerts := s.Remotes().CertificatesNative()
 			for _, cert := range r.TLS.PeerCertificates {
-				trusted, _ := util.CheckTrustState(*cert, trustedCerts, nil, false)
+				trusted, _ := util.CheckMutualTLS(*cert, trustedCerts)
 				if trusted {
 					return f(s, r)
 				}
