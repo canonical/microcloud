@@ -82,7 +82,7 @@ jobs:
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
     name: System
-    runs-on: ubuntu-22.04
+    runs-on: GitHubMicrocloud
     strategy:
       fail-fast: false
       matrix:
@@ -179,6 +179,12 @@ jobs:
         run: |
           set -eux
 
+          if ! mountpoint --quiet /mnt; then
+            echo "INFO: no ephemeral disk mounted on /mnt"
+            mount
+            exit 0
+          fi
+
           # If the rootfs and the ephemeral part are on the same physical disk, giving the whole
           # disk to microceph would wipe our rootfs. Since it is pretty rare for GitHub Action
           # runners to have a single disk, we immediately bail rather than trying to gracefully
@@ -186,6 +192,9 @@ jobs:
           # we will be able to stop worrying about that special case.
           if [ "$(stat -c '%d' /)" = "$(stat -c '%d' /mnt)" ]; then
             echo "FAIL: rootfs and ephemeral part on the same disk, aborting"
+            lsblk
+            blkid
+            sudo fdisk -l
             exit 1
           fi
 

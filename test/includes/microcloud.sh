@@ -182,7 +182,7 @@ validate_system_microceph() {
     fi
 
     cluster_ceph_subnet=""
-    if echo "${1}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
+    if echo "${1:-}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
       cluster_ceph_subnet="${1}"
       shift 1
     fi
@@ -397,11 +397,6 @@ validate_system_lxd() {
       validate_system_lxd_ovn "${name}" "${num_peers}" "${ovn_interface}" "${ipv4_gateway}" "${ipv4_ranges}" "${ipv6_gateway}" "${dns_namesersers}"
     else
       validate_system_lxd_fan "${name}"
-    fi
-
-    if [ -n "${local_disk}" ] || [ "${remote_disks}" -gt 0 ] ; then
-      echo "Check LXD resources for disk ordering"
-      lxc exec "local:${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
     fi
 
     if [ -n "${local_disk}" ]; then
@@ -937,7 +932,7 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init ubuntu-minimal:22.04 "${name}" --vm -c limits.cpu=2 -c limits.memory=4GiB
+    lxc init ubuntu-minimal-daily:24.04 "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
 
     # Disable vGPU to save RAM
     lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
@@ -966,9 +961,9 @@ setup_system() {
     fi
 
     # Disable unneeded services/timers/sockets/mounts (source of noise/slowdown)
-    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service esm-cache.service grub-common.service grub-initrd-fallback.service lvm2-monitor.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journal-flush.service unattended-upgrades.service
+    lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service esm-cache.service grub-common.service grub-initrd-fallback.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journal-flush.service unattended-upgrades.service
     lxc exec "${name}" -- systemctl mask --now apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer e2scrub_all.timer fstrim.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
-    lxc exec "${name}" -- systemctl mask --now cloud-init-hotplugd.socket lvm2-lvmpolld.socket lxd-installer.socket iscsid.socket
+    lxc exec "${name}" -- systemctl mask --now iscsid.socket
     lxc exec "${name}" -- systemctl mask --now dev-hugepages.mount sys-kernel-debug.mount sys-kernel-tracing.mount
 
     # Turn off debugfs and mitigations
@@ -977,6 +972,9 @@ setup_system() {
 
     # Faster apt
     echo "force-unsafe-io" | lxc exec "${name}" -- tee /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+
+    # Remove unneeded/unwanted packages
+    lxc exec "${name}" -- apt-get autopurge -y lxd-installer
 
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
@@ -1014,8 +1012,10 @@ setup_system() {
       done
     "
 
-    # Call lxc list once to supress the welcome message.
-    lxc exec "${name}" -- lxc list > /dev/null 2>&1
+    # Silence the "If this is your first time running LXD on this machine" banner
+    # on first invocation
+    lxc exec "${name}" -- mkdir -p /root/snap/lxd/common/config/
+    lxc exec "${name}" -- touch /root/snap/lxd/common/config/config.yml
 
     if [ -n "${MICROCLOUD_SNAP_PATH}" ]; then
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
