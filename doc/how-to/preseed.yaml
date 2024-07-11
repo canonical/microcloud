@@ -21,6 +21,7 @@ systems:
         wipe: true
       - path: nvme3n1
         wipe: true
+        encrypt: true
 - name: micro03
   ovn_uplink_interface: eth1
 - name: micro04

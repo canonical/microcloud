@@ -148,7 +148,7 @@ func (c *CmdControl) askAddress(autoSetup bool, listenAddr string) (string, *net
 	return listenAddr, iface, subnet, nil
 }
 
-func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool) error {
+func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, encryptAllDisks bool) error {
 	_, bootstrap := systems[sh.Name]
 	allResources := make(map[string]*api.Resources, len(systems))
 	var err error
@@ -223,7 +223,7 @@ func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem
 
 			if wantsDisks {
 				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return c.askRemotePool(systems, autoSetup, wipeAllDisks, sh)
+					return c.askRemotePool(systems, autoSetup, wipeAllDisks, encryptAllDisks, sh)
 				})
 			}
 		}
@@ -452,7 +452,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 	return internalCephNetwork, nil
 }
 
-func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, sh *service.Handler) error {
+func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, encryptAllDisks bool, sh *service.Handler) error {
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for peer, system := range systems {
@@ -479,6 +479,11 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 	var toWipe []string
 	if wipeAllDisks {
 		toWipe = selected
+	}
+
+	var toEncrypt []string
+	if encryptAllDisks {
+		toEncrypt = selected
 	}
 
 	if len(table.rows) == 0 {
@@ -509,6 +514,17 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 				return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
 			}
 		}
+
+		if len(selected) > 0 && !encryptAllDisks {
+			encryptDisks, err := c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
+			if err != nil {
+				return err
+			}
+
+			if encryptDisks {
+				toEncrypt = selected
+			}
+		}
 	}
 
 	wipeMap := make(map[string]bool, len(toWipe))
@@ -516,6 +532,14 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 		_, ok := table.data[entry]
 		if ok {
 			wipeMap[entry] = true
+		}
+	}
+
+	encryptMap := make(map[string]bool, len(toEncrypt))
+	for _, entry := range toEncrypt {
+		_, ok := table.data[entry]
+		if ok {
+			encryptMap[entry] = true
 		}
 	}
 
@@ -534,8 +558,9 @@ func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool
 		system.MicroCephDisks = append(
 			system.MicroCephDisks,
 			cephTypes.DisksPost{
-				Path: []string{path},
-				Wipe: wipeMap[entry],
+				Path:    []string{path},
+				Wipe:    wipeMap[entry],
+				Encrypt: encryptMap[entry],
 			},
 		)
 

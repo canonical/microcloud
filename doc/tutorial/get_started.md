@@ -275,6 +275,7 @@ Complete the following steps:
    1. Select `yes` to confirm that there are fewer disks available than machines.
    1. Select all listed disks (these should be `remote1`, `remote2`, and `remote3`).
    1. You don't need to wipe any disks (because we just created them).
+   1. You don't need to encrypt any disks to get started.
    1. Select `yes` to optionally configure the CephFS distributed file system.
    1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
    1. Select `yes` to configure distributed networking.
@@ -389,6 +390,7 @@ Up/down to move; right to select all; left to select none.
  Using 1 disk(s) on "micro2" for remote storage pool
  Using 1 disk(s) on "micro3" for remote storage pool
 
+Do you want to encrypt the selected disks? (yes/no) [default=no]: no
 Would you like to set up CephFS remote storage? (yes/no) [default=yes]:  yes
 Configure distributed networking? (yes/no) [default=yes]:  yes
 Select an available interface per system to provide external connectivity for distributed network(s):

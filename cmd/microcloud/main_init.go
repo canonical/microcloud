@@ -56,10 +56,11 @@ type InitSystem struct {
 type cmdInit struct {
 	common *CmdControl
 
-	flagAutoSetup    bool
-	flagWipeAllDisks bool
-	flagAddress      string
-	flagPreseed      bool
+	flagAutoSetup       bool
+	flagWipeAllDisks    bool
+	flagEncryptAllDisks bool
+	flagAddress         string
+	flagPreseed         bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -72,6 +73,7 @@ func (c *cmdInit) Command() *cobra.Command {
 
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
+	cmd.Flags().BoolVar(&c.flagEncryptAllDisks, "encrypt", false, "Encrypt disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
 	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
 
@@ -148,7 +150,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks)
+	err = c.common.askDisks(s, systems, c.flagAutoSetup, c.flagWipeAllDisks, c.flagEncryptAllDisks)
 	if err != nil {
 		return err
 	}
