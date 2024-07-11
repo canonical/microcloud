@@ -821,184 +821,28 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	return nil
 }
 
-func (c *CmdControl) askProceedIfNoOverlayNetwork() error {
-	proceedWithNoOverlayNetworking, err := c.asker.AskBool("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster? (yes/no) [default=no]: ", "no")
-	if err != nil {
-		return err
-	}
-
-	if proceedWithNoOverlayNetworking {
+func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
+	if c.autoSetup || sh.Services[types.MicroOVN] == nil {
 		return nil
 	}
 
-	return fmt.Errorf("cluster bootstrapping aborted due to lack of usable networking")
-}
-
-func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSystem, microCloudInternalSubnet *net.IPNet, autoSetup bool) error {
-	_, bootstrap := systems[sh.Name]
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-
-	// Check if FAN networking is usable.
-	fanUsable, _, err := lxd.FanNetworkUsable()
-	if err != nil {
-		return err
-	}
-
-	if fanUsable {
-		for peer, system := range systems {
-			if bootstrap {
-				system.TargetNetworks = []api.NetworksPost{lxd.DefaultPendingFanNetwork()}
-				if peer == sh.Name {
-					network, err := lxd.DefaultFanNetwork()
-					if err != nil {
-						return err
-					}
-
-					system.Networks = []api.NetworksPost{network}
-				}
-			}
-
-			systems[peer] = system
-		}
-	}
-
-	// Automatic setup gets a basic fan setup.
-	if autoSetup {
-		if !fanUsable {
-			return c.askProceedIfNoOverlayNetwork()
+	useOVNJoinConfig := false
+	askSystems := map[string]bool{}
+	for _, state := range c.state {
+		hasOVN, supportsOVN := state.SupportsOVNNetwork()
+		if !supportsOVN || len(state.AvailableUplinkInterfaces) == 0 {
+			logger.Warn("Skipping OVN network setup, some systems don't support it")
+			return nil
 		}
 
-		return nil
-	}
-
-	// Environments without OVN get a basic fan setup.
-	if sh.Services[types.MicroOVN] == nil {
-		if !fanUsable {
-			return c.askProceedIfNoOverlayNetwork()
-		}
-
-		return nil
-	}
-
-	// Get the list of networks from all peers.
-	infos := []mdns.ServerInfo{}
-	for _, system := range systems {
-		infos = append(infos, system.ServerInfo)
-	}
-
-	// Environments without Ceph don't need to configure the Ceph network.
-	if sh.Services[types.MicroCeph] != nil {
-		// Configure the Ceph networks.
-		lxdService := sh.Services[types.LXD].(*service.LXDService)
-		if lxdService == nil {
-			return fmt.Errorf("failed to get LXD service")
-		}
-
-		availableCephNetworkInterfaces, err := lxdService.GetCephInterfaces(context.Background(), bootstrap, infos)
-		if err != nil {
-			return err
-		}
-
-		if len(availableCephNetworkInterfaces) == 0 {
-			fmt.Println("No network interfaces found with IPs to set a dedicated Ceph network, skipping Ceph network setup")
+		if hasOVN {
+			useOVNJoinConfig = true
 		} else {
-			if bootstrap {
-				// First, check if there are any initialized systems for MicroCeph.
-				var initializedMicroCephSystem *InitSystem
-				for peer, system := range systems {
-					if system.InitializedServices[types.MicroCeph][peer] != "" {
-						initializedMicroCephSystem = &system
-						break
-					}
-				}
-
-				var customTargetCephInternalNetwork string
-				if initializedMicroCephSystem != nil {
-					// If there is at least one initialized system with MicroCeph (we consider that more than one initialized MicroCeph systems are part of the same cluster),
-					// we need to fetch its Ceph configuration to validate against this to-be-bootstrapped cluster.
-					targetInternalCephNetwork, err := getTargetCephNetworks(sh, initializedMicroCephSystem)
-					if err != nil {
-						return err
-					}
-
-					if targetInternalCephNetwork.String() != microCloudInternalSubnet.String() {
-						customTargetCephInternalNetwork = targetInternalCephNetwork.String()
-					}
-				}
-
-				microCloudInternalNetworkAddr := microCloudInternalSubnet.IP.Mask(microCloudInternalSubnet.Mask)
-				ones, _ := microCloudInternalSubnet.Mask.Size()
-				microCloudInternalNetworkAddrCIDR := fmt.Sprintf("%s/%d", microCloudInternalNetworkAddr.String(), ones)
-
-				// If there is no remote Ceph cluster or is an existing remote Ceph has no configured networks
-				// other than the default one (internal MicroCloud network), we ask the user to configure the Ceph networks.
-				if customTargetCephInternalNetwork == "" {
-					internalCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: %s] ", microCloudInternalNetworkAddrCIDR), microCloudInternalNetworkAddrCIDR, validate.IsNetwork)
-					if err != nil {
-						return err
-					}
-
-					if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
-						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, internalCephSubnet)
-						if err != nil {
-							return err
-						}
-
-						bootstrapSystem := systems[sh.Name]
-						bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
-						systems[sh.Name] = bootstrapSystem
-					}
-				} else {
-					// Else, we validate that the systems to be bootstrapped comply with the network configuration of the existing remote Ceph cluster,
-					// and set their Ceph network configuration accordingly.
-					if customTargetCephInternalNetwork != "" && customTargetCephInternalNetwork != microCloudInternalNetworkAddrCIDR {
-						err = validateCephInterfacesForSubnet(lxdService, systems, availableCephNetworkInterfaces, customTargetCephInternalNetwork)
-						if err != nil {
-							return err
-						}
-
-						bootstrapSystem := systems[sh.Name]
-						bootstrapSystem.MicroCephInternalNetworkSubnet = customTargetCephInternalNetwork
-						systems[sh.Name] = bootstrapSystem
-					}
-				}
-			} else {
-				// If we are not bootstrapping, we target the local MicroCeph and fetch its network cluster config.
-				localInternalCephNetwork, err := getTargetCephNetworks(sh, nil)
-				if err != nil {
-					return err
-				}
-
-				if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != microCloudInternalSubnet.String() {
-					err = validateCephInterfacesForSubnet(lxd, systems, availableCephNetworkInterfaces, localInternalCephNetwork.String())
-					if err != nil {
-						return err
-					}
-				}
-			}
+			askSystems[state.ClusterName] = true
 		}
 	}
 
-	networks, err := sh.Services[types.LXD].(*service.LXDService).GetUplinkInterfaces(context.Background(), bootstrap, infos)
-	if err != nil {
-		return err
-	}
-
-	// Check if OVN is possible in the environment.
-	canOVN := len(networks) > 0
-	for _, nets := range networks {
-		if len(nets) == 0 {
-			canOVN = false
-			break
-		}
-	}
-
-	if !canOVN {
-		fmt.Println("No dedicated uplink interfaces detected, skipping distributed networking")
-		if !fanUsable {
-			return c.askProceedIfNoOverlayNetwork()
-		}
-
+	if len(askSystems) == 0 {
 		return nil
 	}
 
@@ -1012,22 +856,22 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		return nil
 	}
 
-	missingSystems := len(systems) != len(networks)
-	for _, nets := range networks {
-		if len(nets) == 0 {
-			missingSystems = true
-			break
-		}
-	}
-
-	if missingSystems {
-		wantsSkip, err := c.asker.AskBool("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
+	for name, state := range c.state {
+		if !askSystems[name] {
+			continue
 		}
 
-		if !wantsSkip {
-			return nil
+		if len(state.AvailableUplinkInterfaces) == 0 {
+			wantsContinue, err := c.asker.AskBool("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+
+			if wantsContinue {
+				return nil
+			}
+
+			return fmt.Errorf("User aborted")
 		}
 	}
 
@@ -1035,15 +879,19 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	header := []string{"LOCATION", "IFACE", "TYPE"}
 	fmt.Println("Select an available interface per system to provide external connectivity for distributed network(s):")
 	data := [][]string{}
-	for peer, nets := range networks {
-		for _, net := range nets {
+	for peer, state := range c.state {
+		if !askSystems[peer] {
+			continue
+		}
+
+		for _, net := range state.AvailableUplinkInterfaces {
 			data = append(data, []string{peer, net.Name, net.Type})
 		}
 	}
 
 	table := NewSelectableTable(header, data)
-	var selected map[string]string
-	c.askRetry("Retry selecting uplink interfaces?", autoSetup, func() error {
+	var selectedIfaces map[string]string
+	c.askRetry("Retry selecting uplink interfaces?", func() error {
 		err := table.Render(table.rows)
 		if err != nil {
 			return err
@@ -1054,7 +902,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			return err
 		}
 
-		selected = map[string]string{}
+		selected := map[string]string{}
 		for _, answer := range answers {
 			target := table.SelectionValue(answer, "LOCATION")
 			iface := table.SelectionValue(answer, "IFACE")
@@ -1066,19 +914,21 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 			selected[target] = iface
 		}
 
-		if len(selected) != len(networks) {
+		if len(selected) != len(askSystems) {
 			return fmt.Errorf("Failed to add OVN uplink network: Some peers don't have a selected interface")
 		}
+
+		selectedIfaces = selected
 
 		return nil
 	})
 
-	for peer, iface := range selected {
+	for peer, iface := range selectedIfaces {
 		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)
 	}
 
 	// If we didn't select anything, then abort network setup.
-	if len(selected) == 0 {
+	if len(selectedIfaces) == 0 {
 		return nil
 	}
 
@@ -1088,7 +938,7 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 	// Prepare the configuration.
 	var dnsAddresses string
 	ipConfig := map[string]string{}
-	if bootstrap {
+	if !useOVNJoinConfig {
 		for _, ip := range []string{"IPv4", "IPv6"} {
 			validator := func(s string) error {
 				if s == "" {
@@ -1153,55 +1003,148 @@ func (c *CmdControl) askNetwork(sh *service.Handler, systems map[string]InitSyst
 		}
 	}
 
-	// If interfaces were selected for OVN, remove the FAN config.
-	if len(selected) > 0 {
-		for peer, system := range systems {
-			system.TargetNetworks = []api.NetworksPost{}
-			system.Networks = []api.NetworksPost{}
-
-			systems[peer] = system
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+	joinConfigs := map[string]api.ClusterMemberConfigKey{}
+	targetConfigs := map[string]api.NetworksPost{}
+	finalConfigs := []api.NetworksPost{}
+	if useOVNJoinConfig {
+		for target, parent := range selectedIfaces {
+			joinConfigs[target] = lxd.DefaultOVNNetworkJoinConfig(parent)
 		}
-	}
+	} else {
+		for target, parent := range selectedIfaces {
+			targetConfigs[target] = lxd.DefaultPendingOVNNetwork(parent)
+		}
 
-	// If we are adding a new member, a MemberConfig entry should suffice to create the network on the cluster member.
-	for peer, parent := range selected {
-		system := systems[peer]
-		if !bootstrap {
-			if system.JoinConfig == nil {
-				system.JoinConfig = []api.ClusterMemberConfigKey{}
+		if len(targetConfigs) > 0 {
+			var ipv4Gateway string
+			var ipv4Ranges string
+			var ipv6Gateway string
+			for gateway, ipRange := range ipConfig {
+				ip, _, err := net.ParseCIDR(gateway)
+				if err != nil {
+					return err
+				}
+
+				if ip.To4() != nil {
+					ipv4Gateway = gateway
+					ipv4Ranges = ipRange
+				} else {
+					ipv6Gateway = gateway
+				}
 			}
 
-			system.JoinConfig = append(system.JoinConfig, lxd.DefaultOVNNetworkJoinConfig(parent))
-		} else {
-			system.TargetNetworks = append(system.TargetNetworks, lxd.DefaultPendingOVNNetwork(parent))
+			uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
+			finalConfigs = append(finalConfigs, uplink, ovn)
 		}
-
-		systems[peer] = system
 	}
 
-	if bootstrap {
-		bootstrapSystem := systems[sh.Name]
+	for peer, system := range c.systems {
+		if !askSystems[peer] {
+			continue
+		}
 
-		var ipv4Gateway string
-		var ipv4Ranges string
-		var ipv6Gateway string
-		for gateway, ipRange := range ipConfig {
-			ip, _, err := net.ParseCIDR(gateway)
+		if system.JoinConfig == nil {
+			system.JoinConfig = []api.ClusterMemberConfigKey{}
+		}
+
+		if system.TargetNetworks == nil {
+			system.TargetNetworks = []api.NetworksPost{}
+		}
+
+		if system.Networks == nil {
+			system.Networks = []api.NetworksPost{}
+		}
+
+		if joinConfigs[peer] != (api.ClusterMemberConfigKey{}) {
+			system.JoinConfig = append(system.JoinConfig, joinConfigs[peer])
+		}
+
+		if targetConfigs[peer].Name != "" {
+			system.TargetNetworks = append(system.TargetNetworks, targetConfigs[peer])
+		}
+
+		if peer == sh.Name {
+			system.Networks = append(system.Networks, finalConfigs...)
+		}
+
+		c.systems[peer] = system
+	}
+
+	return nil
+}
+
+func (c *initConfig) askNetwork(sh *service.Handler) error {
+	err := c.askOVNNetwork(sh)
+	if err != nil {
+		return err
+	}
+
+	for _, system := range c.systems {
+		if len(system.TargetNetworks) > 0 || len(system.Networks) > 0 {
+			return nil
+		}
+
+		for _, cfg := range system.JoinConfig {
+			if cfg.Name == service.DefaultOVNNetwork || cfg.Name == service.DefaultUplinkNetwork {
+				return nil
+			}
+		}
+	}
+
+	useFANJoinConfig := false
+	for _, state := range c.state {
+		hasFAN, supportsFAN, err := state.SupportsFANNetwork(c.name == state.ClusterName)
+		if err != nil {
+			return err
+		}
+
+		if !supportsFAN && c.autoSetup {
+			logger.Warn("Skipping FAN network setup, some systems don't support it")
+			return nil
+		}
+
+		if !supportsFAN {
+			proceedWithNoOverlayNetworking, err := c.asker.AskBool("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster? (yes/no) [default=no]: ", "no")
 			if err != nil {
 				return err
 			}
 
-			if ip.To4() != nil {
-				ipv4Gateway = gateway
-				ipv4Ranges = ipRange
-			} else {
-				ipv6Gateway = gateway
+			if !proceedWithNoOverlayNetworking {
+				return fmt.Errorf("cluster bootstrapping aborted due to lack of usable networking")
 			}
 		}
 
-		uplink, ovn := lxd.DefaultOVNNetwork(ipv4Gateway, ipv4Ranges, ipv6Gateway, dnsAddresses)
-		bootstrapSystem.Networks = []api.NetworksPost{uplink, ovn}
-		systems[sh.Name] = bootstrapSystem
+		if hasFAN {
+			useFANJoinConfig = true
+		}
+	}
+
+	if !useFANJoinConfig {
+		lxd := sh.Services[types.LXD].(*service.LXDService)
+		fan, err := lxd.DefaultFanNetwork()
+		if err != nil {
+			return err
+		}
+
+		pendingFan := lxd.DefaultPendingFanNetwork()
+		for peer, system := range c.systems {
+			if system.TargetNetworks == nil {
+				system.TargetNetworks = []api.NetworksPost{}
+			}
+
+			system.TargetNetworks = append(system.TargetNetworks, pendingFan)
+
+			if peer == sh.Name {
+				if system.Networks == nil {
+					system.Networks = []api.NetworksPost{}
+				}
+
+				system.Networks = append(system.Networks, fan)
+			}
+
+			c.systems[peer] = system
+		}
 	}
 
 	return nil
