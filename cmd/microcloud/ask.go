@@ -262,19 +262,61 @@ func parseDiskPath(disk api.ResourcesStorageDisk) string {
 	return devicePath
 }
 
-func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, lxd service.LXDService) error {
+func (c *initConfig) askLocalPool(sh *service.Handler) error {
+	useJoinConfig := false
+	askSystems := map[string]bool{}
+	for _, info := range c.state {
+		hasPool, supportsPool := info.SupportsLocalPool()
+		if !supportsPool {
+			logger.Warn("Skipping local storage pool setup, some systems don't support it")
+			return nil
+		}
+
+		if hasPool {
+			useJoinConfig = true
+		} else {
+			askSystems[info.ClusterName] = true
+		}
+	}
+
+	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
+	for name, state := range c.state {
+		if len(state.AvailableDisks) == 0 {
+			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", name)
+
+			return nil
+		}
+
+		if askSystems[name] {
+			availableDisks[name] = state.AvailableDisks
+		}
+	}
+
+	// Local storage is already set up on every system.
+	if len(askSystems) == 0 {
+		return nil
+	}
+
+	// We can't setup a local pool if not every system has a disk.
+	if len(availableDisks) != len(askSystems) {
+		return nil
+	}
+
 	data := [][]string{}
-	selected := map[string]string{}
-	for peer, system := range systems {
-		// If there's no spare disk, then we can't add a remote storage pool, so skip local pool creation.
-		if autoSetup && len(system.AvailableDisks) < 2 {
+	selectedDisks := map[string]string{}
+	for peer, disks := range availableDisks {
+		// In auto mode, if there's no spare disk, then we can't add a remote storage pool, so skip local pool creation.
+		if c.autoSetup && len(disks) < 2 {
 			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", peer)
 
 			return nil
 		}
 
-		sortedDisks := make([]api.ResourcesStorageDisk, 0, len(system.AvailableDisks))
-		sortedDisks = append(sortedDisks, system.AvailableDisks...)
+		sortedDisks := []api.ResourcesStorageDisk{}
+		for _, disk := range disks {
+			sortedDisks = append(sortedDisks, disk)
+		}
+
 		sort.Slice(sortedDisks, func(i, j int) bool {
 			return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
 		})
@@ -284,114 +326,180 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 
 			// Add the first disk for each peer.
-			if autoSetup {
-				_, ok := selected[peer]
+			if c.autoSetup {
+				_, ok := selectedDisks[peer]
 				if !ok {
-					selected[peer] = devicePath
+					selectedDisks[peer] = devicePath
 				}
 			}
 		}
 	}
 
+	var err error
+	wantsDisks := true
+	if !c.autoSetup {
+		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
+	}
+
+	if !wantsDisks {
+		return nil
+	}
+
+	lxd := sh.Services[types.LXD].(*service.LXDService)
 	toWipe := map[string]string{}
 	wipeable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
 	if err != nil {
 		return fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}
 
-	if !autoSetup {
-		sort.Sort(cli.SortColumnsNaturally(data))
-		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-		table := NewSelectableTable(header, data)
-		fmt.Println("Select exactly one disk from each cluster member:")
-		err := table.Render(table.rows)
-		if err != nil {
-			return err
-		}
-
-		selectedRows, err := table.GetSelections()
-		if err != nil {
-			return fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
-		}
-
-		if len(selectedRows) == 0 {
-			return fmt.Errorf("No disks selected")
-		}
-
-		for _, entry := range selectedRows {
-			target := table.SelectionValue(entry, "LOCATION")
-			path := table.SelectionValue(entry, "PATH")
-
-			_, ok := selected[target]
-			if ok {
-				return fmt.Errorf("Failed to add local storage pool: Selected more than one disk for target peer %q", target)
-			}
-
-			selected[target] = path
-		}
-
-		if !wipeAllDisks && wipeable {
-			fmt.Println("Select which disks to wipe:")
-			err := table.Render(selectedRows)
+	if !c.autoSetup {
+		c.askRetry("Retry selecting disks?", func() error {
+			selected := map[string]string{}
+			sort.Sort(cli.SortColumnsNaturally(data))
+			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
+			table := NewSelectableTable(header, data)
+			fmt.Println("Select exactly one disk from each cluster member:")
+			err := table.Render(table.rows)
 			if err != nil {
 				return err
 			}
 
-			wipeRows, err := table.GetSelections()
+			selectedRows, err := table.GetSelections()
 			if err != nil {
-				return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
+				return fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
 			}
 
-			for _, entry := range wipeRows {
+			if len(selectedRows) == 0 {
+				return fmt.Errorf("No disks selected")
+			}
+
+			for _, entry := range selectedRows {
 				target := table.SelectionValue(entry, "LOCATION")
 				path := table.SelectionValue(entry, "PATH")
-				toWipe[target] = path
+
+				_, ok := selected[target]
+				if ok {
+					return fmt.Errorf("Failed to add local storage pool: Selected more than one disk for target peer %q", target)
+				}
+
+				selected[target] = path
 			}
-		}
+
+			if len(selected) != len(askSystems) {
+				return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
+			}
+
+			if !c.wipeAllDisks && wipeable {
+				fmt.Println("Select which disks to wipe:")
+				err := table.Render(selectedRows)
+				if err != nil {
+					return err
+				}
+
+				wipeRows, err := table.GetSelections()
+				if err != nil {
+					return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
+				}
+
+				for _, entry := range wipeRows {
+					target := table.SelectionValue(entry, "LOCATION")
+					path := table.SelectionValue(entry, "PATH")
+					toWipe[target] = path
+				}
+			}
+
+			selectedDisks = selected
+
+			return nil
+		})
 	}
 
-	if len(selected) == 0 {
+	if len(selectedDisks) == 0 {
 		return nil
 	}
 
-	if len(selected) != len(systems) {
-		return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
+	if c.wipeAllDisks && wipeable {
+		toWipe = selectedDisks
 	}
 
-	if wipeAllDisks && wipeable {
-		toWipe = selected
+	var joinConfigs map[string][]api.ClusterMemberConfigKey
+	var finalConfigs []api.StoragePoolsPost
+	var targetConfigs map[string][]api.StoragePoolsPost
+	if useJoinConfig {
+		joinConfigs = map[string][]api.ClusterMemberConfigKey{}
+		for target, path := range selectedDisks {
+			joinConfigs[target] = lxd.DefaultZFSStoragePoolJoinConfig(wipeable && toWipe[target] != "", path)
+		}
+	} else {
+		targetConfigs = map[string][]api.StoragePoolsPost{}
+		for target, path := range selectedDisks {
+			targetConfigs[target] = []api.StoragePoolsPost{lxd.DefaultPendingZFSStoragePool(wipeable && toWipe[target] != "", path)}
+		}
+
+		if len(targetConfigs) > 0 {
+			finalConfigs = []api.StoragePoolsPost{lxd.DefaultZFSStoragePool()}
+		}
 	}
 
-	_, bootstrap := systems[lxd.Name()]
-	for target, path := range selected {
-		system := systems[target]
-		if bootstrap {
-			system.TargetStoragePools = []api.StoragePoolsPost{lxd.DefaultPendingZFSStoragePool(wipeable && toWipe[target] != "", path)}
-			if target == lxd.Name() {
-				system.StoragePools = []api.StoragePoolsPost{lxd.DefaultZFSStoragePool()}
-			}
-		} else {
-			system.JoinConfig = lxd.DefaultZFSStoragePoolJoinConfig(wipeable && toWipe[target] != "", path)
-		}
-
-		// Remove the disks that we selected.
-		remainingDisks := make([]api.ResourcesStorageDisk, 0, len(system.AvailableDisks)-1)
-		for _, disk := range system.AvailableDisks {
-			if parseDiskPath(disk) != path {
-				remainingDisks = append(remainingDisks, disk)
-			}
-		}
-
-		system.AvailableDisks = remainingDisks
-
-		systems[target] = system
-
+	for target, path := range selectedDisks {
 		fmt.Printf(" Using %q on %q for local storage pool\n", path, target)
 	}
 
-	if len(selected) > 0 {
+	if len(selectedDisks) > 0 {
 		// Add a space between the CLI and the response.
 		fmt.Println("")
+	}
+
+	newAvailableDisks := map[string]map[string]api.ResourcesStorageDisk{}
+	for target, path := range selectedDisks {
+		newAvailableDisks[target] = map[string]api.ResourcesStorageDisk{}
+		for id, disk := range availableDisks[target] {
+			if parseDiskPath(disk) != path {
+				newAvailableDisks[target][id] = disk
+			}
+		}
+	}
+
+	for peer, system := range c.systems {
+		if !askSystems[peer] {
+			continue
+		}
+
+		if system.JoinConfig == nil {
+			system.JoinConfig = []api.ClusterMemberConfigKey{}
+		}
+
+		if system.TargetStoragePools == nil {
+			system.TargetStoragePools = []api.StoragePoolsPost{}
+		}
+
+		if system.StoragePools == nil {
+			system.StoragePools = []api.StoragePoolsPost{}
+		}
+
+		if joinConfigs[peer] != nil {
+			system.JoinConfig = append(system.JoinConfig, joinConfigs[peer]...)
+		}
+
+		if targetConfigs[peer] != nil {
+			system.TargetStoragePools = append(system.TargetStoragePools, targetConfigs[peer]...)
+		}
+
+		if peer == sh.Name && finalConfigs != nil {
+			system.StoragePools = append(system.StoragePools, finalConfigs...)
+		}
+
+		c.systems[peer] = system
+	}
+
+	for peer, state := range c.state {
+		if askSystems[peer] {
+			state.AvailableDisks = newAvailableDisks[peer]
+			c.state[peer] = state
+		}
 	}
 
 	return nil
