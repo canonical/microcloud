@@ -274,9 +274,10 @@ validate_system_microovn() {
     lxc exec "${name}" -- microovn cluster list | grep -q "${name}"
 }
 
-# validate_system_lxd_zfs: Ensures the node with the given name has a disk set up for ZFS storage.
+# validate_system_lxd_zfs: Ensures the node with the given name has the given disk set up for ZFS storage.
 validate_system_lxd_zfs() {
   name=${1}
+  local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
   lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
   lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
@@ -285,10 +286,9 @@ validate_system_lxd_zfs() {
   grep -q "config: {}" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
-  # In microcloud auto mode, the disk number is not known in advance, we just know it's the first discovered disk.
   cfg="$(lxc storage show local --target "${name}")"
   grep -q "source: local" <<< "${cfg}"
-  grep -qE "volatile.initial_source: /[^/]+(/[^/]+)*" <<< "${cfg}"
+  grep -q "volatile.initial_source: .*${local_disk}" <<< "${cfg}"
   grep -q "zfs.pool_name: local" <<< "${cfg}"
   grep -q "driver: zfs" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
@@ -441,7 +441,7 @@ validate_system_lxd() {
     fi
 
     if [ -n "${local_disk}" ]; then
-      validate_system_lxd_zfs "${name}"
+      validate_system_lxd_zfs "${name}" "${local_disk}"
     fi
 
     if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
