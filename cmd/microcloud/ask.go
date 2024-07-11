@@ -153,99 +153,15 @@ func (c *initConfig) askAddress() error {
 	return nil
 }
 
-func (c *CmdControl) askDisks(sh *service.Handler, systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, encryptAllDisks bool) error {
-	_, bootstrap := systems[sh.Name]
-	allResources := make(map[string]*api.Resources, len(systems))
-	var err error
-	for peer, system := range systems {
-		allResources[peer], err = sh.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
-		if err != nil {
-			return fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
-		}
+func (c *initConfig) askDisks(sh *service.Handler) error {
+	err := c.askLocalPool(sh)
+	if err != nil {
+		return err
 	}
 
-	foundDisks := false
-	for peer, r := range allResources {
-		system := systems[peer]
-		system.AvailableDisks = make([]api.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				system.AvailableDisks = append(system.AvailableDisks, disk)
-			}
-		}
-
-		if len(system.AvailableDisks) > 0 {
-			foundDisks = true
-		}
-
-		systems[peer] = system
-	}
-
-	wantsDisks := true
-	if !autoSetup && foundDisks {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
-	}
-
-	if !foundDisks {
-		wantsDisks = false
-	}
-
-	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if wantsDisks {
-		c.askRetry("Retry selecting disks?", autoSetup, func() error {
-			return askLocalPool(systems, autoSetup, wipeAllDisks, *lxd)
-		})
-	}
-
-	if sh.Services[types.MicroCeph] != nil {
-		availableDisks := map[string][]api.ResourcesStorageDisk{}
-		for peer, system := range systems {
-			if len(system.AvailableDisks) > 0 {
-				availableDisks[peer] = system.AvailableDisks
-			}
-		}
-
-		if bootstrap && len(availableDisks) < 3 {
-			fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
-		} else {
-			wantsDisks = true
-			if !autoSetup {
-				wantsDisks, err = c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
-				if err != nil {
-					return err
-				}
-
-				if len(systems) != len(availableDisks) && wantsDisks {
-					wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
-					if err != nil {
-						return err
-					}
-				}
-			}
-
-			if wantsDisks {
-				c.askRetry("Retry selecting disks?", autoSetup, func() error {
-					return c.askRemotePool(systems, autoSetup, wipeAllDisks, encryptAllDisks, sh)
-				})
-			}
-		}
-	}
-
-	if !bootstrap {
-		for peer, system := range systems {
-			if len(system.MicroCephDisks) > 0 {
-				if system.JoinConfig == nil {
-					system.JoinConfig = []api.ClusterMemberConfigKey{}
-				}
-
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
-
-				systems[peer] = system
-			}
-		}
+	err = c.askRemotePool(sh)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -565,211 +481,341 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 	return internalCephNetwork, nil
 }
 
-func (c *CmdControl) askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bool, encryptAllDisks bool, sh *service.Handler) error {
-	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-	data := [][]string{}
-	for peer, system := range systems {
-		sortedDisks := make([]api.ResourcesStorageDisk, 0, len(system.AvailableDisks))
-		sortedDisks = append(sortedDisks, system.AvailableDisks...)
-		sort.Slice(sortedDisks, func(i, j int) bool {
-			return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
-		})
-
-		for _, disk := range sortedDisks {
-			// Skip any disks that have been reserved for the local storage pool.
-			devicePath := parseDiskPath(disk)
-			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
-		}
-	}
-
-	if len(data) == 0 {
-		return fmt.Errorf("Found no available disks")
-	}
-
-	sort.Sort(cli.SortColumnsNaturally(data))
-	table := NewSelectableTable(header, data)
-	selected := table.rows
-	var toWipe []string
-	if wipeAllDisks {
-		toWipe = selected
-	}
-
-	var toEncrypt []string
-	if encryptAllDisks {
-		toEncrypt = selected
-	}
-
-	if len(table.rows) == 0 {
+func (c *initConfig) askRemotePool(sh *service.Handler) error {
+	// If MicroCeph is not installed, skip this block entirely.
+	if sh.Services[types.MicroCeph] == nil {
 		return nil
 	}
 
-	if !autoSetup {
-		fmt.Println("Select from the available unpartitioned disks:")
-		err := table.Render(table.rows)
+	// Check if we need to use JoinConfig because the storage pools and networks are already set up.
+	// Select the systems that don't have the corresponding storage pools, and only ask questions for those systems.
+	useJoinConfigRemote := false
+	useJoinConfigRemoteFS := false
+	askSystemsRemote := map[string]bool{}
+	askSystemsRemoteFS := map[string]bool{}
+	for _, info := range c.state {
+		hasPool, supportsPool := info.SupportsRemotePool()
+		if !supportsPool {
+			logger.Warn("Skipping remote storage pool setup, some systems don't support it")
+			return nil
+		}
+
+		hasFSPool, supportsFSPool := info.SupportsRemoteFSPool()
+		if !supportsFSPool {
+			logger.Warn("Skipping remote-fs storage pool setup, some systems don't support it")
+			return nil
+		}
+
+		if !hasPool && hasFSPool {
+			return fmt.Errorf("Unsupported configuration, remote-fs pool already exists")
+		}
+
+		if hasPool {
+			useJoinConfigRemote = true
+		} else {
+			askSystemsRemote[info.ClusterName] = true
+		}
+
+		if hasFSPool {
+			useJoinConfigRemoteFS = true
+		} else {
+			askSystemsRemoteFS[info.ClusterName] = true
+		}
+	}
+
+	var selectedDisks map[string][]string
+	var wipeDisks map[string]map[string]bool
+	availableDiskCount := 0
+	if len(askSystemsRemote) != 0 {
+		availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
+		for name, state := range c.state {
+			if askSystemsRemote[name] {
+				availableDisks[name] = state.AvailableDisks
+
+				if len(state.AvailableDisks) > 0 {
+					availableDiskCount++
+				}
+			}
+		}
+
+		if !useJoinConfigRemote {
+			minimumDisks := 0
+			for _, disks := range availableDisks {
+				if minimumDisks == 3 {
+					break
+				}
+
+				if len(disks) > 0 {
+					minimumDisks++
+				}
+			}
+
+			// At least 3 systems need to be able to supply a disk.
+			if minimumDisks < 3 {
+				fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
+
+				return nil
+			}
+		}
+
+		var err error
+		wantsDisks := true
+		if !c.autoSetup {
+			wantsDisks, err = c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
+			}
+
+			// Ask if the user is okay with fully remote ceph on some systems.
+			if len(askSystemsRemote) != availableDiskCount && wantsDisks {
+				wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if !wantsDisks {
+			return nil
+		}
+
+		c.askRetry("Retry selecting disks?", func() error {
+			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
+			data := [][]string{}
+			for peer, disks := range availableDisks {
+				sortedDisks := []api.ResourcesStorageDisk{}
+				for _, disk := range disks {
+					sortedDisks = append(sortedDisks, disk)
+				}
+
+				// Ensure the list of disks is sorted by name.
+				sort.Slice(sortedDisks, func(i, j int) bool {
+					return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+				})
+
+				for _, disk := range sortedDisks {
+					// Skip any disks that have been reserved for the local storage pool.
+					devicePath := parseDiskPath(disk)
+					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
+				}
+			}
+
+			if len(data) == 0 {
+				return fmt.Errorf("Found no available disks")
+			}
+
+			sort.Sort(cli.SortColumnsNaturally(data))
+			table := NewSelectableTable(header, data)
+			selected := table.rows
+			var toWipe []string
+			if c.wipeAllDisks {
+				toWipe = selected
+			}
+
+			if len(table.rows) == 0 {
+				return nil
+			}
+
+			if !c.autoSetup {
+				fmt.Println("Select from the available unpartitioned disks:")
+				err := table.Render(table.rows)
+				if err != nil {
+					return err
+				}
+
+				selected, err = table.GetSelections()
+				if err != nil {
+					return fmt.Errorf("Failed to confirm disk selection: %w", err)
+				}
+
+				if len(selected) > 0 && !c.wipeAllDisks {
+					fmt.Println("Select which disks to wipe:")
+					err := table.Render(selected)
+					if err != nil {
+						return err
+					}
+
+					toWipe, err = table.GetSelections()
+					if err != nil {
+						return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+					}
+				}
+			}
+
+			targetDisks := map[string][]string{}
+			for _, entry := range selected {
+				target := table.SelectionValue(entry, "LOCATION")
+				path := table.SelectionValue(entry, "PATH")
+				if targetDisks[target] == nil {
+					targetDisks[target] = []string{}
+				}
+
+				targetDisks[target] = append(targetDisks[target], path)
+			}
+
+			if !useJoinConfigRemote && len(targetDisks) < 3 {
+				return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
+			}
+
+			wipeDisks = map[string]map[string]bool{}
+			for _, entry := range toWipe {
+				target := table.SelectionValue(entry, "LOCATION")
+				path := table.SelectionValue(entry, "PATH")
+				if wipeDisks[target] == nil {
+					wipeDisks[target] = map[string]bool{}
+				}
+
+				wipeDisks[target][path] = true
+			}
+
+			selectedDisks = targetDisks
+
+			return nil
+		})
+
+		if len(selectedDisks) == 0 {
+			return nil
+		}
+
+		for target, disks := range selectedDisks {
+			if len(disks) > 0 {
+				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), target)
+			}
+		}
+
+		if len(selectedDisks) > 0 {
+			fmt.Println()
+		}
+	}
+
+	encryptDisks := c.encryptAllDisks
+	if !c.autoSetup && !c.encryptAllDisks && len(selectedDisks) > 0 {
+		var err error
+		encryptDisks, err = c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
 		if err != nil {
 			return err
 		}
+	}
 
-		selected, err = table.GetSelections()
-		if err != nil {
-			return fmt.Errorf("Failed to confirm disk selection: %w", err)
-		}
-
-		if len(selected) > 0 && !wipeAllDisks {
-			fmt.Println("Select which disks to wipe:")
-			err := table.Render(selected)
+	// If a cephfs pool has already been set up, we will extend it automatically, so no need to ask the question.
+	setupCephFS := useJoinConfigRemoteFS
+	if !useJoinConfigRemoteFS {
+		if !c.autoSetup {
+			lxd := sh.Services[types.LXD].(*service.LXDService)
+			ext := "storage_cephfs_create_missing"
+			hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
 			if err != nil {
-				return err
+				return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
 			}
 
-			toWipe, err = table.GetSelections()
-			if err != nil {
-				return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
-			}
-		}
-
-		if len(selected) > 0 && !encryptAllDisks {
-			encryptDisks, err := c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
-			if err != nil {
-				return err
-			}
-
-			if encryptDisks {
-				toEncrypt = selected
+			if hasCephFS {
+				setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	wipeMap := make(map[string]bool, len(toWipe))
-	for _, entry := range toWipe {
-		_, ok := table.data[entry]
-		if ok {
-			wipeMap[entry] = true
+	// Ask ceph networking questions last.
+	err := c.askCephNetwork(sh)
+	if err != nil {
+		return err
+	}
+
+	osds := map[string][]cephTypes.DisksPost{}
+	for target, disks := range selectedDisks {
+		for _, disk := range disks {
+			if osds[target] == nil {
+				osds[target] = []cephTypes.DisksPost{}
+			}
+
+			osds[target] = append(osds[target], cephTypes.DisksPost{Path: []string{disk}, Wipe: wipeDisks[target][disk], Encrypt: encryptDisks})
 		}
 	}
 
-	encryptMap := make(map[string]bool, len(toEncrypt))
-	for _, entry := range toEncrypt {
-		_, ok := table.data[entry]
-		if ok {
-			encryptMap[entry] = true
-		}
-	}
-
-	diskCount := 0
+	joinConfigs := map[string][]api.ClusterMemberConfigKey{}
+	finalConfigs := []api.StoragePoolsPost{}
+	targetConfigs := map[string][]api.StoragePoolsPost{}
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	for _, entry := range selected {
-		target := table.SelectionValue(entry, "LOCATION")
-		path := table.SelectionValue(entry, "PATH")
-		system := systems[target]
+	if useJoinConfigRemote {
+		for target := range askSystemsRemote {
+			if joinConfigs[target] == nil {
+				joinConfigs[target] = []api.ClusterMemberConfigKey{}
+			}
+
+			joinConfigs[target] = append(joinConfigs[target], lxd.DefaultCephStoragePoolJoinConfig())
+		}
+	} else {
+		for target := range askSystemsRemote {
+			if targetConfigs[target] == nil {
+				targetConfigs[target] = []api.StoragePoolsPost{}
+			}
+
+			targetConfigs[target] = append(targetConfigs[target], lxd.DefaultPendingCephStoragePool())
+		}
+
+		if len(targetConfigs) > 0 {
+			finalConfigs = append(finalConfigs, lxd.DefaultCephStoragePool())
+		}
+	}
+
+	if useJoinConfigRemoteFS {
+		for target := range askSystemsRemoteFS {
+			if joinConfigs[target] == nil {
+				joinConfigs[target] = []api.ClusterMemberConfigKey{}
+			}
+
+			joinConfigs[target] = append(joinConfigs[target], lxd.DefaultCephFSStoragePoolJoinConfig())
+		}
+	} else if setupCephFS {
+		for target := range askSystemsRemoteFS {
+			if targetConfigs[target] == nil {
+				targetConfigs[target] = []api.StoragePoolsPost{}
+			}
+
+			targetConfigs[target] = append(targetConfigs[target], lxd.DefaultPendingCephFSStoragePool())
+		}
+
+		if len(targetConfigs) > 0 {
+			finalConfigs = append(finalConfigs, lxd.DefaultCephFSStoragePool())
+		}
+	}
+
+	for peer, system := range c.systems {
+		if system.JoinConfig == nil {
+			system.JoinConfig = []api.ClusterMemberConfigKey{}
+		}
+
+		if system.TargetStoragePools == nil {
+			system.TargetStoragePools = []api.StoragePoolsPost{}
+		}
+
+		if system.StoragePools == nil {
+			system.StoragePools = []api.StoragePoolsPost{}
+		}
 
 		if system.MicroCephDisks == nil {
-			diskCount++
 			system.MicroCephDisks = []cephTypes.DisksPost{}
 		}
 
-		system.MicroCephDisks = append(
-			system.MicroCephDisks,
-			cephTypes.DisksPost{
-				Path:    []string{path},
-				Wipe:    wipeMap[entry],
-				Encrypt: encryptMap[entry],
-			},
-		)
-
-		systems[target] = system
-	}
-
-	if diskCount > 0 {
-		for target, system := range systems {
-			if system.TargetStoragePools == nil {
-				system.TargetStoragePools = []api.StoragePoolsPost{}
-			}
-
-			_, bootstrap := systems[sh.Name]
-			if bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
-				if target == sh.Name {
-					if system.StoragePools == nil {
-						system.StoragePools = []api.StoragePoolsPost{}
-					}
-
-					system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
-				}
-			}
-
-			systems[target] = system
-		}
-	}
-
-	_, checkMinSize := systems[sh.Name]
-	if checkMinSize && diskCount < 3 {
-		return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
-	}
-
-	// Print a summary of what was chosen in this step.
-	if diskCount > 0 {
-		for peer, system := range systems {
-			if len(system.MicroCephDisks) > 0 {
-				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(system.MicroCephDisks), peer)
-			}
+		if joinConfigs[peer] != nil {
+			system.JoinConfig = append(system.JoinConfig, joinConfigs[peer]...)
 		}
 
-		// Add a space between the CLI and the response.
-		fmt.Println("")
-	}
-
-	setupCephFS := false
-	_, bootstrap := systems[sh.Name]
-	if bootstrap && !autoSetup {
-		var err error
-		ext := "storage_cephfs_create_missing"
-		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
-		if err != nil {
-			return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
+		if targetConfigs[peer] != nil {
+			system.TargetStoragePools = append(system.TargetStoragePools, targetConfigs[peer]...)
 		}
 
-		if hasCephFS {
-			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if !bootstrap {
-		d, err := sh.Services[types.LXD].(*service.LXDService).Client(context.Background(), "")
-		if err != nil {
-			return err
+		if osds[peer] != nil {
+			system.MicroCephDisks = append(system.MicroCephDisks, osds[peer]...)
 		}
 
-		pools, err := d.GetStoragePools()
-		if err != nil {
-			return err
+		if peer == sh.Name && finalConfigs != nil {
+			system.StoragePools = append(system.StoragePools, finalConfigs...)
 		}
 
-		// If "cephfs" has been setup already, then set it up for the new system too.
-		for _, pool := range pools {
-			if pool.Driver == "cephfs" {
-				setupCephFS = true
-				break
-			}
-		}
-	}
-
-	if setupCephFS {
-		for name, system := range systems {
-			if bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
-				if sh.Name == name {
-					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())
-				}
-			} else {
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephFSStoragePoolJoinConfig())
-			}
-
-			systems[name] = system
-		}
+		c.systems[peer] = system
 	}
 
 	return nil
