@@ -14,7 +14,7 @@ test_add_auto() {
     lxc exec "${m}" -- snap disable microcloud
   done
 
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   # Re-enable the nodes.
@@ -24,7 +24,7 @@ test_add_auto() {
   done
 
   # Add the nodes.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
@@ -45,7 +45,7 @@ test_add_auto() {
     lxc exec "${m}" -- snap disable microcloud
   done
 
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   # Re-enable the nodes.
@@ -55,7 +55,7 @@ test_add_auto() {
   done
 
   # Add the nodes.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
@@ -79,7 +79,7 @@ test_add_auto() {
     lxc exec "${m}" -- snap disable microcloud
   done
 
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   # Re-enable the nodes.
@@ -90,7 +90,7 @@ test_add_auto() {
   done
 
   # Add the nodes.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
@@ -179,7 +179,7 @@ test_add_interactive() {
   done
 
   lxc exec micro04 -- snap disable microcloud
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro04 -- snap enable microcloud
   lxc exec micro04 -- snap start microcloud

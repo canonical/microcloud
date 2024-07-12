@@ -53,10 +53,17 @@ type InitSystem struct {
 	JoinConfig []lxdAPI.ClusterMemberConfigKey
 }
 
+// DefaultAutoLookupTimeout is the default time limit for automatically finding systems over mDNS.
+const DefaultAutoLookupTimeout time.Duration = 5 * time.Second
+
+// DefaultLookupTimeout is the default time limit for finding systems interactively.
+const DefaultLookupTimeout time.Duration = time.Minute
+
 type cmdInit struct {
 	common *CmdControl
 
 	flagAutoSetup       bool
+	flagLookupTimeout   int64
 	flagWipeAllDisks    bool
 	flagEncryptAllDisks bool
 	flagAddress         string
@@ -76,6 +83,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	cmd.Flags().BoolVar(&c.flagEncryptAllDisks, "encrypt", false, "Encrypt disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
 	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
+	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait for systems to show up. Defaults: 60s for interactive, 5s for automatic and preseed")
 
 	return cmd
 }
@@ -86,7 +94,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if c.flagPreseed {
-		return c.common.RunPreseed(cmd, true)
+		return c.common.RunPreseed(cmd, true, c.flagLookupTimeout)
 	}
 
 	return c.RunInteractive(cmd, args)
@@ -140,7 +148,14 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+	lookupTimeout := DefaultLookupTimeout
+	if c.flagLookupTimeout > 0 {
+		lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
+	} else if c.flagAutoSetup {
+		lookupTimeout = DefaultAutoLookupTimeout
+	}
+
+	err = lookupPeers(s, lookupTimeout, c.flagAutoSetup, iface, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
@@ -179,7 +194,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 // - If `autoSetup` is true, all systems found in the first 5s will be recorded, and no other input is required.
 // - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
 // except it will wait up to a minute for exclusively these systems to be recorded.
-func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
+func lookupPeers(s *service.Handler, timeoutDuration time.Duration, autoSetup bool, iface *net.Interface, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
@@ -201,11 +216,6 @@ func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subne
 			answers, err = table.GetSelections()
 			selectionCh <- err
 		}()
-	}
-
-	timeoutDuration := time.Minute
-	if autoSetup {
-		timeoutDuration = 5 * time.Second
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
