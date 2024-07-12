@@ -218,7 +218,7 @@ test_instances_config() {
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -253,7 +253,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -309,7 +309,7 @@ test_instances_launch() {
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -385,7 +385,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -519,7 +519,7 @@ EOF
     lxc exec "micro0$((n-1))" -- ip addr add "${dedicated_ip}" dev "${ceph_dedicated_subnet_iface}"
   done
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 <<EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
@@ -929,7 +929,7 @@ test_auto() {
   lxc exec micro02 -- snap start microcloud
 
   echo Auto-create a MicroCloud with 2 systems with no disks/interfaces.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 ; do
     validate_system_lxd "${m}" 2
     validate_system_microceph "${m}"
@@ -945,7 +945,7 @@ test_auto() {
   reset_systems 2 0 1
 
   echo Auto-create a MicroCloud with 2 systems with 1 interface each.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 ; do
     validate_system_lxd "${m}" 2
     validate_system_microceph "${m}"
@@ -963,7 +963,7 @@ test_auto() {
   reset_systems 2 3 1
 
   echo Auto-create a MicroCloud with 2 systems with 3 disks and 1 interface each.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 ; do
     validate_system_lxd "${m}" 2 disk1
     validate_system_microceph "${m}"
@@ -980,7 +980,7 @@ test_auto() {
   reset_systems 3 0 0
 
   echo Auto-create a MicroCloud with 3 systems with no disks/interfaces.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3
     validate_system_microceph "${m}"
@@ -996,7 +996,7 @@ test_auto() {
   reset_systems 3 0 1
 
   echo Auto-create a MicroCloud with 3 systems with 1 interface each.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 micro03; do
     validate_system_lxd "${m}" 3
     validate_system_microceph "${m}"
@@ -1013,7 +1013,7 @@ test_auto() {
   reset_systems 3 1 1
 
   echo Auto-create a MicroCloud with 3 systems with 1 disk and 1 interface each.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 micro03; do
     validate_system_lxd "${m}" 3 "" 1 0
     validate_system_microceph "${m}" 0 disk1
@@ -1030,7 +1030,7 @@ test_auto() {
   reset_systems 3 3 1
 
   echo Auto-create a MicroCloud with 3 systems with 3 disks and 1 interface each.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto --lookup-timeout 10 > out"
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1 2 0
     validate_system_microceph "${m}" 0 disk2 disk3
@@ -1148,7 +1148,7 @@ test_reuse_cluster() {
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service with preseed"
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 --env TEST_CONSOLE=0 --  microcloud init --preseed << EOF
+  lxc exec micro01 --env TEST_CONSOLE=0 --  microcloud init --preseed --lookup-timeout 10 << EOF
 lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 reuse_existing_clusters: true
