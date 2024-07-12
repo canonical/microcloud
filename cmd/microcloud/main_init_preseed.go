@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/filter"
@@ -101,7 +102,7 @@ func DiskOperatorSet() filter.OperatorSet {
 }
 
 // RunPreseed initializes MicroCloud from a preseed yaml filepath input.
-func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
+func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool, flagLookupTimeout int64) error {
 	bytes, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("Failed to read from stdin: %w", err)
@@ -145,7 +146,12 @@ func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
 		return err
 	}
 
-	systems, err := config.Parse(s, init)
+	lookupTimeout := DefaultAutoLookupTimeout
+	if flagLookupTimeout > 0 {
+		lookupTimeout = time.Duration(flagLookupTimeout) * time.Second
+	}
+
+	systems, err := config.Parse(s, init, lookupTimeout)
 	if err != nil {
 		return err
 	}
@@ -379,7 +385,7 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 }
 
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
-func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSystem, error) {
+func (p *Preseed) Parse(s *service.Handler, bootstrap bool, lookupTimeout time.Duration) (map[string]InitSystem, error) {
 	systems := make(map[string]InitSystem, len(p.Systems))
 	if bootstrap {
 		systems[s.Name] = InitSystem{ServerInfo: mdns.ServerInfo{Name: s.Name}}
@@ -417,7 +423,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		return nil, fmt.Errorf("Failed to find lookup interface %q", p.LookupInterface)
 	}
 
-	err = lookupPeers(s, true, lookupIface, lookupSubnet, expectedSystems, systems)
+	err = lookupPeers(s, lookupTimeout, true, lookupIface, lookupSubnet, expectedSystems, systems)
 	if err != nil {
 		return nil, err
 	}

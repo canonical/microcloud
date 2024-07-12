@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/spf13/cobra"
@@ -15,9 +16,10 @@ import (
 type cmdAdd struct {
 	common *CmdControl
 
-	flagAutoSetup bool
-	flagWipe      bool
-	flagPreseed   bool
+	flagAutoSetup     bool
+	flagWipe          bool
+	flagPreseed       bool
+	flagLookupTimeout int64
 }
 
 func (c *cmdAdd) Command() *cobra.Command {
@@ -30,6 +32,7 @@ func (c *cmdAdd) Command() *cobra.Command {
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
+	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait for systems to show up. Defaults: 60s for interactive, 5s for automatic and preseed")
 
 	return cmd
 }
@@ -40,7 +43,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if c.flagPreseed {
-		return c.common.RunPreseed(cmd, false)
+		return c.common.RunPreseed(cmd, false, c.flagLookupTimeout)
 	}
 
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
@@ -78,8 +81,15 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	lookupTimeout := DefaultLookupTimeout
+	if c.flagLookupTimeout > 0 {
+		lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
+	} else if c.flagAutoSetup {
+		lookupTimeout = DefaultAutoLookupTimeout
+	}
+
 	systems := map[string]InitSystem{}
-	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
+	err = lookupPeers(s, lookupTimeout, c.flagAutoSetup, iface, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
