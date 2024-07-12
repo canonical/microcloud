@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -231,7 +232,17 @@ func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, erro
 }
 
 // clusterMembers returns a map of cluster member names and addresses.
+// If LXD is not clustered, it returns a 503 http error similar to microcluster.
 func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string, error) {
+	server, _, err := client.GetServer()
+	if err != nil {
+		return nil, err
+	}
+
+	if !server.Environment.ServerClustered {
+		return nil, api.StatusErrorf(http.StatusServiceUnavailable, "LXD is not part of a cluster")
+	}
+
 	members, err := client.GetClusterMembers()
 	if err != nil {
 		return nil, err
