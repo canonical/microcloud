@@ -1026,6 +1026,7 @@ setup_system() {
     fi
 
     lxc exec "${name}" -- snap install snapd
+    lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean

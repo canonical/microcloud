@@ -1,15 +1,46 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"fmt"
+	"io"
+	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/canonical/lxd/shared"
 	cli "github.com/canonical/lxd/shared/cmd"
+	"github.com/canonical/lxd/shared/termios"
 	"github.com/canonical/microcluster/client"
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
+	"gopkg.in/yaml.v2"
 )
+
+const recoveryConfirmation = `You should only run this command if:
+ - A quorum of cluster members is permanently lost
+ - You are *absolutely* sure all microcloud daemons are stopped (sudo snap stop microcloud)
+ - This instance has the most up to date database
+
+Do you want to proceed? (yes/no): `
+
+const recoveryYamlComment = `# Member roles can be modified. Unrecoverable nodes should be given the role "spare".
+#
+# "voter" - Voting member of the database. A majority of voters is a quorum.
+# "stand-by" - Non-voting member of the database; can be promoted to voter.
+# "spare" - Not a member of the database.
+#
+# The edit is aborted if:
+# - the number of members changes
+# - the name of any member changes
+# - the ID of any member changes
+# - the address of any member changes
+# - no changes are made
+`
 
 type cmdClusterMembers struct {
 	common *CmdControl
@@ -28,6 +59,9 @@ func (c *cmdClusterMembers) Command() *cobra.Command {
 	var cmdList = cmdClusterMembersList{common: c.common}
 	cmd.AddCommand(cmdList.Command())
 
+	var cmdEdit = cmdClusterRecover{common: c.common}
+	cmd.AddCommand(cmdEdit.command())
+
 	return cmd
 }
 
@@ -36,8 +70,10 @@ func (c *cmdClusterMembers) Run(cmd *cobra.Command, args []string) error {
 }
 
 type cmdClusterMembersList struct {
-	common     *CmdControl
+	common *CmdControl
+
 	flagFormat string
+	flagLocal  bool
 }
 
 func (c *cmdClusterMembersList) Command() *cobra.Command {
@@ -48,6 +84,7 @@ func (c *cmdClusterMembersList) Command() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", cli.TableFormatTable, "Format (csv|json|table|yaml|compact)")
+	cmd.Flags().BoolVarP(&c.flagLocal, "local", "l", false, "provide only the locally available cluster info (no database query)")
 
 	return cmd
 }
@@ -62,6 +99,10 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
+	}
+
+	if c.flagLocal {
+		return c.listLocalClusterMembers(m)
 	}
 
 	var client *client.Client
@@ -79,7 +120,11 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	clusterMembers, err := client.GetClusterMembers(context.Background())
+	return c.listClusterMembers(cmd.Context(), client)
+}
+
+func (c *cmdClusterMembersList) listClusterMembers(ctx context.Context, client *client.Client) error {
+	clusterMembers, err := client.GetClusterMembers(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,6 +143,23 @@ func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	sort.Sort(cli.SortColumnsNaturally(data))
 
 	return cli.RenderTable(c.flagFormat, header, data, clusterMembers)
+}
+
+func (c *cmdClusterMembersList) listLocalClusterMembers(m *microcluster.MicroCluster) error {
+	members, err := m.GetDqliteClusterMembers()
+	if err != nil {
+		return err
+	}
+
+	data := make([][]string, len(members))
+	for i, member := range members {
+		data[i] = []string{strconv.FormatUint(member.DqliteID, 10), member.Name, member.Address, member.Role}
+	}
+
+	header := []string{"DQLITE ID", "NAME", "ADDRESS", "ROLE"}
+	sort.Sort(cli.SortColumnsNaturally(data))
+
+	return cli.RenderTable(c.flagFormat, header, data, members)
 }
 
 type cmdClusterMemberRemove struct {
@@ -138,6 +200,78 @@ func (c *cmdClusterMemberRemove) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+type cmdClusterRecover struct {
+	common *CmdControl
+}
+
+func (c *cmdClusterRecover) command() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "recover",
+		Short: "Recover the cluster from this member if quorum is lost",
+		RunE:  c.run,
+	}
+
+	return cmd
+}
+
+func (c *cmdClusterRecover) run(cmd *cobra.Command, args []string) error {
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	if err != nil {
+		return err
+	}
+
+	var content []byte
+	if !termios.IsTerminal(unix.Stdin) {
+		content, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+	} else {
+		members, err := m.GetDqliteClusterMembers()
+		if err != nil {
+			return err
+		}
+
+		membersYaml, err := yaml.Marshal(members)
+		if err != nil {
+			return err
+		}
+
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print(recoveryConfirmation)
+
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSuffix(input, "\n")
+
+		if strings.ToLower(input) != "yes" {
+			fmt.Println("Cluster edit aborted; no changes made")
+			return nil
+		}
+
+		content, err = shared.TextEditor("", append([]byte(recoveryYamlComment), membersYaml...))
+		if err != nil {
+			return err
+		}
+	}
+
+	newMembers := []cluster.DqliteMember{}
+	err = yaml.Unmarshal(content, &newMembers)
+	if err != nil {
+		return err
+	}
+
+	tarballPath, err := m.RecoverFromQuorumLoss(newMembers)
+	if err != nil {
+		return fmt.Errorf("cluster edit: %w", err)
+	}
+
+	fmt.Printf("Cluster changes applied; new database state saved to %s\n\n", tarballPath)
+	fmt.Printf("*Before* starting any cluster member, copy %s to %s on all remaining cluster members.\n\n", tarballPath, tarballPath)
+	fmt.Printf("microcloudd will load this file during startup.\n")
 
 	return nil
 }
