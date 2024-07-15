@@ -67,6 +67,19 @@ cleanup() {
 		lxc exec "${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
 		lxc exec "${name}" -- lsblk
 	done
+
+	for name in $(lxc list -c n -f csv micro); do
+		echo -n "${name} out file:"
+        if ! lxc exec "${name}" -- test -e out; then
+            echo " was not found"
+            continue
+        elif ! lxc exec "${name}" -- test -s out; then
+            echo " was empty"
+            continue
+        fi
+        echo
+		lxc exec "${name}" -- cat out
+	done
 	echo "::endgroup::"
 
 	# LXD daemon logs
