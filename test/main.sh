@@ -69,6 +69,16 @@ cleanup() {
     done
     echo "::endgroup::"
 
+	# LXD daemon logs
+	echo "::group::lxd logs"
+	journalctl --quiet --no-hostname --no-pager --boot=0 --lines=100 --unit=snap.lxd.daemon.service
+	echo "::endgroup::"
+
+	# dmesg may contain oops, IO errors, crashes, etc
+	echo "::group::dmesg logs"
+	journalctl --quiet --no-hostname --no-pager --boot=0 --lines=100 --dmesg
+	echo "::endgroup::"
+
 	if [ -n "${GITHUB_ACTIONS:-}" ]; then
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
 	else
