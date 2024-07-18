@@ -1173,3 +1173,149 @@ EOF
 
   services_validator
 }
+
+test_remove_cluster_member() {
+  unset_interactive_vars
+
+  microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
+
+  # Set the default config for interactive setup.
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export SETUP_CEPHFS="yes"
+  export CEPH_FILTER="lxd_disk2"
+  export CEPH_WIPE="yes"
+  export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_ENCRYPT="no"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+
+  reset_systems 3 3 3
+  echo "Fail to remove member from MicroCeph and LXD until OSDs are removed"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  # Wait for roles to refresh from the next heartbeat.
+  for i in $(seq 1 40) ; do
+    if lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q PENDING ; then
+      sleep 1
+    else
+      break
+    fi
+  done
+
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro02 || true
+
+  for s in "microcloud" "microovn" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+
+  for s in "lxc" "microceph" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02"
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro02 --force
+
+  for s in "microcloud" "microovn" "microceph" "lxc" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+
+  # With 3 or fewer systems, MicroCeph requires --force to be used to remove cluster members. We tested that above so ignore MicroCeph for the rest of the test.
+  unset SETUP_CEPH
+  unset CEPH_CLUSTER_NETWORK
+  export SKIP_SERVICE="yes"
+
+  # LXD will require --force if we have storage volumes, so don't set those up.
+  export SETUP_ZFS="no"
+  unset ZFS_FILTER
+  unset ZFS_WIPE
+
+  reset_systems 3 3 3
+  lxc exec micro01 -- snap disable microceph
+  echo "Create a MicroCloud and remove a node from all services"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  # Wait for roles to refresh from the next heartbeat.
+  for i in $(seq 1 40) ; do
+    if lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q PENDING ; then
+      sleep 1
+    else
+      break
+    fi
+  done
+
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro02
+
+  for s in "microcloud" "microovn" "lxc" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+
+  reset_systems 3 3 3
+  lxc exec micro01 -- snap disable microceph
+  echo "Create a MicroCloud and remove a node from all services, but manually remove it from the MicroCloud daemon first"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  # Wait for roles to refresh from the next heartbeat.
+  for i in $(seq 1 40) ; do
+    if lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q PENDING ; then
+      sleep 1
+    else
+      break
+    fi
+  done
+
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster remove micro02
+
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q "micro02" || true
+  for s in "microovn" "lxc" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02"
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro02
+
+  for s in "microcloud" "microovn" "lxc" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+
+  reset_systems 3 3 3
+  lxc exec micro01 -- snap disable microceph
+  echo "Create a MicroCloud and fail to remove a non-existent member"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  for i in $(seq 1 40) ; do
+    if lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q PENDING ; then
+      sleep 1
+    else
+      break
+    fi
+  done
+
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove abcd || true
+
+  for s in "microcloud" "microovn" "lxc" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02"
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
+  done
+}
