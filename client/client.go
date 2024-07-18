@@ -37,3 +37,16 @@ func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.S
 
 	return token, nil
 }
+
+// DeleteClusterMember removes the cluster member from any service that it is part of.
+func DeleteClusterMember(ctx context.Context, c *client.Client, memberName string, force bool) error {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	path := api.NewURL().Path("services", "cluster", memberName)
+	if force {
+		path = path.WithQuery("force", "1")
+	}
+
+	return c.Query(queryCtx, "DELETE", types.APIVersion, path, nil, nil)
+}
