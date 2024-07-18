@@ -11,6 +11,7 @@ Manage the snaps </how-to/snaps>
 Initialise MicroCloud </how-to/initialise>
 Configure Ceph networking </how-to/ceph_networking>
 Add a machine </how-to/add_machine>
+Remove a machine </how-to/remove_machine>
 Get support </how-to/support>
 Contribute to MicroCloud </how-to/contribute>
 Work with MicroCloud </how-to/commands>
