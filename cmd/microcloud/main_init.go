@@ -514,7 +514,7 @@ func (c *initConfig) addPeers(sh *service.Handler) error {
 	// Concurrently issue a token for each joiner.
 	for peer := range c.systems {
 		mut := sync.Mutex{}
-		err := sh.RunConcurrent(false, false, func(s service.Service) error {
+		err := sh.RunConcurrent("", "", func(s service.Service) error {
 			// Only issue a token if the system isn't already part of that cluster.
 			if existingSystems[s.Type()][peer] == "" {
 				clusteredSystem := c.systems[initializedServices[s.Type()]]
@@ -719,7 +719,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		fmt.Println("Initializing a new cluster")
 		mu := sync.Mutex{}
-		err := s.RunConcurrent(true, false, func(s service.Service) error {
+		err := s.RunConcurrent(types.MicroCloud, "", func(s service.Service) error {
 			// If there's already an initialized system for this service, we don't need to bootstrap it.
 			if initializedServices[s.Type()] != "" {
 				return nil

@@ -55,7 +55,7 @@ func servicesPut(state *state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
-	err = sh.RunConcurrent(true, true, func(s service.Service) error {
+	err = sh.RunConcurrent(types.MicroCloud, types.LXD, func(s service.Service) error {
 		// set a 5 minute context for completing the join request in case the system is very slow.
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
