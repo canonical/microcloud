@@ -470,7 +470,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 	// If an uplink interface was explicitly chosen, we will try to set up an OVN network.
 	explicitOVN := len(ifaceByPeer) > 0
 
-	cephInterfaces := map[string][]service.CephDedicatedInterface{}
+	cephInterfaces := map[string]map[string]service.CephDedicatedInterface{}
 	for _, system := range c.systems {
 		uplinkIfaces, cephIfaces, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
 		if err != nil {
@@ -485,12 +485,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 			}
 		}
 
-		for _, iface := range cephIfaces {
+		for ifaceName, iface := range cephIfaces {
 			if cephInterfaces[system.ServerInfo.Name] == nil {
-				cephInterfaces[system.ServerInfo.Name] = []service.CephDedicatedInterface{}
+				cephInterfaces[system.ServerInfo.Name] = map[string]service.CephDedicatedInterface{}
 			}
 
-			cephInterfaces[system.ServerInfo.Name] = append(cephInterfaces[system.ServerInfo.Name], iface)
+			cephInterfaces[system.ServerInfo.Name][ifaceName] = iface
 		}
 	}
 

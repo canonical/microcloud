@@ -447,7 +447,6 @@ func defaultNetworkInterfacesFilter(client lxd.InstanceServer, network api.Netwo
 
 // CephDedicatedInterface represents a dedicated interface for Ceph.
 type CephDedicatedInterface struct {
-	Name      string
 	Type      string
 	Addresses []string
 }
@@ -486,7 +485,6 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 			uplinkInterfaces[network.Name] = network
 		} else {
 			cephInterfaces[network.Name] = CephDedicatedInterface{
-				Name:      network.Name,
 				Type:      network.Type,
 				Addresses: addresses,
 			}
@@ -498,7 +496,7 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 
 // ValidateCephInterfaces validates the given interfaces map against the given Ceph network subnet
 // and returns a map of peer name to interfaces that are in the subnet.
-func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfacesMap map[string][]CephDedicatedInterface) (map[string][][]string, error) {
+func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]CephDedicatedInterface) (map[string][][]string, error) {
 	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid CIDR subnet: %v", err)
@@ -510,8 +508,8 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfa
 	}
 
 	data := make(map[string][][]string)
-	for peer, interfaces := range interfacesMap {
-		for _, iface := range interfaces {
+	for peer, ifaceByName := range peerInterfaces {
+		for name, iface := range ifaceByName {
 			for _, addr := range iface.Addresses {
 				ip := net.ParseIP(addr)
 				if ip == nil {
@@ -521,9 +519,9 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfa
 				if (subnet.IP.To4() != nil && ip.To4() != nil && subnet.Contains(ip)) || (subnet.IP.To16() != nil && ip.To16() != nil && subnet.Contains(ip)) {
 					_, ok := data[peer]
 					if !ok {
-						data[peer] = [][]string{{peer, iface.Name, addr, iface.Type}}
+						data[peer] = [][]string{{peer, name, addr, iface.Type}}
 					} else {
-						data[peer] = append(data[peer], []string{peer, iface.Name, addr, iface.Type})
+						data[peer] = append(data[peer], []string{peer, name, addr, iface.Type})
 					}
 				}
 			}
