@@ -125,9 +125,19 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
-	ip, _, err := net.ParseCIDR(config.LookupSubnet)
+	_, lookupSubnet, err := net.ParseCIDR(config.LookupSubnet)
 	if err != nil {
 		return err
+	}
+
+	lookupIface, err := net.InterfaceByName(config.LookupInterface)
+	if err != nil {
+		return err
+	}
+
+	listenIP, err := addrInSubnet(lookupIface, *lookupSubnet)
+	if err != nil {
+		return fmt.Errorf("Failed to determine MicroCloud listen address: %w", err)
 	}
 
 	// Build the service handler.
@@ -143,7 +153,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	}
 
 	c.name = hostname
-	c.address = ip.String()
+	c.address = listenIP.String()
 	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
 	if err != nil {
 		return err
@@ -842,4 +852,25 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 	}
 
 	return c.systems, nil
+}
+
+// Returns the first IP address assigned to iface that falls within lookupSubnet.
+func addrInSubnet(iface *net.Interface, lookupSubnet net.IPNet) (net.IP, error) {
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, addr := range addrs {
+		ip, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			continue
+		}
+
+		if lookupSubnet.Contains(ip) {
+			return ip, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%q has no addresses in subnet %q", iface.Name, lookupSubnet)
 }
