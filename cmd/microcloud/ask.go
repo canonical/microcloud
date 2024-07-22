@@ -450,7 +450,7 @@ func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map
 func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetwork *net.IPNet, err error) {
 	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
 	if microCephService == nil {
-		return nil, fmt.Errorf("failed to get MicroCeph service")
+		return nil, fmt.Errorf("Failed to get MicroCeph service")
 	}
 
 	var cephAddr string
@@ -471,7 +471,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 			// is not a network range but a regular IP address. We need to extract the network range.
 			_, valueNet, err := net.ParseCIDR(value)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
+				return nil, fmt.Errorf("Failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
 			}
 
 			internalCephNetwork = valueNet
@@ -1111,7 +1111,7 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 			}
 
 			if !proceedWithNoOverlayNetworking {
-				return fmt.Errorf("cluster bootstrapping aborted due to lack of usable networking")
+				return fmt.Errorf("Cluster bootstrapping aborted due to lack of usable networking")
 			}
 		}
 
@@ -1183,7 +1183,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 			// is not a network range but a regular IP address. We need to extract the network range.
 			_, valueNet, err := net.ParseCIDR(value)
 			if err != nil {
-				return fmt.Errorf("failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
+				return fmt.Errorf("Failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
 			}
 
 			defaultCephNetwork = valueNet
