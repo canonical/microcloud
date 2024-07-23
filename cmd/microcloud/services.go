@@ -209,6 +209,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	cfg := initConfig{
 		// Set bootstrap to true because we are setting up a new cluster for new services.
 		bootstrap: true,
+		setupMany: true,
 		common:    c.common,
 		asker:     &c.common.asker,
 		systems:   map[string]InitSystem{},

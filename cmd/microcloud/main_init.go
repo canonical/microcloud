@@ -294,6 +294,10 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 // - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
 // except it will wait up to a minute for exclusively these systems to be recorded.
 func (c *initConfig) lookupPeers(s *service.Handler, expectedSystems []string) error {
+	if !c.setupMany {
+		return nil
+	}
+
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
