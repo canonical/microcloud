@@ -81,6 +81,9 @@ type initConfig struct {
 	// autoSetup indicates whether questions should automatically choose defaults.
 	autoSetup bool
 
+	// setupMany indicates whether we are setting up remote nodes concurrently, or just a single cluster member.
+	setupMany bool
+
 	// lookupTimeout is the duration to wait for mDNS records to appear during system lookup.
 	lookupTimeout time.Duration
 
@@ -139,6 +142,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	cfg := initConfig{
 		bootstrap:       true,
+		setupMany:       true,
 		address:         c.flagAddress,
 		autoSetup:       c.flagAutoSetup,
 		wipeAllDisks:    c.flagWipeAllDisks,
@@ -174,6 +178,13 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	err = lxdService.Restart(context.Background(), 30)
 	if err != nil {
 		return err
+	}
+
+	if !c.autoSetup {
+		c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.askAddress()
