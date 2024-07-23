@@ -51,8 +51,9 @@ func newTestSystemsMap(systems ...InitSystem) map[string]InitSystem {
 func ensureValidateSystemsPasses(handler *service.Handler, testSystems map[string]InitSystem, t *testing.T) {
 	for testName, system := range testSystems {
 		systems := newTestSystemsMap(system)
+		cfg := initConfig{systems: systems, bootstrap: true}
 
-		err := validateSystems(handler, systems)
+		err := cfg.validateSystems(handler)
 		if err != nil {
 			t.Fatalf("Valid system %q failed validate: %s", testName, err)
 		}
@@ -62,8 +63,9 @@ func ensureValidateSystemsPasses(handler *service.Handler, testSystems map[strin
 func ensureValidateSystemsFails(handler *service.Handler, testSystems map[string]InitSystem, t *testing.T) {
 	for testName, system := range testSystems {
 		systems := newTestSystemsMap(system)
+		cfg := initConfig{systems: systems, bootstrap: true}
 
-		err := validateSystems(handler, systems)
+		err := cfg.validateSystems(handler)
 		if err == nil {
 			t.Fatalf("Invalid system %q passed validation", testName)
 		}
@@ -196,8 +198,9 @@ func TestValidateSystemsMultiSystem(t *testing.T) {
 	sys2.ServerInfo.Name = "sys2"
 
 	systems := newTestSystemsMap(sys1, sys2)
+	cfg := initConfig{systems: systems, bootstrap: true}
 
-	err := validateSystems(handler, systems)
+	err := cfg.validateSystems(handler)
 	if err == nil {
 		t.Fatalf("sys2 with conflicting management IP and ipv4.ovn.ranges passed validation")
 	}
@@ -216,8 +219,9 @@ func TestValidateSystemsMultiSystem(t *testing.T) {
 	sys4.ServerInfo.Name = "sys4"
 
 	systems = newTestSystemsMap(sys3, sys4)
+	cfg = initConfig{systems: systems, bootstrap: true}
 
-	err = validateSystems(handler, systems)
+	err = cfg.validateSystems(handler)
 	if err == nil {
 		t.Fatalf("sys4 with conflicting management IP and ipv6.ovn.ranges passed validation")
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/mdns"
 )
 
 // LXDService is a LXD service.
@@ -231,7 +231,17 @@ func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, erro
 }
 
 // clusterMembers returns a map of cluster member names and addresses.
+// If LXD is not clustered, it returns a 503 http error similar to microcluster.
 func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string, error) {
+	server, _, err := client.GetServer()
+	if err != nil {
+		return nil, err
+	}
+
+	if !server.Environment.ServerClustered {
+		return nil, api.StatusErrorf(http.StatusServiceUnavailable, "LXD is not part of a cluster")
+	}
+
 	members, err := client.GetClusterMembers()
 	if err != nil {
 		return nil, err
@@ -329,49 +339,71 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 	return client.GetServerResources()
 }
 
-// getClientsAndNetworks returns a map of clients and networks for the given LXDService and peers.
-func getClientsAndNetworks(s LXDService, ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (clients map[string]lxd.InstanceServer, networks map[string][]api.Network, err error) {
-	clients = make(map[string]lxd.InstanceServer)
-	networks = make(map[string][]api.Network)
-
-	if bootstrap {
-		client, err := s.Client(ctx, "")
-		if err != nil {
-			return nil, nil, err
-		}
-
-		networks[s.Name()], err = client.GetNetworks()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		clients[s.Name()] = client
+// GetStoragePools fetches the list of all storage pools from LXD, keyed by pool name.
+func (s LXDService) GetStoragePools(ctx context.Context, name string, address string, secret string) (map[string]api.StoragePool, error) {
+	var err error
+	var client lxd.InstanceServer
+	if name == s.Name() {
+		client, err = s.Client(ctx, "")
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
 	}
 
-	for _, info := range peers {
-		// Don't include a local interface unless we are bootstrapping, in which case we shouldn't use the remote client.
-		if info.Name == s.Name() {
-			continue
-		}
-
-		client, err := s.remoteClient(info.AuthSecret, info.Address, CloudPort)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		networks[info.Name], err = client.GetNetworks()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		clients[info.Name] = client
+	if err != nil {
+		return nil, err
 	}
 
-	return clients, networks, nil
+	pools, err := client.GetStoragePools()
+	if err != nil {
+		return nil, err
+	}
+
+	poolMap := make(map[string]api.StoragePool, len(pools))
+	for _, pool := range pools {
+		poolMap[pool.Name] = pool
+	}
+
+	return poolMap, nil
+}
+
+// GetConfig returns the member-specific and cluster-wide configurations of LXD.
+// If LXD is not clustered, it just returns the member-specific configuration.
+func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, address string, secret string) (localConfig map[string]any, globalConfig map[string]any, err error) {
+	var client lxd.InstanceServer
+	if name == s.Name() {
+		client, err = s.Client(ctx, "")
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if clustered {
+		server, _, err := client.GetServer()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		localServer, _, err := client.UseTarget(name).GetServer()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return localServer.Writable().Config, server.Writable().Config, nil
+	}
+
+	server, _, err := client.GetServer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return server.Writable().Config, nil, nil
 }
 
 // defaultNetworkInterfacesFilter filters a network based on default rules and return whether it should be skipped and the addresses on the interface.
-func defaultNetworkInterfacesFilter(clients map[string]lxd.InstanceServer, peer string, network api.Network) (bool, []string) {
+func defaultNetworkInterfacesFilter(client lxd.InstanceServer, network api.Network) (bool, []string) {
 	// Skip managed networks.
 	if network.Managed {
 		return true, []string{}
@@ -382,7 +414,7 @@ func defaultNetworkInterfacesFilter(clients map[string]lxd.InstanceServer, peer 
 		return true, []string{}
 	}
 
-	state, err := clients[peer].GetNetworkState(network.Name)
+	state, err := client.GetNetworkState(network.Name)
 	if err != nil {
 		return true, []string{}
 	}
@@ -413,76 +445,61 @@ func defaultNetworkInterfacesFilter(clients map[string]lxd.InstanceServer, peer 
 	return false, addresses
 }
 
-// GetUplinkInterfaces returns a map of peer name to slice of api.Network that may be used with OVN.
-func (s LXDService) GetUplinkInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]api.Network, error) {
-	clients, networks, err := getClientsAndNetworks(s, ctx, bootstrap, peers)
-	if err != nil {
-		return nil, err
-	}
-
-	candidates := make(map[string][]api.Network)
-	for peer, nets := range networks {
-		for _, network := range nets {
-			filtered, addresses := defaultNetworkInterfacesFilter(clients, peer, network)
-			if filtered {
-				continue
-			}
-
-			if len(addresses) > 0 {
-				continue
-			}
-
-			candidates[peer] = append(candidates[peer], network)
-		}
-	}
-
-	return candidates, nil
-}
-
 // CephDedicatedInterface represents a dedicated interface for Ceph.
 type CephDedicatedInterface struct {
-	Name      string
 	Type      string
 	Addresses []string
 }
 
-// GetCephInterfaces returns a map of peer name to slice of CephDedicatedInterface that may be used to setup
-// a dedicated Ceph network.
-func (s LXDService) GetCephInterfaces(ctx context.Context, bootstrap bool, peers []mdns.ServerInfo) (map[string][]CephDedicatedInterface, error) {
-	clients, networks, err := getClientsAndNetworks(s, ctx, bootstrap, peers)
-	if err != nil {
-		return nil, err
+// GetNetworkInterfaces fetches the list of networks from LXD and returns the following:
+// - A map of uplink compatible networks keyed by interface name.
+// - A map of ceph compatible networks keyed by interface name.
+// - The list of all networks.
+func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, address string, secret string) (map[string]api.Network, map[string]CephDedicatedInterface, []api.Network, error) {
+	var err error
+	var client lxd.InstanceServer
+	if name == s.Name() {
+		client, err = s.Client(ctx, "")
+	} else {
+		client, err = s.remoteClient(secret, address, CloudPort)
 	}
 
-	candidates := make(map[string][]CephDedicatedInterface)
-	for peer, nets := range networks {
-		for _, network := range nets {
-			filtered, addresses := defaultNetworkInterfacesFilter(clients, peer, network)
-			if filtered {
-				continue
-			}
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
-			if len(addresses) == 0 {
-				continue
-			}
+	networks, err := client.GetNetworks()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
-			candidates[peer] = append(candidates[peer], CephDedicatedInterface{
-				Name:      network.Name,
+	uplinkInterfaces := map[string]api.Network{}
+	cephInterfaces := map[string]CephDedicatedInterface{}
+	for _, network := range networks {
+		filtered, addresses := defaultNetworkInterfacesFilter(client, network)
+		if filtered {
+			continue
+		}
+
+		if len(addresses) == 0 {
+			uplinkInterfaces[network.Name] = network
+		} else {
+			cephInterfaces[network.Name] = CephDedicatedInterface{
 				Type:      network.Type,
 				Addresses: addresses,
-			})
+			}
 		}
 	}
 
-	return candidates, nil
+	return uplinkInterfaces, cephInterfaces, networks, nil
 }
 
 // ValidateCephInterfaces validates the given interfaces map against the given Ceph network subnet
 // and returns a map of peer name to interfaces that are in the subnet.
-func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfacesMap map[string][]CephDedicatedInterface) (map[string][][]string, error) {
+func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]CephDedicatedInterface) (map[string][][]string, error) {
 	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid CIDR subnet: %v", err)
+		return nil, fmt.Errorf("Invalid CIDR subnet: %v", err)
 	}
 
 	ones, bits := subnet.Mask.Size()
@@ -491,8 +508,8 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfa
 	}
 
 	data := make(map[string][][]string)
-	for peer, interfaces := range interfacesMap {
-		for _, iface := range interfaces {
+	for peer, ifaceByName := range peerInterfaces {
+		for name, iface := range ifaceByName {
 			for _, addr := range iface.Addresses {
 				ip := net.ParseIP(addr)
 				if ip == nil {
@@ -502,9 +519,9 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, interfa
 				if (subnet.IP.To4() != nil && ip.To4() != nil && subnet.Contains(ip)) || (subnet.IP.To16() != nil && ip.To16() != nil && subnet.Contains(ip)) {
 					_, ok := data[peer]
 					if !ok {
-						data[peer] = [][]string{{peer, iface.Name, addr, iface.Type}}
+						data[peer] = [][]string{{peer, name, addr, iface.Type}}
 					} else {
-						data[peer] = append(data[peer], []string{peer, iface.Name, addr, iface.Type})
+						data[peer] = append(data[peer], []string{peer, name, addr, iface.Type})
 					}
 				}
 			}
@@ -635,7 +652,7 @@ func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer, timeou
 
 // defaultGatewaySubnetV4 returns subnet of default gateway interface.
 func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
-	available, ifaceName, err := s.FanNetworkUsable()
+	available, ifaceName, err := FanNetworkUsable()
 	if err != nil {
 		return nil, "", err
 	}

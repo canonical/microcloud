@@ -14,6 +14,9 @@ import (
 // lxdMinVersion is the minimum version of LXD that fully supports all MicroCloud features.
 const lxdMinVersion = "5.21"
 
+// DefaultFANNetwork is the name of the default FAN network.
+const DefaultFANNetwork = "lxdfan0"
+
 // DefaultUplinkNetwork is the name of the default OVN uplink network.
 const DefaultUplinkNetwork = "UPLINK"
 
@@ -32,12 +35,12 @@ const DefaultCephFSPool = "remote-fs"
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
 func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
-	return api.NetworksPost{Name: "lxdfan0", Type: "bridge"}
+	return api.NetworksPost{Name: DefaultFANNetwork, Type: "bridge"}
 }
 
 // FanNetworkUsable checks if the current host is capable of using a Fan network.
 // It actually checks if there is a default IPv4 gateway available.
-func (s LXDService) FanNetworkUsable() (available bool, ifaceName string, err error) {
+func FanNetworkUsable() (available bool, ifaceName string, err error) {
 	file, err := os.Open("/proc/net/route")
 	if err != nil {
 		return false, "", err
@@ -90,7 +93,7 @@ func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
 			},
 			Description: "Default Ubuntu fan powered bridge",
 		},
-		Name: "lxdfan0",
+		Name: DefaultFANNetwork,
 		Type: "bridge",
 	}, nil
 }

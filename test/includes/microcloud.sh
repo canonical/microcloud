@@ -98,7 +98,7 @@ $(true)                                                 # workaround for set -e
 "
 fi
 
-if [ -z "${IGNORE_CEPH_NETWORKING}" ]; then
+if [ -z "${IGNORE_CEPH_NETWORKING}" ] && [ "${SETUP_CEPH}" = "yes" ] ; then
   if [ -n "${CEPH_CLUSTER_NETWORK}" ]; then
     setup="${setup}
 ${CEPH_CLUSTER_NETWORK}
@@ -632,6 +632,7 @@ reset_system() {
     # Re-enable as many interfaces as we want for this run.
     for i in $(seq 1 "${num_ifaces}") ; do
       iface="enp$((i + 5))s0"
+      lxc exec "${name}" -- ip addr flush dev "${iface}"
       lxc exec "${name}" -- ip link set "${iface}" up
       lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
     done

@@ -266,7 +266,7 @@ func (c *cmdClusterRecover) run(cmd *cobra.Command, args []string) error {
 
 	tarballPath, err := m.RecoverFromQuorumLoss(newMembers)
 	if err != nil {
-		return fmt.Errorf("cluster edit: %w", err)
+		return fmt.Errorf("Cluster edit: %w", err)
 	}
 
 	fmt.Printf("Cluster changes applied; new database state saved to %s\n\n", tarballPath)
