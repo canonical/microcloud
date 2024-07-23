@@ -2,10 +2,11 @@
 
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
-  unset LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
+  unset SKIP_LOOKUP LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
-    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
+    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
+    REPLACE_PROFILE
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -13,6 +14,7 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
+  SKIP_LOOKUP=${SKIP_LOOKUP:-}                   # whether or not to skip the whole lookup block in the interactive command list.
   LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
   LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
   SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
@@ -39,8 +41,11 @@ microcloud_interactive() {
   IPV4_END=${IPV4_END:-}                          # OVN ipv4 range end.
   DNS_ADDRESSES=${DNS_ADDRESSES:-}                # OVN custom DNS addresses.
   IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
+  REPLACE_PROFILE="${REPLACE_PROFILE:-}"          # Replace default profile config and devices.
 
-  setup="
+  setup=""
+  if ! [ "${SKIP_LOOKUP}" = 1 ]; then
+    setup="
 ${LOOKUP_IFACE}                                         # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
@@ -51,6 +56,7 @@ select-all                                                  # select all the sys
 ---
 $(true)                                                 # workaround for set -e
 "
+  fi
 
 if [ -n "${REUSE_EXISTING}" ]; then
   for i in $(seq 1 "${REUSE_EXISTING_COUNT}") ; do
@@ -120,6 +126,13 @@ ${IPV4_START}
 ${IPV4_END}
 ${IPV6_SUBNET}
 ${DNS_ADDRESSES}
+$(true)                                                 # workaround for set -e
+"
+fi
+
+if [ -n "${REPLACE_PROFILE}" ] && [ "${SKIP_LOOKUP}" = 1 ]; then
+  setup="${setup}
+${REPLACE_PROFILE}
 $(true)                                                 # workaround for set -e
 "
 fi
@@ -1236,4 +1249,19 @@ ip_config_to_netaddr () {
 	net_addr="$((io1 & mo1)).$((io2 & mo2)).$((io3 & mo3)).$((io4 & mo4))"
 
 	echo "${net_addr}$(ip_prefix_by_netmask "${mask}")"
+}
+
+set_cluster_subnet() {
+  num_systems="${1}"
+  iface="${2}"
+  prefix="${3}"
+
+  shift 3
+
+  for n in $(seq 2 $((num_systems + 1))); do
+    cluster_ip="${prefix}.${n}/24"
+    name="$(printf "micro%02d" $((n-1)))"
+    lxc exec "${name}" -- ip addr flush "${iface}"
+    lxc exec "${name}" -- ip addr add "${cluster_ip}" dev "${iface}"
+  done
 }
