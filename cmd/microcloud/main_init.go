@@ -952,12 +952,34 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if !shared.ValueInSlice(profile.Name, profiles) {
 			err = lxdClient.CreateProfile(profile)
+			if err != nil {
+				return err
+			}
 		} else {
-			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
-		}
+			// Ensure any pre-existing devices and config are carried over to the new profile, unless we are managing them.
+			existingProfile, _, err := lxdClient.GetProfile("default")
+			if err != nil {
+				return err
+			}
 
-		if err != nil {
-			return err
+			for k, v := range profile.Config {
+				_, ok := existingProfile.Config[k]
+				if !ok {
+					existingProfile.Config[k] = v
+				}
+			}
+
+			for k, v := range profile.Devices {
+				_, ok := existingProfile.Devices[k]
+				if !ok {
+					existingProfile.Devices[k] = v
+				}
+			}
+
+			err = lxdClient.UpdateProfile(profile.Name, existingProfile.Writable(), "")
+			if err != nil {
+				return err
+			}
 		}
 	}
 
