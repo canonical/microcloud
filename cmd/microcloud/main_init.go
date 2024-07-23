@@ -244,7 +244,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ask to reuse existing clusters.
-	err = c.askClustered(s)
+	err = c.askClustered(s, services)
 	if err != nil {
 		return err
 	}

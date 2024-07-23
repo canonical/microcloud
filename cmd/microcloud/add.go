@@ -141,7 +141,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ask to reuse existing clusters.
-	err = cfg.askClustered(s)
+	err = cfg.askClustered(s, services)
 	if err != nil {
 		return err
 	}
