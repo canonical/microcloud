@@ -106,6 +106,28 @@ func (s CephService) IssueToken(ctx context.Context, peer string) (string, error
 	return s.m.NewJoinToken(ctx, peer)
 }
 
+// DeleteToken deletes a token by its name.
+func (s CephService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+	var c *client.Client
+	var err error
+	if address != "" && secret != "" {
+		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+		if err != nil {
+			return err
+		}
+
+		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCeph)
+	} else {
+		c, err = s.m.LocalClient()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return c.DeleteTokenRecord(ctx, tokenName)
+}
+
 // Join joins a cluster with the given token.
 func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	err := s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)

@@ -217,6 +217,54 @@ func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error)
 	return joinToken.String(), nil
 }
 
+// DeleteToken deletes a token by its name.
+func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+	var c lxd.InstanceServer
+	var err error
+	if address != "" && secret != "" {
+		c, err = s.remoteClient(secret, address, CloudPort)
+	} else {
+		c, err = s.Client(ctx, secret)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Get the cluster member join tokens. Use default project as join tokens are created in default project.
+	ops, err := c.GetOperations()
+	if err != nil {
+		return err
+	}
+
+	for _, op := range ops {
+		if op.Class != api.OperationClassToken {
+			continue
+		}
+
+		if op.StatusCode != api.Running {
+			continue // Tokens are single use, so if cancelled but not deleted yet its not available.
+		}
+
+		joinToken, err := op.ToClusterJoinToken()
+		if err != nil {
+			continue // Operation is not a valid cluster member join token operation.
+		}
+
+		if joinToken.ServerName == tokenName {
+			// Delete the operation
+			err = c.DeleteOperation(op.ID)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("No corresponding join token operation found for %q", tokenName)
+}
+
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
 func (s LXDService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
 	client, err := s.remoteClient(secret, address, CloudPort)
