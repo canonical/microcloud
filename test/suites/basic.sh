@@ -76,16 +76,19 @@ test_interactive() {
     lxc exec "${m}" -- snap restart microcloud
   done
 
+  # Unset the lookup interface because we don't have multiple addresses to select from anymore.
+  unset LOOKUP_IFACE
   export PROCEED_WITH_NO_OVERLAY_NETWORKING="no" # This will avoid to setup the cluster if no overlay networking is available.
   echo "Creating a MicroCloud with ZFS storage and no IPv4 support"
   ! microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init 2> err" || false
 
   # Ensure we error out due to a lack of usable overlay networking.
-  lxc exec micro01 -- cat err | grep "cluster bootstrapping aborted due to lack of usable networking" -q
+  lxc exec micro01 -- cat err | grep "Cluster bootstrapping aborted due to lack of usable networking" -q
 
   # Set the IPv4 address back to the original value.
   lxc network set lxdbr0 ipv4.address "${gw_net_addr}"
   unset PROCEED_WITH_NO_OVERLAY_NETWORKING
+  export LOOKUP_IFACE=enp5s0
 
   # Reset the systems and install microceph.
   reset_systems 3 3 1
