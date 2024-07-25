@@ -962,10 +962,14 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				return err
 			}
 
+			askConflictingConfig := []string{}
+			askConflictingDevices := []string{}
 			for k, v := range profile.Config {
 				_, ok := existingProfile.Config[k]
 				if !ok {
 					existingProfile.Config[k] = v
+				} else {
+					askConflictingConfig = append(askConflictingConfig, k)
 				}
 			}
 
@@ -973,6 +977,25 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				_, ok := existingProfile.Devices[k]
 				if !ok {
 					existingProfile.Devices[k] = v
+				} else {
+					askConflictingDevices = append(askConflictingDevices, k)
+				}
+			}
+
+			if !c.autoSetup && len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
+				replace, err := c.asker.AskBool("Replace existing default profile configuration? (yes/no) [default=no]: ", "no")
+				if err != nil {
+					return err
+				}
+
+				if replace {
+					for _, key := range askConflictingConfig {
+						existingProfile.Config[key] = profile.Config[key]
+					}
+
+					for _, key := range askConflictingDevices {
+						existingProfile.Devices[key] = profile.Devices[key]
+					}
 				}
 			}
 
