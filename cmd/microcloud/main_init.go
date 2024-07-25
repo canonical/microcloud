@@ -705,6 +705,9 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
 func (c *initConfig) setupCluster(s *service.Handler) error {
+	reverter := revert.New()
+	defer reverter.Fail()
+
 	initializedServices := map[types.ServiceType]string{}
 	bootstrapSystem := c.systems[s.Name]
 	if c.bootstrap {
@@ -875,6 +878,28 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
+	reverter.Add(func() {
+		if !c.bootstrap {
+			return
+		}
+
+		system := c.systems[s.Name]
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
+		if err != nil {
+			logger.Error("Failed to get LXD client for cleanup", logger.Ctx{"error": err})
+
+			return
+		}
+
+		for _, network := range system.Networks {
+			_ = lxdClient.DeleteNetwork(network.Name)
+		}
+
+		for _, pool := range system.StoragePools {
+			_ = lxdClient.DeleteStoragePool(pool.Name)
+		}
+	})
+
 	// Create preliminary networks & storage pools on each target.
 	for name, system := range c.systems {
 		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
@@ -883,6 +908,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		targetClient := lxdClient.UseTarget(name)
+
 		for _, network := range system.TargetNetworks {
 			err = targetClient.CreateNetwork(network)
 			if err != nil {
@@ -1031,17 +1057,23 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		targetClient := lxdClient.UseTarget(name)
 		for _, pool := range poolNames {
 			if pool == "local" {
+				server, _, err := targetClient.GetServer()
+				if err != nil {
+					return err
+				}
+
+				reverter.Add(func() {
+					_ = targetClient.UpdateServer(server.Writable(), "")
+					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "images")
+					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+				})
+
 				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
 				if err != nil {
 					return err
 				}
 
 				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
-				if err != nil {
-					return err
-				}
-
-				server, _, err := targetClient.GetServer()
 				if err != nil {
 					return err
 				}
@@ -1056,6 +1088,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 	}
+
+	reverter.Success()
 
 	fmt.Println("MicroCloud is ready")
 
