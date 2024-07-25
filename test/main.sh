@@ -216,6 +216,7 @@ run_instances_tests() {
 run_basic_tests() {
   run_test test_reuse_cluster "reuse_cluster"
   run_test test_auto "auto"
+  run_test test_remove_cluster_member "remove_cluster_member"
 }
 
 run_recover_tests() {

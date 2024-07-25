@@ -260,6 +260,16 @@ func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string
 	return genericMembers, nil
 }
 
+// DeleteClusterMember removes the given cluster member from the service.
+func (s LXDService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+	c, err := s.Client(ctx, "")
+	if err != nil {
+		return err
+	}
+
+	return c.DeleteClusterMember(name, force)
+}
+
 // Type returns the type of Service.
 func (s LXDService) Type() types.ServiceType {
 	return types.LXD

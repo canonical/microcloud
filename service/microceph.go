@@ -153,6 +153,16 @@ func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, err
 	return clusterMembers(ctx, client)
 }
 
+// DeleteClusterMember removes the given cluster member from the service.
+func (s CephService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+	c, err := s.m.LocalClient()
+	if err != nil {
+		return err
+	}
+
+	return c.DeleteClusterMember(ctx, name, force)
+}
+
 // ClusterConfig returns the Ceph cluster configuration.
 func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, targetSecret string) (map[string]string, error) {
 	var c *client.Client

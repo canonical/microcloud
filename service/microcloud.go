@@ -196,6 +196,16 @@ func clusterMembers(ctx context.Context, client *microClient.Client) (map[string
 	return genericMembers, nil
 }
 
+// DeleteClusterMember removes the given cluster member from the service.
+func (s CloudService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+	c, err := s.client.LocalClient()
+	if err != nil {
+		return err
+	}
+
+	return c.DeleteClusterMember(ctx, name, force)
+}
+
 // Type returns the type of Service.
 func (s CloudService) Type() types.ServiceType {
 	return types.MicroCloud

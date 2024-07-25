@@ -40,3 +40,4 @@ disaggregated
 subnets
 GbE
 QSFP
+OSDs

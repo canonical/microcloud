@@ -81,6 +81,9 @@ EOF`)
 	var cmdAdd = cmdAdd{common: &commonCmd}
 	app.AddCommand(cmdAdd.Command())
 
+	var cmdRemove = cmdRemove{common: &commonCmd}
+	app.AddCommand(cmdRemove.Command())
+
 	var cmdPeers = cmdClusterMembers{common: &commonCmd}
 	app.AddCommand(cmdPeers.Command())
 

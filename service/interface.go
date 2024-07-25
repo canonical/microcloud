@@ -15,6 +15,8 @@ type Service interface {
 	ClusterMembers(ctx context.Context) (map[string]string, error)
 	RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error)
 
+	DeleteClusterMember(ctx context.Context, name string, force bool) error
+
 	Type() types.ServiceType
 	Name() string
 	Address() string

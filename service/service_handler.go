@@ -180,33 +180,22 @@ func (s *Handler) StopBroadcast() error {
 }
 
 // RunConcurrent runs the given hook concurrently across all services.
-// If microCloudFirst is true, then MicroCloud will have its hook run before the others.
-func (s *Handler) RunConcurrent(microCloudFirst bool, lxdLast bool, f func(s Service) error) error {
+// If firstService or lastService are empty strings, they will be ignored and all services will run concurrently.
+func (s *Handler) RunConcurrent(firstService types.ServiceType, lastService types.ServiceType, f func(s Service) error) error {
 	errors := make([]error, 0, len(s.Services))
 	mut := sync.Mutex{}
 	wg := sync.WaitGroup{}
 
-	if microCloudFirst {
-		for _, s := range s.Services {
-			if s.Type() != types.MicroCloud {
-				continue
-			}
-
-			err := f(s)
-			if err != nil {
-				return err
-			}
-
-			break
+	first, ok := s.Services[firstService]
+	if ok {
+		err := f(first)
+		if err != nil {
+			return err
 		}
 	}
 
 	for _, s := range s.Services {
-		if microCloudFirst && s.Type() == types.MicroCloud {
-			continue
-		}
-
-		if lxdLast && s.Type() == types.LXD {
+		if s.Type() == firstService || s.Type() == lastService {
 			continue
 		}
 
@@ -231,18 +220,11 @@ func (s *Handler) RunConcurrent(microCloudFirst bool, lxdLast bool, f func(s Ser
 		}
 	}
 
-	if lxdLast {
-		for _, s := range s.Services {
-			if s.Type() != types.LXD {
-				continue
-			}
-
-			err := f(s)
-			if err != nil {
-				return err
-			}
-
-			break
+	last, ok := s.Services[lastService]
+	if ok {
+		err := f(last)
+		if err != nil {
+			return err
 		}
 	}
 

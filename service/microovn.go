@@ -119,6 +119,16 @@ func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, erro
 	return clusterMembers(ctx, client)
 }
 
+// DeleteClusterMember removes the given cluster member from the service.
+func (s OVNService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+	c, err := s.m.LocalClient()
+	if err != nil {
+		return err
+	}
+
+	return c.DeleteClusterMember(ctx, name, force)
+}
+
 // Type returns the type of Service.
 func (s OVNService) Type() types.ServiceType {
 	return types.MicroOVN
