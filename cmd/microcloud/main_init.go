@@ -244,7 +244,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ask to reuse existing clusters.
-	err = c.askClustered(s)
+	err = c.askClustered(s, services)
 	if err != nil {
 		return err
 	}
@@ -952,12 +952,57 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if !shared.ValueInSlice(profile.Name, profiles) {
 			err = lxdClient.CreateProfile(profile)
+			if err != nil {
+				return err
+			}
 		} else {
-			err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
-		}
+			// Ensure any pre-existing devices and config are carried over to the new profile, unless we are managing them.
+			existingProfile, _, err := lxdClient.GetProfile("default")
+			if err != nil {
+				return err
+			}
 
-		if err != nil {
-			return err
+			askConflictingConfig := []string{}
+			askConflictingDevices := []string{}
+			for k, v := range profile.Config {
+				_, ok := existingProfile.Config[k]
+				if !ok {
+					existingProfile.Config[k] = v
+				} else {
+					askConflictingConfig = append(askConflictingConfig, k)
+				}
+			}
+
+			for k, v := range profile.Devices {
+				_, ok := existingProfile.Devices[k]
+				if !ok {
+					existingProfile.Devices[k] = v
+				} else {
+					askConflictingDevices = append(askConflictingDevices, k)
+				}
+			}
+
+			if !c.autoSetup && len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
+				replace, err := c.asker.AskBool("Replace existing default profile configuration? (yes/no) [default=no]: ", "no")
+				if err != nil {
+					return err
+				}
+
+				if replace {
+					for _, key := range askConflictingConfig {
+						existingProfile.Config[key] = profile.Config[key]
+					}
+
+					for _, key := range askConflictingDevices {
+						existingProfile.Devices[key] = profile.Devices[key]
+					}
+				}
+			}
+
+			err = lxdClient.UpdateProfile(profile.Name, existingProfile.Writable(), "")
+			if err != nil {
+				return err
+			}
 		}
 	}
 

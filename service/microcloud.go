@@ -76,6 +76,11 @@ func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoin
 	})
 }
 
+// Client returns a client to the MicroCloud unix socket.
+func (s CloudService) Client() (*microClient.Client, error) {
+	return s.client.LocalClient()
+}
+
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
 func (s CloudService) Bootstrap(ctx context.Context) error {
 	err := s.client.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), nil)

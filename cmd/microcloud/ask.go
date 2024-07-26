@@ -1230,13 +1230,8 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 // If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
 // In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
 // This works by deleting the record for the service from the `service.Handler`, thus ignoring it for the remainder of the setup.
-func (c *initConfig) askClustered(s *service.Handler) error {
-	expectedServices := make(map[types.ServiceType]struct{}, len(s.Services))
-	for k := range s.Services {
-		expectedServices[k] = struct{}{}
-	}
-
-	for serviceType := range expectedServices {
+func (c *initConfig) askClustered(s *service.Handler, expectedServices []types.ServiceType) error {
+	for _, serviceType := range expectedServices {
 		for name, info := range c.state {
 			_, newSystem := c.systems[name]
 			if !newSystem {
