@@ -135,7 +135,7 @@ func (c *initConfig) askAddress() error {
 		return fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
 	}
 
-	if !c.autoSetup {
+	if !c.autoSetup && c.setupMany {
 		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
 		if err != nil {
 			return err
@@ -1231,6 +1231,10 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 // In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
 // This works by deleting the record for the service from the `service.Handler`, thus ignoring it for the remainder of the setup.
 func (c *initConfig) askClustered(s *service.Handler) error {
+	if !c.setupMany {
+		return nil
+	}
+
 	expectedServices := make(map[types.ServiceType]struct{}, len(s.Services))
 	for k := range s.Services {
 		expectedServices[k] = struct{}{}
