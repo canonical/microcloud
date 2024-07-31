@@ -36,6 +36,7 @@ type JoinConfig struct {
 	Token      string
 	LXDConfig  []api.ClusterMemberConfigKey
 	CephConfig []cephTypes.DisksPost
+	OVNConfig  map[string]string
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
