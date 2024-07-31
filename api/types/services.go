@@ -29,6 +29,7 @@ type ServicesPut struct {
 
 	LXDConfig  []api.ClusterMemberConfigKey `json:"lxd_config" yaml:"lxd_config"`
 	CephConfig []types.DisksPost            `json:"ceph_config" yaml:"ceph_config"`
+	OVNConfig  map[string]string            `json:"ovn_config" yaml:"ovn_config"`
 }
 
 // ServiceToken represents a join token for a service join request.

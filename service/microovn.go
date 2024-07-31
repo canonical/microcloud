@@ -92,7 +92,7 @@ func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error)
 
 // Join joins a cluster with the given token.
 func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
+	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, joinConfig.OVNConfig)
 }
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
