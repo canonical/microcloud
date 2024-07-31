@@ -481,7 +481,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	return nil
 }
 
-func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map[string]InitSystem, availableCephNetworkInterfaces map[string]map[string]service.CephDedicatedInterface, askedCephSubnet string) error {
+func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map[string]InitSystem, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
 		return err
@@ -1220,7 +1220,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		return nil
 	}
 
-	availableCephNetworkInterfaces := map[string]map[string]service.CephDedicatedInterface{}
+	availableCephNetworkInterfaces := map[string]map[string]service.DedicatedInterface{}
 	for name, state := range c.state {
 		if len(state.AvailableCephInterfaces) == 0 {
 			fmt.Printf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup\n", name)
@@ -1228,7 +1228,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 			return nil
 		}
 
-		ifaces := make(map[string]service.CephDedicatedInterface, len(state.AvailableCephInterfaces))
+		ifaces := make(map[string]service.DedicatedInterface, len(state.AvailableCephInterfaces))
 		for name, iface := range state.AvailableCephInterfaces {
 			ifaces[name] = iface
 		}

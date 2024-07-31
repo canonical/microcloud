@@ -518,24 +518,26 @@ func defaultNetworkInterfacesFilter(client lxd.InstanceServer, network api.Netwo
 				continue
 			}
 
-			addresses = append(addresses, address.Address)
+			addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
 		}
 	}
 
 	return false, addresses
 }
 
-// CephDedicatedInterface represents a dedicated interface for Ceph.
-type CephDedicatedInterface struct {
+// DedicatedInterface represents a dedicated interface for OVN.
+type DedicatedInterface struct {
 	Type      string
+	Network   api.Network
 	Addresses []string
 }
 
 // GetNetworkInterfaces fetches the list of networks from LXD and returns the following:
 // - A map of uplink compatible networks keyed by interface name.
 // - A map of ceph compatible networks keyed by interface name.
+// - A map of ovn compatible networks keyed by interface name.
 // - The list of all networks.
-func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, address string, secret string) (map[string]api.Network, map[string]CephDedicatedInterface, []api.Network, error) {
+func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, address string, secret string) (map[string]api.Network, map[string]DedicatedInterface, []api.Network, error) {
 	var err error
 	var client lxd.InstanceServer
 	if name == s.Name() {
@@ -554,7 +556,7 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 	}
 
 	uplinkInterfaces := map[string]api.Network{}
-	cephInterfaces := map[string]CephDedicatedInterface{}
+	dedicatedInterfaces := map[string]DedicatedInterface{}
 	for _, network := range networks {
 		filtered, addresses := defaultNetworkInterfacesFilter(client, network)
 		if filtered {
@@ -564,19 +566,20 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 		if len(addresses) == 0 {
 			uplinkInterfaces[network.Name] = network
 		} else {
-			cephInterfaces[network.Name] = CephDedicatedInterface{
+			dedicatedInterfaces[network.Name] = DedicatedInterface{
 				Type:      network.Type,
+				Network:   network,
 				Addresses: addresses,
 			}
 		}
 	}
 
-	return uplinkInterfaces, cephInterfaces, networks, nil
+	return uplinkInterfaces, dedicatedInterfaces, networks, nil
 }
 
 // ValidateCephInterfaces validates the given interfaces map against the given Ceph network subnet
 // and returns a map of peer name to interfaces that are in the subnet.
-func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]CephDedicatedInterface) (map[string][][]string, error) {
+func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]DedicatedInterface) (map[string][][]string, error) {
 	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid CIDR subnet: %v", err)
@@ -593,7 +596,11 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 			for _, addr := range iface.Addresses {
 				ip := net.ParseIP(addr)
 				if ip == nil {
-					return nil, fmt.Errorf("Invalid IP address: %v", addr)
+					// Attempt to parse the IP address as a CIDR.
+					ip, _, err = net.ParseCIDR(addr)
+					if err != nil {
+						return nil, fmt.Errorf("Could not parse either IP nor CIDR notation for address %q: %v", addr, err)
+					}
 				}
 
 				if (subnet.IP.To4() != nil && ip.To4() != nil && subnet.Contains(ip)) || (subnet.IP.To16() != nil && ip.To16() != nil && subnet.Contains(ip)) {
