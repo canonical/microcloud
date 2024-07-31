@@ -38,8 +38,8 @@ const recoveryYamlComment = `# Member roles can be modified. Unrecoverable nodes
 # - the number of members changes
 # - the name of any member changes
 # - the ID of any member changes
-# - the address of any member changes
 # - no changes are made
+# - no members have the role "voter"
 `
 
 type cmdClusterMembers struct {
