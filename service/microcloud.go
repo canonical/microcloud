@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	microClient "github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/config"
@@ -262,4 +263,19 @@ func (s *CloudService) SetConfig(config map[string]string) {
 	for key, value := range config {
 		s.config[key] = value
 	}
+}
+
+// SupportsFeature checks if the specified API feature of this Service instance if supported.
+func (s *CloudService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+	server, err := s.client.Status(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get MicroCloud server status while checking for features: %v", err)
+	}
+
+	if server.Extensions == nil {
+		logger.Warnf("MicroCloud server does not expose API extensions")
+		return false, nil
+	}
+
+	return server.Extensions.HasExtension(feature), nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
 
@@ -180,4 +181,19 @@ func (s *OVNService) SetConfig(config map[string]string) {
 	for key, value := range config {
 		s.config[key] = value
 	}
+}
+
+// SupportsFeature checks if the specified API feature of this Service instance if supported.
+func (s *OVNService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+	server, err := s.m.Status(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get MicroOVN server status while checking for features: %v", err)
+	}
+
+	if server.Extensions == nil {
+		logger.Warnf("MicroOVN server does not expose API extensions")
+		return false, nil
+	}
+
+	return server.Extensions.HasExtension(feature), nil
 }
