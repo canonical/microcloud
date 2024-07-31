@@ -108,7 +108,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 	}
 
 	var allNets []api.Network
-	s.AvailableUplinkInterfaces, s.AvailableCephInterfaces, allNets, err = lxd.GetNetworkInterfaces(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
+	s.AvailableUplinkInterfaces, s.AvailableCephInterfaces, _, allNets, err = lxd.GetNetworkInterfaces(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get network interfaces on %q: %w", s.ClusterName, err)
 	}

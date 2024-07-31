@@ -482,7 +482,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 
 	cephInterfaces := map[string]map[string]service.CephDedicatedInterface{}
 	for _, system := range c.systems {
-		uplinkIfaces, cephIfaces, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
+		uplinkIfaces, cephIfaces, _, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
 		if err != nil {
 			return nil, err
 		}
@@ -516,7 +516,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 
 		for _, info := range infos {
-			ifaces, _, _, err := lxd.GetNetworkInterfaces(context.Background(), info.Name, info.Address, info.AuthSecret)
+			ifaces, _, _, _, err := lxd.GetNetworkInterfaces(context.Background(), info.Name, info.Address, info.AuthSecret)
 			if err != nil {
 				return nil, err
 			}
