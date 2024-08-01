@@ -35,6 +35,9 @@ type SystemInformation struct {
 	// AvailableCephInterfaces is the list of networks that can be used for the Ceph cluster network.
 	AvailableCephInterfaces map[string]CephDedicatedInterface
 
+	// AvailableOVNInterfaces is the list of networks that can be used for an OVN underlay network.
+	AvailableOVNInterfaces map[string]OVNDedicatedInterface
+
 	// LXDLocalConfig is the local configuration of LXD on this system.
 	LXDLocalConfig map[string]any
 
@@ -79,6 +82,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 		AvailableDisks:            map[string]api.ResourcesStorageDisk{},
 		AvailableUplinkInterfaces: map[string]api.Network{},
 		AvailableCephInterfaces:   map[string]CephDedicatedInterface{},
+		AvailableOVNInterfaces:    map[string]OVNDedicatedInterface{},
 	}
 
 	var err error
@@ -108,7 +112,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 	}
 
 	var allNets []api.Network
-	s.AvailableUplinkInterfaces, s.AvailableCephInterfaces, _, allNets, err = lxd.GetNetworkInterfaces(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
+	s.AvailableUplinkInterfaces, s.AvailableCephInterfaces, s.AvailableOVNInterfaces, allNets, err = lxd.GetNetworkInterfaces(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get network interfaces on %q: %w", s.ClusterName, err)
 	}
