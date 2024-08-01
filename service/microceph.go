@@ -12,8 +12,10 @@ import (
 	"github.com/canonical/lxd/shared"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/microcluster"
+	clientV1 "github.com/canonical/microcluster/client"
+	microclusterV1 "github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -21,7 +23,8 @@ import (
 
 // CephService is a MicroCeph service.
 type CephService struct {
-	m *microcluster.MicroCluster
+	m    *microcluster.MicroCluster
+	oldM *microclusterV1.MicroCluster
 
 	name    string
 	address string
@@ -44,8 +47,14 @@ func NewCephService(name string, addr string, cloudDir string) (*CephService, er
 		return nil, err
 	}
 
+	legacyClient, err := microclusterV1.App(microclusterV1.Args{StateDir: cloudDir, Proxy: proxy})
+	if err != nil {
+		return nil, err
+	}
+
 	return &CephService{
 		m:       client,
+		oldM:    legacyClient,
 		name:    name,
 		address: addr,
 		port:    CephPort,
@@ -57,6 +66,24 @@ func NewCephService(name string, addr string, cloudDir string) (*CephService, er
 // If secret is specified, it will be added to the request header.
 func (s CephService) Client(target string, secret string) (*client.Client, error) {
 	c, err := s.m.LocalClient()
+	if err != nil {
+		return nil, err
+	}
+
+	if target != "" {
+		c = c.UseTarget(target)
+	}
+
+	c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCeph)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (s CephService) LegacyClient(target string, secret string) (*clientV1.Client, error) {
+	c, err := s.oldM.LocalClient()
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +130,7 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 
 // IssueToken issues a token for the given peer.
 func (s CephService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(ctx, peer)
+	return s.m.NewJoinToken(ctx, peer, time.Hour)
 }
 
 // Join joins a cluster with the given token.
@@ -113,7 +140,7 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return err
 	}
 
-	c, err := s.Client("", "")
+	c, err := s.LegacyClient("", "")
 	if err != nil {
 		return err
 	}
@@ -165,15 +192,15 @@ func (s CephService) DeleteClusterMember(ctx context.Context, name string, force
 
 // ClusterConfig returns the Ceph cluster configuration.
 func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, targetSecret string) (map[string]string, error) {
-	var c *client.Client
+	var c *clientV1.Client
 	var err error
 	if targetAddress == "" && targetSecret == "" {
-		c, err = s.Client("", "")
+		c, err = s.LegacyClient("", "")
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(targetAddress, CloudPort))
+		c, err = s.oldM.RemoteClient(util.CanonicalNetworkAddress(targetAddress, CloudPort))
 		if err != nil {
 			return nil, err
 		}

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 )
 
@@ -56,13 +57,13 @@ func (c *cmdTokensAdd) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
 	}
 
-	token, err := m.NewJoinToken(context.Background(), args[0])
+	token, err := m.NewJoinToken(context.Background(), args[0], time.Hour)
 	if err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
@@ -135,7 +136,7 @@ func (c *cmdTokensRevoke) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err

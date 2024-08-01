@@ -17,7 +17,7 @@ import (
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/client"
+	clientv1 "github.com/canonical/microcluster/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 
@@ -200,7 +200,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, c.common.FlagSocketGroup, services...)
 	if err != nil {
 		return err
 	}
@@ -784,17 +784,17 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				continue
 			}
 
-			var client *client.Client
+			var legacyClient *clientv1.Client
 			for _, disk := range c.systems[name].MicroCephDisks {
-				if client == nil {
-					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, c.systems[name].ServerInfo.AuthSecret)
+				if legacyClient == nil {
+					legacyClient, err = s.Services[types.MicroCeph].(*service.CephService).LegacyClient(name, c.systems[name].ServerInfo.AuthSecret)
 					if err != nil {
 						return err
 					}
 				}
 
 				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
-				_, err = cephClient.AddDisk(context.Background(), client, &disk)
+				_, err = cephClient.AddDisk(context.Background(), legacyClient, &disk)
 				if err != nil {
 					return err
 				}
@@ -807,12 +807,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
 		ovn := s.Services[types.MicroOVN].(*service.OVNService)
-		client, err := ovn.Client()
+		legacyClient, err := ovn.LegacyClient()
 		if err != nil {
 			return err
 		}
 
-		services, err := ovnClient.GetServices(context.Background(), client)
+		services, err := ovnClient.GetServices(context.Background(), legacyClient)
 		if err != nil {
 			return err
 		}

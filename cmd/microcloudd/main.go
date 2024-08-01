@@ -9,7 +9,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/rest"
+	"github.com/canonical/microcluster/v2/rest"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -30,8 +30,9 @@ type cmdGlobal struct {
 	flagHelp    bool
 	flagVersion bool
 
-	flagLogDebug   bool
-	flagLogVerbose bool
+	flagLogDebug    bool
+	flagLogVerbose  bool
+	flagSocketGroup string
 }
 
 type cmdDaemon struct {
@@ -77,7 +78,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
+	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, c.global.flagSocketGroup, services...)
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 						continue
 					}
 
-					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
+					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, "", serviceName)
 					if err != nil {
 						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
 						break
@@ -158,6 +159,7 @@ func main() {
 	app.PersistentFlags().BoolVar(&daemonCmd.global.flagVersion, "version", false, "Print version number")
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogDebug, "debug", "d", false, "Show all debug messages")
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogVerbose, "verbose", "v", false, "Show all information messages")
+	app.PersistentFlags().StringVar(&daemonCmd.global.flagSocketGroup, "socket-group", "", "Group to set socket's group ownership to")
 
 	app.PersistentFlags().StringVar(&daemonCmd.flagMicroCloudDir, "state-dir", "", "Path to store state information for MicroCloud"+"``")
 

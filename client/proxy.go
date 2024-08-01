@@ -8,15 +8,27 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared"
-	"github.com/canonical/microcluster/client"
+	clientV1 "github.com/canonical/microcluster/client"
+	"github.com/canonical/microcluster/v2/client"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // UseAuthProxy takes the given microcluster client and secret and proxies requests to other services through the MicroCloud API.
 // The secret will be set in the authentication header in lieu of TLS authentication, if present.
-func UseAuthProxy(c *client.Client, secret string, serviceType types.ServiceType) (*client.Client, error) {
-	tp, ok := c.Transport.(*http.Transport)
+func UseAuthProxy[C client.Client | clientV1.Client](c *C, secret string, serviceType types.ServiceType) (*C, error) {
+	var httpClient *http.Client
+
+	switch v := any(c).(type) {
+	case *client.Client:
+		httpClient = v.Client.Client
+	case *clientV1.Client:
+		httpClient = v.Client.Client
+	default:
+		return nil, fmt.Errorf("Unsupported client type")
+	}
+
+	tp, ok := httpClient.Transport.(*http.Transport)
 	if !ok {
 		return nil, fmt.Errorf("Invalid client transport type")
 	}
@@ -33,7 +45,7 @@ func UseAuthProxy(c *client.Client, secret string, serviceType types.ServiceType
 
 	tp.Proxy = AuthProxy(secret, serviceType)
 
-	c.Transport = tp
+	httpClient.Transport = tp
 
 	return c, nil
 }

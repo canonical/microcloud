@@ -3,17 +3,16 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
+	"github.com/canonical/lxd/lxd/db/schema"
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microClient "github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/config"
-	"github.com/canonical/microcluster/microcluster"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	microClient "github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
@@ -24,10 +23,13 @@ import (
 type CloudService struct {
 	client *microcluster.MicroCluster
 
-	name    string
-	address string
-	port    int64
-	config  map[string]string
+	name        string
+	address     string
+	port        int64
+	verbose     bool
+	debug       bool
+	socketGroup string
+	config      map[string]string
 }
 
 // JoinConfig represents configuration for cluster joining.
@@ -38,25 +40,28 @@ type JoinConfig struct {
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
-func NewCloudService(name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
+func NewCloudService(name string, addr string, dir string, verbose bool, debug bool, socketGroup string) (*CloudService, error) {
+	client, err := microcluster.App(microcluster.Args{StateDir: dir})
 	if err != nil {
 		return nil, err
 	}
 
 	return &CloudService{
-		client:  client,
-		name:    name,
-		address: addr,
-		port:    CloudPort,
-		config:  make(map[string]string),
+		client:      client,
+		name:        name,
+		address:     addr,
+		port:        CloudPort,
+		verbose:     verbose,
+		debug:       debug,
+		socketGroup: socketGroup,
+		config:      make(map[string]string),
 	}, nil
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
 func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint) error {
-	s.client.AddServers([]rest.Server{
-		{
+	var servers = map[string]rest.Server{
+		"extended": {
 			CoreAPI:   true,
 			PreInit:   true,
 			ServeUnix: true,
@@ -67,13 +72,24 @@ func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoin
 				},
 			},
 		},
-	})
+	}
 
-	return s.client.Start(ctx, nil, nil, &config.Hooks{
-		PostBootstrap: func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
-		PostJoin:      func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
-		OnStart:       service.Start,
-	})
+	dargs := microcluster.DaemonArgs{
+		Verbose:          s.verbose,
+		Debug:            s.debug,
+		SocketGroup:      s.socketGroup,
+		Version:          types.APIVersion,
+		ExtensionsSchema: []schema.Update{},
+		APIExtensions:    []string{},
+		ExtensionServers: servers,
+		Hooks: &state.Hooks{
+			PostBootstrap: func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },
+			PostJoin:      func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },
+			OnStart:       service.Start,
+		},
+	}
+
+	return s.client.Start(ctx, dargs)
 }
 
 // Client returns a client to the MicroCloud unix socket.
@@ -111,7 +127,7 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 
 // IssueToken issues a token for the given peer.
 func (s CloudService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.client.NewJoinToken(ctx, peer)
+	return s.client.NewJoinToken(ctx, peer, time.Hour)
 }
 
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.

@@ -10,8 +10,10 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
-	"github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/microcluster"
+	clientV1 "github.com/canonical/microcluster/client"
+	microclusterV1 "github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -19,7 +21,8 @@ import (
 
 // OVNService is a MicroOVN service.
 type OVNService struct {
-	m *microcluster.MicroCluster
+	m    *microcluster.MicroCluster
+	oldM *microclusterV1.MicroCluster
 
 	name    string
 	address string
@@ -42,8 +45,14 @@ func NewOVNService(name string, addr string, cloudDir string) (*OVNService, erro
 		return nil, err
 	}
 
+	legacyClient, err := microclusterV1.App(microclusterV1.Args{StateDir: cloudDir, Proxy: proxy})
+	if err != nil {
+		return nil, err
+	}
+
 	return &OVNService{
 		m:       client,
+		oldM:    legacyClient,
 		name:    name,
 		address: addr,
 		port:    OVNPort,
@@ -54,6 +63,11 @@ func NewOVNService(name string, addr string, cloudDir string) (*OVNService, erro
 // Client returns a client to the OVN unix socket.
 func (s OVNService) Client() (*client.Client, error) {
 	return s.m.LocalClient()
+}
+
+// LegacyClient returns a clientV1 to the OVN unix socket.
+func (s OVNService) LegacyClient() (*clientV1.Client, error) {
+	return s.oldM.LocalClient()
 }
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
@@ -86,7 +100,7 @@ func (s OVNService) Bootstrap(ctx context.Context) error {
 
 // IssueToken issues a token for the given peer.
 func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(ctx, peer)
+	return s.m.NewJoinToken(ctx, peer, time.Hour)
 }
 
 // Join joins a cluster with the given token.

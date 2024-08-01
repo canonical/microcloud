@@ -21,6 +21,7 @@ type CmdControl struct {
 	FlagVersion       bool
 	FlagLogDebug      bool
 	FlagLogVerbose    bool
+	FlagSocketGroup   string
 	FlagMicroCloudDir string
 
 	asker cli.Asker
@@ -72,6 +73,7 @@ EOF`)
 	app.PersistentFlags().BoolVar(&commonCmd.FlagVersion, "version", false, "Print version number")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagLogDebug, "debug", "d", false, "Show all debug messages")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagLogVerbose, "verbose", "v", false, "Show all information messages")
+	app.PersistentFlags().StringVar(&commonCmd.FlagSocketGroup, "socket-group", "", "Group to set socket's group ownership to")
 
 	app.SetVersionTemplate("{{.Version}}\n")
 

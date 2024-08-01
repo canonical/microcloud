@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +36,7 @@ func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
