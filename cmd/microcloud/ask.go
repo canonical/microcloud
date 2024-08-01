@@ -1039,6 +1039,81 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
+	canOVNUnderlay := true
+	for peer, state := range c.state {
+		if len(state.AvailableOVNInterfaces) == 0 {
+			fmt.Printf("Not enough interfaces available on %s to create an underlay network, skipping\n", peer)
+			canOVNUnderlay = false
+			break
+		}
+	}
+
+	if canOVNUnderlay {
+		// TODO: Call `sh.Services[types.MicroOVN].(*service.OVNService).SupportsFeature(context.Background(), "custom_encapsulation_ip")`
+		// when MicroCloud will be updated with microcluster/v2
+
+		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+		if err != nil {
+			return err
+		}
+
+		if wantsDedicatedUnderlay {
+			header = []string{"LOCATION", "IFACE", "TYPE", "IP ADDRESS (CIDR)"}
+			fmt.Println("Select exactly one network interface from each cluster member:")
+			data = [][]string{}
+			for peer, state := range c.state {
+				for _, net := range state.AvailableOVNInterfaces {
+					for _, addr := range net.Addresses {
+						data = append(data, []string{peer, net.Network.Name, net.Network.Type, addr})
+					}
+				}
+			}
+
+			table = NewSelectableTable(header, data)
+			selected := map[string]string{}
+			c.askRetry("Retry selecting underlay network interfaces?", func() error {
+				err = table.Render(table.rows)
+				if err != nil {
+					return err
+				}
+
+				answers, err := table.GetSelections()
+				if err != nil {
+					return err
+				}
+
+				selected = map[string]string{}
+				for _, answer := range answers {
+					target := table.SelectionValue(answer, "LOCATION")
+					ipAddr := table.SelectionValue(answer, "IP ADDRESS (CIDR)")
+
+					if selected[target] != "" {
+						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
+					}
+
+					selected[target] = ipAddr
+				}
+
+				if len(selected) != len(c.state) {
+					return fmt.Errorf("Failed to configure OVN underlay traffic: Some peers don't have a selected interface")
+				}
+
+				return nil
+			})
+
+			for peer, ipAddr := range selected {
+				system := c.systems[peer]
+				ip, _, err := net.ParseCIDR(ipAddr)
+				if err != nil {
+					return err
+				}
+
+				system.OVNGeneveAddr = ip.String()
+				c.systems[peer] = system
+			}
+		}
+	}
+
 	for peer, system := range c.systems {
 		if !askSystems[peer] {
 			continue
