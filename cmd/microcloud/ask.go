@@ -1104,6 +1104,76 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
+	canOVNUnderlay := true
+	for peer, system := range c.systems {
+		if len(c.state[system.ServerInfo.Name].AvailableOVNInterfaces) == 0 {
+			fmt.Printf("Not enough interfaces available on %s to create an underlay network, skipping\n", peer)
+			canOVNUnderlay = false
+			break
+		}
+	}
+
+	var ovnUnderlaySelectedIPs map[string]string
+	ovnUnderlayData := [][]string{}
+	for peer, system := range c.systems {
+		// skip any systems that have already been clustered, but are available for other configuration.
+		state, ok := c.state[c.name]
+		if ok {
+			if state.ExistingServices[types.MicroOVN][peer] != "" {
+				continue
+			}
+		}
+
+		for _, net := range c.state[system.ServerInfo.Name].AvailableOVNInterfaces {
+			for _, addr := range net.Addresses {
+				ovnUnderlayData = append(ovnUnderlayData, []string{peer, net.Network.Name, net.Network.Type, addr})
+			}
+		}
+	}
+
+	if len(ovnUnderlayData) != 0 && canOVNUnderlay {
+		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+		if err != nil {
+			return err
+		}
+
+		if wantsDedicatedUnderlay {
+			header = []string{"LOCATION", "IFACE", "TYPE", "IP ADDRESS (CIDR)"}
+			fmt.Println("Select exactly one network interface from each cluster member:")
+
+			table = NewSelectableTable(header, ovnUnderlayData)
+			ovnUnderlaySelectedIPs = map[string]string{}
+			err = c.askRetry("Retry selecting underlay network interfaces?", func() error {
+				err = table.Render(table.rows)
+				if err != nil {
+					return err
+				}
+
+				answers, err := table.GetSelections()
+				if err != nil {
+					return err
+				}
+
+				ovnUnderlaySelectedIPs = map[string]string{}
+				for _, answer := range answers {
+					target := table.SelectionValue(answer, "LOCATION")
+					ipAddr := table.SelectionValue(answer, "IP ADDRESS (CIDR)")
+
+					if ovnUnderlaySelectedIPs[target] != "" {
+						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
+					}
+
+					ovnUnderlaySelectedIPs[target] = ipAddr
+				}
+
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	for peer, system := range c.systems {
 		if !askSystems[peer] {
 			continue
@@ -1131,6 +1201,19 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 		if peer == sh.Name {
 			system.Networks = append(system.Networks, finalConfigs...)
+		}
+
+		if ovnUnderlaySelectedIPs != nil {
+			ovnUnderlayIpAddr, ok := ovnUnderlaySelectedIPs[peer]
+			if ok {
+				ip, _, err := net.ParseCIDR(ovnUnderlayIpAddr)
+				if err != nil {
+					return err
+				}
+
+				fmt.Printf("Using %q for OVN underlay traffic on %q\n", ip.String(), peer)
+				system.OVNGeneveAddr = ip.String()
+			}
 		}
 
 		c.systems[peer] = system
