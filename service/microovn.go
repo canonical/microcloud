@@ -59,7 +59,7 @@ func (s OVNService) Client() (*client.Client, error) {
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
 func (s OVNService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), nil)
+	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config)
 	if err != nil {
 		return err
 	}
