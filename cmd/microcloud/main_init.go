@@ -707,6 +707,33 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	reverter := revert.New()
 	defer reverter.Fail()
 
+	lxd := s.Services[types.LXD].(*service.LXDService)
+	lxdClient, err := lxd.Client(context.Background(), "")
+	if err != nil {
+		return err
+	}
+
+	// If bootstrapping, finalize setup of storage pools & networks, and update the default profile accordingly.
+	system := c.systems[s.Name]
+	profile := lxdAPI.ProfilesPost{ProfilePut: lxdAPI.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
+	profiles, err := lxdClient.GetProfileNames()
+	if err != nil {
+		return err
+	}
+
+	for _, network := range system.Networks {
+		if network.Name == service.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
+			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
+		}
+	}
+
+	newProfile, err := c.askUpdateProfile(profile, profiles, lxdClient)
+	if err != nil {
+		return err
+	}
+
+	profile.ProfilePut = *newProfile
+
 	initializedServices := map[types.ServiceType]string{}
 	bootstrapSystem := c.systems[s.Name]
 	for serviceType := range s.Services {
@@ -720,7 +747,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	fmt.Println("Initializing a new cluster")
 	mu := sync.Mutex{}
-	err := s.RunConcurrent(types.MicroCloud, "", func(s service.Service) error {
+	err = s.RunConcurrent(types.MicroCloud, "", func(s service.Service) error {
 		// If there's already an initialized system for this service, we don't need to bootstrap it.
 		if initializedServices[s.Type()] != "" {
 			return nil
@@ -837,12 +864,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	config := map[string]string{"network.ovn.northbound_connection": ovnConfig}
-	lxd := s.Services[types.LXD].(*service.LXDService)
-	lxdClient, err := lxd.Client(context.Background(), "")
-	if err != nil {
-		return err
-	}
-
 	// Update LXD's global config.
 	server, _, err := lxdClient.GetServer()
 	if err != nil {
@@ -912,15 +933,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
-	// If bootstrapping, finalize setup of storage pools & networks, and update the default profile accordingly.
-	system := c.systems[s.Name]
-	profile := lxdAPI.ProfilesPost{ProfilePut: lxdAPI.ProfilePut{Devices: map[string]map[string]string{}}, Name: "default"}
-
 	for _, network := range system.Networks {
-		if network.Name == service.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
-			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
-		}
-
 		err = lxdClient.CreateNetwork(network)
 		if err != nil {
 			return err
@@ -952,61 +965,13 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
-	profiles, err := lxdClient.GetProfileNames()
-	if err != nil {
-		return err
-	}
-
 	if !shared.ValueInSlice(profile.Name, profiles) {
 		err = lxdClient.CreateProfile(profile)
 		if err != nil {
 			return err
 		}
 	} else {
-		// Ensure any pre-existing devices and config are carried over to the new profile, unless we are managing them.
-		existingProfile, _, err := lxdClient.GetProfile("default")
-		if err != nil {
-			return err
-		}
-
-		askConflictingConfig := []string{}
-		askConflictingDevices := []string{}
-		for k, v := range profile.Config {
-			_, ok := existingProfile.Config[k]
-			if !ok {
-				existingProfile.Config[k] = v
-			} else {
-				askConflictingConfig = append(askConflictingConfig, k)
-			}
-		}
-
-		for k, v := range profile.Devices {
-			_, ok := existingProfile.Devices[k]
-			if !ok {
-				existingProfile.Devices[k] = v
-			} else {
-				askConflictingDevices = append(askConflictingDevices, k)
-			}
-		}
-
-		if !c.autoSetup && len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
-			replace, err := c.asker.AskBool("Replace existing default profile configuration? (yes/no) [default=no]: ", "no")
-			if err != nil {
-				return err
-			}
-
-			if replace {
-				for _, key := range askConflictingConfig {
-					existingProfile.Config[key] = profile.Config[key]
-				}
-
-				for _, key := range askConflictingDevices {
-					existingProfile.Devices[key] = profile.Devices[key]
-				}
-			}
-		}
-
-		err = lxdClient.UpdateProfile(profile.Name, existingProfile.Writable(), "")
+		err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
 		if err != nil {
 			return err
 		}
