@@ -162,7 +162,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
-	fmt.Println("Waiting for LXD to start...")
+	fmt.Println("Waiting for LXD to start ...")
 	lxdService, err := service.NewLXDService("", "", c.common.FlagMicroCloudDir)
 	if err != nil {
 		return err
@@ -217,7 +217,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	c.state[c.name] = *state
-	fmt.Println("Gathering system information...")
+	fmt.Println("Gathering system information ...")
 	for _, system := range c.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
 			continue
