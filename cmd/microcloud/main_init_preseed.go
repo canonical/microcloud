@@ -188,6 +188,32 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
+	if !c.bootstrap {
+		existingClusters, err := s.GetExistingClusters(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address})
+		if err != nil {
+			return err
+		}
+
+		for name, address := range existingClusters[types.MicroCloud] {
+			_, ok := c.systems[name]
+			if !ok {
+				c.systems[name] = InitSystem{
+					ServerInfo: mdns.ServerInfo{
+						Name:     name,
+						Address:  address,
+						Services: services,
+					},
+				}
+			}
+
+			state, ok := c.state[name]
+			if !ok {
+				state.ExistingServices = existingClusters
+				c.state[name] = state
+			}
+		}
+	}
+
 	return c.setupCluster(s)
 }
 
