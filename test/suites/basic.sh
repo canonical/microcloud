@@ -232,7 +232,7 @@ test_interactive() {
 
   for n in $(seq 2 4); do
     ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
-    lxc exec "micro0$((n-1))" -- ip addr add "${ovn_underlay_ip}" dev "${ovn_underlay_subnet_iface}"
+    lxc exec "micro0$((n-1))" -- ip addr add "${ovn_underlay_ip}" dev "${ovn_underlay_subnet_iface}" && ip link set "${ovn_underlay_subnet_iface}" up
   done
 
   echo "Creating a MicroCloud with ZFS, Ceph storage with a fully disaggregated Ceph networking setup, OVN management network and OVN underlay network"
