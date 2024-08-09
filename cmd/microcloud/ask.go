@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
@@ -19,6 +20,60 @@ import (
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
+
+// askUpdateProfile asks whether to update the existing profile configuration if it has changed.
+func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []string, lxdClient lxd.InstanceServer) (*api.ProfilePut, error) {
+	if !shared.ValueInSlice(profile.Name, profiles) {
+		return &profile.ProfilePut, nil
+	}
+
+	// Ensure any pre-existing devices and config are carried over to the new profile, unless we are managing them.
+	existingProfile, _, err := lxdClient.GetProfile("default")
+	if err != nil {
+		return nil, err
+	}
+
+	askConflictingConfig := []string{}
+	askConflictingDevices := []string{}
+	for k, v := range profile.Config {
+		_, ok := existingProfile.Config[k]
+		if !ok {
+			existingProfile.Config[k] = v
+		} else {
+			askConflictingConfig = append(askConflictingConfig, k)
+		}
+	}
+
+	for k, v := range profile.Devices {
+		_, ok := existingProfile.Devices[k]
+		if !ok {
+			existingProfile.Devices[k] = v
+		} else {
+			askConflictingDevices = append(askConflictingDevices, k)
+		}
+	}
+
+	if !c.autoSetup && len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
+		replace, err := c.asker.AskBool("Replace existing default profile configuration? (yes/no) [default=no]: ", "no")
+		if err != nil {
+			return nil, err
+		}
+
+		if replace {
+			for _, key := range askConflictingConfig {
+				existingProfile.Config[key] = profile.Config[key]
+			}
+
+			for _, key := range askConflictingDevices {
+				existingProfile.Devices[key] = profile.Devices[key]
+			}
+		}
+	}
+
+	newProfile := existingProfile.Writable()
+
+	return &newProfile, nil
+}
 
 // askRetry will print all errors and re-attempt the given function on user input.
 func (c *initConfig) askRetry(question string, f func() error) {
