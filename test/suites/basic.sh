@@ -136,6 +136,7 @@ test_interactive() {
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -206,6 +207,7 @@ test_interactive() {
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
+  export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -213,6 +215,37 @@ test_interactive() {
     validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
     validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" disk2
     validate_system_microovn "${m}"
+  done
+
+  reset_systems 3 3 3
+
+  ceph_cluster_subnet_prefix="10.2.123"
+  ceph_cluster_subnet_iface="enp7s0"
+
+  for n in $(seq 2 4); do
+    cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
+  done
+
+  ovn_underlay_subnet_prefix="10.3.123"
+  ovn_underlay_subnet_iface="enp8s0"
+
+  for n in $(seq 2 4); do
+    ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${ovn_underlay_ip}" dev "${ovn_underlay_subnet_iface}" && ip link set "${ovn_underlay_subnet_iface}" up
+  done
+
+  echo "Creating a MicroCloud with ZFS, Ceph storage with a fully disaggregated Ceph networking setup, OVN management network and OVN underlay network"
+  export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export OVN_UNDERLAY_NETWORK="yes"
+  export OVN_UNDERLAY_FILTER="${ovn_underlay_subnet_prefix}"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" disk2
+    validate_system_microovn "${m}" "${ovn_underlay_subnet_prefix}"
   done
 }
 
@@ -826,8 +859,8 @@ test_service_mismatch() {
 
   # Install microceph and microovn on the first machine only.
   for m in micro02 micro03 ; do
-    lxc exec "${m}" -- snap remove microceph --purge
-    lxc exec "${m}" -- snap remove microovn --purge
+    lxc exec "${m}" -- snap disable microceph
+    lxc exec "${m}" -- snap disable microovn
     lxc exec "${m}" -- snap restart microcloud
   done
 
@@ -840,10 +873,10 @@ test_service_mismatch() {
   lxc exec micro01 -- tail -1 out | grep "Scanning for eligible servers" -q
 
   # Install the remaining services on the other systems.
-  lxc exec micro02 -- snap install microceph --channel="${MICROCEPH_SNAP_CHANNEL}" --cohort="+"
-  lxc exec micro02 -- snap install microovn  --channel="${MICROOVN_SNAP_CHANNEL}"  --cohort="+"
-  lxc exec micro03 -- snap install microceph --channel="${MICROCEPH_SNAP_CHANNEL}" --cohort="+"
-  lxc exec micro03 -- snap install microovn  --channel="${MICROOVN_SNAP_CHANNEL}"  --cohort="+"
+  lxc exec micro02 -- snap enable microceph
+  lxc exec micro02 -- snap enable microovn
+  lxc exec micro03 -- snap enable microceph
+  lxc exec micro03 -- snap enable microovn
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
@@ -1076,6 +1109,7 @@ test_reuse_cluster() {
   export IPV4_END="10.1.123.254"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service"
@@ -1202,6 +1236,7 @@ test_remove_cluster_member() {
   export IPV4_END="10.1.123.254"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
   echo "Fail to remove member from MicroCeph and LXD until OSDs are removed"

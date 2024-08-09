@@ -49,6 +49,9 @@ type InitSystem struct {
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
+	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// If left empty, the system will choose to route the Geneve traffic through the management network.
+	OVNGeneveAddr string
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -502,6 +505,12 @@ func (c *initConfig) addPeers(sh *service.Handler) error {
 			LXDConfig:  info.JoinConfig,
 			CephConfig: info.MicroCephDisks,
 		}
+
+		if info.OVNGeneveAddr != "" {
+			p := joinConfig[peer]
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			joinConfig[peer] = p
+		}
 	}
 
 	clusterSize := map[types.ServiceType]int{}
@@ -733,6 +742,20 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 				if len(microCephBootstrapConf) > 0 {
 					s.SetConfig(microCephBootstrapConf)
+				}
+			}
+
+			if s.Type() == types.MicroOVN {
+				microOvnBootstrapConf := make(map[string]string)
+				for _, system := range c.systems {
+					// If the system needs to be bootstrapped with a custom ovn encapsulation ip for geneve, add it to the init config.
+					if system.OVNGeneveAddr != "" {
+						microOvnBootstrapConf["ovn-encap-ip"] = system.OVNGeneveAddr
+					}
+				}
+
+				if len(microOvnBootstrapConf) > 0 {
+					s.SetConfig(microOvnBootstrapConf)
 				}
 			}
 

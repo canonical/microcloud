@@ -38,6 +38,7 @@ type Preseed struct {
 type System struct {
 	Name            string      `yaml:"name"`
 	UplinkInterface string      `yaml:"ovn_uplink_interface"`
+	UnderlayIP      string      `yaml:"underlay_ip"`
 	Storage         InitStorage `yaml:"storage"`
 }
 
@@ -194,6 +195,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 // validate validates the unmarshaled preseed input.
 func (p *Preseed) validate(name string, bootstrap bool) error {
 	uplinkCount := 0
+	underlayCount := 0
 	directCephCount := 0
 	directLocalCount := 0
 	localInit := false
@@ -217,6 +219,15 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 		if system.UplinkInterface != "" {
 			uplinkCount++
+		}
+
+		if system.UnderlayIP != "" {
+			_, _, err := net.ParseCIDR(system.UnderlayIP)
+			if err != nil {
+				return fmt.Errorf("Invalid underlay IP: %w", err)
+			}
+
+			underlayCount++
 		}
 
 		if len(system.Storage.Ceph) > 0 {
@@ -246,6 +257,11 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	containsUplinks = uplinkCount > 0
 	if containsUplinks && uplinkCount < len(p.Systems) {
 		return fmt.Errorf("Some systems are missing an uplink interface")
+	}
+
+	containsUnderlay := underlayCount > 0
+	if containsUnderlay && underlayCount < len(p.Systems) {
+		return fmt.Errorf("Some systems are missing an underlay interface")
 	}
 
 	containsCephStorage = directCephCount > 0
@@ -471,9 +487,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 
 	lxd := s.Services[types.LXD].(*service.LXDService)
 	ifaceByPeer := map[string]string{}
+	ovnUnderlayNeeded := false
 	for _, cfg := range p.Systems {
 		if cfg.UplinkInterface != "" {
 			ifaceByPeer[cfg.Name] = cfg.UplinkInterface
+		}
+
+		if cfg.UnderlayIP != "" {
+			ovnUnderlayNeeded = true
 		}
 	}
 
@@ -482,7 +503,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 
 	cephInterfaces := map[string]map[string]service.CephDedicatedInterface{}
 	for _, system := range c.systems {
-		uplinkIfaces, cephIfaces, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
+		uplinkIfaces, cephIfaces, _, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
 		if err != nil {
 			return nil, err
 		}
@@ -516,7 +537,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 
 		for _, info := range infos {
-			ifaces, _, _, err := lxd.GetNetworkInterfaces(context.Background(), info.Name, info.Address, info.AuthSecret)
+			ifaces, _, _, _, err := lxd.GetNetworkInterfaces(context.Background(), info.Name, info.Address, info.AuthSecret)
 			if err != nil {
 				return nil, err
 			}
@@ -530,6 +551,58 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 
 	if usingOVN && c.bootstrap && len(ifaceByPeer) < 3 {
 		return nil, fmt.Errorf("Failed to find at least 3 interfaces on 3 machines for OVN configuration")
+	}
+
+	// Check the preseed underlay network configuration against the available ips.
+	if ovnUnderlayNeeded {
+		canOVNUnderlay := true
+		for peer, state := range c.state {
+			if len(state.AvailableOVNInterfaces) == 0 {
+				fmt.Printf("Not enough interfaces available on %s to create an underlay network, skipping\n", peer)
+				canOVNUnderlay = false
+				break
+			}
+		}
+
+		if canOVNUnderlay {
+			// TODO: call `s.Services[types.MicroOVN].(*service.OVNService).SupportsFeature(context.Background(), "custom_encapsulation_ip")`
+			// when MicroCloud will be updated with microcluster/v2
+			underlays := make(map[string]string, len(p.Systems))
+			for _, sys := range p.Systems {
+				underlays[sys.Name] = sys.UnderlayIP
+			}
+
+			underlayCount := 0
+			for peer, state := range c.state {
+				for _, net := range state.AvailableOVNInterfaces {
+					if len(net.Addresses) != 0 {
+						for _, cidrAddr := range net.Addresses {
+							if underlays[peer] == cidrAddr {
+								underlayCount = underlayCount + 1
+								goto out
+							}
+						}
+					}
+				}
+
+			out:
+			}
+
+			if underlayCount != len(p.Systems) {
+				return nil, fmt.Errorf("Failed to find all underlay IPs on the network")
+			}
+
+			// Apply the underlay IPs to the systems.
+			for peer, system := range c.systems {
+				ip, _, err := net.ParseCIDR(underlays[peer])
+				if err != nil {
+					return nil, fmt.Errorf("Failed to parse underlay IP: %w", err)
+				}
+
+				system.OVNGeneveAddr = ip.String()
+				c.systems[peer] = system
+			}
+		}
 	}
 
 	// Setup FAN network if OVN not available.

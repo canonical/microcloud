@@ -287,6 +287,8 @@ Complete the following steps:
       As we're setting up four machines only, the range must contain a minimum of four addresses, but setting up a bigger range is more fail-safe.
       For example, if your IPv4 gateway is `192.0.2.1/24`, the last address could be `192.0.2.254`.
    1. Specify the IPv6 address that you noted down for your `microbr0` network as the IPv6 gateway.
+   1. Leave the question empty for the DNS addresses for the distributed network.
+   1. Leave the question empty for configuring an underlay network for OVN.
 
 MicroCloud will now initialise the cluster.
 See {ref}`explanation-initialisation` for more information.
@@ -415,6 +417,7 @@ Specify the first IPv4 address in the range to use on the uplink network: 192.0.
 Specify the last IPv4 address in the range to use on the uplink network: 192.0.2.254
 Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001:db8:d:200::1/64
 Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: 192.0.2.1,2001:db8:d:200::1):
+Configure dedicated underlay networking? (yes/no) [default=no]:
 
 Initializing a new cluster
  Local MicroCloud is ready
