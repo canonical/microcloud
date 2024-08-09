@@ -114,6 +114,28 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 	return s.client.NewJoinToken(ctx, peer)
 }
 
+// DeleteToken deletes a token by its name.
+func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+	var c *microClient.Client
+	var err error
+	if address != "" && secret != "" {
+		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+		if err != nil {
+			return err
+		}
+
+		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCloud)
+	} else {
+		c, err = s.client.LocalClient()
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return c.DeleteTokenRecord(ctx, tokenName)
+}
+
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
 func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, secret string, peer string, serviceType types.ServiceType) (string, error) {
 	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))

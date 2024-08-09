@@ -14,6 +14,7 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/revert"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
@@ -479,7 +480,10 @@ func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, se
 	return nil
 }
 
-func (c *initConfig) addPeers(sh *service.Handler) error {
+func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
+	reverter := revert.New()
+	defer reverter.Fail()
+
 	// Grab the systems that are clustered from the InitSystem map.
 	initializedServices := map[types.ServiceType]string{}
 	existingSystems := map[types.ServiceType]map[string]string{}
@@ -537,6 +541,16 @@ func (c *initConfig) addPeers(sh *service.Handler) error {
 					}
 				}
 
+				mut.Lock()
+				reverter.Add(func() {
+					err = s.DeleteToken(context.Background(), peer, clusteredSystem.ServerInfo.Address, clusteredSystem.ServerInfo.AuthSecret)
+					if err != nil {
+						logger.Error("Failed to clean up join token", logger.Ctx{"service": s.Type(), "error": err})
+					}
+				})
+
+				mut.Unlock()
+
 				// Fetch the current cluster sizes if we are adding a new node.
 				var currentCluster map[string]string
 				if !c.bootstrap {
@@ -561,7 +575,7 @@ func (c *initConfig) addPeers(sh *service.Handler) error {
 			return nil
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -572,7 +586,7 @@ func (c *initConfig) addPeers(sh *service.Handler) error {
 		cfg := joinConfig[sh.Name]
 		err := waitForJoin(sh, clusterSize, "", sh.Name, cfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -584,11 +598,15 @@ func (c *initConfig) addPeers(sh *service.Handler) error {
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
 		err := waitForJoin(sh, clusterSize, c.systems[peer].ServerInfo.AuthSecret, peer, cfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	cleanup := reverter.Clone().Fail
+
+	reverter.Success()
+
+	return cleanup, nil
 }
 
 // validateGatewayNet ensures that the ipv{4,6} gateway in a network's `config`
@@ -705,6 +723,9 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
 func (c *initConfig) setupCluster(s *service.Handler) error {
+	reverter := revert.New()
+	defer reverter.Fail()
+
 	initializedServices := map[types.ServiceType]string{}
 	bootstrapSystem := c.systems[s.Name]
 	if c.bootstrap {
@@ -765,10 +786,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
-	err := c.addPeers(s)
+	cleanup, err := c.addPeers(s)
 	if err != nil {
 		return err
 	}
+
+	reverter.Add(cleanup)
 
 	if c.bootstrap {
 		// Joiners will add their disks as part of the join process, so only add disks here for the system we bootstrapped, or already existed.
@@ -875,6 +898,28 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
+	reverter.Add(func() {
+		if !c.bootstrap {
+			return
+		}
+
+		system := c.systems[s.Name]
+		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
+		if err != nil {
+			logger.Error("Failed to get LXD client for cleanup", logger.Ctx{"error": err})
+
+			return
+		}
+
+		for _, network := range system.Networks {
+			_ = lxdClient.DeleteNetwork(network.Name)
+		}
+
+		for _, pool := range system.StoragePools {
+			_ = lxdClient.DeleteStoragePool(pool.Name)
+		}
+	})
+
 	// Create preliminary networks & storage pools on each target.
 	for name, system := range c.systems {
 		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
@@ -883,6 +928,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		targetClient := lxdClient.UseTarget(name)
+
 		for _, network := range system.TargetNetworks {
 			err = targetClient.CreateNetwork(network)
 			if err != nil {
@@ -1031,17 +1077,23 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		targetClient := lxdClient.UseTarget(name)
 		for _, pool := range poolNames {
 			if pool == "local" {
+				server, _, err := targetClient.GetServer()
+				if err != nil {
+					return err
+				}
+
+				reverter.Add(func() {
+					_ = targetClient.UpdateServer(server.Writable(), "")
+					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "images")
+					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+				})
+
 				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
 				if err != nil {
 					return err
 				}
 
 				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
-				if err != nil {
-					return err
-				}
-
-				server, _, err := targetClient.GetServer()
 				if err != nil {
 					return err
 				}
@@ -1056,6 +1108,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 	}
+
+	reverter.Success()
 
 	fmt.Println("MicroCloud is ready")
 
