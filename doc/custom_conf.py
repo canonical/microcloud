@@ -1,4 +1,5 @@
 import datetime
+import os
 
 # Custom configuration for the Sphinx documentation builder.
 # All configuration specific to your project should be done in this file.
@@ -189,6 +190,7 @@ custom_required_modules = []
 
 # Add files or directories that should be excluded from processing.
 custom_excludes = [
+    "integration"
     ]
 
 # Add CSS files (located in .sphinx/_static/)
@@ -222,14 +224,36 @@ custom_tags = []
 
 ## Add any configuration that is not covered by the common conf.py file.
 
-intersphinx_mapping = {
-    'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None),
-    'ceph': ('https://docs.ceph.com/en/latest/', None),
-    'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/reef-stable/', None)
-}
+if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
+    intersphinx_mapping = {
+        'lxd': ('https://documentation.ubuntu.com/lxd/en/latest/', None),
+        'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/reef-stable/', None),
+        'microovn': ('https://canonical-microovn.readthedocs-hosted.com/en/latest/', None),
+        'ceph': ('https://docs.ceph.com/en/latest/', None),
+    }
+elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
+    intersphinx_mapping = {
+        'lxd': ('/en/latest/lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
+        'microceph': ('/en/latest/microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
+        'microovn': ('/en/latest/microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
+        'ceph': ('https://docs.ceph.com/en/latest/', None)
+    }
+else:
+    intersphinx_mapping = {
+        'lxd': ('/lxd/', '_build/lxd/objects.inv'),
+        'microceph': ('/microceph/', '_build/microceph/objects.inv'),
+        'microovn': ('/microovn/', '_build/microovn/objects.inv'),
+        'ceph': ('https://docs.ceph.com/en/latest/', None)
+    }
 
 # Define a :center: role that can be used to center the content of table cells.
 rst_prolog = '''
 .. role:: center
    :class: align-center
 '''
+
+if not ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
+    exec(compile(source=open('.sphinx/_integration/add_config.py').read(), filename='.sphinx/_integration/add_config.py', mode='exec'))
+    custom_html_static_path = ['integration/microcloud/_static']
+    custom_templates_path = ['integration/microcloud/_templates']
+    redirects['../index'] = 'microcloud/'

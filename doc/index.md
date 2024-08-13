@@ -15,6 +15,8 @@ This way, MicroCloud creates a small footprint cluster of compute nodes with dis
 
 MicroCloud is aimed at edge computing, and anyone in need of a small-scale private cloud.
 
+Link {doc}`lxd:index`, {doc}`microceph:index`, {doc}`microovn:index`.
+
 ---
 
 ## In this documentation
