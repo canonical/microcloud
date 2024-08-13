@@ -9,11 +9,18 @@ version: 2
 build:
   os: ubuntu-22.04
   tools:
+    golang: "1.22"
     python: "3.11"
-  jobs:
-    pre_install:
-      - cd doc && python3 .sphinx/build_requirements.py
+  commands:
       - git fetch --unshallow || true
+      - cd doc && make integrate
+      - cd doc/integration/lxd/ && go build -ldflags "-s -w" -o trimpath -o lxc.bin ./lxc
+      # Pretend that woke is installed - we don't need it for building
+      # (workaround until https://github.com/canonical/microovn/pull/168 is merged
+      # and https://github.com/canonical/microceph/pull/400 is restored)
+      - ln -s /bin/true doc/integration/microovn/docs/woke
+      - ln -s /bin/true doc/integration/microceph/docs/woke
+      - make doc-html-rtd PATH=$PATH:.
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -22,8 +29,8 @@ sphinx:
   fail_on_warning: true
 
 # If using Sphinx, optionally build your docs in additional formats such as PDF
-formats:
-   - pdf
+#formats:
+#   - pdf
 
 # Optionally declare the Python requirements required to build your docs
 python:

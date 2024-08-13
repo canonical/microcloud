@@ -68,6 +68,14 @@ html: integrate
 	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
 	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(current_dir)/_build/microcloud
 
+# `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
+# This target is used by the Read the Docs build.
+html-rtd:
+	cd integration/lxd/doc/ && $(MAKE) html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
+	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
+	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
+	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
+
 # `spelling` checks only the MicroCloud docs.
 spelling: clean-doc microcloud
 	$(MAKE) -f Makefile.sp sp-spellcheck
