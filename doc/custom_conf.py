@@ -257,3 +257,4 @@ if not ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     custom_html_static_path = ['integration/microcloud/_static']
     custom_templates_path = ['integration/microcloud/_templates']
     redirects['../index'] = 'microcloud/'
+    custom_tags.append('integrated')
