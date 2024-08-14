@@ -233,6 +233,7 @@ jobs:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
     with:
       working-directory: './doc'
+      makefile: 'Makefile'
 
   snap:
     name: Trigger snap edge build
