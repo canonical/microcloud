@@ -56,6 +56,8 @@ integrate:
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/custom_conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/custom_conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microovn/docs/custom_conf.py
+	# Override the MicroOVN tag with the circle of friends one (for consistency)
+	cp .sphinx/_integration/tag.png integration/microovn/docs/.sphinx/_static/microovn.png
 
 clean-integrate:
 	rm -rf integration/lxd
