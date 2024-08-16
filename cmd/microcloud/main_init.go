@@ -808,23 +808,47 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		peer = microCeph
 	}
 
-	for name := range c.state[peer].ExistingServices[types.MicroCeph] {
-		// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
-		if c.systems[name].ServerInfo.Name == "" {
-			continue
-		}
+	if s.Services[types.MicroCeph] != nil {
+		for name := range c.state[peer].ExistingServices[types.MicroCeph] {
+			// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
+			if c.systems[name].ServerInfo.Name == "" {
+				continue
+			}
 
-		var client *client.Client
-		for _, disk := range c.systems[name].MicroCephDisks {
-			if client == nil {
-				client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, c.systems[name].ServerInfo.AuthSecret)
+			var client *client.Client
+			for _, disk := range c.systems[name].MicroCephDisks {
+				if client == nil {
+					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, c.systems[name].ServerInfo.AuthSecret)
+					if err != nil {
+						return err
+					}
+				}
+
+				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
+				_, err = cephClient.AddDisk(context.Background(), client, &disk)
 				if err != nil {
 					return err
 				}
 			}
+		}
 
-			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
-			_, err = cephClient.AddDisk(context.Background(), client, &disk)
+		c, err := s.Services[types.MicroCeph].(*service.CephService).Client(s.Name, "")
+		if err != nil {
+			return err
+		}
+
+		allDisks, err := cephClient.GetDisks(context.Background(), c)
+		if err != nil {
+			return err
+		}
+
+		if len(allDisks) > 0 {
+			defaultPoolSize := len(allDisks)
+			if defaultPoolSize > 3 {
+				defaultPoolSize = 3
+			}
+
+			err = cephClient.PoolSetReplicationFactor(context.Background(), c, &cephTypes.PoolPut{Pools: []string{"*"}, Size: int64(defaultPoolSize)})
 			if err != nil {
 				return err
 			}
