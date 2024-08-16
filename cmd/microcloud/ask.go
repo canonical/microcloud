@@ -76,7 +76,7 @@ func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []strin
 }
 
 // askRetry will print all errors and re-attempt the given function on user input.
-func (c *initConfig) askRetry(question string, f func() error) {
+func (c *initConfig) askRetry(question string, f func() error) error {
 	for {
 		retry := false
 		err := f()
@@ -86,14 +86,13 @@ func (c *initConfig) askRetry(question string, f func() error) {
 			if !c.autoSetup {
 				retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
 				if err != nil {
-					fmt.Println(err)
-					retry = false
+					return err
 				}
 			}
 		}
 
 		if !retry {
-			break
+			return nil
 		}
 	}
 }
@@ -149,7 +148,7 @@ func (c *initConfig) askAddress() error {
 			}
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
-			c.askRetry("Retry selecting an address?", func() error {
+			err := c.askRetry("Retry selecting an address?", func() error {
 				fmt.Println("Select an address for MicroCloud's internal traffic:")
 				err := table.Render(table.rows)
 				if err != nil {
@@ -171,6 +170,9 @@ func (c *initConfig) askAddress() error {
 
 				return nil
 			})
+			if err != nil {
+				return err
+			}
 		} else {
 			fmt.Printf("Using address %q for MicroCloud\n", listenAddr)
 		}
@@ -327,7 +329,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	}
 
 	if !c.autoSetup {
-		c.askRetry("Retry selecting disks?", func() error {
+		err := c.askRetry("Retry selecting disks?", func() error {
 			selected := map[string]string{}
 			sort.Sort(cli.SortColumnsNaturally(data))
 			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
@@ -386,6 +388,9 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(selectedDisks) == 0 {
@@ -634,7 +639,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return nil
 		}
 
-		c.askRetry("Retry selecting disks?", func() error {
+		err = c.askRetry("Retry selecting disks?", func() error {
 			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 			data := [][]string{}
 			for peer, disks := range availableDisks {
@@ -727,6 +732,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 
 		if len(selectedDisks) == 0 {
 			return nil
@@ -946,7 +954,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 	table := NewSelectableTable(header, data)
 	var selectedIfaces map[string]string
-	c.askRetry("Retry selecting uplink interfaces?", func() error {
+	err = c.askRetry("Retry selecting uplink interfaces?", func() error {
 		err := table.Render(table.rows)
 		if err != nil {
 			return err
@@ -977,6 +985,9 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	for peer, iface := range selectedIfaces {
 		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)
