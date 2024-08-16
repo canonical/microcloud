@@ -145,6 +145,12 @@ fi
 set_debug_binaries() {
   name="${1}"
 
+  if [ -n "${MICROOVN_SNAP_PATH}" ]; then
+    echo "==> Add local build of MicroOVN snap."
+    lxc file push "${MICROOVN_SNAP_PATH}" "${name}/root/microovn.snap"
+    lxc exec "${name}" -- snap install --dangerous "/root/microovn.snap"
+  fi
+
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
     lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
