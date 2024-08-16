@@ -9,6 +9,10 @@
 
 current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
+LXDVERSION       = origin/main
+MICROCEPHVERSION = origin/main
+MICROOVNVERSION  = origin/main
+
 # Put it first so that "make" without argument is like "make help".
 help:
 	@echo "\n" \
@@ -30,12 +34,14 @@ help:
 
 integrate:
 	# Pull the other repositories
-	cd integration/ && \
-	git -C lxd fetch && git -C lxd reset --hard origin/main || git clone https://github.com/canonical/lxd
-	cd integration/ && \
-	git -C microceph fetch && git -C microceph reset --hard origin/main || git clone https://github.com/canonical/microceph
-	cd integration/ && \
-	git -C microovn fetch && git -C microovn reset --hard origin/main || git clone https://github.com/canonical/microovn
+	cd integration/ && ( git -C lxd fetch || git clone https://github.com/canonical/lxd )
+	git -C integration/lxd reset --hard $(LXDVERSION)
+
+	cd integration/ && ( git -C microceph fetch || git clone https://github.com/canonical/microceph )
+	git -C integration/microceph reset --hard $(MICROCEPHVERSION)
+
+	cd integration/ && ( git -C microovn fetch || git clone https://github.com/canonical/microovn )
+	git -C integration/microovn reset --hard $(MICROOVNVERSION)
 	# Create a directory for files to override in MicroCloud docs
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
 	# Copy the header HTML and CSS files for the doc sets
