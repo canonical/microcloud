@@ -582,7 +582,6 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			askSystemsRemoteFS[info.ClusterName] = true
 		}
 	}
-
 	var selectedDisks map[string][]string
 	var wipeDisks map[string]map[string]bool
 	availableDiskCount := 0
@@ -598,24 +597,10 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 		}
 
-		if !useJoinConfigRemote {
-			minimumDisks := 0
-			for _, disks := range availableDisks {
-				if minimumDisks == 3 {
-					break
-				}
+		if availableDiskCount == 0 {
+			fmt.Println("No disks available for distributed storage. Skipping configuration")
 
-				if len(disks) > 0 {
-					minimumDisks++
-				}
-			}
-
-			// At least 3 systems need to be able to supply a disk.
-			if minimumDisks < 3 {
-				fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
-
-				return nil
-			}
+			return nil
 		}
 
 		var err error
@@ -639,7 +624,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return nil
 		}
 
-		err = c.askRetry("Retry selecting disks?", func() error {
+		err = c.askRetry("Change disk selection?", func() error {
+			selectedDisks = map[string][]string{}
+			wipeDisks = map[string]map[string]bool{}
 			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 			data := [][]string{}
 			for peer, disks := range availableDisks {
@@ -661,7 +648,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 
 			if len(data) == 0 {
-				return fmt.Errorf("Found no available disks")
+				return fmt.Errorf("Invalid disk configuration. Found no available disks")
 			}
 
 			sort.Sort(cli.SortColumnsNaturally(data))
@@ -685,7 +672,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 				selected, err = table.GetSelections()
 				if err != nil {
-					return fmt.Errorf("Failed to confirm disk selection: %w", err)
+					return fmt.Errorf("Invalid disk configuration: %w", err)
 				}
 
 				if len(selected) > 0 && !c.wipeAllDisks {
@@ -697,7 +684,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 					toWipe, err = table.GetSelections()
 					if err != nil {
-						return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+						return fmt.Errorf("Invalid disk configuration: %w", err)
 					}
 				}
 			}
@@ -713,8 +700,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				targetDisks[target] = append(targetDisks[target], path)
 			}
 
-			if !useJoinConfigRemote && len(targetDisks) < 3 {
-				return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
+			insufficientDisks := !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
+			if c.autoSetup && insufficientDisks {
+				return fmt.Errorf("Unable to add remote storage pool: At least %d peers must have allocated disks", RecommendedOSDHosts)
 			}
 
 			wipeDisks = map[string]map[string]bool{}
@@ -729,6 +717,15 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 
 			selectedDisks = targetDisks
+
+			if len(targetDisks) == 0 {
+				return fmt.Errorf("No disks were selected")
+			}
+
+			if insufficientDisks {
+				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
+				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks.\nContinuing with this configuration will leave MicroCloud susceptible to data loss", RecommendedOSDHosts)
+			}
 
 			return nil
 		})

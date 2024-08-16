@@ -34,6 +34,9 @@ const DefaultAutoLookupTimeout time.Duration = 5 * time.Second
 // DefaultLookupTimeout is the default time limit for finding systems interactively.
 const DefaultLookupTimeout time.Duration = time.Minute
 
+// RecommendedOSDHosts is the minimum number of OSD hosts recommended for a new cluster for fault-tolerance.
+const RecommendedOSDHosts = 3
+
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
 	// ServerInfo contains the data reported by mDNS about this system.
