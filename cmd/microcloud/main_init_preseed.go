@@ -274,7 +274,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("Some systems are missing an uplink interface")
 	}
 
-	containsCephStorage = directCephCount > 0
 	containsLocalStorage = directLocalCount > 0
 	if containsLocalStorage && directLocalCount < len(p.Systems) && len(p.Storage.Local) == 0 {
 		return fmt.Errorf("Some systems are missing local storage disks")
@@ -289,6 +288,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("Missing interface name for machine lookup")
 	}
 
+	containsCephStorage = directCephCount > 0 || len(p.Storage.Ceph) > 0
 	usingCephInternalNetwork := p.Ceph.InternalNetwork != ""
 	if !containsCephStorage && usingCephInternalNetwork {
 		return fmt.Errorf("Cannot specify a Ceph internal network without Ceph storage disks")
