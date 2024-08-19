@@ -675,10 +675,10 @@ _test_case() {
       fi
     fi
 
-    if [ "${num_disks}" -gt 0 ] && [ "${num_systems}" -ge 3 ] ; then
+    if [ "${num_disks}" -gt 0 ] ; then
       # If we only have one disk and we used it for ZFS, there should be no prompt.
       if [ "${num_disks}" = 1 ] && [ -z "${force_no_zfs}" ] ; then
-        echo "Insufficient disks"
+        echo "Insufficient disks to test Remote storage"
       elif [ -z "${force_no_ceph}" ]; then
         export SETUP_CEPH="yes"
         export SETUP_CEPHFS="yes"
@@ -692,12 +692,16 @@ _test_case() {
         if [ "${expected_ceph_disks}" -gt 0 ]; then
           expected_cephfs=1
         fi
+
+        if [ "${num_systems}" -lt 3 ]; then
+          export CEPH_RETRY_HA="no"
+        fi
       else
         export SETUP_CEPH="no"
       fi
     fi
 
-    if [ "${num_ifaces}" -gt 0 ] && [ "${num_systems}" -ge 3 ] ; then
+    if [ "${num_ifaces}" -gt 0 ] ; then
       if [ -z "${force_no_ovn}" ] ; then
         export SETUP_OVN="yes"
 
@@ -746,62 +750,56 @@ _test_case() {
 
 
 test_interactive_combinations() {
-  for num_systems in $(seq 2 4) ; do
-      max_disks=2
+  # Test with 2 systems, no disks, no interfaces.
+  _test_case 2 0 0
 
-      # A setup with 3 disks is redundant if we have less than 3 peers,
-      # since we have already covered having too many disks for zfs with 2 disks per system.
-      if [ "${num_systems}" -ge 3 ] ; then
-        max_disks=3
-      fi
+  # Test with 2 systems, 1 disk, no interfaces, and each combination of skipping ZFS, Ceph.
+  _test_case 2 1 0
+  _test_case 2 1 0 "zfs"
+  _test_case 2 1 0 "ceph"
+  _test_case 2 1 0 "zfs" "ceph"
 
-      for num_disks in $(seq 0 "${max_disks}") ; do
-        # A setup with OVN interfaces is not necessary with fewer
-        # than 3 machines as OVN setup will get skipped anyway.
-        max_ifaces=0
-        if [ "${num_systems}" -ge 3 ]; then
-          max_ifaces=2
-          if [ "${num_disks}" -gt 0 ]; then
-            # If we are testing disks too, just stick to one interface, or none.
-            max_ifaces=1
-          fi
-        fi
+  # Test with 2 systems, 0 disks, 1 interface, and each combination of skipping OVN.
+  _test_case 2 0 1
+  _test_case 2 0 1 "ovn"
 
-        for num_ifaces in $(seq 0 "${max_ifaces}") ; do
-          # Run a test without forcibly skipping any services.
-          _test_case "${num_systems}" "${num_disks}" "${num_ifaces}"
+  # Test with 2 systems, 1 disks, 1 interface, and each combination of skipping ZFS, Ceph, OVN.
+  _test_case 2 1 1
+  _test_case 2 1 1 "zfs"
+  _test_case 2 1 1 "ceph"
+  _test_case 2 1 1 "zfs" "ceph"
+  _test_case 2 1 1 "ovn"
+  _test_case 2 1 1 "zfs" "ovn"
+  _test_case 2 1 1 "ceph" "ovn"
+  _test_case 2 1 1 "zfs" "ceph" "ovn"
 
-          if [ "${num_systems}" -lt 3 ]; then
-            if [ "${num_disks}" -gt 0 ] ; then
-              # If we have fewer than 3 systems, we can still create ZFS so test forcibly skipping it.
-              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
-            fi
+  # Test with 2 systems, 2 disks, 1 interface, and each combination of skipping ZFS, Ceph, OVN.
+  _test_case 2 2 1
+  _test_case 2 2 1 "zfs"
+  _test_case 2 2 1 "ceph"
+  _test_case 2 2 1 "zfs" "ceph"
+  _test_case 2 2 1 "ovn"
+  _test_case 2 2 1 "zfs" "ovn"
+  _test_case 2 2 1 "ceph" "ovn"
+  _test_case 2 2 1 "zfs" "ceph" "ovn"
 
-          # Only run additional tests with skipped services if we actually have devices to set up.
-          elif [ "${num_ifaces}" = 1 ]; then
-            if [ "${num_disks}" -gt 0 ] ; then
-              # Test forcibly skipping ZFS, sending available disks to Ceph instead.
-              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs"
-              if [ "${num_disks}" -gt 1 ] ; then
-                # Test forcibly skipping Ceph only if we have extra disks after ZFS setup.
-                _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ceph"
-              fi
+  # Test with 2 systems, 3 disks, 1 interface, and each combination of skipping ZFS, Ceph, OVN.
+  _test_case 2 3 1
+  _test_case 2 3 1 "zfs"
+  _test_case 2 3 1 "ceph"
+  _test_case 2 3 1 "zfs" "ceph"
+  _test_case 2 3 1 "ovn"
+  _test_case 2 3 1 "zfs" "ovn"
+  _test_case 2 3 1 "ceph" "ovn"
+  _test_case 2 3 1 "zfs" "ceph" "ovn"
 
-              # Test forcibly skipping both Ceph and ZFS to create no storage devices.
-              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph"
+  # Test with 3 systems, with and without disks & interfaces.
+  _test_case 3 0 0
+  _test_case 3 2 2
 
-              # Test forcibly skipping Ceph, ZFS, and OVN to get a FAN device.
-              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "zfs" "ceph" "ovn"
-            fi
-          fi
-
-          if [ "${num_systems}" -ge 3 ] && [ "${num_ifaces}" -gt 0 ]; then
-              # Test forcibly skipping OVN whenever we can assign interfaces.
-              _test_case "${num_systems}" "${num_disks}" "${num_ifaces}" "ovn"
-          fi
-        done
-    done
-  done
+  # Test with 4 systems, with and without disks & interfaces.
+  _test_case 4 0 0
+  _test_case 4 2 2
 }
 
 test_service_mismatch() {
