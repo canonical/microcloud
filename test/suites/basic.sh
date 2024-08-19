@@ -1170,6 +1170,7 @@ storage:
       wipe: true
   ceph:
     - find: device_id == *lxd_disk2
+      find_min: 3
       wipe: true
   cephfs: true
 EOF

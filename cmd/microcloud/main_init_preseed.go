@@ -340,9 +340,14 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 				return fmt.Errorf("Invalid remote storage filter constraints find_max (%d) must be larger than find_min (%d)", filter.FindMax, filter.FindMin)
 			}
 		}
+
+		// For distributed storage, the minimum match count must be defined so that we don't have a default configuration that can be non-HA.
+		if filter.FindMin < 1 {
+			return fmt.Errorf("Remote storage filter cannot be defined with find_min less than 1")
+		}
 	}
 
-	for _, filter := range p.Storage.Local {
+	for i, filter := range p.Storage.Local {
 		if filter.Find == "" {
 			return fmt.Errorf("Received empty local disk filter")
 		}
@@ -351,6 +356,12 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 			if filter.FindMax < filter.FindMin {
 				return fmt.Errorf("Invalid local storage filter constraints find_max (%d) larger than find_min (%d)", filter.FindMax, filter.FindMin)
 			}
+		}
+
+		// For local storage, we can set a default minimum match count because we require at least 1 disk per system.
+		if filter.FindMin == 0 {
+			filter.FindMin = 1
+			p.Storage.Local[i] = filter
 		}
 	}
 
