@@ -1344,6 +1344,7 @@ test_add_services() {
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
   export SETUP_CEPHFS="yes"
+  export CEPH_ENCRYPT="no"
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export SETUP_OVN="yes"
@@ -1378,8 +1379,11 @@ test_add_services() {
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
   unset REPLACE_PROFILE
+  unset SKIP_LOOKUP
   export MULTI_NODE="yes"
   export SKIP_SERVICE="yes"
+  export SETUP_ZFS="yes"
+  export SETUP_OVN="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
