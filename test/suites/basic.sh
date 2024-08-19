@@ -1528,6 +1528,85 @@ test_non_ha() {
     validate_system_microovn ${m}
   done
 
+  reset_systems 3 2 2
+  for m in micro02 micro03 ; do
+    lxc exec "${m}" -- snap disable microcloud
+  done
+
+  export MULTI_NODE="no"
+  export SKIP_LOOKUP=1
+  echo "Creating a MicroCloud with 1 system, and grow it to 3 with all storage & networks"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  validate_system_lxd "micro01" 1 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+  validate_system_microceph "micro01" 1 "disk2"
+  validate_system_microovn "micro01"
+
+  for m in micro02 micro03 ; do
+    lxc exec "${m}" -- snap enable microcloud
+    lxc exec "${m}" -- snap start microcloud
+  done
+
+  unset SKIP_LOOKUP
+  unset MULTI_NODE
+  unset CEPH_CLUSTER_NETWORK
+  unset CEPH_RETRY_HA
+  unset IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
+  unset SETUP_CEPHFS
+  export EXPECT_PEERS=2
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
+  for m in micro1 micro2 micro3 ; do
+    validate_system_lxd "micro01" 3 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+    validate_system_microceph "micro01" 1 "disk2"
+    validate_system_microovn "micro01"
+  done
+
+  reset_systems 2 3 3
+  echo "Creating a MicroCloud with 1 system and growing it to 3, using preseed"
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro01
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8
+storage:
+  cephfs: true
+EOF
+
+  validate_system_lxd "micro01" 1 "" 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+  validate_system_microceph "micro01" 1 "disk2" "disk3"
+  validate_system_microovn "micro01"
+
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed --lookup-timeout 10 << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro02
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+EOF
+
+  for m in micro01 micro02 ; do
+    validate_system_lxd ${m} 2 "" 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+    validate_system_microceph ${m} 1 "disk2" "disk3"
+    validate_system_microovn ${m}
+  done
+
   reset_systems 2 3 3
   echo "Creating a MicroCloud with 2 systems with Ceph storage using preseed"
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
