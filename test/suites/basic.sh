@@ -658,20 +658,20 @@ _test_case() {
 
     microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
-    LOOKUP_IFACE="enp5s0" # filter string for the lookup interface table.
-    LIMIT_SUBNET="yes" # (yes/no) input for limiting lookup of systems to the above subnet.
-    CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+    export LOOKUP_IFACE="enp5s0" # filter string for the lookup interface table.
+    export LIMIT_SUBNET="yes" # (yes/no) input for limiting lookup of systems to the above subnet.
+    export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
 
-    EXPECT_PEERS="$((num_systems - 1))"
+    export EXPECT_PEERS="$((num_systems - 1))"
 
     if [ "${num_disks}" -gt 0 ] ; then
       if [ -z "${force_no_zfs}" ]; then
-        SETUP_ZFS="yes"
-        ZFS_FILTER="disk1"
-        ZFS_WIPE="yes"
+        export SETUP_ZFS="yes"
+        export ZFS_FILTER="disk1"
+        export ZFS_WIPE="yes"
         expected_zfs_disk="disk1"
       else
-        SETUP_ZFS="no"
+        export SETUP_ZFS="no"
       fi
     fi
 
@@ -680,10 +680,10 @@ _test_case() {
       if [ "${num_disks}" = 1 ] && [ -z "${force_no_zfs}" ] ; then
         echo "Insufficient disks"
       elif [ -z "${force_no_ceph}" ]; then
-        SETUP_CEPH="yes"
-        SETUP_CEPHFS="yes"
-        CEPH_WIPE="yes"
-        CEPH_ENCRYPT="no"
+        export SETUP_CEPH="yes"
+        export SETUP_CEPHFS="yes"
+        export CEPH_WIPE="yes"
+        export CEPH_ENCRYPT="no"
         expected_ceph_disks="${num_disks}"
         if [ -n "${expected_zfs_disk}" ]; then
           expected_ceph_disks="$((num_disks - 1))"
@@ -693,25 +693,25 @@ _test_case() {
           expected_cephfs=1
         fi
       else
-        SETUP_CEPH="no"
+        export SETUP_CEPH="no"
       fi
     fi
 
     if [ "${num_ifaces}" -gt 0 ] && [ "${num_systems}" -ge 3 ] ; then
       if [ -z "${force_no_ovn}" ] ; then
-        SETUP_OVN="yes"
+        export SETUP_OVN="yes"
 
         # Always pick the first available interface.
-        OVN_FILTER="enp6s0"
-        IPV4_SUBNET="10.1.123.1/24"
-        IPV4_START="10.1.123.100"
-        IPV4_END="10.1.123.254"
-        IPV6_SUBNET="fd42:1:1234:1234::1/64"
-        DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+        export OVN_FILTER="enp6s0"
+        export IPV4_SUBNET="10.1.123.1/24"
+        export IPV4_START="10.1.123.100"
+        export IPV4_END="10.1.123.254"
+        export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+        export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
 
         expected_ovn_iface="enp6s0"
       else
-        SETUP_OVN="no"
+        export SETUP_OVN="no"
       fi
     fi
 
