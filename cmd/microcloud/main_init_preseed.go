@@ -593,6 +593,13 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 				directLocal = sys.Storage.Local
 				directCeph = sys.Storage.Ceph
 			}
+
+			for _, disk := range directCeph {
+				_, err := os.Stat(disk.Path)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to find specified disk path: %w", err)
+				}
+			}
 		}
 
 		// Setup directly specified disks for ZFS pool.
