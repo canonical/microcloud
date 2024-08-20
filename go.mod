@@ -6,7 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/canonical/lxd v0.0.0-20240709081608-9df996e36bac
-	github.com/canonical/microceph/microceph v0.0.0-20240708123233-b17a96f27a3d
+	github.com/canonical/microceph/microceph v0.0.0-20240820123129-f85ee55b56e3
 	github.com/canonical/microcluster v0.0.0-20240709163503-3d587817830c
 	github.com/canonical/microovn/microovn v0.0.0-20240703103351-546b832b3167
 	github.com/creack/pty v1.1.21
@@ -17,6 +17,8 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.19.0
+	golang.org/x/sys v0.22.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -64,9 +66,7 @@ require (
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.23.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
