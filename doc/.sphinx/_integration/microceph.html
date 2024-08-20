@@ -1,0 +1,43 @@
+<header id="header" class="p-navigation">
+
+  <div class="p-navigation__nav" role="menubar">
+
+    <ul class="p-navigation__links" role="menu">
+
+      <li>
+        <a class="p-logo" href="{{ pathto(root_doc) if pathto(root_doc) != '#' }}{{ microcloud_path }}/" aria-current="page">
+          <img src="{{ pathto(root_doc) if pathto(root_doc) != '#' }}{{ microcloud_tag }}" alt="Logo" class="p-logo-image">
+          <div class="p-logo-text p-heading--4">MicroCloud
+          </div>
+        </a>
+      </li>
+
+      <li>
+        <a class="p-logo" href="{{ pathto(root_doc) if pathto(root_doc) != '#' }}{{ lxd_path }}/" aria-current="page">
+          <img src="{{ pathto(root_doc) if pathto(root_doc) != '#' }}{{ lxd_tag }}" alt="Logo" class="p-logo-image">
+          <div class="p-logo-text p-heading--4">LXD
+          </div>
+        </a>
+      </li>
+
+      <li class="active">
+        <a class="p-logo" href="{{ pathto(root_doc) }}" aria-current="page">
+          <img src="{{ pathto(product_tag,1) }}" alt="Logo" class="p-logo-image">
+          <div class="p-logo-text p-heading--4">{{ project }}
+          </div>
+        </a>
+      </li>
+
+      <li>
+        <a class="p-logo" href="{{ pathto(root_doc) if pathto(root_doc) != '#' }}{{ microovn_path }}/" aria-current="page">
+          <img src="{{ pathto(root_doc) if pathto(root_doc) != '#' }}{{ microovn_tag }}" alt="Logo" class="p-logo-image">
+          <div class="p-logo-text p-heading--4">MicroOVN
+          </div>
+        </a>
+      </li>
+
+
+
+    </ul>
+  </div>
+</header>

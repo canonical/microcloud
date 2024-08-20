@@ -142,6 +142,8 @@ if '-b' in sys.argv:
 # Setting templates_path for epub makes the build fail
 if builder == 'dirhtml' or builder == 'html':
     templates_path = ['.sphinx/_templates']
+    if 'custom_templates_path' in globals():
+        templates_path = custom_templates_path + templates_path
     notfound_template = '404.html'
 
 # Theme configuration
@@ -159,6 +161,8 @@ if html_title == '':
 ############################################################
 
 html_static_path = ['.sphinx/_static']
+if 'custom_html_static_path' in globals():
+    html_static_path = html_static_path + custom_html_static_path
 
 html_css_files = [
     'custom.css',
