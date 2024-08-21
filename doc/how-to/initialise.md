@@ -76,7 +76,7 @@ Complete the following steps to initialise MicroCloud:
 
       ```{note}
       Encryption requires a kernel with `dm_crypt` enabled.
-      See [how full disk encryption works](https://canonical-microceph.readthedocs-hosted.com/en/reef-stable/explanation/full-disk-encryption/) in the MicroCeph documentation for more information.
+      See {doc}`how full disk encryption works <microceph:explanation/full-disk-encryption>` in the MicroCeph documentation for more information.
       ```
 
    1. You can choose to optionally set up a CephFS distributed file system.
