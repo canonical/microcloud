@@ -7,8 +7,8 @@ If you want to remove a machine from the MicroCloud cluster after the initialisa
 
 Before removing the machine, ensure that there are no LXD instances or storage volumes located on the machine, and that there are no MicroCeph OSDs located on the machine.
 
-See [how to remove instances](https://documentation.ubuntu.com/lxd/en/latest/howto/instances_manage/#delete-an-instance) in the LXD documentation.
-See [how to remove OSDs](https://canonical-microceph.readthedocs-hosted.com/en/latest/how-to/remove-disk/) in the MicroCeph documentation.
+See {ref}`how to remove instances <lxd:instances-manage-delete>` in the LXD documentation.
+See {doc}`how to remove OSDs <microceph:how-to/remove-disk>` in the MicroCeph documentation.
 
 If the machine is no longer reachable over the network, you can also add the `--force` flag to bypass removal restrictions and skip attempting to clean up the machine. Note that MicroCeph requires `--force` to be used if the remaining cluster size will be less than 3.
 
