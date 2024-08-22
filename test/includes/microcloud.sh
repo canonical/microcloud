@@ -130,7 +130,7 @@ $(true)                                                 # workaround for set -e
 "
 fi
 
-if [ -n "${REPLACE_PROFILE}" ] && [ "${SKIP_LOOKUP}" = 1 ]; then
+if [ -n "${REPLACE_PROFILE}" ] ; then
   setup="${setup}
 ${REPLACE_PROFILE}
 $(true)                                                 # workaround for set -e

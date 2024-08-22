@@ -1348,7 +1348,6 @@ test_add_services() {
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
-  export REPLACE_PROFILE="no"
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
@@ -1362,6 +1361,7 @@ test_add_services() {
   export SKIP_LOOKUP=1
   unset SETUP_ZFS
   unset SETUP_OVN
+  export REPLACE_PROFILE="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
   services_validator
 
@@ -1370,14 +1370,15 @@ test_add_services() {
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage.
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
+  unset REPLACE_PROFILE
   export SKIP_SERVICE="yes"
-  export REPLACE_PROFILE="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset SETUP_ZFS
   unset SETUP_OVN
+  export REPLACE_PROFILE="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
   services_validator
 

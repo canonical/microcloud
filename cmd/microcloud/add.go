@@ -146,6 +146,33 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Also populate system information for existing cluster members. This is so we can potentially set up storage and networks if they haven't been set up before.
+	for name, address := range state.ExistingServices[types.MicroCloud] {
+		_, ok := cfg.systems[name]
+		if ok {
+			continue
+		}
+
+		cfg.systems[name] = InitSystem{
+			ServerInfo: mdns.ServerInfo{
+				Name:     name,
+				Address:  address,
+				Services: services,
+			},
+		}
+
+		if name == cfg.name {
+			continue
+		}
+
+		state, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: name, Address: address})
+		if err != nil {
+			return err
+		}
+
+		cfg.state[name] = *state
+	}
+
 	err = cfg.askDisks(s)
 	if err != nil {
 		return err
