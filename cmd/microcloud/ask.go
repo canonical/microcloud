@@ -1041,20 +1041,22 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 			}
 		}
 
-		gateways := []string{}
-		for gateway := range ipConfig {
-			gatewayAddr, _, err := net.ParseCIDR(gateway)
+		if len(ipConfig) > 0 {
+			gateways := []string{}
+			for gateway := range ipConfig {
+				gatewayAddr, _, err := net.ParseCIDR(gateway)
+				if err != nil {
+					return err
+				}
+
+				gateways = append(gateways, gatewayAddr.String())
+			}
+
+			gatewayAddrs := strings.Join(gateways, ",")
+			dnsAddresses, err = c.asker.AskString(fmt.Sprintf("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: %s): ", gatewayAddrs), gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
 			if err != nil {
 				return err
 			}
-
-			gateways = append(gateways, gatewayAddr.String())
-		}
-
-		gatewayAddrs := strings.Join(gateways, ",")
-		dnsAddresses, err = c.asker.AskString(fmt.Sprintf("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: %s): ", gatewayAddrs), gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
-		if err != nil {
-			return err
 		}
 	}
 
