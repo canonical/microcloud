@@ -12,6 +12,10 @@
 +----------------+----------+---------+-----------------+---------------------------+-------------+---------+---------+
 ```
 
+## Clone the terraform
+
+Get the terraform from the [demos folder](../../demos/microcloud-deploy)
+
 ## Get started - init lxd - optional if already initialised
 
 ```
@@ -21,8 +25,8 @@ sudo lxd init --auto
 ## Init tofu
 
 ```
-sudo snap install --classic opentofu
-tofu init
+sudo snap install --classic terraform
+terraform init
 ```
 
 ### Variables
