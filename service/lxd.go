@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/microcluster"
+	microTypes "github.com/canonical/microcluster/v2/rest/types"
 	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -47,8 +49,7 @@ func NewLXDService(name string, addr string, cloudDir string) (*LXDService, erro
 }
 
 // Client returns a client to the LXD unix socket.
-// The secret should be specified when the request is going to be forwarded to a remote address, such as with UseTarget.
-func (s LXDService) Client(ctx context.Context, secret string) (lxd.InstanceServer, error) {
+func (s LXDService) Client(ctx context.Context) (lxd.InstanceServer, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -57,12 +58,13 @@ func (s LXDService) Client(ctx context.Context, secret string) (lxd.InstanceServ
 	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
 		HTTPClient:    c.Client.Client,
 		SkipGetServer: true,
-		Proxy:         cloudClient.AuthProxy(secret, types.LXD),
+		Proxy:         cloudClient.AuthProxy("", types.LXD),
 	})
 }
 
 // remoteClient returns an https client for the given address:port.
-func (s LXDService) remoteClient(secret string, address string, port int64) (lxd.InstanceServer, error) {
+// It picks the cluster certificate if none is provided to verify the remote.
+func (s LXDService) remoteClient(cert *x509.Certificate, address string, port int64) (lxd.InstanceServer, error) {
 	c, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, port))
 	if err != nil {
 		return nil, err
@@ -73,14 +75,27 @@ func (s LXDService) remoteClient(secret string, address string, port int64) (lxd
 		return nil, err
 	}
 
+	// Use the cluster certificate if none is provided.
+	if cert == nil {
+		clusterCert, err := s.m.FileSystem.ClusterCert()
+		if err != nil {
+			return nil, err
+		}
+
+		cert, err = clusterCert.PublicKeyX509()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	remoteURL := c.URL()
 	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
-		HTTPClient:         c.Client.Client,
-		TLSClientCert:      string(serverCert.PublicKey()),
-		TLSClientKey:       string(serverCert.PrivateKey()),
-		InsecureSkipVerify: true,
-		SkipGetServer:      true,
-		Proxy:              cloudClient.AuthProxy(secret, types.LXD),
+		HTTPClient:    c.Client.Client,
+		TLSClientCert: string(serverCert.PublicKey()),
+		TLSClientKey:  string(serverCert.PrivateKey()),
+		TLSServerCert: microTypes.X509Certificate{Certificate: cert}.String(),
+		SkipGetServer: true,
+		Proxy:         cloudClient.AuthProxy("", types.LXD),
 	})
 	if err != nil {
 		return nil, err
@@ -91,7 +106,7 @@ func (s LXDService) remoteClient(secret string, address string, port int64) (lxd
 
 // Bootstrap bootstraps the LXD daemon on the default port.
 func (s LXDService) Bootstrap(ctx context.Context) error {
-	client, err := s.Client(ctx, "")
+	client, err := s.Client(ctx)
 	if err != nil {
 		return err
 	}
@@ -178,7 +193,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	}
 
 	config.Cluster.MemberConfig = joinConfig.LXDConfig
-	client, err := s.Client(ctx, "")
+	client, err := s.Client(ctx)
 	if err != nil {
 		return err
 	}
@@ -213,7 +228,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 
 // IssueToken issues a token for the given peer.
 func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error) {
-	client, err := s.Client(ctx, "")
+	client, err := s.Client(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -233,13 +248,13 @@ func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error)
 }
 
 // DeleteToken deletes a token by its name.
-func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c lxd.InstanceServer
 	var err error
-	if address != "" && secret != "" {
-		c, err = s.remoteClient(secret, address, CloudPort)
+	if address != "" {
+		c, err = s.remoteClient(nil, address, CloudPort)
 	} else {
-		c, err = s.Client(ctx, secret)
+		c, err = s.Client(ctx)
 	}
 
 	if err != nil {
@@ -280,9 +295,10 @@ func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address s
 	return fmt.Errorf("No corresponding join token operation found for %q", tokenName)
 }
 
-// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
-func (s LXDService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
-	client, err := s.remoteClient(secret, address, CloudPort)
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
+// Provide the certificate of the remote server for mTLS.
+func (s LXDService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+	client, err := s.remoteClient(cert, address, CloudPort)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +308,7 @@ func (s LXDService) RemoteClusterMembers(ctx context.Context, secret string, add
 
 // ClusterMembers returns a map of cluster member names.
 func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, error) {
-	client, err := s.Client(ctx, "")
+	client, err := s.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +348,7 @@ func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string
 
 // DeleteClusterMember removes the given cluster member from the service.
 func (s LXDService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
-	c, err := s.Client(ctx, "")
+	c, err := s.Client(ctx)
 	if err != nil {
 		return err
 	}
@@ -372,16 +388,16 @@ func (s *LXDService) SetConfig(config map[string]string) {
 }
 
 // HasExtension checks if the server supports the API extension.
-func (s *LXDService) HasExtension(ctx context.Context, target string, address string, secret string, apiExtension string) (bool, error) {
+func (s *LXDService) HasExtension(ctx context.Context, target string, address string, cert *x509.Certificate, apiExtension string) (bool, error) {
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
-		client, err = s.Client(ctx, secret)
+		client, err = s.Client(ctx)
 		if err != nil {
 			return false, err
 		}
 	} else {
-		client, err = s.remoteClient(secret, address, CloudPort)
+		client, err = s.remoteClient(cert, address, CloudPort)
 		if err != nil {
 			return false, err
 		}
@@ -401,16 +417,16 @@ func (s *LXDService) HasExtension(ctx context.Context, target string, address st
 // GetResources returns the system resources for the LXD target.
 // As we cannot guarantee that LXD is available on this machine, the request is
 // forwarded through MicroCloud on via the ListenPort argument.
-func (s *LXDService) GetResources(ctx context.Context, target string, address string, secret string) (*api.Resources, error) {
+func (s *LXDService) GetResources(ctx context.Context, target string, address string, cert *x509.Certificate) (*api.Resources, error) {
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
-		client, err = s.Client(ctx, secret)
+		client, err = s.Client(ctx)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		client, err = s.remoteClient(secret, address, CloudPort)
+		client, err = s.remoteClient(cert, address, CloudPort)
 		if err != nil {
 			return nil, err
 		}
@@ -420,13 +436,13 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 }
 
 // GetStoragePools fetches the list of all storage pools from LXD, keyed by pool name.
-func (s LXDService) GetStoragePools(ctx context.Context, name string, address string, secret string) (map[string]api.StoragePool, error) {
+func (s LXDService) GetStoragePools(ctx context.Context, name string, address string, cert *x509.Certificate) (map[string]api.StoragePool, error) {
 	var err error
 	var client lxd.InstanceServer
 	if name == s.Name() {
-		client, err = s.Client(ctx, "")
+		client, err = s.Client(ctx)
 	} else {
-		client, err = s.remoteClient(secret, address, CloudPort)
+		client, err = s.remoteClient(cert, address, CloudPort)
 	}
 
 	if err != nil {
@@ -448,12 +464,12 @@ func (s LXDService) GetStoragePools(ctx context.Context, name string, address st
 
 // GetConfig returns the member-specific and cluster-wide configurations of LXD.
 // If LXD is not clustered, it just returns the member-specific configuration.
-func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, address string, secret string) (localConfig map[string]any, globalConfig map[string]any, err error) {
+func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, address string, cert *x509.Certificate) (localConfig map[string]any, globalConfig map[string]any, err error) {
 	var client lxd.InstanceServer
 	if name == s.Name() {
-		client, err = s.Client(ctx, "")
+		client, err = s.Client(ctx)
 	} else {
-		client, err = s.remoteClient(secret, address, CloudPort)
+		client, err = s.remoteClient(cert, address, CloudPort)
 	}
 
 	if err != nil {
@@ -537,13 +553,13 @@ type DedicatedInterface struct {
 // - A map of ceph compatible networks keyed by interface name.
 // - A map of ovn compatible networks keyed by interface name.
 // - The list of all networks.
-func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, address string, secret string) (map[string]api.Network, map[string]DedicatedInterface, []api.Network, error) {
+func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, address string, cert *x509.Certificate) (map[string]api.Network, map[string]DedicatedInterface, []api.Network, error) {
 	var err error
 	var client lxd.InstanceServer
 	if name == s.Name() {
-		client, err = s.Client(ctx, "")
+		client, err = s.Client(ctx)
 	} else {
-		client, err = s.remoteClient(secret, address, CloudPort)
+		client, err = s.remoteClient(cert, address, CloudPort)
 	}
 
 	if err != nil {
@@ -635,7 +651,7 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 
 // Restart requests LXD to shutdown, then waits until it is ready.
 func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
-	c, err := s.Client(ctx, "")
+	c, err := s.Client(ctx)
 	if err != nil {
 		return err
 	}
@@ -786,7 +802,7 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 
 // SupportsFeature checks if the specified API feature of this Service instance if supported.
 func (s LXDService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
-	c, err := s.Client(ctx, "")
+	c, err := s.Client(ctx)
 	if err != nil {
 		return false, err
 	}

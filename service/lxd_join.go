@@ -23,7 +23,7 @@ func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
 		ServerAddress: util.CanonicalNetworkAddress(s.address, s.port),
 	}
 
-	ok, err := s.HasExtension(context.Background(), s.Name(), s.Address(), "", "explicit_trust_token")
+	ok, err := s.HasExtension(context.Background(), s.Name(), s.Address(), nil, "explicit_trust_token")
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"strconv"
 	"time"
@@ -124,16 +125,16 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 }
 
 // DeleteToken deletes a token by its name.
-func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c *microClient.Client
 	var err error
-	if address != "" && secret != "" {
+	if address != "" {
 		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
 		if err != nil {
 			return err
 		}
 
-		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCloud)
+		c, err = cloudClient.UseAuthProxy(c, types.MicroCloud, cloudClient.AuthConfig{})
 	} else {
 		c, err = s.client.LocalClient()
 	}
@@ -146,13 +147,13 @@ func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address
 }
 
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
-func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, secret string, peer string, serviceType types.ServiceType) (string, error) {
+func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, peer string, serviceType types.ServiceType) (string, error) {
 	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))
 	if err != nil {
 		return "", err
 	}
 
-	c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCloud)
+	c, err = cloudClient.UseAuthProxy(c, types.MicroCloud, cloudClient.AuthConfig{})
 	if err != nil {
 		return "", err
 	}
@@ -165,8 +166,28 @@ func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.client.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
 }
 
+// remoteClient returns an https client for the given address:port.
+// It picks the cluster certificate if none is provided to verify the remote.
+func (s CloudService) remoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
+	var err error
+	var client *microClient.Client
+
+	canonicalAddress := util.CanonicalNetworkAddress(address, CloudPort)
+	if cert != nil {
+		client, err = s.client.RemoteClientWithCert(canonicalAddress, cert)
+	} else {
+		client, err = s.client.RemoteClient(canonicalAddress)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 // RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.
-func (s CloudService) RequestJoin(ctx context.Context, secret string, name string, joinConfig types.ServicesPut) error {
+func (s CloudService) RequestJoin(ctx context.Context, name string, cert *x509.Certificate, joinConfig types.ServicesPut) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 
@@ -178,12 +199,12 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 			return err
 		}
 	} else {
-		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(joinConfig.Address, CloudPort))
+		c, err = s.remoteClient(cert, joinConfig.Address)
 		if err != nil {
 			return err
 		}
 
-		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCloud)
+		c, err = cloudClient.UseAuthProxy(c, types.MicroCloud, cloudClient.AuthConfig{})
 		if err != nil {
 			return err
 		}
@@ -192,14 +213,15 @@ func (s CloudService) RequestJoin(ctx context.Context, secret string, name strin
 	return client.JoinServices(ctx, c, joinConfig)
 }
 
-// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
-func (s CloudService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
-	client, err := s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
+// Provide the certificate of the remote server for mTLS.
+func (s CloudService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+	client, err := s.remoteClient(cert, address)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err = cloudClient.UseAuthProxy(client, secret, types.MicroCloud)
+	client, err = cloudClient.UseAuthProxy(client, types.MicroCloud, cloudClient.AuthConfig{})
 	if err != nil {
 		return nil, err
 	}
