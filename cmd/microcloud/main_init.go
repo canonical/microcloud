@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -36,6 +38,12 @@ const DefaultLookupTimeout time.Duration = time.Minute
 
 // RecommendedOSDHosts is the minimum number of OSD hosts recommended for a new cluster for fault-tolerance.
 const RecommendedOSDHosts = 3
+
+// DefaultAutoSessionTimeout is the default time limit for an automatic trust establishment session.
+const DefaultAutoSessionTimeout time.Duration = 10 * time.Minute
+
+// DefaultSessionTimeout is the default time limit for the trust establishment session.
+const DefaultSessionTimeout time.Duration = 60 * time.Minute
 
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
@@ -90,6 +98,9 @@ type initConfig struct {
 	// lookupTimeout is the duration to wait for mDNS records to appear during system lookup.
 	lookupTimeout time.Duration
 
+	// sessionTimeout is the duration to wait for the trust establishment session to complete.
+	sessionTimeout time.Duration
+
 	// wipeAllDisks indicates whether all disks should be wiped, or if the user should be prompted.
 	wipeAllDisks bool
 
@@ -112,26 +123,24 @@ type initConfig struct {
 type cmdInit struct {
 	common *CmdControl
 
-	flagLookupTimeout   int64
+	flagSessionTimeout  int64
 	flagWipeAllDisks    bool
 	flagEncryptAllDisks bool
 	flagAddress         string
-	flagPreseed         bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"bootstrap"},
-		Short:   "Initialize the network endpoint and create a new cluster",
+		Short:   "Initialize MicroCloud and create a new cluster",
 		RunE:    c.Run,
 	}
 
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().BoolVar(&c.flagEncryptAllDisks, "encrypt", false, "Encrypt disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
-	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
-	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait for systems to show up. Defaults: 60s for interactive, 5s for automatic and preseed")
+	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
 
 	return cmd
 }
@@ -153,15 +162,9 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		state:           map[string]service.SystemInformation{},
 	}
 
-	cfg.lookupTimeout = DefaultLookupTimeout
-	if c.flagLookupTimeout > 0 {
-		cfg.lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
-	} else if c.flagPreseed {
-		cfg.lookupTimeout = DefaultAutoLookupTimeout
-	}
-
-	if c.flagPreseed {
-		return cfg.RunPreseed(cmd)
+	cfg.sessionTimeout = DefaultSessionTimeout
+	if c.flagSessionTimeout > 0 {
+		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
 	}
 
 	return cfg.RunInteractive(cmd, args)
@@ -185,7 +188,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.askAddress()
+	err = c.askAddress("")
 	if err != nil {
 		return err
 	}
@@ -218,9 +221,13 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.lookupPeers(s, nil)
-	if err != nil {
-		return err
+	if c.setupMany {
+		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
+			return c.initiatingSession(gw, s, services, "", nil)
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	state, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address, Services: services})
@@ -285,179 +292,12 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// lookupPeers attempts to find eligible systems over mDNS, optionally limiting lookup to the given subnet if not nil.
-// Found systems will be progressively added to a table, and the user selection is added to the `systems` map.
-//
-// - If `autoSetup` is true, all systems found in the first 5s will be recorded, and no other input is required.
-// - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
-// except it will wait up to a minute for exclusively these systems to be recorded.
-func (c *initConfig) lookupPeers(s *service.Handler, expectedSystems []string) error {
-	if !c.setupMany {
-		return nil
-	}
-
-	header := []string{"NAME", "IFACE", "ADDR"}
-	var table *SelectableTable
-	var answers []string
-
-	autoSetup := c.autoSetup
-	if len(expectedSystems) > 0 {
-		autoSetup = true
-	}
-
-	tableCh := make(chan error)
-	selectionCh := make(chan error)
-	if !autoSetup {
-		go func() {
-			err := <-tableCh
-			if err != nil {
-				selectionCh <- err
-				return
-			}
-
-			answers, err = table.GetSelections()
-			selectionCh <- err
-		}()
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.lookupTimeout)
-	defer cancel()
-
-	expectedSystemsMap := make(map[string]bool, len(expectedSystems))
-	for _, system := range expectedSystems {
-		expectedSystemsMap[system] = true
-	}
-
-	fmt.Println("Scanning for eligible servers ...")
-	totalPeers := map[string]mdns.ServerInfo{}
-	done := false
-	for !done {
-		select {
-		case <-ctx.Done():
-			done = true
-		case err := <-selectionCh:
-			if err != nil {
-				return err
-			}
-
-			done = true
-		default:
-			// If we have found all expected systems, the map will be empty and we can return right away.
-			if len(expectedSystemsMap) == 0 && len(expectedSystems) > 0 {
-				done = true
-
-				break
-			}
-
-			peers, err := mdns.LookupPeers(ctx, c.lookupIface, mdns.Version, s.Name)
-			if err != nil {
-				return err
-			}
-
-			skipPeers := map[string]bool{}
-			for key, info := range peers {
-				_, ok := totalPeers[key]
-				if !ok {
-					serviceMap := make(map[types.ServiceType]bool, len(info.Services))
-					for _, service := range info.Services {
-						serviceMap[service] = true
-					}
-
-					// Skip any peers that are missing our services.
-					for service := range s.Services {
-						if !serviceMap[service] {
-							skipPeers[info.Name] = true
-							logger.Infof("Skipping peer %q due to missing services (%s)", info.Name, string(service))
-							break
-						}
-					}
-
-					// If given a subnet, skip any peers that are broadcasting from a different subnet.
-					if c.lookupSubnet != nil && !c.lookupSubnet.Contains(net.ParseIP(info.Address)) {
-						continue
-					}
-
-					if !skipPeers[info.Name] {
-						totalPeers[key] = info
-
-						if len(expectedSystems) > 0 {
-							if expectedSystemsMap[info.Name] {
-								delete(expectedSystemsMap, info.Name)
-							} else {
-								delete(totalPeers, key)
-							}
-						}
-
-						if autoSetup {
-							continue
-						}
-
-						if len(totalPeers) == 1 {
-							table = NewSelectableTable(header, [][]string{{info.Name, info.Interface, info.Address}})
-							err := table.Render(table.rows)
-							if err != nil {
-								return err
-							}
-
-							time.Sleep(100 * time.Millisecond)
-							tableCh <- nil
-						} else {
-							table.Update([]string{info.Name, info.Interface, info.Address})
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if len(totalPeers) == 0 {
-		return fmt.Errorf("Found no available systems")
-	}
-
-	for _, answer := range answers {
-		peer := table.SelectionValue(answer, "NAME")
-		addr := table.SelectionValue(answer, "ADDR")
-		iface := table.SelectionValue(answer, "IFACE")
-		for _, info := range totalPeers {
-			if info.Name == peer && info.Address == addr && info.Interface == iface {
-				c.systems[peer] = InitSystem{
-					ServerInfo: info,
-				}
-			}
-		}
-	}
-
-	if autoSetup {
-		for _, info := range totalPeers {
-			c.systems[info.Name] = InitSystem{
-				ServerInfo: info,
-			}
-		}
-
-		if len(expectedSystems) > 0 {
-			return nil
-		}
-
-		// Add a space between the CLI and the response.
-		fmt.Println("")
-	}
-
-	for _, info := range c.systems {
-		fmt.Printf(" Selected %q at %q\n", info.ServerInfo.Name, info.ServerInfo.Address)
-	}
-
-	// Add a space between the CLI and the response.
-	fmt.Println("")
-
-	return nil
-}
-
 // waitForJoin requests a system to join each service's respective cluster,
 // and then waits for the request to either complete or time out.
 // If the request was successful, it additionally waits until the cluster appears in the database.
-func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, secret string, peer string, cfg types.ServicesPut) error {
+func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, peer string, cert *x509.Certificate, cfg types.ServicesPut) error {
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	err := cloud.RequestJoin(context.Background(), secret, peer, cfg)
+	err := cloud.RequestJoin(context.Background(), peer, cert, cfg)
 	if err != nil {
 		return fmt.Errorf("System %q failed to join the cluster: %w", peer, err)
 	}
@@ -555,7 +395,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 					}
 				} else {
 					cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-					token, err = cloud.RemoteIssueToken(context.Background(), clusteredSystem.ServerInfo.Address, clusteredSystem.ServerInfo.AuthSecret, peer, s.Type())
+					token, err = cloud.RemoteIssueToken(context.Background(), clusteredSystem.ServerInfo.Address, peer, s.Type())
 					if err != nil {
 						return err
 					}
@@ -563,7 +403,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 
 				mut.Lock()
 				reverter.Add(func() {
-					err = s.DeleteToken(context.Background(), peer, clusteredSystem.ServerInfo.Address, clusteredSystem.ServerInfo.AuthSecret)
+					err = s.DeleteToken(context.Background(), peer, clusteredSystem.ServerInfo.Address)
 					if err != nil {
 						logger.Error("Failed to clean up join token", logger.Ctx{"service": s.Type(), "error": err})
 					}
@@ -587,7 +427,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 	// If the local node needs to join an existing cluster, do it first so we can proceed as normal.
 	if len(joinConfig[sh.Name].Tokens) > 0 {
 		cfg := joinConfig[sh.Name]
-		err := waitForJoin(sh, clusterSize, "", sh.Name, cfg)
+		err := waitForJoin(sh, clusterSize, sh.Name, nil, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -599,7 +439,8 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		}
 
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
-		err := waitForJoin(sh, clusterSize, c.systems[peer].ServerInfo.AuthSecret, peer, cfg)
+		cert := c.systems[peer].ServerInfo.Certificate
+		err := waitForJoin(sh, clusterSize, peer, cert, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -730,7 +571,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	defer reverter.Fail()
 
 	lxd := s.Services[types.LXD].(*service.LXDService)
-	lxdClient, err := lxd.Client(context.Background(), "")
+	lxdClient, err := lxd.Client(context.Background())
 	if err != nil {
 		return err
 	}
@@ -848,7 +689,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			var client *client.Client
 			for _, disk := range c.systems[name].MicroCephDisks {
 				if client == nil {
-					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name, c.systems[name].ServerInfo.AuthSecret)
+					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name)
 					if err != nil {
 						return err
 					}
@@ -950,7 +791,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		system := c.systems[s.Name]
-		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background())
 		if err != nil {
 			logger.Error("Failed to get LXD client for cleanup", logger.Ctx{"error": err})
 
@@ -968,7 +809,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	// Create preliminary networks & storage pools on each target.
 	for name, system := range c.systems {
-		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background())
 		if err != nil {
 			return err
 		}
@@ -1036,7 +877,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	// With storage pools set up, add some volumes for images & backups.
 	for name, system := range c.systems {
-		lxdClient, err := lxd.Client(context.Background(), system.ServerInfo.AuthSecret)
+		lxdClient, err := lxd.Client(context.Background())
 		if err != nil {
 			return err
 		}
