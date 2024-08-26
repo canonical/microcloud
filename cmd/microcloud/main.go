@@ -78,6 +78,12 @@ EOF`)
 	var cmdAdd = cmdAdd{common: &commonCmd}
 	app.AddCommand(cmdAdd.Command())
 
+	var cmdJoin = cmdJoin{common: &commonCmd}
+	app.AddCommand(cmdJoin.Command())
+
+	var cmdPreseed = cmdPreseed{common: &commonCmd}
+	app.AddCommand(cmdPreseed.Command())
+
 	var cmdRemove = cmdRemove{common: &commonCmd}
 	app.AddCommand(cmdRemove.Command())
 
