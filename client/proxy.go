@@ -2,6 +2,7 @@ package client
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,9 +14,20 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
-// UseAuthProxy takes the given microcluster client and secret and proxies requests to other services through the MicroCloud API.
-// The secret will be set in the authentication header in lieu of TLS authentication, if present.
-func UseAuthProxy(c *client.Client, secret string, serviceType types.ServiceType) (*client.Client, error) {
+// AuthConfig is used to configure the various authentication settings during trust establishment.
+// In case of unverified mTLS, InsecureSkipVerify has to be set to true.
+// In case of partially verified mTLS, the remote servers certificate can be set using TLSServerCertificate.
+// Request authentication can be made by setting a valid HMAC.
+type AuthConfig struct {
+	HMAC                 string
+	TLSServerCertificate *x509.Certificate
+	InsecureSkipVerify   bool
+}
+
+// UseAuthProxy takes the given microcluster client and HMAC and proxies requests to other services through the MicroCloud API.
+// The HMAC will be set in the Authorization header in lieu of mTLS authentication, if present.
+// If no HMAC is present mTLS is assumed.
+func UseAuthProxy(c *client.Client, serviceType types.ServiceType, conf AuthConfig) (*client.Client, error) {
 	tp, ok := c.Transport.(*http.Transport)
 	if !ok {
 		return nil, fmt.Errorf("Invalid client transport type")
@@ -26,12 +38,8 @@ func UseAuthProxy(c *client.Client, secret string, serviceType types.ServiceType
 		tp.TLSClientConfig = &tls.Config{}
 	}
 
-	// Only set InsecureSkipVerify if the secret is non-empty, so we will fallback to regular TLS authentication.
-	if secret != "" {
-		tp.TLSClientConfig.InsecureSkipVerify = true
-	}
-
-	tp.Proxy = AuthProxy(secret, serviceType)
+	tp.TLSClientConfig.InsecureSkipVerify = conf.InsecureSkipVerify
+	tp.Proxy = AuthProxy(conf.HMAC, serviceType)
 
 	c.Transport = tp
 
@@ -40,12 +48,14 @@ func UseAuthProxy(c *client.Client, secret string, serviceType types.ServiceType
 
 // AuthProxy takes a request to a service and sends it to MicroCloud instead,
 // to be then forwarded to the unix socket of the corresponding service.
-// The secret is set in the request header to use in lieu of TLS authentication.
-func AuthProxy(secret string, serviceType types.ServiceType) func(r *http.Request) (*url.URL, error) {
+// The HMAC is set in the request header to be used partially in lieu of mTLS authentication.
+func AuthProxy(hmac string, serviceType types.ServiceType) func(r *http.Request) (*url.URL, error) {
 	return func(r *http.Request) (*url.URL, error) {
-		r.Header.Set("X-MicroCloud-Auth", secret)
+		if hmac != "" {
+			r.Header.Set("Authorization", hmac)
+		}
 
-		// MicroCloud itself doesn't need to use the proxy other than to set the auth secret.
+		// MicroCloud itself doesn't need to use the proxy.
 		if serviceType != types.MicroCloud {
 			path := fmt.Sprintf("/1.0/services/%s", strings.ToLower(string(serviceType)))
 			if !strings.HasPrefix(r.URL.Path, path) {
