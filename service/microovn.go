@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -91,16 +92,16 @@ func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error)
 }
 
 // DeleteToken deletes a token by its name.
-func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c *client.Client
 	var err error
-	if address != "" && secret != "" {
+	if address != "" {
 		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
 		if err != nil {
 			return err
 		}
 
-		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroOVN)
+		c, err = cloudClient.UseAuthProxy(c, types.MicroOVN, cloudClient.AuthConfig{})
 	} else {
 		c, err = s.m.LocalClient()
 	}
@@ -117,14 +118,26 @@ func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, joinConfig.OVNConfig)
 }
 
-// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
-func (s OVNService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
-	client, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
-	if err != nil {
-		return nil, err
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
+// Provide the certificate of the remote server for mTLS.
+func (s OVNService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+	var err error
+	var client *client.Client
+
+	canonicalAddress := util.CanonicalNetworkAddress(address, CloudPort)
+	if cert != nil {
+		client, err = s.m.RemoteClientWithCert(canonicalAddress, cert)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		client, err = s.m.RemoteClient(canonicalAddress)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	client, err = cloudClient.UseAuthProxy(client, secret, types.MicroOVN)
+	client, err = cloudClient.UseAuthProxy(client, types.MicroOVN, cloudClient.AuthConfig{})
 	if err != nil {
 		return nil, err
 	}

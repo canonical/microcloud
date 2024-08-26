@@ -23,9 +23,6 @@ type SystemInformation struct {
 	// ClusterAddress is the default cluster address used for MicroCloud.
 	ClusterAddress string
 
-	// AuthSecret authenticates remote connections from the MicroCloud initiator.
-	AuthSecret string
-
 	// AvailableDisks is the list of disks available for use on the system.
 	AvailableDisks map[string]api.ResourcesStorageDisk
 
@@ -78,7 +75,6 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 		ExistingServices:          map[types.ServiceType]map[string]string{},
 		ClusterName:               connectInfo.Name,
 		ClusterAddress:            connectInfo.Address,
-		AuthSecret:                connectInfo.AuthSecret,
 		AvailableDisks:            map[string]api.ResourcesStorageDisk{},
 		AvailableUplinkInterfaces: map[string]api.Network{},
 		AvailableCephInterfaces:   map[string]DedicatedInterface{},
@@ -94,9 +90,9 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 	var allResources *api.Resources
 	lxd := sh.Services[types.LXD].(*LXDService)
 	if localSystem {
-		allResources, err = lxd.GetResources(ctx, s.ClusterName, "", "")
+		allResources, err = lxd.GetResources(ctx, s.ClusterName, "", nil)
 	} else {
-		allResources, err = lxd.GetResources(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
+		allResources, err = lxd.GetResources(ctx, s.ClusterName, s.ClusterAddress, connectInfo.Certificate)
 	}
 
 	if err != nil {
@@ -112,7 +108,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 	}
 
 	var allNets []api.Network
-	uplinkInterfaces, dedicatedInterfaces, allNets, err := lxd.GetNetworkInterfaces(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
+	uplinkInterfaces, dedicatedInterfaces, allNets, err := lxd.GetNetworkInterfaces(ctx, s.ClusterName, s.ClusterAddress, connectInfo.Certificate)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get network interfaces on %q: %w", s.ClusterName, err)
 	}
@@ -138,7 +134,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 		}
 	}
 
-	pools, err := lxd.GetStoragePools(ctx, s.ClusterName, s.ClusterAddress, s.AuthSecret)
+	pools, err := lxd.GetStoragePools(ctx, s.ClusterName, s.ClusterAddress, connectInfo.Certificate)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get storage pools on %q: %w", s.ClusterName, err)
 	}
@@ -165,9 +161,9 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 		microceph := sh.Services[types.MicroCeph].(*CephService)
 
 		if localSystem {
-			s.CephConfig, err = microceph.ClusterConfig(ctx, "", "")
+			s.CephConfig, err = microceph.ClusterConfig(ctx, "", nil)
 		} else {
-			s.CephConfig, err = microceph.ClusterConfig(ctx, s.ClusterAddress, s.AuthSecret)
+			s.CephConfig, err = microceph.ClusterConfig(ctx, s.ClusterAddress, connectInfo.Certificate)
 		}
 
 		if err != nil && !api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
@@ -176,9 +172,9 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 	}
 
 	if localSystem {
-		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ServiceClustered(types.LXD), s.ClusterName, "", "")
+		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ServiceClustered(types.LXD), s.ClusterName, "", nil)
 	} else {
-		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ServiceClustered(types.LXD), s.ClusterName, s.ClusterAddress, s.AuthSecret)
+		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ServiceClustered(types.LXD), s.ClusterName, s.ClusterAddress, connectInfo.Certificate)
 	}
 
 	if err != nil {
@@ -200,7 +196,7 @@ func (sh *Handler) GetExistingClusters(ctx context.Context, connectInfo mdns.Ser
 		if localSystem {
 			existingCluster, err = sh.Services[service].ClusterMembers(ctx)
 		} else {
-			existingCluster, err = sh.Services[service].RemoteClusterMembers(ctx, connectInfo.AuthSecret, connectInfo.Address)
+			existingCluster, err = sh.Services[service].RemoteClusterMembers(ctx, connectInfo.Certificate, connectInfo.Address)
 		}
 
 		if err != nil && !api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
