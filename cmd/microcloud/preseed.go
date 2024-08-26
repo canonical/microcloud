@@ -8,17 +8,21 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/filter"
 	"github.com/canonical/lxd/shared/units"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -26,8 +30,12 @@ import (
 // Preseed represents the structure of the supported preseed yaml.
 type Preseed struct {
 	LookupSubnet          string        `yaml:"lookup_subnet"`
-	LookupInterface       string        `yaml:"lookup_interface"`
+	LookupTimeout         int64         `yaml:"lookup_timeout"`
+	SessionPassphrase     string        `yaml:"session_passphrase"`
+	SessionTimeout        int64         `yaml:"session_timeout"`
 	ReuseExistingClusters bool          `yaml:"reuse_existing_clusters"`
+	Initiator             string        `yaml:"initiator"`
+	InitiatorAddress      string        `yaml:"initiator_address"`
 	Systems               []System      `yaml:"systems"`
 	OVN                   InitNetwork   `yaml:"ovn"`
 	Ceph                  CephOptions   `yaml:"ceph"`
@@ -37,6 +45,7 @@ type Preseed struct {
 // System represents the structure of the systems we expect to find in the preseed yaml.
 type System struct {
 	Name            string      `yaml:"name"`
+	Address         string      `yaml:"address"`
 	UplinkInterface string      `yaml:"ovn_uplink_interface"`
 	UnderlayIP      string      `yaml:"underlay_ip"`
 	Storage         InitStorage `yaml:"storage"`
@@ -101,6 +110,34 @@ func DiskOperatorSet() filter.OperatorSet {
 	}
 }
 
+type cmdPreseed struct {
+	common *CmdControl
+}
+
+func (c *cmdPreseed) Command() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "preseed",
+		Short: "Initialize and extend a MicroCloud cluster unattended",
+		RunE:  c.Run,
+	}
+
+	return cmd
+}
+
+func (c *cmdPreseed) Run(cmd *cobra.Command, args []string) error {
+	if len(args) != 0 {
+		return cmd.Help()
+	}
+
+	cfg := initConfig{
+		common:  c.common,
+		systems: map[string]InitSystem{},
+		state:   map[string]service.SystemInformation{},
+	}
+
+	return cfg.RunPreseed(cmd)
+}
+
 // RunPreseed initializes MicroCloud from a preseed yaml filepath input.
 func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.autoSetup = true
@@ -116,6 +153,32 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("Failed to parse the preseed yaml: %w", err)
 	}
 
+	c.bootstrap = config.isBootstrap()
+
+	c.lookupTimeout = DefaultLookupTimeout
+	if config.LookupTimeout > 0 {
+		c.lookupTimeout = time.Duration(config.LookupTimeout) * time.Second
+	}
+
+	c.sessionTimeout = DefaultSessionTimeout
+	if config.SessionTimeout > 0 {
+		c.sessionTimeout = time.Duration(config.SessionTimeout) * time.Second
+	}
+
+	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
+	if err != nil {
+		return err
+	}
+
+	status, err := cloudApp.Status(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
+	}
+
+	if status.Ready && c.bootstrap {
+		return fmt.Errorf("MicroCloud is already initialized")
+	}
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		return err
@@ -126,19 +189,21 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
-	_, lookupSubnet, err := net.ParseCIDR(config.LookupSubnet)
-	if err != nil {
-		return err
+	var listenAddr string
+	if status.Ready {
+		// If the cluster is already bootstrapped use its address.
+		listenAddr = status.Address.Addr().String()
+	} else {
+		// In case of bootstrap use the address from the preseed file.
+		listenAddr, err = config.address(hostname)
+		if err != nil {
+			return err
+		}
 	}
 
-	lookupIface, err := net.InterfaceByName(config.LookupInterface)
-	if err != nil {
-		return err
-	}
-
-	listenIP, err := addrInSubnet(lookupIface, *lookupSubnet)
-	if err != nil {
-		return fmt.Errorf("Failed to determine MicroCloud listen address: %w", err)
+	listenIP := net.ParseIP(listenAddr)
+	if listenIP == nil {
+		return fmt.Errorf("Invalid MicroCloud listen address %q", listenAddr)
 	}
 
 	// Build the service handler.
@@ -160,9 +225,25 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
+	initiator := config.isInitiator(c.name, c.address)
+
+	if !status.Ready && !c.bootstrap && initiator {
+		return fmt.Errorf("MicroCloud isn't yet initialized and cannot be the initiator")
+	}
+
+	if status.Ready && !initiator {
+		return fmt.Errorf("MicroCloud is already initialized and can only be the initiator")
+	}
+
 	systems, err := config.Parse(s, c)
 	if err != nil {
 		return err
+	}
+
+	// Exit in case of join.
+	// Only the initiator has to continue.
+	if systems == nil {
+		return nil
 	}
 
 	if !c.bootstrap {
@@ -230,9 +311,38 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("No systems given")
 	}
 
+	if p.Initiator == "" && p.InitiatorAddress == "" {
+		return fmt.Errorf("Missing initiator's name or address")
+	}
+
+	if p.Initiator != "" && p.InitiatorAddress != "" {
+		return fmt.Errorf("Cannot provide both the initiator's name and address")
+	}
+
+	if p.InitiatorAddress != "" && p.LookupSubnet != "" {
+		return fmt.Errorf("Cannot provide both the initiator's address and lookup subnet")
+	}
+
+	if len(p.Systems) > 1 && p.SessionPassphrase == "" {
+		return fmt.Errorf("Missing session passphrase")
+	}
+
+	systemNames := make([]string, 0, len(p.Systems))
 	for _, system := range p.Systems {
 		if system.Name == "" {
 			return fmt.Errorf("Missing system name")
+		}
+
+		if system.Address != "" && p.LookupSubnet != "" {
+			return fmt.Errorf("Cannot provide both the address for system %q and the lookup subnet", system.Name)
+		}
+
+		if system.Address == "" && p.InitiatorAddress != "" {
+			return fmt.Errorf("Missing address for system %q when the initiator's address is set", system.Name)
+		}
+
+		if system.Address != "" && p.InitiatorAddress == "" {
+			return fmt.Errorf("Missing the initiator's address as system %q has an address", system.Name)
 		}
 
 		if system.Name == name {
@@ -259,6 +369,12 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		if system.Storage.Local.Path != "" {
 			directLocalCount++
 		}
+
+		if shared.ValueInSlice(system.Name, systemNames) {
+			return fmt.Errorf("Duplicate system name %q", system.Name)
+		}
+
+		systemNames = append(systemNames, system.Name)
 	}
 
 	if !bootstrap && p.ReuseExistingClusters {
@@ -267,10 +383,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 	if bootstrap && !localInit {
 		return fmt.Errorf("Local MicroCloud must be included in the list of systems when initializing")
-	}
-
-	if !bootstrap && localInit {
-		return fmt.Errorf("Local MicroCloud must not be included in the list of systems when adding new members")
 	}
 
 	containsUplinks := false
@@ -291,15 +403,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("Some systems are missing local storage disks")
 	}
 
-	_, _, err := net.ParseCIDR(p.LookupSubnet)
-	if err != nil {
-		return err
-	}
-
-	if p.LookupInterface == "" {
-		return fmt.Errorf("Missing interface name for machine lookup")
-	}
-
 	containsCephStorage = directCephCount > 0 || len(p.Storage.Ceph) > 0
 	usingCephInternalNetwork := p.Ceph.InternalNetwork != ""
 	if !containsCephStorage && usingCephInternalNetwork {
@@ -307,7 +410,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	}
 
 	if usingCephInternalNetwork {
-		err = validate.IsNetwork(p.Ceph.InternalNetwork)
+		err := validate.IsNetwork(p.Ceph.InternalNetwork)
 		if err != nil {
 			return fmt.Errorf("Invalid Ceph internal network subnet: %v", err)
 		}
@@ -380,6 +483,71 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	return nil
 }
 
+// isInitiator returns true if the current host is marked as being the initiator.
+func (p *Preseed) isInitiator(name string, address string) bool {
+	if name == p.Initiator && p.Initiator != "" {
+		return true
+	}
+
+	if address == p.InitiatorAddress && p.InitiatorAddress != "" {
+		return true
+	}
+
+	return false
+}
+
+// isBootstrap returns true if MicroCloud is in bootstrap mode.
+// This is the case if either no initiator address is set
+// or the initiator address is set to an address of a system
+// in the current list of systems in the preseed file.
+func (p *Preseed) isBootstrap() bool {
+	for _, system := range p.Systems {
+		if system.Name == p.Initiator {
+			return true
+		}
+
+		if system.Address != "" && system.Address == p.InitiatorAddress {
+			return true
+		}
+	}
+
+	return false
+}
+
+// address either returns the address specified for the respective system
+// or the first address found on the system within the provided lookup subnet.
+func (p *Preseed) address(name string) (string, error) {
+	for _, system := range p.Systems {
+		if system.Name == name && system.Address != "" {
+			return system.Address, nil
+		}
+	}
+
+	_, lookupSubnet, err := net.ParseCIDR(p.LookupSubnet)
+	if err != nil {
+		return "", err
+	}
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+
+		ip := addrInSubnet(addrs, *lookupSubnet)
+		if ip != nil {
+			return ip.String(), nil
+		}
+	}
+
+	return "", fmt.Errorf("Failed to determine MicroCloud address within subnet %q", p.LookupSubnet)
+}
+
 // Match matches the devices to the given filter, and returns the result.
 func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.ResourcesStorageDisk, error) {
 	if d.Find == "" {
@@ -435,39 +603,58 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		expectedSystems = append(expectedSystems, system.Name)
 	}
 
-	// Lookup peers until expected systems are found.
-	var err error
-	_, c.lookupSubnet, err = net.ParseCIDR(p.LookupSubnet)
-	if err != nil {
-		return nil, err
-	}
-
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
 	}
 
 	for _, iface := range ifaces {
-		if iface.Name == p.LookupInterface {
+		addresses, err := iface.Addrs()
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get addresses of interface %q: %w", iface.Name, err)
+		}
+
+		addressStrings := make([]string, 0, len(addresses))
+		for _, address := range addresses {
+			ipNet, ok := address.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			addressStrings = append(addressStrings, ipNet.IP.String())
+		}
+
+		if shared.ValueInSlice(c.address, addressStrings) {
 			c.lookupIface = &iface
 			break
 		}
 	}
 
 	if c.lookupIface == nil {
-		return nil, fmt.Errorf("Failed to find lookup interface %q", p.LookupInterface)
+		return nil, fmt.Errorf("Failed to find lookup interface for address %q", c.address)
+	}
+
+	initiator := p.isInitiator(c.name, c.address)
+
+	expectedServices := make([]types.ServiceType, len(s.Services))
+	for _, v := range s.Services {
+		expectedServices = append(expectedServices, v.Type())
+	}
+
+	if !initiator {
+		err = c.runSession(context.Background(), s, types.SessionJoining, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
+			return c.joiningSession(gw, s, expectedServices, p.InitiatorAddress, p.SessionPassphrase)
+		})
+		return nil, err
 	}
 
 	if len(expectedSystems) > 0 {
-		err = c.lookupPeers(s, expectedSystems)
+		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
+			return c.initiatingSession(gw, s, expectedServices, p.SessionPassphrase, expectedSystems)
+		})
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
-	for k, v := range s.Services {
-		expectedServices[k] = v
 	}
 
 	for peer, system := range c.systems {
@@ -521,7 +708,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 
 	cephInterfaces := map[string]map[string]service.DedicatedInterface{}
 	for _, system := range c.systems {
-		uplinkIfaces, cephIfaces, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
+		cert := system.ServerInfo.Certificate
+		uplinkIfaces, cephIfaces, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, cert)
 		if err != nil {
 			return nil, err
 		}
@@ -720,8 +908,10 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 			continue
 		}
 
+		cert := system.ServerInfo.Certificate
+
 		// Fetch system resources from LXD to find disks if we haven't directly set up disks.
-		allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, system.ServerInfo.AuthSecret)
+		allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
 		}
@@ -939,12 +1129,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 }
 
 // Returns the first IP address assigned to iface that falls within lookupSubnet.
-func addrInSubnet(iface *net.Interface, lookupSubnet net.IPNet) (net.IP, error) {
-	addrs, err := iface.Addrs()
-	if err != nil {
-		return nil, err
-	}
-
+func addrInSubnet(addrs []net.Addr, lookupSubnet net.IPNet) net.IP {
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
@@ -952,9 +1137,9 @@ func addrInSubnet(iface *net.Interface, lookupSubnet net.IPNet) (net.IP, error) 
 		}
 
 		if lookupSubnet.Contains(ip) {
-			return ip, nil
+			return ip
 		}
 	}
 
-	return nil, fmt.Errorf("%q has no addresses in subnet %q", iface.Name, lookupSubnet)
+	return nil
 }
