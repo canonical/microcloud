@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
@@ -15,6 +16,7 @@ import (
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
+	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
@@ -38,6 +40,12 @@ type JoinConfig struct {
 	LXDConfig  []api.ClusterMemberConfigKey
 	CephConfig []cephTypes.DisksPost
 	OVNConfig  map[string]string
+}
+
+// Status represents information about a cluster member.
+// It represents microcluster's internal Server type and implements a subset of it.
+type Status struct {
+	Name string `json:"name"    yaml:"name"`
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
@@ -64,9 +72,19 @@ func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoin
 		Version:              version.Version,
 		PreInitListenAddress: "[::]:" + strconv.FormatInt(CloudPort, 10),
 		Hooks: &state.Hooks{
-			PostBootstrap: func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },
-			PostJoin:      func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },
-			OnStart:       service.Start,
+			PostJoin: func(ctx context.Context, s state.State, cfg map[string]string) error {
+				// If the node has joined close the session.
+				// This will signal to the client to exit out gracefully
+				// and ultimately lead to the closing of the websocket connection.
+				// Prevent blocking of the hook by also watching the outer context.
+				select {
+				case service.Session.ExitCh() <- true:
+				case <-ctx.Done():
+				}
+
+				return nil
+			},
+			OnStart: service.Start,
 		},
 		ExtensionServers: map[string]rest.Server{
 			"microcloud": {
@@ -213,6 +231,21 @@ func (s CloudService) RequestJoin(ctx context.Context, name string, cert *x509.C
 	return client.JoinServices(ctx, c, joinConfig)
 }
 
+// RequestJoinIntent send the intent to join the remote cluster.
+func (s CloudService) RequestJoinIntent(ctx context.Context, clusterAddress string, conf cloudClient.AuthConfig, intent types.SessionJoinPost) (*x509.Certificate, error) {
+	c, err := s.client.RemoteClientWithCert(util.CanonicalNetworkAddress(clusterAddress, CloudPort), conf.TLSServerCertificate)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err = cloudClient.UseAuthProxy(c, types.MicroCloud, conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.JoinIntent(ctx, c, intent)
+}
+
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
 // Provide the certificate of the remote server for mTLS.
 func (s CloudService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
@@ -227,6 +260,27 @@ func (s CloudService) RemoteClusterMembers(ctx context.Context, cert *x509.Certi
 	}
 
 	return clusterMembers(ctx, client)
+}
+
+// RemoteStatus returns the status of a remote member which doesn't have to be part of any cluster.
+func (s CloudService) RemoteStatus(ctx context.Context, cert *x509.Certificate, address string) (*Status, error) {
+	client, err := s.remoteClient(cert, address)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err = cloudClient.UseAuthProxy(client, types.MicroCloud, cloudClient.AuthConfig{})
+	if err != nil {
+		return nil, err
+	}
+
+	status := Status{}
+	err = client.Query(ctx, "GET", "core/1.0", nil, nil, &status)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get status: %w", err)
+	}
+
+	return &status, nil
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
@@ -308,4 +362,24 @@ func (s *CloudService) SupportsFeature(ctx context.Context, feature string) (boo
 	}
 
 	return server.Extensions.HasExtension(feature), nil
+}
+
+// ServerCert returns the local clusters server certificate.
+func (s *CloudService) ServerCert() (*shared.CertInfo, error) {
+	return s.client.FileSystem.ServerCert()
+}
+
+// ClusterCert returns the local clusters certificate.
+func (s *CloudService) ClusterCert() (*shared.CertInfo, error) {
+	return s.client.FileSystem.ClusterCert()
+}
+
+// StartSession starts a trust establishment session via the unix socket.
+func (s *CloudService) StartSession(ctx context.Context, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
+	c, err := s.client.LocalClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return client.StartSession(ctx, c, role, sessionTimeout)
 }
