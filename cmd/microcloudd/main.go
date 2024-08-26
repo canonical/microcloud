@@ -85,14 +85,6 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	// Periodically check if new services have been installed.
 	go func() {
 		for {
-			if s.AuthSecret == "" {
-				logger.Debug("Waiting for initial setup before checking for optional services")
-				time.Sleep(1 * time.Second)
-
-				continue
-			}
-
-			updated := false
 			for serviceName, stateDir := range optionalServices {
 				if service.Exists(serviceName, stateDir) {
 					if s.Services[serviceName] != nil {
@@ -105,24 +97,9 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 						break
 					}
 
-					updated = true
 					s.Services[serviceName] = newService.Services[serviceName]
 				} else if s.Services[serviceName] != nil {
 					delete(s.Services, serviceName)
-					updated = true
-				}
-			}
-
-			if updated {
-				err = s.StopBroadcast()
-				if err != nil {
-					logger.Error("Failed to shutdown broadcast after detecting new services", logger.Ctx{"error": err})
-					continue
-				}
-
-				err = s.Broadcast()
-				if err != nil {
-					logger.Error("Failed to restart broadcast after detecting new services", logger.Ctx{"error": err})
 				}
 			}
 
@@ -134,6 +111,9 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.ServicesCmd(s),
 		api.ServiceTokensCmd(s),
 		api.ServicesClusterCmd(s),
+		api.SessionJoinCmd(s),
+		api.SessionInitiatingCmd(s),
+		api.SessionJoiningCmd(s),
 		api.LXDProxy(s),
 		api.CephProxy(s),
 		api.OVNProxy(s),
