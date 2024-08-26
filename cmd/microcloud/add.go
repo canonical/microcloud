@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -17,21 +18,19 @@ import (
 type cmdAdd struct {
 	common *CmdControl
 
-	flagWipe          bool
-	flagPreseed       bool
-	flagLookupTimeout int64
+	flagWipe           bool
+	flagSessionTimeout int64
 }
 
 func (c *cmdAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Scan for new cluster members to add",
+		Short: "Add new systems to an existing MicroCloud cluster",
 		RunE:  c.Run,
 	}
 
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
-	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
-	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait for systems to show up. Defaults: 60s for interactive, 5s for automatic and preseed")
+	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
 
 	return cmd
 }
@@ -51,15 +50,9 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		state:        map[string]service.SystemInformation{},
 	}
 
-	cfg.lookupTimeout = DefaultLookupTimeout
-	if c.flagLookupTimeout > 0 {
-		cfg.lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
-	} else if c.flagPreseed {
-		cfg.lookupTimeout = DefaultAutoLookupTimeout
-	}
-
-	if c.flagPreseed {
-		return cfg.RunPreseed(cmd)
+	cfg.sessionTimeout = DefaultSessionTimeout
+	if c.flagSessionTimeout > 0 {
+		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
 	}
 
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
@@ -78,7 +71,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	cfg.name = status.Name
 	cfg.address = status.Address.Addr().String()
-	err = cfg.askAddress()
+	err = cfg.askAddress("")
 	if err != nil {
 		return err
 	}
@@ -99,7 +92,9 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = cfg.lookupPeers(s, nil)
+	err = cfg.runSession(context.Background(), s, types.SessionInitiating, cfg.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
+		return cfg.initiatingSession(gw, s, services, "", nil)
+	})
 	if err != nil {
 		return err
 	}
