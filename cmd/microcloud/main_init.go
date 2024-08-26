@@ -862,7 +862,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 
-		c, err := s.Services[types.MicroCeph].(*service.CephService).Client(s.Name, "")
+		c, err := s.Services[types.MicroCeph].(*service.CephService).Client(s.Name)
 		if err != nil {
 			return err
 		}

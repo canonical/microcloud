@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared"
@@ -17,6 +21,7 @@ import (
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/mdns"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -128,7 +133,7 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 	return services, nil
 }
 
-func (c *initConfig) askAddress() error {
+func (c *initConfig) askAddress(filterAddress string) error {
 	info, err := mdns.GetNetworkInfo()
 	if err != nil {
 		return fmt.Errorf("Failed to find network interfaces: %w", err)
@@ -140,11 +145,21 @@ func (c *initConfig) askAddress() error {
 			return fmt.Errorf("Found no valid network interfaces")
 		}
 
+		filterIp := net.ParseIP(filterAddress)
+		if filterAddress != "" && filterIp == nil {
+			return fmt.Errorf("Invalid filter address %q", filterAddress)
+		}
+
 		listenAddr = info[0].Address
 		if !c.autoSetup && len(info) > 1 {
 			data := make([][]string, 0, len(info))
-			for _, net := range info {
-				data = append(data, []string{net.Address, net.Interface.Name})
+			for _, network := range info {
+				// Filter out addresses which are not in the same network as the filter address.
+				if filterAddress != "" && !network.Subnet.Contains(filterIp) {
+					continue
+				}
+
+				data = append(data, []string{network.Address, network.Interface.Name})
 			}
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
@@ -190,17 +205,6 @@ func (c *initConfig) askAddress() error {
 
 	if subnet == nil {
 		return fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
-	}
-
-	if !c.autoSetup && c.setupMany {
-		filter, err := c.asker.AskBool(fmt.Sprintf("Limit search for other MicroCloud servers to %s? (yes/no) [default=yes]: ", subnet.String()), "yes")
-		if err != nil {
-			return err
-		}
-
-		if !filter {
-			subnet = nil
-		}
 	}
 
 	c.address = listenAddr
@@ -304,7 +308,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	toWipe := map[string]string{}
-	wipeable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", "storage_pool_source_wipe")
+	wipeable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "storage_pool_source_wipe")
 	if err != nil {
 		return fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}
@@ -493,13 +497,13 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 	}
 
 	var cephAddr string
-	var cephAuthSecret string
+	var cephCert *x509.Certificate
 	if s != nil && s.ServerInfo.Name != sh.Name {
 		cephAddr = s.ServerInfo.Address
-		cephAuthSecret = s.ServerInfo.AuthSecret
+		cephCert = s.ServerInfo.Certificate
 	}
 
-	remoteCephConfigs, err := microCephService.ClusterConfig(context.Background(), cephAddr, cephAuthSecret)
+	remoteCephConfigs, err := microCephService.ClusterConfig(context.Background(), cephAddr, cephCert)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +736,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	if !useJoinConfigRemoteFS {
 		lxd := sh.Services[types.LXD].(*service.LXDService)
 		ext := "storage_cephfs_create_missing"
-		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
+		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, ext)
 		if err != nil {
 			return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
 		}
@@ -1371,6 +1375,245 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices []types.S
 				break
 			}
 		}
+	}
+
+	return nil
+}
+
+func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
+	if len(fingerprint) < 12 {
+		return "", fmt.Errorf("Fingerprint is not long enough")
+	}
+
+	return fingerprint[0:12], nil
+}
+
+func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
+	validator := func(password string) error {
+		if password == "" {
+			return fmt.Errorf("Passphrase cannot be empty")
+		}
+
+		passwordSplit := strings.Split(password, " ")
+		if len(passwordSplit) != 4 {
+			return fmt.Errorf("Passphrase has to contain exactly four elements")
+		}
+
+		return nil
+	}
+
+	cloud := s.Services[types.MicroCloud].(*service.CloudService)
+	cert, err := cloud.ServerCert()
+	if err != nil {
+		return "", err
+	}
+
+	fingerprint, err := c.shortFingerprint(cert.Fingerprint())
+	if err != nil {
+		return "", fmt.Errorf("Failed to shorten fingerprint: %w", err)
+	}
+
+	fmt.Printf("Verify the fingerprint %q is displayed on the other system.\n", fingerprint)
+
+	msg := "Specify the passphrase for joining the system: "
+	password, err := c.asker.AskString(msg, "", validator)
+	if err != nil {
+		return "", err
+	}
+
+	return password, nil
+}
+
+func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSystems []string) ([]types.SessionJoinPost, error) {
+	header := []string{"NAME", "ADDRESS", "FINGERPRINT"}
+	var table *SelectableTable
+
+	rendered := make(chan error)
+	joinIntents := make(map[string]types.SessionJoinPost)
+
+	renderCtx, renderCancel := context.WithCancel(gw.Context())
+	defer renderCancel()
+
+	renderIntentsInteractive := func() {
+		for {
+			select {
+			case bytes := <-gw.Receive():
+				session := types.Session{}
+				err := json.Unmarshal(bytes, &session)
+				if err != nil {
+					logger.Error("Failed to read join intent", logger.Ctx{"err": err})
+					break
+				}
+
+				joinIntents[session.Intent.Name] = session.Intent
+
+				remoteCert, err := shared.ParseCert([]byte(session.Intent.Certificate))
+				if err != nil {
+					logger.Error("Failed to parse certificate", logger.Ctx{"err": err})
+				}
+
+				fingerprint, err := c.shortFingerprint(shared.CertFingerprint(remoteCert))
+				if err != nil {
+					logger.Error("Failed to shorten fingerprint", logger.Ctx{"err": err})
+				}
+
+				if table == nil {
+					table = NewSelectableTable(header, [][]string{{session.Intent.Name, session.Intent.Address, fingerprint}})
+					err := table.Render(table.rows)
+					if err != nil {
+						logger.Error("Failed to render table", logger.Ctx{"err": err})
+					}
+
+					rendered <- nil
+				} else {
+					table.Update([]string{session.Intent.Name, session.Intent.Address, fingerprint})
+				}
+
+			case <-renderCtx.Done():
+				return
+			}
+		}
+	}
+
+	renderIntents := func() {
+		for {
+			select {
+			case bytes := <-gw.Receive():
+				session := types.Session{}
+				err := json.Unmarshal(bytes, &session)
+				if err != nil {
+					logger.Error("Failed to read join intent", logger.Ctx{"err": err})
+					break
+				}
+
+				// Skip systems which aren't listed in the preseed.
+				if !shared.ValueInSlice(session.Intent.Name, expectedSystems) {
+					continue
+				}
+
+				joinIntents[session.Intent.Name] = session.Intent
+				if len(joinIntents) == len(expectedSystems) {
+					renderCancel()
+				}
+
+			case <-renderCtx.Done():
+				return
+			}
+		}
+	}
+
+	var systems []types.SessionJoinPost
+	if !c.autoSetup {
+		go renderIntentsInteractive()
+
+		// Wait until the table got rendered.
+		// This is important otherwise the table might not be selectable
+		// as it's being built in a go routine.
+		select {
+		case <-rendered:
+		case <-gw.Context().Done():
+			return nil, fmt.Errorf("Failed to render join intents: %w", context.Cause(gw.Context()))
+		}
+
+		var answers []string
+		retry := false
+		err := c.askRetry("Retry selecting systems?", func() error {
+			defer func() {
+				retry = true
+			}()
+
+			fmt.Println("Select which systems you want to join:")
+
+			if retry {
+				err := table.Render(table.rows)
+				if err != nil {
+					return fmt.Errorf("Failed to render table: %w", err)
+				}
+			}
+
+			var err error
+			answers, err = table.GetSelections()
+			if err != nil {
+				return fmt.Errorf("Failed to get join intent selections: %w", err)
+			}
+
+			if len(answers) == 0 {
+				return fmt.Errorf("No system selected")
+			}
+
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, answer := range answers {
+			name := table.SelectionValue(answer, "NAME")
+			for intentName, intent := range joinIntents {
+				if intentName == name {
+					systems = append(systems, intent)
+				}
+			}
+		}
+	} else {
+		go renderIntents()
+
+		select {
+		case <-time.After(c.lookupTimeout):
+		case <-renderCtx.Done():
+		}
+
+		for _, name := range expectedSystems {
+			_, ok := joinIntents[name]
+			if !ok {
+				return nil, fmt.Errorf("System %q hasn't reached out", name)
+			}
+		}
+
+		for _, intent := range joinIntents {
+			systems = append(systems, intent)
+		}
+	}
+
+	return systems, nil
+}
+
+func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, services []types.ServiceType) error {
+	session := types.Session{}
+	err := gw.ReceiveWithContext(gw.Context(), &session)
+	if err != nil {
+		return fmt.Errorf("Failed to read join confirmation: %w", err)
+	}
+
+	if !c.autoSetup {
+		fmt.Printf("\n Received confirmation from system %q\n\n", session.Intent.Name)
+		fmt.Println("Do not exit out to keep the session alive.")
+		fmt.Printf("Complete the remaining configuration on %q ...\n", session.Intent.Name)
+	}
+
+	err = gw.ReceiveWithContext(gw.Context(), &session)
+	if err != nil {
+		return fmt.Errorf("Failed waiting during join: %w", err)
+	}
+
+	if session.Error != "" {
+		return fmt.Errorf("Failed to join system: %s", session.Error)
+	}
+
+	fmt.Println("Successfully joined the MicroCloud cluster and closing the session.")
+
+	// Filter out MicroCloud.
+	services = slices.DeleteFunc(services, func(t types.ServiceType) bool {
+		return t == types.MicroCloud
+	})
+
+	if len(services) > 0 {
+		var servicesStr []string
+		for _, service := range services {
+			servicesStr = append(servicesStr, string(service))
+		}
+
+		fmt.Printf("Commencing cluster join of the remaining services (%s)\n", strings.Join(servicesStr, ", "))
 	}
 
 	return nil

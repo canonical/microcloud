@@ -114,9 +114,9 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 		var lxd lxd.InstanceServer
 		switch s.Type() {
 		case types.LXD:
-			lxd, err = s.(*service.LXDService).Client(context.Background(), "")
+			lxd, err = s.(*service.LXDService).Client(context.Background())
 		case types.MicroCeph:
-			microClient, err = s.(*service.CephService).Client("", "")
+			microClient, err = s.(*service.CephService).Client("")
 		case types.MicroOVN:
 			microClient, err = s.(*service.OVNService).Client()
 		case types.MicroCloud:
@@ -236,7 +236,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	cfg.address = status.Address.Addr().String()
 	// enable auto setup to skip lookup related questions.
 	cfg.autoSetup = true
-	err = cfg.askAddress()
+	err = cfg.askAddress("")
 	if err != nil {
 		return err
 	}
