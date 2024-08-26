@@ -47,11 +47,11 @@ func proxy(sh *service.Handler, name, path string, handler endpointHandler) rest
 		Name:              name,
 		Path:              path,
 
-		Get:    rest.EndpointAction{Handler: authHandler(sh, handler), AllowUntrusted: true, ProxyTarget: true},
-		Put:    rest.EndpointAction{Handler: authHandler(sh, handler), AllowUntrusted: true, ProxyTarget: true},
-		Post:   rest.EndpointAction{Handler: authHandler(sh, handler), AllowUntrusted: true, ProxyTarget: true},
-		Patch:  rest.EndpointAction{Handler: authHandler(sh, handler), AllowUntrusted: true, ProxyTarget: true},
-		Delete: rest.EndpointAction{Handler: authHandler(sh, handler), AllowUntrusted: true, ProxyTarget: true},
+		Get:    rest.EndpointAction{Handler: authHandlerMTLS(sh, handler), ProxyTarget: true},
+		Put:    rest.EndpointAction{Handler: authHandlerMTLS(sh, handler), ProxyTarget: true},
+		Post:   rest.EndpointAction{Handler: authHandlerMTLS(sh, handler), ProxyTarget: true},
+		Patch:  rest.EndpointAction{Handler: authHandlerMTLS(sh, handler), ProxyTarget: true},
+		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, handler), ProxyTarget: true},
 	}
 }
 

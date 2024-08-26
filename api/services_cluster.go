@@ -24,7 +24,7 @@ var ServicesClusterCmd = func(sh *service.Handler) rest.Endpoint {
 		Name:              "services/cluster/{name}",
 		Path:              "services/cluster/{name}",
 
-		Delete: rest.EndpointAction{Handler: authHandler(sh, removeClusterMember), AllowUntrusted: true},
+		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, removeClusterMember)},
 	}
 }
 
