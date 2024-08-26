@@ -10,12 +10,6 @@ import (
 // ClusterService is the service name used for broadcasting willingness to join a cluster.
 const ClusterService = "_microcloud"
 
-// ServiceSize is the maximum number of simultaneous broadcasts of the same mDNS service.
-const ServiceSize = 10
-
-// clusterSize is the maximum number of cluster members we can find.
-const clusterSize = 1000
-
 // NewBroadcast returns a running mdns.Server which broadcasts the service at the given name and address.
 func NewBroadcast(name string, iface *net.Interface, addr string, port int, service string, txt []byte) (*mdns.Server, error) {
 	var sendTXT []string
