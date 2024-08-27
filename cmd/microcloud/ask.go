@@ -76,7 +76,7 @@ func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []strin
 }
 
 // askRetry will print all errors and re-attempt the given function on user input.
-func (c *initConfig) askRetry(question string, f func() error) {
+func (c *initConfig) askRetry(question string, f func() error) error {
 	for {
 		retry := false
 		err := f()
@@ -86,14 +86,13 @@ func (c *initConfig) askRetry(question string, f func() error) {
 			if !c.autoSetup {
 				retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
 				if err != nil {
-					fmt.Println(err)
-					retry = false
+					return err
 				}
 			}
 		}
 
 		if !retry {
-			break
+			return nil
 		}
 	}
 }
@@ -149,7 +148,7 @@ func (c *initConfig) askAddress() error {
 			}
 
 			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
-			c.askRetry("Retry selecting an address?", func() error {
+			err := c.askRetry("Retry selecting an address?", func() error {
 				fmt.Println("Select an address for MicroCloud's internal traffic:")
 				err := table.Render(table.rows)
 				if err != nil {
@@ -171,6 +170,9 @@ func (c *initConfig) askAddress() error {
 
 				return nil
 			})
+			if err != nil {
+				return err
+			}
 		} else {
 			fmt.Printf("Using address %q for MicroCloud\n", listenAddr)
 		}
@@ -327,7 +329,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	}
 
 	if !c.autoSetup {
-		c.askRetry("Retry selecting disks?", func() error {
+		err := c.askRetry("Retry selecting disks?", func() error {
 			selected := map[string]string{}
 			sort.Sort(cli.SortColumnsNaturally(data))
 			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
@@ -386,6 +388,9 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(selectedDisks) == 0 {
@@ -577,7 +582,6 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			askSystemsRemoteFS[info.ClusterName] = true
 		}
 	}
-
 	var selectedDisks map[string][]string
 	var wipeDisks map[string]map[string]bool
 	availableDiskCount := 0
@@ -593,24 +597,10 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 		}
 
-		if !useJoinConfigRemote {
-			minimumDisks := 0
-			for _, disks := range availableDisks {
-				if minimumDisks == 3 {
-					break
-				}
+		if availableDiskCount == 0 {
+			fmt.Println("No disks available for distributed storage. Skipping configuration")
 
-				if len(disks) > 0 {
-					minimumDisks++
-				}
-			}
-
-			// At least 3 systems need to be able to supply a disk.
-			if minimumDisks < 3 {
-				fmt.Println("Insufficient number of disks available to set up distributed storage, skipping at this time")
-
-				return nil
-			}
+			return nil
 		}
 
 		var err error
@@ -634,7 +624,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return nil
 		}
 
-		c.askRetry("Retry selecting disks?", func() error {
+		err = c.askRetry("Change disk selection?", func() error {
+			selectedDisks = map[string][]string{}
+			wipeDisks = map[string]map[string]bool{}
 			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 			data := [][]string{}
 			for peer, disks := range availableDisks {
@@ -656,7 +648,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 
 			if len(data) == 0 {
-				return fmt.Errorf("Found no available disks")
+				return fmt.Errorf("Invalid disk configuration. Found no available disks")
 			}
 
 			sort.Sort(cli.SortColumnsNaturally(data))
@@ -680,7 +672,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 				selected, err = table.GetSelections()
 				if err != nil {
-					return fmt.Errorf("Failed to confirm disk selection: %w", err)
+					return fmt.Errorf("Invalid disk configuration: %w", err)
 				}
 
 				if len(selected) > 0 && !c.wipeAllDisks {
@@ -692,7 +684,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 					toWipe, err = table.GetSelections()
 					if err != nil {
-						return fmt.Errorf("Failed to confirm disk wipe selection: %w", err)
+						return fmt.Errorf("Invalid disk configuration: %w", err)
 					}
 				}
 			}
@@ -708,8 +700,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				targetDisks[target] = append(targetDisks[target], path)
 			}
 
-			if !useJoinConfigRemote && len(targetDisks) < 3 {
-				return fmt.Errorf("Unable to add remote storage pool: At least 3 peers must have allocated disks")
+			insufficientDisks := !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
+			if c.autoSetup && insufficientDisks {
+				return fmt.Errorf("Unable to add remote storage pool: At least %d peers must have allocated disks", RecommendedOSDHosts)
 			}
 
 			wipeDisks = map[string]map[string]bool{}
@@ -725,8 +718,20 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			selectedDisks = targetDisks
 
+			if len(targetDisks) == 0 {
+				return fmt.Errorf("No disks were selected")
+			}
+
+			if insufficientDisks {
+				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
+				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks.\nContinuing with this configuration will leave MicroCloud susceptible to data loss", RecommendedOSDHosts)
+			}
+
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 
 		if len(selectedDisks) == 0 {
 			return nil
@@ -946,7 +951,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 	table := NewSelectableTable(header, data)
 	var selectedIfaces map[string]string
-	c.askRetry("Retry selecting uplink interfaces?", func() error {
+	err = c.askRetry("Retry selecting uplink interfaces?", func() error {
 		err := table.Render(table.rows)
 		if err != nil {
 			return err
@@ -977,6 +982,9 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	for peer, iface := range selectedIfaces {
 		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)

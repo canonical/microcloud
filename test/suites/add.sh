@@ -155,7 +155,6 @@ test_add_interactive() {
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
   export CEPH_WIPE="yes"
-  export IGNORE_CEPH_NETWORKING="yes"
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
@@ -191,7 +190,6 @@ test_add_interactive() {
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
-  export IGNORE_CEPH_NETWORKING="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 

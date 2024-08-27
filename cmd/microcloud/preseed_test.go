@@ -51,7 +51,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-				Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
+				Ceph:  []DiskFilter{{Find: "def", FindMin: 1, FindMax: 3, Wipe: false}},
 			},
 
 			addErr: false,
@@ -93,7 +93,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			err:    errors.New("Missing system name"),
 		},
 		{
-			desc:    "Too few systems for ceph filter",
+			desc:    "FindMin too low for ceph filter",
 			subnet:  "10.0.0.1/24",
 			iface:   "enp5s0",
 			systems: []System{{Name: "n1"}, {Name: "n2"}},
@@ -102,27 +102,11 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 				Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
 			},
 
-			addErr: false,
-			err:    errors.New("At least 3 systems are required to configure distributed storage"),
+			addErr: true,
+			err:    errors.New("Remote storage filter cannot be defined with find_min less than 1"),
 		},
 		{
-			desc:    "Too few systems for ceph direct",
-			subnet:  "10.0.0.1/24",
-			iface:   "enp5s0",
-			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}},
-			addErr:  false,
-			err:     errors.New("At least 3 systems must specify ceph storage disks"),
-		},
-		{
-			desc:    "Incomplete ceph direct selection",
-			subnet:  "10.0.0.1/24",
-			iface:   "enp5s0",
-			systems: []System{{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}}, {Name: "n3"}},
-			addErr:  false,
-			err:     errors.New("At least 3 systems must specify ceph storage disks"),
-		},
-		{
-			desc:   "Minimum ceph direct selection (3) with more systems (4)",
+			desc:   "Ceph direct selection (3) with more systems (4)",
 			subnet: "10.0.0.1/24",
 			iface:  "enp5s0",
 			systems: []System{
@@ -134,15 +118,16 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			err:    nil,
 		},
 		{
-			desc:   "Multiple disks on the same system don't count towards the minimum quota:",
+			desc:   "Minimum ceph direct selection (1) with more systems (4)",
 			subnet: "10.0.0.1/24",
 			iface:  "enp5s0",
 			systems: []System{
 				{Name: "n1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
-				{Name: "n2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}, {Path: "def2"}}}},
-				{Name: "n3"}},
+				{Name: "n2"},
+				{Name: "n3"},
+				{Name: "n4"}},
 			addErr: false,
-			err:    errors.New("At least 3 systems must specify ceph storage disks"),
+			err:    nil,
 		},
 		{
 			desc:    "Incomplete zfs direct selection",
@@ -175,17 +160,6 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			err:    errors.New("Received empty local disk filter"),
 		},
 		{
-			desc:    "Invalid ceph filter min count",
-			subnet:  "10.0.0.1/24",
-			iface:   "enp5s0",
-			systems: []System{{Name: "n1"}, {Name: "n2"}, {Name: "n3"}},
-			storage: StorageFilter{
-				Ceph: []DiskFilter{{Find: "def", FindMin: 0, FindMax: 2, Wipe: false}},
-			},
-			addErr: false,
-			err:    errors.New("Invalid remote storage filter constraints find_max (2) must be at least 3 and larger than find_min (0)"),
-		},
-		{
 			desc:    "Invalid ceph filter min > max",
 			subnet:  "10.0.0.1/24",
 			iface:   "enp5s0",
@@ -194,7 +168,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 				Ceph: []DiskFilter{{Find: "def", FindMin: 4, FindMax: 3, Wipe: false}},
 			},
 			addErr: true,
-			err:    errors.New("Invalid remote storage filter constraints find_max (3) must be at least 3 and larger than find_min (4)"),
+			err:    errors.New("Invalid remote storage filter constraints find_max (3) must be larger than find_min (4)"),
 		},
 		{
 			desc:    "Invalid ceph filter constraints",
@@ -215,24 +189,11 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-				Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
+				Ceph:  []DiskFilter{{Find: "def", FindMin: 3, FindMax: 3, Wipe: false}},
 			},
 
 			addErr: true,
 			err:    errors.New("Some systems are missing an uplink interface"),
-		},
-		{
-			desc:    "Too few systems for ovn",
-			subnet:  "10.0.0.1/24",
-			iface:   "enp5s0",
-			systems: []System{{Name: "n1", UplinkInterface: "eth0"}, {Name: "n2", UplinkInterface: "eth0"}},
-			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
-			storage: StorageFilter{
-				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-			},
-
-			addErr: false,
-			err:    errors.New("At least 3 systems are required to configure distributed networking"),
 		},
 		{
 			desc:    "OVN IPv4 Ranges with no gateway",
@@ -242,7 +203,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			ovn:     InitNetwork{IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-				Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
+				Ceph:  []DiskFilter{{Find: "def", FindMin: 3, FindMax: 3, Wipe: false}},
 			},
 
 			addErr: true,
@@ -256,7 +217,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			ovn:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100,10.0.0.254", IPv6Gateway: "cafe::1/64"},
 			storage: StorageFilter{
 				Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-				Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
+				Ceph:  []DiskFilter{{Find: "def", FindMin: 3, FindMax: 3, Wipe: false}},
 			},
 
 			addErr: true,

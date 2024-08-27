@@ -274,20 +274,9 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("Some systems are missing an uplink interface")
 	}
 
-	containsCephStorage = directCephCount > 0
-	if containsCephStorage && directCephCount < 3 && len(p.Storage.Ceph) == 0 && bootstrap {
-		return fmt.Errorf("At least 3 systems must specify ceph storage disks")
-	}
-
 	containsLocalStorage = directLocalCount > 0
 	if containsLocalStorage && directLocalCount < len(p.Systems) && len(p.Storage.Local) == 0 {
 		return fmt.Errorf("Some systems are missing local storage disks")
-	}
-
-	if containsCephStorage || len(p.Storage.Ceph) > 0 {
-		if bootstrap && (len(p.Systems)) < 3 {
-			return fmt.Errorf("At least 3 systems are required to configure distributed storage")
-		}
 	}
 
 	_, _, err := net.ParseCIDR(p.LookupSubnet)
@@ -299,6 +288,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("Missing interface name for machine lookup")
 	}
 
+	containsCephStorage = directCephCount > 0 || len(p.Storage.Ceph) > 0
 	usingCephInternalNetwork := p.Ceph.InternalNetwork != ""
 	if !containsCephStorage && usingCephInternalNetwork {
 		return fmt.Errorf("Cannot specify a Ceph internal network without Ceph storage disks")
@@ -309,11 +299,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		if err != nil {
 			return fmt.Errorf("Invalid Ceph internal network subnet: %v", err)
 		}
-	}
-
-	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || containsUplinks
-	if bootstrap && usingOVN && len(p.Systems) < 3 {
-		return fmt.Errorf("At least 3 systems are required to configure distributed networking")
 	}
 
 	if p.OVN.IPv4Gateway == "" && p.OVN.IPv4Range != "" {
@@ -351,20 +336,18 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		}
 
 		if filter.FindMax > 0 {
-			// If we have selected disks directly, we shouldn't need to validate that the filter matches 3 systems.
-			numDirect := 0
-			for _, s := range p.Systems {
-				if len(s.Storage.Ceph) > 0 {
-					numDirect++
-				}
+			if filter.FindMax < filter.FindMin {
+				return fmt.Errorf("Invalid remote storage filter constraints find_max (%d) must be larger than find_min (%d)", filter.FindMax, filter.FindMin)
 			}
-			if filter.FindMax < filter.FindMin || (bootstrap && filter.FindMax+numDirect < 3) {
-				return fmt.Errorf("Invalid remote storage filter constraints find_max (%d) must be at least 3 and larger than find_min (%d)", filter.FindMax, filter.FindMin)
-			}
+		}
+
+		// For distributed storage, the minimum match count must be defined so that we don't have a default configuration that can be non-HA.
+		if filter.FindMin < 1 {
+			return fmt.Errorf("Remote storage filter cannot be defined with find_min less than 1")
 		}
 	}
 
-	for _, filter := range p.Storage.Local {
+	for i, filter := range p.Storage.Local {
 		if filter.Find == "" {
 			return fmt.Errorf("Received empty local disk filter")
 		}
@@ -373,6 +356,12 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 			if filter.FindMax < filter.FindMin {
 				return fmt.Errorf("Invalid local storage filter constraints find_max (%d) larger than find_min (%d)", filter.FindMax, filter.FindMin)
 			}
+		}
+
+		// For local storage, we can set a default minimum match count because we require at least 1 disk per system.
+		if filter.FindMin == 0 {
+			filter.FindMin = 1
+			p.Storage.Local[i] = filter
 		}
 	}
 
@@ -554,10 +543,6 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 	}
 
-	if usingOVN && c.bootstrap && len(ifaceByPeer) < 3 {
-		return nil, fmt.Errorf("Failed to find at least 3 interfaces on 3 machines for OVN configuration")
-	}
-
 	// Setup FAN network if OVN not available.
 	if usingOVN {
 		for peer, iface := range ifaceByPeer {
@@ -607,6 +592,13 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 			if sys.Name == peer {
 				directLocal = sys.Storage.Local
 				directCeph = sys.Storage.Ceph
+			}
+
+			for _, disk := range directCeph {
+				_, err := os.Stat(disk.Path)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to find specified disk path: %w", err)
+				}
 			}
 		}
 
@@ -749,6 +741,19 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 			}
 		}
 
+		if c.bootstrap {
+			osdHosts := 0
+			for _, system := range c.systems {
+				if len(system.MicroCephDisks) > 0 {
+					osdHosts++
+				}
+			}
+
+			if osdHosts < RecommendedOSDHosts {
+				fmt.Printf("Warning: OSD host count is less than %d. Distributed storage is not fault-tolerant\n", RecommendedOSDHosts)
+			}
+		}
+
 		for _, filter := range p.Storage.Local {
 			// No need to check filters anymore if each machine has a disk.
 			if len(zfsMachines) == len(c.systems) {
@@ -852,10 +857,6 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		if zfsMatches[filter.Find] > filter.FindMax && filter.FindMax > 0 {
 			return nil, fmt.Errorf("Found more than %d disks for filter %q", filter.FindMax, filter.Find)
 		}
-	}
-
-	if c.bootstrap && len(cephMachines)+len(directCephMatches) > 0 && len(cephMachines)+len(directCephMatches) < 3 {
-		return nil, fmt.Errorf("Failed to find at least 3 disks on 3 machines for MicroCeph configuration")
 	}
 
 	if c.bootstrap && len(zfsMachines)+len(directZFSMatches) > 0 && len(zfsMachines)+len(directZFSMatches) < len(c.systems) {

@@ -4,9 +4,9 @@
 unset_interactive_vars() {
   unset SKIP_LOOKUP LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_WARNING CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK IGNORE_CEPH_NETWORKING \
+    SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
-    REPLACE_PROFILE
+    REPLACE_PROFILE CEPH_RETRY_HA
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -26,12 +26,12 @@ microcloud_interactive() {
   ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
   SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
   SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_WARNING=${CEPH_WARNING:-}                 # (yes/no) input for warning about eligible disk detection.
+  CEPH_MISSING_DISKS=${CEPH_MISSING_DISKS:-}     # (yes/no) input for warning about eligible disk detection.
   CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
   CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
+  CEPH_RETRY_HA=${CEPH_RETRY_HA:-}                     # (yes/no) input for warning setup is not HA.
   CEPH_ENCRYPT=${CEPH_ENCRYPT:-}                  # (yes/no) to encrypt all disks.
   CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet or Ceph public network if specified previously) input for setting up a cluster network.
-  IGNORE_CEPH_NETWORKING=${IGNORE_CEPH_NETWORKING:-} # (yes/no) input for ignoring Ceph network setup. Set it to `yes` during `microcloud add` .
   PROCEED_WITH_NO_OVERLAY_NETWORKING=${PROCEED_WITH_NO_OVERLAY_NETWORKING:-} # (yes/no) input for proceeding without overlay networking.
   SETUP_OVN=${SETUP_OVN:-}                        # (yes/no) input for initiating OVN network setup.
   OVN_WARNING=${OVN_WARNING:-}                    # (yes/no) input for warning about eligible interface detection.
@@ -84,15 +84,17 @@ fi
 if [ -n "${SETUP_CEPH}" ]; then
   setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
-${CEPH_WARNING}                                         # continue with some peers missing disks? (yes/no)
+${CEPH_MISSING_DISKS}                                   # continue with some peers missing disks? (yes/no)
 $([ "${SETUP_CEPH}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
 ${CEPH_FILTER}                                          # filter ceph disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matching the filter
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
 $([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
+$([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_RETRY_HA}" ) # allow ceph setup without 3 systems supplying disks.
 ${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
+$([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_CLUSTER_NETWORK}" ) # set ceph cluster network
 $(true)                                                 # workaround for set -e
 "
 fi
@@ -102,15 +104,6 @@ if [ -n "${PROCEED_WITH_NO_OVERLAY_NETWORKING}" ]; then
 ${PROCEED_WITH_NO_OVERLAY_NETWORKING}                   # agree to proceed without overlay networking (neither FAN nor OVN networking) (yes/no)
 $(true)                                                 # workaround for set -e
 "
-fi
-
-if [ -z "${IGNORE_CEPH_NETWORKING}" ] && [ "${SETUP_CEPH}" = "yes" ] ; then
-  if [ -n "${CEPH_CLUSTER_NETWORK}" ]; then
-    setup="${setup}
-${CEPH_CLUSTER_NETWORK}
-$(true)                                                 # workaround for set -e
-"
-  fi
 fi
 
 if [ -n "${SETUP_OVN}" ]; then

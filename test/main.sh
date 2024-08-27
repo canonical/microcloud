@@ -220,6 +220,7 @@ run_basic_tests() {
   run_test test_reuse_cluster "reuse_cluster"
   run_test test_auto "auto"
   run_test test_remove_cluster_member "remove_cluster_member"
+  run_test test_non_ha "non_ha"
 }
 
 run_recover_tests() {
