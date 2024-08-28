@@ -90,6 +90,9 @@ EOF`)
 	var cmdService = cmdServices{common: &commonCmd}
 	app.AddCommand(cmdService.Command())
 
+	var cmdStatus = cmdStatus{common: &commonCmd}
+	app.AddCommand(cmdStatus.Command())
+
 	var cmdPeers = cmdClusterMembers{common: &commonCmd}
 	app.AddCommand(cmdPeers.Command())
 
