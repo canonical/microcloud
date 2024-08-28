@@ -83,6 +83,7 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := initConfig{
+		autoSetup: true,
 		bootstrap: false,
 		common:    c.common,
 		asker:     &c.common.asker,
