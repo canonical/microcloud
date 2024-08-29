@@ -228,10 +228,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return fmt.Errorf("No systems given")
 	}
 
-	if bootstrap && len(p.Systems) < 2 {
-		return fmt.Errorf("At least 2 systems are required to set up MicroCloud")
-	}
-
 	for _, system := range p.Systems {
 		if system.Name == "" {
 			return fmt.Errorf("Missing system name")
@@ -446,9 +442,11 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		return nil, fmt.Errorf("Failed to find lookup interface %q", p.LookupInterface)
 	}
 
-	err = c.lookupPeers(s, expectedSystems)
-	if err != nil {
-		return nil, err
+	if len(expectedSystems) > 0 {
+		err = c.lookupPeers(s, expectedSystems)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	expectedServices := make(map[types.ServiceType]service.Service, len(s.Services))
@@ -492,6 +490,11 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 	}
 
+	localInfo, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address})
+	if err != nil {
+		return nil, err
+	}
+
 	// If an uplink interface was explicitly chosen, we will try to set up an OVN network.
 	explicitOVN := len(ifaceByPeer) > 0
 
@@ -503,10 +506,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 
 		// Take the first alphabetical interface for each system's uplink network.
-		for k := range uplinkIfaces {
-			currentIface := ifaceByPeer[system.ServerInfo.Name]
-			if k < currentIface || currentIface == "" {
-				ifaceByPeer[system.ServerInfo.Name] = k
+		if !explicitOVN {
+			for k := range uplinkIfaces {
+				currentIface := ifaceByPeer[system.ServerInfo.Name]
+				if k < currentIface || currentIface == "" {
+					ifaceByPeer[system.ServerInfo.Name] = k
+				}
 			}
 		}
 
@@ -520,30 +525,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 	}
 
 	// If we have specified any part of OVN config, implicitly assume we want to set it up.
-	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || explicitOVN
-	if usingOVN {
-		// Only select systems not explicitly picked above.
-		infos := make([]mdns.ServerInfo, 0, len(c.systems))
-		for peer, system := range c.systems {
-			if ifaceByPeer[peer] == "" {
-				infos = append(infos, system.ServerInfo)
-			}
-		}
-
-		for _, info := range infos {
-			ifaces, _, _, err := lxd.GetNetworkInterfaces(context.Background(), info.Name, info.Address, info.AuthSecret)
-			if err != nil {
-				return nil, err
-			}
-
-			for k := range ifaces {
-				ifaceByPeer[info.Name] = k
-				break
-			}
-		}
-	}
-
-	// Setup FAN network if OVN not available.
+	hasOVN, _ := localInfo.SupportsOVNNetwork()
+	usingOVN := p.OVN.IPv4Gateway != "" || p.OVN.IPv6Gateway != "" || explicitOVN || hasOVN
 	if usingOVN {
 		for peer, iface := range ifaceByPeer {
 			system := c.systems[peer]
@@ -863,7 +846,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		return nil, fmt.Errorf("Failed to find at least 1 disk on each machine for local storage pool configuration")
 	}
 
-	if len(cephMatches)+len(directCephMatches) > 0 && p.Storage.CephFS {
+	hasCephFS, _ := localInfo.SupportsRemoteFSPool()
+	if (len(cephMatches)+len(directCephMatches) > 0 && p.Storage.CephFS) || hasCephFS {
 		for name, system := range c.systems {
 			if c.bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())

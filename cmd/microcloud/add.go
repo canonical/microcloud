@@ -45,6 +45,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	cfg := initConfig{
 		bootstrap:    false,
+		setupMany:    true,
 		autoSetup:    c.flagAutoSetup,
 		wipeAllDisks: c.flagWipe,
 		common:       c.common,

@@ -119,6 +119,7 @@ test_add_interactive() {
 
   echo "Test growing a MicroCloud with all services and devices set up"
   unset_interactive_vars
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
@@ -200,6 +201,7 @@ test_add_interactive() {
   reset_systems 4 2 1
   echo "Test growing a MicroCloud when storage & networks were not already set up"
   unset_interactive_vars
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2

@@ -44,7 +44,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			err:    errors.New("No systems given"),
 		},
 		{
-			desc:    "Not enough systems",
+			desc:    "Single node preseed",
 			subnet:  "10.0.0.1/24",
 			iface:   "enp5s0",
 			systems: []System{{Name: "n1", UplinkInterface: "eth0", Storage: InitStorage{}}},
@@ -55,7 +55,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			},
 
 			addErr: false,
-			err:    errors.New("At least 2 systems are required to set up MicroCloud"),
+			err:    nil,
 		},
 		{
 			desc:    "Missing lookup subnet",

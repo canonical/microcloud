@@ -6,6 +6,7 @@ test_interactive() {
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
   echo "Creating a MicroCloud with all services but no devices"
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
@@ -658,6 +659,7 @@ _test_case() {
 
     microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
+    export MULTI_NODE="yes"
     export LOOKUP_IFACE="enp5s0" # filter string for the lookup interface table.
     export LIMIT_SUBNET="yes" # (yes/no) input for limiting lookup of systems to the above subnet.
     export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
@@ -805,6 +807,7 @@ test_interactive_combinations() {
 test_service_mismatch() {
   unset_interactive_vars
   # Selects all available systems, adds 1 local disk per system, skips ceph and ovn setup.
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
@@ -890,6 +893,7 @@ test_disk_mismatch() {
 
   echo "Creating a MicroCloud with fully remote ceph on one node"
   unset_interactive_vars
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=3
@@ -1056,6 +1060,7 @@ test_reuse_cluster() {
   unset_interactive_vars
 
   # Set the default config for interactive setup.
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
@@ -1182,6 +1187,7 @@ test_remove_cluster_member() {
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
   # Set the default config for interactive setup.
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
@@ -1329,6 +1335,7 @@ test_add_services() {
 
   ceph_cluster_subnet_prefix="10.0.1"
   ceph_cluster_subnet_iface="enp7s0"
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
@@ -1337,6 +1344,7 @@ test_add_services() {
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
   export SETUP_CEPHFS="yes"
+  export CEPH_ENCRYPT="no"
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export SETUP_OVN="yes"
@@ -1358,6 +1366,7 @@ test_add_services() {
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
+  unset MULTI_NODE
   unset SETUP_ZFS
   unset SETUP_OVN
   export REPLACE_PROFILE="no"
@@ -1370,11 +1379,16 @@ test_add_services() {
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
   unset REPLACE_PROFILE
+  unset SKIP_LOOKUP
+  export MULTI_NODE="yes"
   export SKIP_SERVICE="yes"
+  export SETUP_ZFS="yes"
+  export SETUP_OVN="yes"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
+  unset MULTI_NODE
   unset SETUP_ZFS
   unset SETUP_OVN
   export REPLACE_PROFILE="yes"
@@ -1386,12 +1400,14 @@ test_add_services() {
 
   echo Add MicroOVN to MicroCloud that was set up without it, and setup ovn network
   lxc exec micro01 -- snap disable microovn
+  export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   lxc exec micro01 -- snap enable microovn
   export SETUP_OVN="yes"
   export SKIP_LOOKUP=1
+  unset MULTI_NODE
   unset SETUP_ZFS
   unset SETUP_CEPH
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
@@ -1403,6 +1419,7 @@ test_add_services() {
   echo Add both MicroOVN and MicroCeph to a MicroCloud that was set up without it
   lxc exec micro01 -- snap disable microovn
   lxc exec micro01 -- snap disable microceph
+  export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
   unset SETUP_OVN
@@ -1412,6 +1429,7 @@ test_add_services() {
   export SETUP_OVN="yes"
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
+  unset MULTI_NODE
   unset SETUP_ZFS
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out"
   services_validator
@@ -1422,6 +1440,7 @@ test_add_services() {
   echo Reuse a MicroCeph that was set up on one node of the MicroCloud
   lxc exec micro01 -- snap disable microceph
   lxc exec micro02 -- microceph cluster bootstrap
+  export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SETUP_CEPH
   unset SKIP_LOOKUP
@@ -1431,6 +1450,7 @@ test_add_services() {
   export REUSE_EXISTING="add"
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
+  unset MULTI_NODE
   unset SETUP_ZFS
   unset SETUP_OVN
   unset CEPH_CLUSTER_NETWORK
@@ -1441,6 +1461,7 @@ test_add_services() {
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
 
   echo Fail to add any services if they have been set up
+  export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   export SETUP_OVN="yes"
   unset REUSE_EXISTING
@@ -1450,6 +1471,7 @@ test_add_services() {
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   export SKIP_LOOKUP=1
+  unset MULTI_NODE
   ! microcloud_interactive | lxc exec micro01 -- sh -c "microcloud service add > out" || true
 }
 
@@ -1457,6 +1479,7 @@ test_non_ha() {
   unset_interactive_vars
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
+  export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=1
@@ -1506,6 +1529,85 @@ test_non_ha() {
   for m in micro01 micro02 ; do
     validate_system_lxd ${m} 2 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
     validate_system_microceph ${m} 1 "disk2"
+    validate_system_microovn ${m}
+  done
+
+  reset_systems 3 2 2
+  for m in micro02 micro03 ; do
+    lxc exec "${m}" -- snap disable microcloud
+  done
+
+  export MULTI_NODE="no"
+  export SKIP_LOOKUP=1
+  echo "Creating a MicroCloud with 1 system, and grow it to 3 with all storage & networks"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  validate_system_lxd "micro01" 1 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+  validate_system_microceph "micro01" 1 "disk2"
+  validate_system_microovn "micro01"
+
+  for m in micro02 micro03 ; do
+    lxc exec "${m}" -- snap enable microcloud
+    lxc exec "${m}" -- snap start microcloud
+  done
+
+  unset SKIP_LOOKUP
+  unset MULTI_NODE
+  unset CEPH_CLUSTER_NETWORK
+  unset CEPH_RETRY_HA
+  unset IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
+  unset SETUP_CEPHFS
+  export EXPECT_PEERS=2
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
+  for m in micro1 micro2 micro3 ; do
+    validate_system_lxd "micro01" 3 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+    validate_system_microceph "micro01" 1 "disk2"
+    validate_system_microovn "micro01"
+  done
+
+  reset_systems 2 3 3
+  echo "Creating a MicroCloud with 1 system and growing it to 3, using preseed"
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro01
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8
+storage:
+  cephfs: true
+EOF
+
+  validate_system_lxd "micro01" 1 "" 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+  validate_system_microceph "micro01" 1 "disk2" "disk3"
+  validate_system_microovn "micro01"
+
+  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed --lookup-timeout 10 << EOF
+lookup_subnet: ${addr}/24
+lookup_interface: enp5s0
+systems:
+- name: micro02
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+EOF
+
+  for m in micro01 micro02 ; do
+    validate_system_lxd ${m} 2 "" 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
+    validate_system_microceph ${m} 1 "disk2" "disk3"
     validate_system_microovn ${m}
   done
 

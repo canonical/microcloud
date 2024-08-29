@@ -6,7 +6,7 @@ unset_interactive_vars() {
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
-    REPLACE_PROFILE CEPH_RETRY_HA
+    REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
 }
 
 # microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
@@ -14,6 +14,7 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
+  MULTI_NODE=${MULTI_NODE:-}                     # (yes/no) whether to set up multiple nodes
   SKIP_LOOKUP=${SKIP_LOOKUP:-}                   # whether or not to skip the whole lookup block in the interactive command list.
   LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
   LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
@@ -44,11 +45,18 @@ microcloud_interactive() {
   REPLACE_PROFILE="${REPLACE_PROFILE:-}"          # Replace default profile config and devices.
 
   setup=""
-  if ! [ "${SKIP_LOOKUP}" = 1 ]; then
+  if [ -n "${MULTI_NODE}" ]; then
     setup="
+${MULTI_NODE}                                           # lookup multiple nodes
 ${LOOKUP_IFACE}                                         # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
+$(true)
+"
+  fi
+
+  if ! [ "${SKIP_LOOKUP}" = 1 ]; then
+    setup="${setup}
 ${LIMIT_SUBNET}                                             # limit lookup subnet (yes/no)
 $([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
 expect ${EXPECT_PEERS}                                      # wait until the systems show up
