@@ -2,7 +2,7 @@ module github.com/canonical/microcloud/microcloud
 
 go 1.22.5
 
-replace github.com/canonical/microcluster/v2 => github.com/canonical/microcluster/v2 v2.0.0-20240823073033-f5bd076ee486
+replace github.com/canonical/microcluster/v2 => github.com/masnax/microcluster/v2 v2.0.0-20240829215819-e2a16eeadc1c
 
 replace github.com/canonical/microceph/microceph => github.com/masnax/microceph/microceph v0.0.0-20240828173442-8d2afd37f0c5
 

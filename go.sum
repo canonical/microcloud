@@ -60,8 +60,6 @@ github.com/canonical/go-dqlite v1.22.0 h1:DuJmfcREl4gkQJyvZzjl2GHFZROhbPyfdjDRQX
 github.com/canonical/go-dqlite v1.22.0/go.mod h1:Uvy943N8R4CFUAs59A1NVaziWY9nJ686lScY7ywurfg=
 github.com/canonical/lxd v0.0.0-20240829134908-4633da983d67 h1:g5of4/193mvB/yHjRoqB7tVrtm7yPKVho14LM9Cl/Ik=
 github.com/canonical/lxd v0.0.0-20240829134908-4633da983d67/go.mod h1:GHa3dpLyuwHdE4a3dPVcbJ1aFUkIo0gdPAXGJYClRNc=
-github.com/canonical/microcluster/v2 v2.0.0-20240823073033-f5bd076ee486 h1:dWPa4CJ65AMqWJRPs9SEb9inAqaEEcGaFDttE4c5Rko=
-github.com/canonical/microcluster/v2 v2.0.0-20240823073033-f5bd076ee486/go.mod h1:6cKoRrnVlO24cO8cdM4kLIBxBJW2D3QLou1XC9A6GJU=
 github.com/canonical/microovn/microovn v0.0.0-20240829122904-aaabc609cab6 h1:bGuIxFI/XKvPJqJGePb4IY11oHQFz2CKwXyJlrcuTQE=
 github.com/canonical/microovn/microovn v0.0.0-20240829122904-aaabc609cab6/go.mod h1:e23IdSkgJMqi9gwNhCQPznblE0/X7KLVZUIOvkDYPa8=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -244,6 +242,8 @@ github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/magiconair/properties v1.8.5/go.mod h1:y3VJvCyxH9uVvJTWEGAELF3aiYNyPKd5NZ3oSwXrF60=
 github.com/masnax/microceph/microceph v0.0.0-20240828173442-8d2afd37f0c5 h1:MU5t7IM2xDdGpKjmu2UsoRewEfNq1mCpFUZKJP9sGlk=
 github.com/masnax/microceph/microceph v0.0.0-20240828173442-8d2afd37f0c5/go.mod h1:l/yzvjl6FsuNClbYx2VffcL4QZsYff5qElaKWFqktjc=
+github.com/masnax/microcluster/v2 v2.0.0-20240829215819-e2a16eeadc1c h1:JT1pR8Ud2hrWnj+KpUMsq6jC3tNNKhtxDcXgUxZ1M7U=
+github.com/masnax/microcluster/v2 v2.0.0-20240829215819-e2a16eeadc1c/go.mod h1:DmVtwhI+sd2Qy3d60ggDzKnDmCbzLi4t9MYpl3AUL+s=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
