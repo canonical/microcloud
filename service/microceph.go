@@ -13,8 +13,8 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -102,9 +102,9 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 	}
 }
 
-// IssueToken issues a token for the given peer.
+// IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
 func (s CephService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(ctx, peer)
+	return s.m.NewJoinToken(ctx, peer, 5*time.Minute)
 }
 
 // DeleteToken deletes a token by its name.

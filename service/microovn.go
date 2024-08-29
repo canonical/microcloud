@@ -11,8 +11,8 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -85,9 +85,9 @@ func (s OVNService) Bootstrap(ctx context.Context) error {
 	}
 }
 
-// IssueToken issues a token for the given peer.
+// IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
 func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(ctx, peer)
+	return s.m.NewJoinToken(ctx, peer, 5*time.Minute)
 }
 
 // DeleteToken deletes a token by its name.
