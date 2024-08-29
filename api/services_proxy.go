@@ -9,9 +9,9 @@ import (
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/ws"
-	"github.com/canonical/microcluster/microcluster"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -56,7 +56,7 @@ func proxy(sh *service.Handler, name, path string, handler endpointHandler) rest
 }
 
 // lxdHandler forwards a request made to /1.0/services/lxd/<rest> to /1.0/<rest> on the LXD unix socket.
-func lxdHandler(s *state.State, r *http.Request) response.Response {
+func lxdHandler(s state.State, r *http.Request) response.Response {
 	_, path, ok := strings.Cut(r.URL.Path, "/1.0/services/lxd")
 	if !ok {
 		return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
@@ -110,8 +110,8 @@ func lxdHandler(s *state.State, r *http.Request) response.Response {
 }
 
 // microHandler forwards a request made to /1.0/services/<microcluster-service>/<rest> to /1.0/<rest> on the service unix socket.
-func microHandler(service string, stateDir string) func(*state.State, *http.Request) response.Response {
-	return func(s *state.State, r *http.Request) response.Response {
+func microHandler(service string, stateDir string) func(state.State, *http.Request) response.Response {
+	return func(s state.State, r *http.Request) response.Response {
 		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
 		if !ok {
 			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))

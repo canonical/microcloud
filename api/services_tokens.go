@@ -7,8 +7,8 @@ import (
 	"net/url"
 
 	"github.com/canonical/lxd/lxd/response"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -29,7 +29,7 @@ var ServiceTokensCmd = func(sh *service.Handler) rest.Endpoint {
 // serviceTokensPost issues a token for service using the MicroCloud proxy.
 // Normally a token request to a service would be restricted to trusted systems,
 // so this endpoint validates the mDNS auth token and then proxies the request to the local unix socket of the remote system.
-func serviceTokensPost(s *state.State, r *http.Request) response.Response {
+func serviceTokensPost(s state.State, r *http.Request) response.Response {
 	serviceType, err := url.PathUnescape(mux.Vars(r)["serviceType"])
 	if err != nil {
 		return response.SmartError(err)
@@ -43,12 +43,12 @@ func serviceTokensPost(s *state.State, r *http.Request) response.Response {
 		return response.BadRequest(err)
 	}
 
-	sh, err := service.NewHandler(s.Name(), req.ClusterAddress, s.OS.StateDir, false, false, types.ServiceType(serviceType))
+	sh, err := service.NewHandler(s.Name(), req.ClusterAddress, s.FileSystem().StateDir, types.ServiceType(serviceType))
 	if err != nil {
 		return response.SmartError(err)
 	}
 
-	token, err := sh.Services[types.ServiceType(serviceType)].IssueToken(s.Context, req.JoinerName)
+	token, err := sh.Services[types.ServiceType(serviceType)].IssueToken(r.Context(), req.JoinerName)
 	if err != nil {
 		return response.SmartError(fmt.Errorf("Failed to issue %s token for peer %q: %w", serviceType, req.JoinerName, err))
 	}

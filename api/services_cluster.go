@@ -9,8 +9,8 @@ import (
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -29,7 +29,7 @@ var ServicesClusterCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // removeClusterMember removes the given cluster member from all services that it exists in.
-func removeClusterMember(state *state.State, r *http.Request) response.Response {
+func removeClusterMember(state state.State, r *http.Request) response.Response {
 	force := r.URL.Query().Get("force") == "1"
 	name, err := url.PathUnescape(mux.Vars(r)["name"])
 	if err != nil {
@@ -54,7 +54,7 @@ func removeClusterMember(state *state.State, r *http.Request) response.Response 
 		return response.SmartError(fmt.Errorf("State address %q is invalid: %w", state.Address().String(), err))
 	}
 
-	sh, err := service.NewHandler(state.Name(), addr, state.OS.StateDir, false, false, existingServices...)
+	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir, existingServices...)
 	if err != nil {
 		return response.SmartError(err)
 	}

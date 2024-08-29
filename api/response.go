@@ -21,7 +21,7 @@ func NewResponse(response *http.Response) response.Response {
 }
 
 // Render implements response.Response for Response, enabling use with a rest.EndpointAction Handler function.
-func (r *Response) Render(w http.ResponseWriter) error {
+func (r *Response) Render(w http.ResponseWriter, _ *http.Request) error {
 	decoder := json.NewDecoder(r.response.Body)
 
 	var responseRaw *api.ResponseRaw
