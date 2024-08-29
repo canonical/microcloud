@@ -13,7 +13,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"

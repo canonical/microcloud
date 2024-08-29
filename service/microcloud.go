@@ -9,15 +9,15 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/api"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microClient "github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/config"
-	"github.com/canonical/microcluster/microcluster"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	microClient "github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/version"
 )
 
 // CloudService is a MicroCloud service.
@@ -38,8 +38,8 @@ type JoinConfig struct {
 }
 
 // NewCloudService creates a new MicroCloud service with a client attached.
-func NewCloudService(name string, addr string, dir string, verbose bool, debug bool) (*CloudService, error) {
-	client, err := microcluster.App(microcluster.Args{StateDir: dir, ListenPort: strconv.FormatInt(CloudPort, 10), Debug: debug, Verbose: verbose})
+func NewCloudService(name string, addr string, dir string) (*CloudService, error) {
+	client, err := microcluster.App(microcluster.Args{StateDir: dir})
 	if err != nil {
 		return nil, err
 	}
@@ -54,26 +54,33 @@ func NewCloudService(name string, addr string, dir string, verbose bool, debug b
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint) error {
-	s.client.AddServers([]rest.Server{
-		{
-			CoreAPI:   true,
-			PreInit:   true,
-			ServeUnix: true,
-			Resources: []rest.Resources{
-				{
-					PathPrefix: types.APIVersion,
-					Endpoints:  endpoints,
+func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint, verbose bool, debug bool) error {
+	args := microcluster.DaemonArgs{
+		Verbose:              verbose,
+		Debug:                debug,
+		Version:              version.Version,
+		PreInitListenAddress: "0.0.0.0:" + strconv.FormatInt(CloudPort, 10),
+		Hooks: &state.Hooks{
+			PostBootstrap: func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },
+			PostJoin:      func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },
+			OnStart:       service.Start,
+		},
+		ExtensionServers: map[string]rest.Server{
+			"microcloud": {
+				CoreAPI:   true,
+				PreInit:   true,
+				ServeUnix: true,
+				Resources: []rest.Resources{
+					{
+						PathPrefix: types.APIVersion,
+						Endpoints:  endpoints,
+					},
 				},
 			},
 		},
-	})
+	}
 
-	return s.client.Start(ctx, nil, nil, &config.Hooks{
-		PostBootstrap: func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
-		PostJoin:      func(s *state.State, cfg map[string]string) error { return service.StopBroadcast() },
-		OnStart:       service.Start,
-	})
+	return s.client.Start(ctx, args)
 }
 
 // Client returns a client to the MicroCloud unix socket.
@@ -109,9 +116,9 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 	}
 }
 
-// IssueToken issues a token for the given peer.
+// IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
 func (s CloudService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.client.NewJoinToken(ctx, peer)
+	return s.client.NewJoinToken(ctx, peer, 5*time.Minute)
 }
 
 // DeleteToken deletes a token by its name.

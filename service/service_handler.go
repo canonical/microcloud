@@ -12,7 +12,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/hashicorp/mdns"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -46,14 +46,14 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler with a client for each of the given services.
-func NewHandler(name string, addr string, stateDir string, debug bool, verbose bool, services ...types.ServiceType) (*Handler, error) {
+func NewHandler(name string, addr string, stateDir string, services ...types.ServiceType) (*Handler, error) {
 	servicesMap := make(map[types.ServiceType]Service, len(services))
 	for _, serviceType := range services {
 		var service Service
 		var err error
 		switch serviceType {
 		case types.MicroCloud:
-			service, err = NewCloudService(name, addr, stateDir, verbose, debug)
+			service, err = NewCloudService(name, addr, stateDir)
 		case types.MicroCeph:
 			service, err = NewCephService(name, addr, stateDir)
 		case types.MicroOVN:
@@ -80,14 +80,14 @@ func NewHandler(name string, addr string, stateDir string, debug bool, verbose b
 
 // Start is run after the MicroCloud daemon has started. It will periodically check for join token broadcasts, and if
 // found, will join all known services.
-func (s *Handler) Start(state *state.State) error {
+func (s *Handler) Start(ctx context.Context, state state.State) error {
 	// If we are already initialized, there's nothing to do.
-	err := state.Database.IsOpen(context.Background())
+	err := state.Database().IsOpen(context.Background())
 	if err == nil {
 		return nil
 	}
 
-	err = s.Services[types.LXD].(*LXDService).Restart(state.Context, 30)
+	err = s.Services[types.LXD].(*LXDService).Restart(ctx, 30)
 	if err != nil {
 		logger.Error("Failed to restart LXD", logger.Ctx{"error": err})
 	}
