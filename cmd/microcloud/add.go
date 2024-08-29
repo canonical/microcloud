@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -97,7 +97,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, services...)
 	if err != nil {
 		return err
 	}

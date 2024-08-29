@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 )
 
@@ -94,7 +93,7 @@ func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
@@ -135,7 +134,7 @@ func (c *cmdTokensRevoke) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err

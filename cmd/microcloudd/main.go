@@ -9,7 +9,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/rest"
+	"github.com/canonical/microcluster/v2/rest"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -77,7 +77,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, c.global.flagLogDebug, c.global.flagLogVerbose, services...)
+	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, services...)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 						continue
 					}
 
-					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, false, false, serviceName)
+					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, serviceName)
 					if err != nil {
 						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
 						break
@@ -139,7 +139,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy(s),
 	}
 
-	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints)
+	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints, c.global.flagLogVerbose, c.global.flagLogDebug)
 }
 
 func main() {
