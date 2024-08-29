@@ -214,21 +214,18 @@ jobs:
           sudo snap install lxd --channel latest/edge || sudo snap refresh lxd --channel latest/edge
           sudo lxd init --auto
 
-      - name: Build MicroOVN from commit 803dc03ea847d214941330c74cc0ae0027550dc0
+      - name: Build MicroCeph from masnax/main
         run: |
           set -eux
 
           sudo snap refresh
           sudo snap set lxd daemon.group=adm
           sudo snap install snapcraft --classic
-          git clone https://github.com/canonical/microovn
-          cd microovn
-          git checkout 803dc03ea847d214941330c74cc0ae0027550dc0
-          # disable golangci-lint as the latest version is not happy with this commit.
-          sed -e "s/golangci-lint run/# &/" -i snap/snapcraft.yaml
-          make microovn.snap
-          export MICROOVN_SNAP_PATH="$(readlink -f microovn.snap)"
-          echo "MICROOVN_SNAP_PATH=${MICROOVN_SNAP_PATH}"   >> "${GITHUB_ENV}"
+          git clone https://github.com/masnax/microceph
+          cd microceph
+          snapcraft -o microceph.snap
+          export MICROCEPH_SNAP_PATH="$(readlink -f microceph.snap)"
+          echo "MICROCEPH_SNAP_PATH=${MICROCEPH_SNAP_PATH}"  >> "${GITHUB_ENV}"
           cd -
 
       - name: "Prepare for system tests"
@@ -236,7 +233,7 @@ jobs:
           set -eux
           chmod +x ~
           cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,MICROOVN_SNAP_PATH ./main.sh setup
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,MICROCEPH_SNAP_PATH ./main.sh setup
           echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
 
       - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
