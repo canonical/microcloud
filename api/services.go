@@ -9,8 +9,8 @@ import (
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
@@ -28,7 +28,7 @@ var ServicesCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // servicesPut updates the cluster status of the MicroCloud peer.
-func servicesPut(state *state.State, r *http.Request) response.Response {
+func servicesPut(state state.State, r *http.Request) response.Response {
 	// Parse the request.
 	req := types.ServicesPut{}
 
@@ -50,7 +50,7 @@ func servicesPut(state *state.State, r *http.Request) response.Response {
 		addr = req.Address
 	}
 
-	sh, err := service.NewHandler(state.Name(), addr, state.OS.StateDir, false, false, services...)
+	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir, services...)
 	if err != nil {
 		return response.SmartError(err)
 	}
