@@ -18,7 +18,7 @@ import (
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/client"
+	"github.com/canonical/microcluster/v2/client"
 	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 
@@ -213,7 +213,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, services...)
 	if err != nil {
 		return err
 	}
