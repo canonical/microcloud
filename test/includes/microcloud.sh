@@ -262,13 +262,13 @@ validate_system_microceph() {
 
       count=0
       for disk in ${disks} ; do
-        ceph_disks=\$(microceph cluster sql \"select name, path from disks join internal_cluster_members on internal_cluster_members.id = disks.member_id where path like '%\${disk}' and name = '${name}'\")
+        ceph_disks=\$(microceph cluster sql \"select name, path from disks join core_cluster_members on core_cluster_members.id = disks.member_id where path like '%\${disk}' and name = '${name}'\")
         echo \"\${ceph_disks}\" | grep -q \"/dev/disk/by-id/scsi-.*_lxd_\${disk}\"
         count=\$((count + 1))
       done
 
-     query='{\"query\": \"select count(*) from disks join internal_cluster_members on internal_cluster_members.id = disks.member_id where internal_cluster_members.name = \\\"${name}\\\"\"}'
-     count_disks=\$(curl --unix-socket /var/snap/microceph/common/state/control.socket ./cluster/internal/sql -X POST -d \"\${query}\" -s)
+     query='{\"query\": \"select count(*) from disks join core_cluster_members on core_cluster_members.id = disks.member_id where core_cluster_members.name = \\\"${name}\\\"\"}'
+     count_disks=\$(curl --unix-socket /var/snap/microceph/common/state/control.socket ./core/internal/sql -X POST -d \"\${query}\" -s)
      echo \"\${count_disks}\" | jq '.status_code' | grep -q 200
      echo \"\${count_disks}\" | jq '.metadata .Results[0] .rows[0][0]' | grep -q \${count}
     "
@@ -300,7 +300,7 @@ validate_ceph_encrypt() {
   lxc remote switch local
   lxc exec "${name}" -- sh -ceu "
     for disk in ${disks} ; do
-      ceph_disks=\$(microceph cluster sql \"select path from disks join internal_cluster_members on internal_cluster_members.id = disks.member_id where path like '%\${disk}' and name = '${name}'\")
+      ceph_disks=\$(microceph cluster sql \"select path from disks join core_cluster_members on core_cluster_members.id = disks.member_id where path like '%\${disk}' and name = '${name}'\")
       disks_paths=\$(echo \"\${ceph_disks}\" | grep -o /dev/disk/by-id/scsi-.*_lxd_\${disk})
       devname=\$(udevadm info --query=property --name=\"\$disks_paths\" | grep '^DEVNAME=' | cut -d'=' -f2 | cut -d'/' -f3)
       result=\$(lsblk -l -o name,fstype | grep -E \"^\b\$devname\b.*crypto_LUKS\")
