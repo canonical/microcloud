@@ -193,6 +193,21 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return fmt.Errorf("Failed to configure cluster: %w", err)
 	}
 
+	// Set the local server's core.https_address to be consistent with the
+	// bootstrap member's wildcard
+	currentServer, etag, err := client.GetServer()
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve LXD config: %w", err)
+	}
+
+	newServer := currentServer.Writable()
+	newServer.Config["core.https_address"] = "[::]:8443"
+
+	err = client.UpdateServer(newServer, etag)
+	if err != nil {
+		return fmt.Errorf("Failed to update server configuration: %w", err)
+	}
+
 	return nil
 }
 

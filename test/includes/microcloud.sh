@@ -445,6 +445,9 @@ validate_system_lxd() {
     lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
     [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
+    # Check core config options
+    [ "$(lxc config get core.https_address)" = "[::]:8443" ]
+
     has_microovn=0
     has_microceph=0
 
