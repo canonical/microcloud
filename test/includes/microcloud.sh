@@ -14,6 +14,13 @@ unset_interactive_vars() {
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
 microcloud_interactive() {
+  enable_xtrace=0
+
+  if set -o | grep -q "xtrace.*on" ; then
+    enable_xtrace=1
+    set +x
+  fi
+
   MULTI_NODE=${MULTI_NODE:-}                     # (yes/no) whether to set up multiple nodes
   SKIP_LOOKUP=${SKIP_LOOKUP:-}                   # whether or not to skip the whole lookup block in the interactive command list.
   LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
@@ -139,7 +146,10 @@ $(true)                                                 # workaround for set -e
 fi
 
   # clear comments and empty lines.
-  echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d'
+  echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d' | tee /dev/stderr
+  if [ ${enable_xtrace} = 1 ]; then
+    set -x
+  fi
 }
 
 # set_debug_binaries: Adds {app}.debug binaries if the corresponding {APP}_DEBUG_PATH environment variable is set.
