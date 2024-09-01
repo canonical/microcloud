@@ -318,16 +318,19 @@ lookup_subnet: ${addr}/24
 lookup_interface: enp5s0
 systems:
 - name: micro01
+  ovn_uplink_interface: enp6s0
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 - name: micro02
+  ovn_uplink_interface: enp6s0
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
 - name: micro03
+  ovn_uplink_interface: enp6s0
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
@@ -358,9 +361,9 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n lxdfan0
+    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n lxdfan0
+  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
