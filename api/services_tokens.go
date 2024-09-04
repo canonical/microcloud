@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/microcluster/rest"
@@ -42,6 +43,8 @@ func serviceTokensPost(s *state.State, r *http.Request) response.Response {
 	if err != nil {
 		return response.BadRequest(err)
 	}
+
+	_ = os.MkdirAll(req.JoinerName, 0700)
 
 	sh, err := service.NewHandler(s.Name(), req.ClusterAddress, s.OS.StateDir, false, false, types.ServiceType(serviceType))
 	if err != nil {
