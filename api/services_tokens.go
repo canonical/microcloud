@@ -2,10 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/microcluster/rest"
@@ -27,6 +30,24 @@ var ServiceTokensCmd = func(sh *service.Handler) rest.Endpoint {
 	}
 }
 
+func IsSafeVarPath(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+
+	varDir := os.Getenv("LXD_DIR")
+	if varDir == "" {
+		varDir = "/var/lib/lxd"
+	}
+
+	if !strings.HasPrefix(absPath, varDir) {
+		return errors.New("Absolute path is outside the default LXD path")
+	}
+
+	return nil
+}
+
 // serviceTokensPost issues a token for service using the MicroCloud proxy.
 // Normally a token request to a service would be restricted to trusted systems,
 // so this endpoint validates the mDNS auth token and then proxies the request to the local unix socket of the remote system.
@@ -42,6 +63,11 @@ func serviceTokensPost(s *state.State, r *http.Request) response.Response {
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		return response.BadRequest(err)
+	}
+
+	err = IsSafeVarPath(req.JoinerName)
+	if err != nil {
+		return response.SmartError(err)
 	}
 
 	_ = os.MkdirAll(req.JoinerName, 0700)
