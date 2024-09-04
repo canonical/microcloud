@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,18 +30,13 @@ var ServiceTokensCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 func IsSafeVarPath(path string) error {
-	absPath, err := filepath.Abs(path)
+	if strings.Contains(path, "/") || strings.Contains(path, "\\") || strings.Contains(path, "..") {
+		return fmt.Errorf("test err")
+	}
+
+	_, err := filepath.Abs(path)
 	if err != nil {
 		return err
-	}
-
-	varDir := os.Getenv("LXD_DIR")
-	if varDir == "" {
-		varDir = "/var/lib/lxd"
-	}
-
-	if !strings.HasPrefix(absPath, varDir) {
-		return errors.New("Absolute path is outside the default LXD path")
 	}
 
 	return nil
@@ -66,15 +60,6 @@ func serviceTokensPost(s *state.State, r *http.Request) response.Response {
 	}
 
 	err = IsSafeVarPath(req.JoinerName)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
-	if strings.Contains(req.JoinerName, "/") || strings.Contains(req.JoinerName, "\\") || strings.Contains(req.JoinerName, "..") {
-		return response.SmartError(err)
-	}
-
-	_, err = filepath.Abs(req.JoinerName)
 	if err != nil {
 		return response.SmartError(err)
 	}
