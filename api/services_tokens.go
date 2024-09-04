@@ -59,9 +59,13 @@ func serviceTokensPost(s *state.State, r *http.Request) response.Response {
 		return response.BadRequest(err)
 	}
 
-	err = IsSafeVarPath(req.JoinerName)
+	if strings.Contains(req.JoinerName, "/") || strings.Contains(req.JoinerName, "\\") || strings.Contains(req.JoinerName, "..") {
+		return response.SmartError(fmt.Errorf("test"))
+	}
+
+	_, err = filepath.Abs(req.JoinerName)
 	if err != nil {
-		return response.SmartError(err)
+		return response.SmartError(fmt.Errorf("test: %w", err))
 	}
 
 	_ = os.MkdirAll(req.JoinerName, 0700)
