@@ -70,6 +70,15 @@ func serviceTokensPost(s *state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
+	if strings.Contains(req.JoinerName, "/") || strings.Contains(req.JoinerName, "\\") || strings.Contains(req.JoinerName, "..") {
+		return response.SmartError(err)
+	}
+
+	_, err = filepath.Abs(req.JoinerName)
+	if err != nil {
+		return response.SmartError(err)
+	}
+
 	_ = os.MkdirAll(req.JoinerName, 0700)
 
 	sh, err := service.NewHandler(s.Name(), req.ClusterAddress, s.OS.StateDir, false, false, types.ServiceType(serviceType))
