@@ -38,7 +38,7 @@ type Preseed struct {
 type System struct {
 	Name            string      `yaml:"name"`
 	UplinkInterface string      `yaml:"ovn_uplink_interface"`
-	UnderlayIP      string      `yaml:"underlay_ip"`
+	UnderlayIP      string      `yaml:"ovn_underlay_ip"`
 	Storage         InitStorage `yaml:"storage"`
 }
 
@@ -66,13 +66,13 @@ type InitNetwork struct {
 // CephOptions represents the structure of the ceph options in the preseed yaml.
 type CephOptions struct {
 	InternalNetwork string `yaml:"internal_network"`
+	CephFS          bool   `yaml:"cephfs"`
 }
 
 // StorageFilter separates the filters used for local and ceph disks.
 type StorageFilter struct {
-	CephFS bool         `yaml:"cephfs"`
-	Local  []DiskFilter `yaml:"local"`
-	Ceph   []DiskFilter `yaml:"ceph"`
+	Local []DiskFilter `yaml:"local"`
+	Ceph  []DiskFilter `yaml:"ceph"`
 }
 
 // DiskFilter is the optional filter for finding disks according to their fields in api.ResourcesStorageDisk in LXD.
@@ -907,7 +907,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 	}
 
 	hasCephFS, _ := localInfo.SupportsRemoteFSPool()
-	if (len(cephMatches)+len(directCephMatches) > 0 && p.Storage.CephFS) || hasCephFS {
+	if (len(cephMatches)+len(directCephMatches) > 0 && p.Ceph.CephFS) || hasCephFS {
 		for name, system := range c.systems {
 			if c.bootstrap {
 				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())

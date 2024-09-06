@@ -6,12 +6,15 @@ lookup_interface: eth0
 # `systems` lists the systems we expect to find by their host name.
 #   `name` represents the host name
 #   `ovn_uplink_interface` is optional and represents the name of the interface reserved for use with OVN.
+#   `ovn_underlay_ip` is optional and represents the Geneve Encap IP for each system.
 #   `storage` is optional and represents explicit paths to disks for each system.
 systems:
 - name: micro01
   ovn_uplink_interface: eth1
+  ovn_underlay_ip: 10.0.2.101
 - name: micro02
   ovn_uplink_interface: eth1
+  ovn_underlay_ip: 10.0.2.102
   storage:
     local:
       path: /dev/nvme5n1
@@ -24,13 +27,16 @@ systems:
         encrypt: true
 - name: micro03
   ovn_uplink_interface: eth1
+  ovn_underlay_ip: 10.0.2.103
 - name: micro04
   ovn_uplink_interface: eth1
 
 # `ceph` is optional and represents the Ceph global configuration
+# `cephfs: true` can be used to optionally set up a CephFS file system alongside Ceph distributed storage.
+# `internal_network: subnet` optionally specifies the internal cluster network for the Ceph cluster.
 ceph:
+  cephfs: true
   internal_network: 10.0.1.0/24
-  public_network: 10.0.2.0/24
 
 # `ovn` is optional and represents the OVN & uplink network configuration for LXD.
 ovn:
@@ -48,9 +54,7 @@ ovn:
 # String values must not be in quotes unless the string contains a space.
 # Single quotes are fine, but double quotes must be escaped.
 # `find_min` and `find_max` can be used to validate the number of disks each filter finds.
-# `cephfs: true` can be used to optionally set up a CephFS file system alongside Ceph distributed storage.
 storage:
-  cephfs: true
   local:
     - find: size > 10GiB && size < 50GiB && type == nvme
       find_min: 1
