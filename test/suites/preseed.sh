@@ -33,8 +33,10 @@ ovn:
   ipv6_gateway: fd42:1:1234:1234::1/64
   dns_servers: 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
 
-storage:
+ceph:
   cephfs: true
+
+storage:
   local:
     - find: device_id == *lxd_disk1
       find_min: 2
@@ -71,8 +73,9 @@ lookup_interface: enp5s0
 systems:
 - name: micro04
   ovn_uplink_interface: enp6s0
-storage:
+ceph:
   cephfs: true
+storage:
   local:
     - find: device_id == *lxd_disk1
       find_min: 1
