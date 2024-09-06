@@ -138,6 +138,7 @@ test_add_interactive() {
   export IPV4_END="10.1.123.254"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,fd42:1:1234:1234::1"
+  export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
@@ -159,6 +160,7 @@ test_add_interactive() {
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
+  export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
@@ -237,6 +239,7 @@ test_add_interactive() {
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,fd42:1:1234:1234::1"
   export REPLACE_PROFILE="yes"
+  export OVN_UNDERLAY_NETWORK="no"
 
   lxc exec micro04 -- snap enable microcloud
   lxc exec micro04 -- snap start microcloud

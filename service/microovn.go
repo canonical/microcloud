@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/microcluster"
 
@@ -58,7 +59,7 @@ func (s OVNService) Client() (*client.Client, error) {
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
 func (s OVNService) Bootstrap(ctx context.Context) error {
-	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), nil)
+	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config)
 	if err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address s
 
 // Join joins a cluster with the given token.
 func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
+	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, joinConfig.OVNConfig)
 }
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
@@ -180,4 +181,19 @@ func (s *OVNService) SetConfig(config map[string]string) {
 	for key, value := range config {
 		s.config[key] = value
 	}
+}
+
+// SupportsFeature checks if the specified API feature of this Service instance if supported.
+func (s *OVNService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+	server, err := s.m.Status(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get MicroOVN server status while checking for features: %v", err)
+	}
+
+	if server.Extensions == nil {
+		logger.Warnf("MicroOVN server does not expose API extensions")
+		return false, nil
+	}
+
+	return server.Extensions.HasExtension(feature), nil
 }

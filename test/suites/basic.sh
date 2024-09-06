@@ -137,6 +137,7 @@ test_interactive() {
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -207,6 +208,7 @@ test_interactive() {
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
+  export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -214,6 +216,108 @@ test_interactive() {
     validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
     validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" disk2
     validate_system_microovn "${m}"
+  done
+
+  reset_systems 3 3 3
+
+  ceph_cluster_subnet_prefix="10.2.123"
+  ceph_cluster_subnet_iface="enp7s0"
+
+  for n in $(seq 2 4); do
+    cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
+  done
+
+  ovn_underlay_subnet_prefix="10.3.123"
+  ovn_underlay_subnet_iface="enp8s0"
+
+  for n in $(seq 2 4); do
+    ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- sh -c "ip addr add ${ovn_underlay_ip} dev ${ovn_underlay_subnet_iface} && ip link set ${ovn_underlay_subnet_iface} up"
+  done
+
+  echo "Creating a MicroCloud with ZFS, Ceph storage with a fully disaggregated Ceph networking setup, OVN management network and OVN underlay network"
+  export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export OVN_UNDERLAY_NETWORK="yes"
+  export OVN_UNDERLAY_FILTER="${ovn_underlay_subnet_prefix}"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" disk2
+    validate_system_microovn "${m}" "${ovn_underlay_subnet_prefix}"
+  done
+
+  reset_systems 3 3 2
+  echo "Add a MicroCloud node on a cluster of 2 nodes with MicroOVN not initialized"
+
+  ovn_underlay_subnet_prefix="10.2.123"
+  ovn_underlay_subnet_iface="enp7s0"
+
+  for n in $(seq 2 4); do
+    ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- sh -c "ip addr add ${ovn_underlay_ip} dev ${ovn_underlay_subnet_iface} && ip link set ${ovn_underlay_subnet_iface} up"
+  done
+
+  lxc exec micro03 -- snap disable microcloud || true
+  for m in micro01 micro02 ; do
+    lxc exec "${m}" -- snap disable microovn
+  done
+
+  unset_interactive_vars
+  microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=1
+  export SKIP_SERVICE="yes"
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="no"
+  export SETUP_OVN="no"
+
+  # Run a 2 nodes MicroCloud without MicroOVN first.
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  for m in micro01 micro02 ; do
+    lxc exec "${m}" -- snap enable microovn
+  done
+
+  lxc exec micro03 -- microovn cluster bootstrap
+  lxc exec micro03 -- snap enable microcloud
+  lxc exec micro03 -- snap start microcloud
+
+  unset_interactive_vars
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=2
+  export PEERS_FILTER="micro03"
+  export REUSE_EXISTING_COUNT=1
+  export REUSE_EXISTING="add"
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="no"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export OVN_UNDERLAY_NETWORK="yes"
+  export OVN_UNDERLAY_FILTER="${ovn_underlay_subnet_prefix}"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export REPLACE_PROFILE="yes"
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
+
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd "${m}" 3 disk1 0 0 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+  done
+
+  for m in micro01 micro02 ; do
+    validate_system_microovn "${m}" "${ovn_underlay_subnet_prefix}"
   done
 }
 
@@ -666,6 +770,7 @@ _test_case() {
     export LOOKUP_IFACE="enp5s0" # filter string for the lookup interface table.
     export LIMIT_SUBNET="yes" # (yes/no) input for limiting lookup of systems to the above subnet.
     export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+    export OVN_UNDERLAY_NETWORK="no"
 
     export EXPECT_PEERS="$((num_systems - 1))"
 
@@ -1082,6 +1187,7 @@ test_reuse_cluster() {
   export IPV4_END="10.1.123.254"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service"
@@ -1210,6 +1316,7 @@ test_remove_cluster_member() {
   export IPV4_END="10.1.123.254"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
   echo "Fail to remove member from MicroCeph and LXD until OSDs are removed"
@@ -1358,6 +1465,7 @@ test_add_services() {
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
@@ -1495,6 +1603,7 @@ test_non_ha() {
   export CEPH_ENCRYPT="no"
   export CEPH_RETRY_HA="no"
   export SETUP_OVN="yes"
+  export OVN_UNDERLAY_NETWORK="no"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"

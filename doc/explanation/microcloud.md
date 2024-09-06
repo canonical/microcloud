@@ -61,6 +61,19 @@ MicroCloud will still be usable, but you will see some limitations:
   As a result of this, network forwarding works at a basic level only, and external addresses must be forwarded to a specific cluster member and don't fail over.
 - There is no support for hardware acceleration, load balancers, or ACL functionality within the local network.
 
+(microcloud-networking-underlay)=
+
+Network interface to connect to an OVN underlay network
+:  While setting up the distributed networking with OVN, you can also decide to set up a dedicated underlay network for the OVN traffic.
+   A dedicated underlay network for OVN serves as the physical infrastructure over which the virtual networking (overlay network) is constructed. It can be beneficial to set up a dedicated underlay network for the following reasons:
+
+- A dedicated underlay network isolates the overlay network traffic from other types of traffic (such as management traffic).
+- By dedicating a physical network solely for the purpose of the virtual network overlay, network congestion can be reduced.
+- A dedicated underlay network can be tuned to provide predictable latency and bandwidth characteristics, which are crucial for the performance of latency-sensitive applications running over the OVN overlay.
+- A dedicated underlay can be designed to scale independently of other networks, which allows for more efficient scaling of the overlay network as the demand for virtual network resources increases.
+
+See {ref}`howto-ovn-underlay` for how to set up a dedicated OVN underlay network.
+
 ### Dedicated internal network for Ceph
 You can set up a dedicated network for Ceph to separate the internal Ceph traffic from the rest of the MicroCloud cluster traffic.
 
