@@ -4,6 +4,22 @@ test_preseed() {
   reset_systems 4 3 2
   lookup_gateway=$(lxc network get lxdbr0 ipv4.address)
 
+  ceph_cluster_subnet_prefix="10.2.123"
+  ceph_cluster_subnet_iface="enp7s0"
+
+  for n in $(seq 2 5); do
+    cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
+  done
+
+  ovn_underlay_subnet_prefix="10.3.123"
+  ovn_underlay_subnet_iface="enp8s0"
+
+  for n in $(seq 2 5); do
+    ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- sh -c "ip addr add ${ovn_underlay_ip} dev ${ovn_underlay_subnet_iface} && ip link set ${ovn_underlay_subnet_iface} up"
+  done
+
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
 lookup_subnet: ${lookup_gateway}
@@ -11,7 +27,9 @@ lookup_interface: enp5s0
 systems:
 - name: micro01
   ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.3.123.2
 - name: micro02
+  ovn_underlay_ip: 10.3.123.3
   ovn_uplink_interface: enp6s0
   storage:
     local:
@@ -25,6 +43,7 @@ systems:
         wipe: true
         encrypt: true
 - name: micro03
+  ovn_underlay_ip: 10.3.123.4
   ovn_uplink_interface: enp6s0
 
 ovn:
@@ -34,6 +53,7 @@ ovn:
   dns_servers: 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
 
 ceph:
+  internal_network: ${ceph_cluster_subnet_prefix}.0/24
   cephfs: true
 
 storage:
@@ -57,14 +77,14 @@ EOF
 
   for m in micro01 micro03 ; do
     validate_system_lxd ${m} 3 disk1 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
-    validate_system_microceph ${m} 1 1 disk2,disk3 disk2 disk3
-    validate_system_microovn ${m}
+    validate_system_microceph ${m} 1 1 "${ceph_cluster_subnet_prefix}.0/24" disk2,disk3 disk2 disk3
+    validate_system_microovn ${m}  "${ovn_underlay_subnet_prefix}"
   done
 
   # Disks on micro02 should have been manually selected.
   validate_system_lxd micro02 3 disk2 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
-  validate_system_microceph micro02 1 1 disk1,disk3 disk1 disk3
-  validate_system_microovn micro02
+  validate_system_microceph micro02 1 1 "${ceph_cluster_subnet_prefix}.0/24"  disk1,disk3 disk1 disk3
+  validate_system_microovn micro02 "${ovn_underlay_subnet_prefix}"
 
   # Grow the MicroCloud with a new node, with filter-based storage selection.
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed --lookup-timeout 10 <<EOF
@@ -73,6 +93,7 @@ lookup_interface: enp5s0
 systems:
 - name: micro04
   ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.3.123.5
 ceph:
   cephfs: true
 storage:
@@ -90,8 +111,8 @@ storage:
 EOF
 
   validate_system_lxd micro04 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
-  validate_system_microceph micro04 1 1 disk2 disk2
-  validate_system_microovn micro04
+  validate_system_microceph micro04 1 1 "${ceph_cluster_subnet_prefix}.0/24" disk2 disk2
+  validate_system_microovn micro04 "${ovn_underlay_subnet_prefix}"
 
   reset_systems 3 3 2
 
