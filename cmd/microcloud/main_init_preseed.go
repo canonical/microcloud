@@ -797,19 +797,6 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 			}
 		}
 
-		if c.bootstrap {
-			osdHosts := 0
-			for _, system := range c.systems {
-				if len(system.MicroCephDisks) > 0 {
-					osdHosts++
-				}
-			}
-
-			if osdHosts < RecommendedOSDHosts {
-				fmt.Printf("Warning: OSD host count is less than %d. Distributed storage is not fault-tolerant\n", RecommendedOSDHosts)
-			}
-		}
-
 		for _, filter := range p.Storage.Local {
 			// No need to check filters anymore if each machine has a disk.
 			if len(zfsMachines) == len(c.systems) {
@@ -837,6 +824,19 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 
 		c.systems[peer] = system
+	}
+
+	if c.bootstrap {
+		osdHosts := 0
+		for _, system := range c.systems {
+			if len(system.MicroCephDisks) > 0 {
+				osdHosts++
+			}
+		}
+
+		if osdHosts < RecommendedOSDHosts {
+			fmt.Printf("Warning: OSD host count is less than %d. Distributed storage is not fault-tolerant\n", RecommendedOSDHosts)
+		}
 	}
 
 	// Initialize Ceph network if specified.
