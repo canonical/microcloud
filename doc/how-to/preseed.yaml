@@ -1,16 +1,44 @@
+# `initiator` defines which system takes over the role of the initiator during the trust establishment with mDNS.
+# Make sure to also set `lookup_subnet`.
+# The field cannot be set together with `initiator_address`.
+initiator: micro01
+
+# `initiator_address` defines which system takes over the role of the initiator during the trust establishment.
+# It also allows joining systems to learn about the address they have to connect to.
+# The field cannot be set together with `initiator`.
+initiator_address: 10.0.0.1
+
 # `lookup_subnet` limits the subnet when looking up systems with mDNS.
-lookup_subnet: 10.0.0.1/24
-# `lookup_interface` limits the interface when looking up systems with mDNS.
-lookup_interface: eth0
+# The first assigned address of this subnet is used for MicroCloud.
+lookup_subnet: 10.0.0.0/24
+
+# `lookup_timeout` is optional and configures how long the joining system will wait for a system to be discovered with mDNS.
+# The value has to be provided in seconds.
+# It defaults to 60 seconds.
+lookup_timeout: 300
+
+# `session_passphrase` configures the passphrase used during the trust establishment session.
+session_passphrase: 83P27XWKbDczUyE7xaX3pgVfaEacfQ2qiQ0r6gPb
+
+# `session_timeout` is optional and configures how long the trust establishment session will last.
+# The value has to be provided in seconds.
+# It defaults to 60 minutes.
+session_timeout: 300
+
+# `reuse_existing_clusters` is optional and configures whether or not to reuse existing clusters.
+reuse_existing_clusters: true
 
 # `systems` lists the systems we expect to find by their host name.
-#   `name` represents the host name
+#   `name` represents the host name.
+#   `address` sets the address used for MicroCloud and is required in case `initiator_address` is present.
 #   `ovn_uplink_interface` is optional and represents the name of the interface reserved for use with OVN.
 #   `storage` is optional and represents explicit paths to disks for each system.
 systems:
 - name: micro01
+  address: 10.0.0.1
   ovn_uplink_interface: eth1
 - name: micro02
+  address: 10.0.0.2
   ovn_uplink_interface: eth1
   storage:
     local:
@@ -23,8 +51,10 @@ systems:
         wipe: true
         encrypt: true
 - name: micro03
+  address: 10.0.0.3
   ovn_uplink_interface: eth1
 - name: micro04
+  address: 10.0.0.4
   ovn_uplink_interface: eth1
 
 # `ceph` is optional and represents the Ceph global configuration

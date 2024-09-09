@@ -7,15 +7,25 @@ relatedlinks: https://en.wikipedia.org/wiki/Multicast_DNS
 
 See {ref}`howto-initialise` for instructions on how to set up MicroCloud.
 
+(trust-establishment-session)=
+## Trust establishment session
+
+To allow several instances of MicroCloud joining the final cluster, in both the interactive and non-interactive method each instance
+is running one half of the trust establishment session to trust the other side.
+
+Each trust establishment session has one initiator and one to many joiners.
+In case of the interactive mode the side which runs the `microcloud init` command becomes the initiator.
+The other side becomes the joiner by running `microcloud join`.
+In the non-interactive mode the initiator is being defined either using the `initiator` or `initiator_address` configuration key.
+
 (automatic-server-detection)=
 ## Automatic server detection
 
-MicroCloud uses {abbr}`mDNS (multicast DNS)` to automatically detect other servers on the network.
+If required MicroCloud uses {abbr}`mDNS (multicast DNS)` to automatically detect a so called initiator on the network.
 This method works in physical networks, but it is usually not supported in a cloud environment.
+Instead you can specify the address of the initiator instead to not require using mDNS.
 
-The scan can be limited to the default local subnet of the network interface you select.
-
-MicroCloud will display all servers that it detects and periodically update the list. You can select the servers you want to add to the MicroCloud cluster.
+The scan is limited to the local subnet of the network interface you select when choosing an address for MicroCloud's internal traffic (see {ref}`microcloud-networking-intracluster`).
 
 (bootstrapping-process)=
 ## Bootstrapping process
