@@ -6,5 +6,4 @@ If you want to add a machine to the MicroCloud cluster after the initialisation,
     sudo microcloud add
 
 Answer the prompts to add the machine.
-Alternatively, you can add the `--auto` flag to accept the default configuration instead of an interactive setup.
-You can also add the `--wipe` flag to automatically wipe any disks you add to the cluster.
+You can add the `--wipe` flag to automatically wipe any disks you add to the cluster.
