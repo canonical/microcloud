@@ -2,7 +2,7 @@
 # How to initialise MicroCloud
 
 The {ref}`initialisation process <explanation-initialisation>` bootstraps the MicroCloud cluster.
-You run the initialisation on one of the machines, and it configures the required services on all machines.
+You run the initialisation on one of the machines, and it configures the required services on all of the machines that have been joined.
 
 (howto-initialise-interactive)=
 ## Interactive configuration
@@ -28,19 +28,26 @@ Complete the following steps to initialise MicroCloud:
 
        sudo microcloud init
 
+1. Select whether you want to set up more than one machine.
+
+   This allows you to create a MicroCloud using a single node.
+   It will skip the {ref}`trust-establishment-session` if no more machines should be part of the MicroCloud.
+
+   Additional machines can always be added at a later point in time.
+   See {ref}`howto-add` for more information.
 1. Select the IP address that you want to use for MicroCloud's internal traffic (see {ref}`microcloud-networking-intracluster`).
    MicroCloud automatically detects the available addresses (IPv4 and IPv6) on the existing network interfaces and displays them in a table.
 
    You must select exactly one address.
-1. Decide if you want to limit the search for other machines.
+1. On all the other machines, enter the following command and repeat the address selection:
 
-   If you accept the default (`yes`), MicroCloud will automatically detect machines in the local subnet.
-   Otherwise, it will detect all available machines, which might include duplicates (if machines are available both on IPv4 and on IPv6).
+       sudo microcloud join
 
-   See {ref}`automatic-server-detection` for more information.
+   It will automatically detect the machine acting as the initiator.
+   See {ref}`trust-establishment-session` for more information and  {ref}`automatic-server-detection` in case the network doesn't support mDNS.
 1. Select the machines that you want to add to the MicroCloud cluster.
 
-   MicroCloud displays all machines that it detects. This list will periodically update as new machines are detected.
+   MicroCloud displays all machines that have reached out during the trust establishment session.
    Make sure that all machines that you select have the required snaps installed.
 1. Select whether you want to set up local storage.
 
@@ -135,13 +142,15 @@ If more than one MicroCeph or MicroOVN cluster exists among the systems, the Mic
 (howto-initialise-preseed)=
 ## Non-interactive configuration
 
-If you want to automate the initialisation process, you can provide a preseed configuration in YAML format to the {command}`microcloud init` command:
+If you want to automate the initialisation process, you can provide a preseed configuration in YAML format to the {command}`microcloud preseed` command:
 
-    cat <preseed_file> | microcloud init --preseed
+    cat <preseed_file> | microcloud preseed
+
+Make sure to distribute and run the same preseed configuration on all systems that should be part of the MicroCloud.
 
 The preseed YAML file must use the following syntax:
 
 ```{literalinclude} preseed.yaml
 :language: YAML
-:emphasize-lines: 1,4-7,27,33-41
+:emphasize-lines: 1-3,6-8,11-12,19,29-33
 ```

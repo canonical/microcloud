@@ -248,18 +248,13 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 ## 6. Initialise MicroCloud
 
 After installing all snaps on all VMs, you can initialise MicroCloud.
-This initialisation is done on one of the machines only.
 We use `micro1`, but you can choose another machine.
 
 Complete the following steps:
 
-1. Access the shell in `micro1`:
+1. Access the shell in `micro1` and start the initialisation process:
 
-       lxc exec micro1 -- bash
-
-1. Start the initialisation process:
-
-       microcloud init
+       lxc exec micro1 microcloud init
 
    ```{tip}
    In this tutorial, we initialise MicroCloud interactively.
@@ -268,8 +263,21 @@ Complete the following steps:
 
 1. Answer the questions:
 
+   1. Select `yes` to select more than one cluster member.
    1. As the address for MicroCloud's internal traffic, select the listed IPv4 address.
-   1. Select `yes` to limit the search for other MicroCloud servers to the local subnet.
+   1. Copy the session passphrase.
+   1. Head to the other servers (`micro02`, `micro03`, and `micro04`) and start the join process:
+
+          lxc exec micro02 microcloud join
+
+         ```{tip}
+
+         Open up three additional terminals to run the commands concurrently.
+         ```
+
+         In each terminal select an address for MicroCloud's internal traffic.
+         When prompted enter the passphrase in each terminal and return to `micro01`.
+
    1. Select all listed servers (these should be `micro2`, `micro3`, and `micro4`).
    1. Select `yes` to set up local storage.
    1. Select the listed local disks (`local1`, `local2`, `local3`, and `local4`).
@@ -303,7 +311,7 @@ Complete the following steps:
 MicroCloud will now initialise the cluster.
 See {ref}`explanation-initialisation` for more information.
 
-See the full initialisation process here:
+See the full process here for the initiating side:
 
 (initialisation-process)=
 
@@ -313,6 +321,7 @@ See the full initialisation process here:
 :host: micro1
 :scroll:
 
+Do you want to set up more than one cluster member? (yes/no) [default=yes]: yes
 Select an address for MicroCloud's internal traffic:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
@@ -325,18 +334,27 @@ Up/down to move; right to select all; left to select none.
 
  Using address "203.0.113.169" for MicroCloud
 
-Limit search for other MicroCloud servers to 203.0.113.169/24? (yes/no) [default=yes]: yes
-Scanning for eligible servers ...
+Use the following command on systems that you want to join the cluster:
+
+ microcloud join
+
+When requested enter the passphrase:
+
+ koala absorbing update dorsal
+
+Verify the fingerprint "5d0808de679d" is displayed on joining systems.
+Waiting to detect systems ...
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
-       +---------+--------+---------------+
-       |  NAME   | IFACE  |     ADDR      |
-       +---------+--------+---------------+
-> [x]  | micro3  | enp5s0 | 203.0.113.171 |
-  [x]  | micro2  | enp5s0 | 203.0.113.170 |
-  [x]  | micro4  | enp5s0 | 203.0.113.172 |
-       +---------+--------+---------------+
+       +---------+---------------+--------------+
+       |  NAME   |    ADDRESS    | FINGERPRINT  |
+       +---------+---------------+--------------+
+> [x]  | micro3  | 203.0.113.171 | 4e80954d6a64 |
+  [x]  | micro2  | 203.0.113.170 | 84e0b50e13b3 |
+  [x]  | micro4  | 203.0.113.172 | 98667a808a99 |
+       +---------+---------------+--------------+
 
+ Selected "micro1" at "203.0.113.169"
  Selected "micro3" at "203.0.113.171"
  Selected "micro2" at "203.0.113.170"
  Selected "micro4" at "203.0.113.172"
@@ -440,6 +458,33 @@ Awaiting cluster formation ...
  Peer "micro4" has joined the cluster
 Cluster initialization is complete
 MicroCloud is ready
+```
+
+See the full process here for one of the joining sides (`micro02`):
+
+```{terminal}
+:input: microcloud init
+:user: root
+:host: micro1
+:scroll:
+
+Select an address for MicroCloud's internal traffic:
+
+ Using address "203.0.113.170" for MicroCloud
+
+Verify the fingerprint "84e0b50e13b3" is displayed on the other system.
+Specify the passphrase for joining the system: koala absorbing update dorsal
+Searching for an eligible system ...
+
+ Found system "micro01" at "203.0.113.169" using fingerprint "5d0808de679d"
+
+Select "micro02" on "micro01" to let it join the cluster
+
+ Received confirmation from system "micro01"
+
+Do not exit out to keep the session alive.
+Complete the remaining configuration on "micro01" ...
+Successfully joined the cluster
 ```
 
 ## 7. Inspect your MicroCloud setup
