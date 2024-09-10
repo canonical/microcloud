@@ -651,6 +651,28 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 }
 
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
+	for _, sys := range c.systems {
+		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
+			continue
+		}
+
+		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
+		if err != nil {
+			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
+		}
+
+		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
+		if underlayIP == nil {
+			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
+		}
+
+		if subnet.Contains(underlayIP) {
+			fmt.Printf("Warning: OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String())
+
+			break
+		}
+	}
+
 	if !c.bootstrap {
 		return nil
 	}
