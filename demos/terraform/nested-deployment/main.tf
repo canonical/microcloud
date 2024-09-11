@@ -2,7 +2,7 @@ terraform {
   required_providers {
     lxd = {
       source  = "terraform-lxd/lxd"
-      version = "2.0.0"
+      version = "2.3.0"
     }
     ssh = {
       source = "loafoe/ssh"
@@ -72,7 +72,7 @@ resource "lxd_instance" "microcloud_nodes" {
   config = {
     "boot.autostart"       = true
     "cloud-init.user-data" = local.cloud_init
-    "cloud-init.network-config" =local.cloud_init_network
+    "cloud-init.network-config" = local.cloud_init_network
   }
 
   limits = {

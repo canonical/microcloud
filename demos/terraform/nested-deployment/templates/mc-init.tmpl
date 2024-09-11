@@ -1,0 +1,21 @@
+# Taken from Microcloud docs, see: https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/initialise/#non-interactive-configuration 
+# for more information
+lookup_subnet: ${microcloud_one_address}
+systems:
+%{ for mc_inst in instances ~}
+- name: ${mc_inst}
+  ovn_uplink_interface: ${bridge_nic}
+  storage:
+      ceph:
+      - path: /dev/sdb
+        wipe: true
+%{ endfor ~}
+
+ceph:
+  internal_network: ${bridge_nic_cidr}
+  public_network: ${bridge_nic_cidr}
+
+ovn:
+  ipv4_gateway: ${ovn_gateway}
+  ipv4_range: ${ovn_range_start}-${ovn_range_end}
+  dns_servers: 8.8.8.8

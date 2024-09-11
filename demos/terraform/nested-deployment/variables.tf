@@ -1,8 +1,3 @@
-
-variable "pro_token" {
-    type = string
-}
-
 variable "lxd_project" {
     type = string
     default = "microcloud2"

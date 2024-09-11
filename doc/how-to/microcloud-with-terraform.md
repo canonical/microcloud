@@ -22,7 +22,7 @@ Get the terraform from the [demos folder](../../demos/microcloud-deploy)
 sudo lxd init --auto
 ```
 
-## Init tofu
+## Init terraform
 
 ```
 sudo snap install --classic terraform
@@ -33,7 +33,6 @@ terraform init
 
 | Variable Name            | Purpose                                               |
 | ------------------------ | ----------------------------------------------------- |
-| pro_token                | Can be ignored for now                                |
 | lxd_project              | LXD Project - will be created                         |
 | bridge_nic               | The bridge interface created in the VM                |
 | lookup_subnet            | The CIDR of bridge_nic, e.g. 10.10.32.0/24            |
@@ -45,18 +44,11 @@ terraform init
 
 ## Apply the plan
 
-```
-tofu apply
-```
-
-## Init Microcloud
+### Init Microcloud
 
 The terraform will automatically trigger an initialisation, via the non-interactive method - more information can be found here: https://canonical-microcloud.readthedocs-hosted.com/en/latest/how-to/initialise/#non-interactive-configuration
 
 
-## TODO:
-
-- Additional networks
-~~- Microcloud VM bridging~~
-- Multinode
-- Non-bridged network on the host
+```
+terraform apply
+```
