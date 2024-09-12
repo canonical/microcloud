@@ -180,11 +180,9 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if !c.autoSetup {
-		c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
+	c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
+	if err != nil {
+		return err
 	}
 
 	err = c.askAddress()
