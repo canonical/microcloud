@@ -575,8 +575,9 @@ reset_snaps() {
         snap disable microceph > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
-        if ps -e -o '%p %a' | grep -v grep | grep -qe 'ceph-' -qe 'microceph' ; then
-          kill -9 \$(ps -e -o '%p %a' | grep -e 'ceph-' -e 'microceph' | grep -v grep | awk '{print \$1}') || true
+        # Filter out the subshell too to not kill our own invocation as it shows as 'sh -c ...microceph...' in the process list.
+        if ps -e -o '%p %a' | grep -Ev '(grep|sh)' | grep -qe 'ceph-' -qe 'microceph' ; then
+          kill -9 \$(ps -e -o '%p %a' | grep -Ev '(grep|sh)' | grep -e 'ceph-' -e 'microceph' | awk '{print \$1}') || true
         fi
 
         # Remove modules to get rid of any kernel owned processes.
@@ -602,8 +603,9 @@ reset_snaps() {
         snap disable microovn > /dev/null 2>&1 || true
 
         # Kill any remaining processes.
-        if ps -e -o '%p %a' | grep -v grep | grep -qe 'ovs-' -qe 'ovn-' -qe 'microovn' ; then
-          kill -9 \$(ps -e -o '%p %a' | grep -e 'ovs-' -e 'ovn-' -e 'microovn' | grep -v grep | awk '{print \$1}') || true
+        # Filter out the subshell too to not kill our own invocation as it shows as 'sh -c ...microovn...' in the process list.
+        if ps -e -o '%p %a' | grep -Ev '(grep|sh)' | grep -qe 'ovs-' -qe 'ovn-' -qe 'microovn' ; then
+          kill -9 \$(ps -e -o '%p %a' | grep -Ev '(grep|sh)' | grep -e 'ovs-' -e 'ovn-' -e 'microovn' | awk '{print \$1}') || true
         fi
 
         # Wipe the snap state so we can start fresh.

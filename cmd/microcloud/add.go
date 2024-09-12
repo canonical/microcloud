@@ -17,7 +17,6 @@ import (
 type cmdAdd struct {
 	common *CmdControl
 
-	flagAutoSetup     bool
 	flagWipe          bool
 	flagPreseed       bool
 	flagLookupTimeout int64
@@ -30,7 +29,6 @@ func (c *cmdAdd) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
 	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait for systems to show up. Defaults: 60s for interactive, 5s for automatic and preseed")
@@ -46,7 +44,6 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	cfg := initConfig{
 		bootstrap:    false,
 		setupMany:    true,
-		autoSetup:    c.flagAutoSetup,
 		wipeAllDisks: c.flagWipe,
 		common:       c.common,
 		asker:        &c.common.asker,
@@ -57,7 +54,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	cfg.lookupTimeout = DefaultLookupTimeout
 	if c.flagLookupTimeout > 0 {
 		cfg.lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
-	} else if c.flagAutoSetup || c.flagPreseed {
+	} else if c.flagPreseed {
 		cfg.lookupTimeout = DefaultAutoLookupTimeout
 	}
 

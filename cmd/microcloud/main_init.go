@@ -112,7 +112,6 @@ type initConfig struct {
 type cmdInit struct {
 	common *CmdControl
 
-	flagAutoSetup       bool
 	flagLookupTimeout   int64
 	flagWipeAllDisks    bool
 	flagEncryptAllDisks bool
@@ -128,7 +127,6 @@ func (c *cmdInit) Command() *cobra.Command {
 		RunE:    c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().BoolVar(&c.flagEncryptAllDisks, "encrypt", false, "Encrypt disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
@@ -147,7 +145,6 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		bootstrap:       true,
 		setupMany:       true,
 		address:         c.flagAddress,
-		autoSetup:       c.flagAutoSetup,
 		wipeAllDisks:    c.flagWipeAllDisks,
 		encryptAllDisks: c.flagEncryptAllDisks,
 		common:          c.common,
@@ -159,7 +156,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	cfg.lookupTimeout = DefaultLookupTimeout
 	if c.flagLookupTimeout > 0 {
 		cfg.lookupTimeout = time.Duration(c.flagLookupTimeout) * time.Second
-	} else if c.flagAutoSetup || c.flagPreseed {
+	} else if c.flagPreseed {
 		cfg.lookupTimeout = DefaultAutoLookupTimeout
 	}
 
@@ -183,11 +180,9 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if !c.autoSetup {
-		c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
+	c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
+	if err != nil {
+		return err
 	}
 
 	err = c.askAddress()

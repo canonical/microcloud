@@ -53,7 +53,7 @@ func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []strin
 		}
 	}
 
-	if !c.autoSetup && len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
+	if len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
 		replace, err := c.asker.AskBool("Replace existing default profile configuration? (yes/no) [default=no]: ", "no")
 		if err != nil {
 			return nil, err
@@ -83,11 +83,9 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 		if err != nil {
 			fmt.Println(err)
 
-			if !c.autoSetup {
-				retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
-				if err != nil {
-					return err
-				}
+			retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
+			if err != nil {
+				return err
 			}
 		}
 
@@ -109,6 +107,8 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 
 	if len(missingServices) > 0 {
 		serviceStr := strings.Join(missingServices, ", ")
+
+		// Ignore missing services in case of preseed.
 		if !c.autoSetup {
 			confirm, err := c.asker.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
 			if err != nil {
@@ -278,13 +278,6 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	data := [][]string{}
 	selectedDisks := map[string]string{}
 	for peer, disks := range availableDisks {
-		// In auto mode, if there's no spare disk, then we can't add a remote storage pool, so skip local pool creation.
-		if c.autoSetup && len(disks) < 2 {
-			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", peer)
-
-			return nil
-		}
-
 		sortedDisks := []api.ResourcesStorageDisk{}
 		for _, disk := range disks {
 			sortedDisks = append(sortedDisks, disk)
@@ -297,24 +290,12 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		for _, disk := range sortedDisks {
 			devicePath := parseDiskPath(disk)
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
-
-			// Add the first disk for each peer.
-			if c.autoSetup {
-				_, ok := selectedDisks[peer]
-				if !ok {
-					selectedDisks[peer] = devicePath
-				}
-			}
 		}
 	}
 
-	var err error
-	wantsDisks := true
-	if !c.autoSetup {
-		wantsDisks, err = c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
-		if err != nil {
-			return err
-		}
+	wantsDisks, err := c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+	if err != nil {
+		return err
 	}
 
 	if !wantsDisks {
@@ -328,69 +309,67 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		return fmt.Errorf("Failed to check for source.wipe extension: %w", err)
 	}
 
-	if !c.autoSetup {
-		err := c.askRetry("Retry selecting disks?", func() error {
-			selected := map[string]string{}
-			sort.Sort(cli.SortColumnsNaturally(data))
-			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-			table := NewSelectableTable(header, data)
-			fmt.Println("Select exactly one disk from each cluster member:")
-			err := table.Render(table.rows)
+	err = c.askRetry("Retry selecting disks?", func() error {
+		selected := map[string]string{}
+		sort.Sort(cli.SortColumnsNaturally(data))
+		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
+		table := NewSelectableTable(header, data)
+		fmt.Println("Select exactly one disk from each cluster member:")
+		err := table.Render(table.rows)
+		if err != nil {
+			return err
+		}
+
+		selectedRows, err := table.GetSelections()
+		if err != nil {
+			return fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
+		}
+
+		if len(selectedRows) == 0 {
+			return fmt.Errorf("No disks selected")
+		}
+
+		for _, entry := range selectedRows {
+			target := table.SelectionValue(entry, "LOCATION")
+			path := table.SelectionValue(entry, "PATH")
+
+			_, ok := selected[target]
+			if ok {
+				return fmt.Errorf("Failed to add local storage pool: Selected more than one disk for target peer %q", target)
+			}
+
+			selected[target] = path
+		}
+
+		if len(selected) != len(askSystems) {
+			return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
+		}
+
+		if !c.wipeAllDisks && wipeable {
+			fmt.Println("Select which disks to wipe:")
+			err := table.Render(selectedRows)
 			if err != nil {
 				return err
 			}
 
-			selectedRows, err := table.GetSelections()
+			wipeRows, err := table.GetSelections()
 			if err != nil {
-				return fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
+				return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
 			}
 
-			if len(selectedRows) == 0 {
-				return fmt.Errorf("No disks selected")
-			}
-
-			for _, entry := range selectedRows {
+			for _, entry := range wipeRows {
 				target := table.SelectionValue(entry, "LOCATION")
 				path := table.SelectionValue(entry, "PATH")
-
-				_, ok := selected[target]
-				if ok {
-					return fmt.Errorf("Failed to add local storage pool: Selected more than one disk for target peer %q", target)
-				}
-
-				selected[target] = path
+				toWipe[target] = path
 			}
-
-			if len(selected) != len(askSystems) {
-				return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
-			}
-
-			if !c.wipeAllDisks && wipeable {
-				fmt.Println("Select which disks to wipe:")
-				err := table.Render(selectedRows)
-				if err != nil {
-					return err
-				}
-
-				wipeRows, err := table.GetSelections()
-				if err != nil {
-					return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
-				}
-
-				for _, entry := range wipeRows {
-					target := table.SelectionValue(entry, "LOCATION")
-					path := table.SelectionValue(entry, "PATH")
-					toWipe[target] = path
-				}
-			}
-
-			selectedDisks = selected
-
-			return nil
-		})
-		if err != nil {
-			return err
 		}
+
+		selectedDisks = selected
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	if len(selectedDisks) == 0 {
@@ -603,20 +582,16 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return nil
 		}
 
-		var err error
-		wantsDisks := true
-		if !c.autoSetup {
-			wantsDisks, err = c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
+		wantsDisks, err := c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
+
+		// Ask if the user is okay with fully remote ceph on some systems.
+		if len(askSystemsRemote) != availableDiskCount && wantsDisks {
+			wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
 			if err != nil {
 				return err
-			}
-
-			// Ask if the user is okay with fully remote ceph on some systems.
-			if len(askSystemsRemote) != availableDiskCount && wantsDisks {
-				wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
-				if err != nil {
-					return err
-				}
 			}
 		}
 
@@ -663,29 +638,27 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				return nil
 			}
 
-			if !c.autoSetup {
-				fmt.Println("Select from the available unpartitioned disks:")
-				err := table.Render(table.rows)
+			fmt.Println("Select from the available unpartitioned disks:")
+			err := table.Render(table.rows)
+			if err != nil {
+				return err
+			}
+
+			selected, err = table.GetSelections()
+			if err != nil {
+				return fmt.Errorf("Invalid disk configuration: %w", err)
+			}
+
+			if len(selected) > 0 && !c.wipeAllDisks {
+				fmt.Println("Select which disks to wipe:")
+				err := table.Render(selected)
 				if err != nil {
 					return err
 				}
 
-				selected, err = table.GetSelections()
+				toWipe, err = table.GetSelections()
 				if err != nil {
 					return fmt.Errorf("Invalid disk configuration: %w", err)
-				}
-
-				if len(selected) > 0 && !c.wipeAllDisks {
-					fmt.Println("Select which disks to wipe:")
-					err := table.Render(selected)
-					if err != nil {
-						return err
-					}
-
-					toWipe, err = table.GetSelections()
-					if err != nil {
-						return fmt.Errorf("Invalid disk configuration: %w", err)
-					}
 				}
 			}
 
@@ -698,11 +671,6 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				}
 
 				targetDisks[target] = append(targetDisks[target], path)
-			}
-
-			insufficientDisks := !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
-			if c.autoSetup && insufficientDisks {
-				return fmt.Errorf("Unable to add remote storage pool: At least %d peers must have allocated disks", RecommendedOSDHosts)
 			}
 
 			wipeDisks = map[string]map[string]bool{}
@@ -721,6 +689,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			if len(targetDisks) == 0 {
 				return fmt.Errorf("No disks were selected")
 			}
+
+			insufficientDisks := !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
 
 			if insufficientDisks {
 				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
@@ -749,7 +719,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	}
 
 	encryptDisks := c.encryptAllDisks
-	if !c.autoSetup && !c.encryptAllDisks && len(selectedDisks) > 0 {
+	if !c.encryptAllDisks && len(selectedDisks) > 0 {
 		var err error
 		encryptDisks, err = c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
 		if err != nil {
@@ -760,19 +730,17 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	// If a cephfs pool has already been set up, we will extend it automatically, so no need to ask the question.
 	setupCephFS := useJoinConfigRemoteFS
 	if !useJoinConfigRemoteFS {
-		if !c.autoSetup {
-			lxd := sh.Services[types.LXD].(*service.LXDService)
-			ext := "storage_cephfs_create_missing"
-			hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
-			if err != nil {
-				return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
-			}
+		lxd := sh.Services[types.LXD].(*service.LXDService)
+		ext := "storage_cephfs_create_missing"
+		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), "", ext)
+		if err != nil {
+			return fmt.Errorf("Failed to check for the %q LXD API extension: %w", ext, err)
+		}
 
-			if hasCephFS {
-				setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
-				if err != nil {
-					return err
-				}
+		if hasCephFS {
+			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -882,7 +850,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 }
 
 func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
-	if c.autoSetup || sh.Services[types.MicroOVN] == nil {
+	if sh.Services[types.MicroOVN] == nil {
 		return nil
 	}
 
@@ -1247,11 +1215,6 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 			return err
 		}
 
-		if !supportsFAN && c.autoSetup {
-			logger.Warn("Skipping FAN network setup, some systems don't support it")
-			return nil
-		}
-
 		if !supportsFAN {
 			proceedWithNoOverlayNetworking, err := c.asker.AskBool("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster? (yes/no) [default=no]: ", "no")
 			if err != nil {
@@ -1299,10 +1262,6 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 }
 
 func (c *initConfig) askCephNetwork(sh *service.Handler) error {
-	if c.autoSetup {
-		return nil
-	}
-
 	availableCephNetworkInterfaces := map[string]map[string]service.DedicatedInterface{}
 	for name, state := range c.state {
 		if len(state.AvailableCephInterfaces) == 0 {
@@ -1391,10 +1350,6 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices []types.S
 			}
 
 			if info.ServiceClustered(serviceType) {
-				if c.autoSetup {
-					return fmt.Errorf("%s is already clustered on %q, aborting setup", serviceType, info.ClusterName)
-				}
-
 				question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", info.ClusterName, serviceType)
 				validator := func(s string) error {
 					if !shared.ValueInSlice(s, []string{"add", "skip"}) {

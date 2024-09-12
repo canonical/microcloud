@@ -5,7 +5,16 @@ test_recover() {
 
   systems=("micro01" "micro02" "micro03" "micro04")
 
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
+  unset_interactive_vars
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export LIMIT_SUBNET="yes"
+  export EXPECT_PEERS=3
+  export SETUP_ZFS="no"
+  export SETUP_CEPH="no"
+  export SETUP_OVN="no"
+
+  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
   for m in "${systems[@]}" ; do
     validate_system_lxd "${m}" 4
     validate_system_microceph "${m}"
@@ -13,7 +22,7 @@ test_recover() {
   done
 
   # MicroCluster takes a while to update the core_cluster_members table
-  while lxc exec micro01 -- microcloud cluster list -f csv | grep -q PENDING; do
+  while lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list -f csv | grep -q PENDING; do
     sleep 2
   done
 
@@ -21,7 +30,7 @@ test_recover() {
     lxc exec "${m}" -- sudo snap stop microcloud
   done
 
-  lxc exec micro01 -- microcloud cluster list --local -f yaml
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list --local -f yaml
 
   lxc exec micro01 -- sh -c "
     TEST_CONSOLE=0 microcloud cluster list --local -f yaml |
@@ -44,7 +53,7 @@ test_recover() {
   sleep 90
 
   for m in micro01 micro02; do
-    cluster_list=$(lxc exec "${m}" -- microcloud cluster list -f csv)
+    cluster_list=$(lxc exec "${m}" --env "TEST_CONSOLE=0" -- microcloud cluster list -f csv)
 
     # assert_member_role(member_name, role)
     assert_member_role() {
