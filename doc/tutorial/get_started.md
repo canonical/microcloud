@@ -210,7 +210,7 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 1. Configure the network interface connected to `microbr0` to not accept any IP addresses (because MicroCloud requires a network interface that doesn't have an IP address assigned):
 
        cat << EOF > /etc/netplan/99-microcloud.yaml
-       # microbr0's parent interface should not have any IP address
+       # MicroCloud requires a network interface that doesn't have an IP address
        network:
            version: 2
            ethernets:
