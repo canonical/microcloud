@@ -209,7 +209,17 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
    ```
 1. Configure the network interface connected to `microbr0` to not accept any IP addresses (because MicroCloud requires a network interface that doesn't have an IP address assigned):
 
-       echo 0 > /proc/sys/net/ipv6/conf/enp6s0/accept_ra
+       cat << EOF > /etc/netplan/99-microcloud.yaml
+       # microbr0's parent interface should not have any IP address
+       network:
+           version: 2
+           ethernets:
+               enp6s0:
+                   accept-ra: false
+                   dhcp4: false
+                   link-local: []
+       EOF
+       chmod 0600 /etc/netplan/99-microcloud.yaml
 
    ```{note}
    `enp6s0` is the name that the VM assigns to the network interface that we previously added as `eth1`.
@@ -217,7 +227,7 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
 1. Bring the network interface up:
 
-       ip link set enp6s0 up
+       netplan apply
 
 1. Install the required snaps:
 
