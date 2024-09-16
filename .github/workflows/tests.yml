@@ -98,7 +98,7 @@ jobs:
       - name: Build
         run: |
           make deps
-          make
+          make build-test
 
       - name: Run static analysis
         run: make check-static

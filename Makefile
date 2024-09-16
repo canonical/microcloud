@@ -35,6 +35,18 @@ else
 	go install -tags=agent -v -cover ./cmd/microcloudd
 endif
 
+# Build MicroCloud for testing. Replaces EFF word-list,
+# and enables feeding input to questions from a file with TEST_CONSOLE=1.
+.PHONY: build-test
+build-test:
+ifeq "$(GOCOVERDIR)" ""
+	go install -tags=test -v ./cmd/microcloud
+	go install -tags=test -v ./cmd/microcloudd
+else
+	go install -tags=test -v -cover ./cmd/microcloud
+	go install -tags=test -v -cover ./cmd/microcloudd
+endif
+
 # Testing targets.
 .PHONY: check
 check: check-static check-unit check-system
