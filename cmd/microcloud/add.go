@@ -48,7 +48,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		bootstrap: false,
 		setupMany: true,
 		common:    c.common,
-		asker:     &c.common.asker,
+		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
 		state:     map[string]service.SystemInformation{},
 	}
