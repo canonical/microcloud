@@ -74,6 +74,9 @@ type selectableTable struct {
 
 	// err is set by the test console when the table fails a constraint.
 	err error
+
+	// testMode is set if the associated input handler is in test mode.
+	testMode bool
 }
 
 // SummarizeResult formats the result string and args with the standard style for table result summaries.
@@ -107,6 +110,7 @@ func (s *selectableTable) Render(ctx context.Context, handler *InputHandler, tit
 	handler.tableMu.Lock()
 	s.active = true
 	s.title = title
+	s.testMode = handler.testMode
 
 	if newRows != nil {
 		s.rawRows = newRows
@@ -268,7 +272,17 @@ func (s *selectableTable) View() string {
 		title = lipgloss.NewStyle().SetString(s.title).Bold(true).String()
 	}
 
-	filter := Printf(Fmt{Arg: "\n Filter | %s\n", Color: White}, Fmt{Arg: s.filter, Color: Yellow})
+	// If the test console is active, just print the title so that the table output isn't corrupted by debug messages.
+	if s.testMode {
+		return title + "\n"
+	}
+
+	var filter string
+	if s.filter == "" {
+		filter = Printf(Fmt{Arg: "\n Filter | %s\n", Color: White}, Fmt{Arg: "<type to filter rows>", Color: White})
+	} else {
+		filter = Printf(Fmt{Arg: "\n Filter | %s\n", Color: White}, Fmt{Arg: s.filter, Color: Yellow})
+	}
 
 	helpEnter := Fmt{Color: Bright, Arg: "enter", Bold: true}
 	helpSpace := Fmt{Color: Bright, Arg: "space", Bold: true}
