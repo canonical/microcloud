@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -75,10 +76,21 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 			return fmt.Errorf("Failed to shorten fingerprint: %w", err)
 		}
 
-		fmt.Printf("Use the following command on systems that you want to join the cluster:\n\n microcloud join\n\n")
-		fmt.Printf("When requested enter the passphrase:\n\n %s\n\n", session.Passphrase)
-		fmt.Printf("Verify the fingerprint %q is displayed on joining systems.\n", fingerprint)
-		fmt.Println("Waiting to detect systems ...")
+		template := `Use the following command on systems that you want to join the cluster:
+
+ %s
+
+When requested, enter the passphrase:
+
+ %s
+
+Verify the fingerprint %s is displayed on joining systems.
+`
+
+		cmdArg := tui.Fmt{Arg: "microcloud join", Color: tui.Green, Bold: true}
+		passArg := tui.Fmt{Arg: session.Passphrase, Color: tui.Green, Bold: true}
+		fingerprintArg := tui.Fmt{Arg: fingerprint, Color: tui.Green, Bold: true}
+		fmt.Print(tui.Printf(tui.Fmt{Arg: template}, cmdArg, passArg, fingerprintArg))
 	}
 
 	confirmedIntents, err := c.askJoinIntents(gw, expectedSystems)
@@ -137,9 +149,11 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 		}
 	}
 
-	if !c.autoSetup {
+	if !c.autoSetup && len(c.systems) > 0 {
+		fmt.Println("")
+
 		for _, info := range c.systems {
-			fmt.Printf(" Selected %q at %q\n", info.ServerInfo.Name, info.ServerInfo.Address)
+			fmt.Println(tui.SummarizeResult("Selected %s at %s", info.ServerInfo.Name, info.ServerInfo.Address))
 		}
 
 		// Add a space between the CLI and the response.
@@ -180,10 +194,14 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 			return err
 		}
 
-		fmt.Printf("\n Found system %q at %q using fingerprint %q\n\n", session.InitiatorName, session.InitiatorAddress, fingerprint)
-		fmt.Printf("Select %q on %q to let it join the cluster\n", sh.Name, session.InitiatorName)
-	} else {
-		fmt.Printf("Connected to initiator %q\n", session.InitiatorName)
+		tmpl := tui.SummarizeResult("Found system %s at %s using fingerprint", session.InitiatorName, session.InitiatorAddress)
+		fingerprintArg := tui.SetColor(tui.Green, fingerprint, true)
+		fmt.Printf("\n%s %s\n\n", tmpl, fingerprintArg)
+
+		tmplArg := tui.Fmt{Arg: "Select %s on %s to let it join the cluster"}
+		localArg := tui.Fmt{Arg: sh.Name, Color: tui.Yellow, Bold: true}
+		remoteArg := tui.Fmt{Arg: session.InitiatorName, Color: tui.Yellow, Bold: true}
+		fmt.Println(tui.Printf(tmplArg, localArg, remoteArg))
 	}
 
 	return c.askJoinConfirmation(gw, services)
