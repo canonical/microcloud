@@ -1,3 +1,5 @@
+//go:build !test
+
 package service
 
 // Provided by the EFF under the Creative Commons Attribution License.
