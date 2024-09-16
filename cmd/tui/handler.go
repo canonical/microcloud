@@ -15,6 +15,9 @@ type InputHandler struct {
 	input  *os.File
 	output *os.File
 
+	// testMode is set to true if the handler is initialized in test mode with PrepareTestAsker.
+	testMode bool
+
 	table   *selectableTable
 	tableMu sync.Mutex
 
