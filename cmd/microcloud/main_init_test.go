@@ -30,7 +30,7 @@ func newSystemWithUplinkNetConfig(address string, config map[string]string) Init
 }
 
 func newTestHandler(addr string, t *testing.T) *service.Handler {
-	handler, err := service.NewHandler("testSystem", addr, "/tmp/microcloud_test_hander", true, true)
+	handler, err := service.NewHandler("testSystem", addr, "/tmp/microcloud_test_hander")
 	if err != nil {
 		t.Fatalf("Failed to create test service handler: %s", err)
 	}

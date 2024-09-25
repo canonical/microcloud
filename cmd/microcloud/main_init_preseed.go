@@ -155,7 +155,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 
 	c.name = hostname
 	c.address = listenIP.String()
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, services...)
 	if err != nil {
 		return err
 	}

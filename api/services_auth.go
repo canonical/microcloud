@@ -7,17 +7,17 @@ import (
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // endpointHandler is just a convenience for writing clean return types.
-type endpointHandler func(*state.State, *http.Request) response.Response
+type endpointHandler func(state.State, *http.Request) response.Response
 
 // authHandler ensures a request has been authenticated with the mDNS broadcast secret.
 func authHandler(sh *service.Handler, f endpointHandler) endpointHandler {
-	return func(s *state.State, r *http.Request) response.Response {
+	return func(s state.State, r *http.Request) response.Response {
 		if r.RemoteAddr == "@" {
 			logger.Debug("Allowing unauthenticated request through unix socket")
 

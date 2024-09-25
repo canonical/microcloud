@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 )
 
@@ -21,9 +20,6 @@ func (c *cmdSecrets) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	var cmdAdd = cmdTokensAdd{common: c.common}
-	cmd.AddCommand(cmdAdd.Command())
-
 	var cmdList = cmdTokensList{common: c.common}
 	cmd.AddCommand(cmdList.Command())
 
@@ -35,41 +31,6 @@ func (c *cmdSecrets) Command() *cobra.Command {
 
 func (c *cmdSecrets) Run(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
-}
-
-type cmdTokensAdd struct {
-	common *CmdControl
-}
-
-func (c *cmdTokensAdd) Command() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "add <name>",
-		Short: "Create a join token under the given name",
-		RunE:  c.Run,
-	}
-
-	return cmd
-}
-
-func (c *cmdTokensAdd) Run(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		return cmd.Help()
-	}
-
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
-	m, err := microcluster.App(options)
-	if err != nil {
-		return err
-	}
-
-	token, err := m.NewJoinToken(context.Background(), args[0])
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(token)
-
-	return nil
 }
 
 type cmdTokensList struct {
@@ -94,7 +55,7 @@ func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
@@ -135,7 +96,7 @@ func (c *cmdTokensRevoke) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug}
+	options := microcluster.Args{StateDir: c.common.FlagMicroCloudDir}
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err

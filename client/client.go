@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/client"
+	"github.com/canonical/microcluster/v2/client"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 )

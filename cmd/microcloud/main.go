@@ -7,6 +7,7 @@ import (
 	"os"
 
 	cli "github.com/canonical/lxd/shared/cmd"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/version"
@@ -19,8 +20,6 @@ type CmdControl struct {
 
 	FlagHelp          bool
 	FlagVersion       bool
-	FlagLogDebug      bool
-	FlagLogVerbose    bool
 	FlagMicroCloudDir string
 
 	asker cli.Asker
@@ -34,7 +33,7 @@ func main() {
 	}
 
 	// common flags.
-	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin))}
+	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin), logger.Log)}
 
 	useTestConsole := os.Getenv("TEST_CONSOLE")
 	if useTestConsole == "1" {
@@ -70,8 +69,6 @@ EOF`)
 	app.PersistentFlags().StringVar(&commonCmd.FlagMicroCloudDir, "state-dir", "", "Path to store MicroCloud state information"+"``")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagHelp, "help", "h", false, "Print help")
 	app.PersistentFlags().BoolVar(&commonCmd.FlagVersion, "version", false, "Print version number")
-	app.PersistentFlags().BoolVarP(&commonCmd.FlagLogDebug, "debug", "d", false, "Show all debug messages")
-	app.PersistentFlags().BoolVarP(&commonCmd.FlagLogVerbose, "verbose", "v", false, "Show all information messages")
 
 	app.SetVersionTemplate("{{.Version}}\n")
 

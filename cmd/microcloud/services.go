@@ -11,8 +11,8 @@ import (
 	"github.com/canonical/lxd/client"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -99,7 +99,7 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Instantiate a handler for the services.
-	s, err := service.NewHandler(status.Name, status.Address.Addr().String(), c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(status.Name, status.Address.Addr().String(), c.common.FlagMicroCloudDir, services...)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Instantiate a handler for the services.
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, c.common.FlagLogDebug, c.common.FlagLogVerbose, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, services...)
 	if err != nil {
 		return err
 	}
