@@ -50,7 +50,7 @@ test_recover() {
   done
 
   # microcluster takes a long time to update the member roles in the core_cluster_members table
-  sleep 90
+  sleep 30
 
   for m in micro01 micro02; do
     cluster_list=$(lxc exec "${m}" --env "TEST_CONSOLE=0" -- microcloud cluster list -f csv)
