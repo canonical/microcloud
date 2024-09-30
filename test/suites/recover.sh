@@ -8,13 +8,17 @@ test_recover() {
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
-  export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=3
   export SETUP_ZFS="no"
   export SETUP_CEPH="no"
   export SETUP_OVN="no"
 
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  microcloud_interactive init micro01 | capture_and_join micro02 micro03 micro04
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
   for m in "${systems[@]}" ; do
     validate_system_lxd "${m}" 4
     validate_system_microceph "${m}"
