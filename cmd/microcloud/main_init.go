@@ -331,8 +331,6 @@ func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, pe
 		}
 	}
 
-	fmt.Printf(" Peer %q has joined the cluster\n", peer)
-
 	return nil
 }
 
@@ -375,10 +373,36 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		clusterSize[serviceType] = len(clusterMembers)
 	}
 
+	// First let each joiner join the MicroCloud cluster.
+	// This ensures that the tokens for existing services can be issued on the remote system already using mTLS.
+	for peer := range c.systems {
+		// Only join other peers which aren't yet part of MicroCloud.
+		if peer != sh.Name && existingSystems[types.MicroCloud][peer] == "" {
+			token, err := sh.Services[types.MicroCloud].IssueToken(context.Background(), peer)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to issue MicroCloud token for peer %q: %w", peer, err)
+			}
+
+			cfg := joinConfig[peer]
+			cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: types.MicroCloud, JoinToken: token})
+
+			cert := c.systems[peer].ServerInfo.Certificate
+			err = waitForJoin(sh, clusterSize, peer, cert, cfg)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Concurrently issue a token for each joiner.
 	for peer := range c.systems {
 		mut := sync.Mutex{}
 		err := sh.RunConcurrent("", "", func(s service.Service) error {
+			// Skip MicroCloud as the cluster is already formed.
+			if s.Type() == types.MicroCloud {
+				return nil
+			}
+
 			// Only issue a token if the system isn't already part of that cluster.
 			if existingSystems[s.Type()][peer] == "" {
 				clusteredSystem := c.systems[initializedServices[s.Type()]]
@@ -431,6 +455,8 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		fmt.Printf(" Peer %q has joined the cluster\n", sh.Name)
 	}
 
 	for peer, cfg := range joinConfig {
@@ -439,11 +465,12 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		}
 
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
-		cert := c.systems[peer].ServerInfo.Certificate
-		err := waitForJoin(sh, clusterSize, peer, cert, cfg)
+		err := waitForJoin(sh, clusterSize, peer, nil, cfg)
 		if err != nil {
 			return nil, err
 		}
+
+		fmt.Printf(" Peer %q has joined the cluster\n", peer)
 	}
 
 	cleanup := reverter.Clone().Fail
