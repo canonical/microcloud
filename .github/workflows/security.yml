@@ -34,9 +34,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /home/runner/vuln-cache
-          latest=$(gh release view --repo aquasecurity/trivy --json tagName -q '.tagName' | head -n 1)
-          wget https://github.com/aquasecurity/trivy/releases/download/${latest}/trivy_${latest#v}_Linux-64bit.deb
-          sudo dpkg -i trivy_${latest#v}_Linux-64bit.deb
+          sudo apt-get install wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
 
       - name: Run Trivy vulnerability scanner
         run: |
@@ -74,9 +76,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          latest=$(gh release view --repo aquasecurity/trivy --json tagName -q '.tagName' | head -n 1)
-          wget https://github.com/aquasecurity/trivy/releases/download/${latest}/trivy_${latest#v}_Linux-64bit.deb
-          sudo dpkg -i trivy_${latest#v}_Linux-64bit.deb
+          sudo apt-get install wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
 
       - name: Restore cached Trivy vulnerability database
         uses: actions/cache/restore@v4
