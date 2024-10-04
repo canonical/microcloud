@@ -47,7 +47,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
             path: /home/runner/vuln-cache
-            key: trivy-cache
+            key: trivy-cache-${{ github.run_id }}
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
