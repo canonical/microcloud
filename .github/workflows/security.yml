@@ -26,17 +26,8 @@ jobs:
         with:
           ref: main
 
-      # We are using the deb package instead of the trivy action because we need to point to the cache directory
-      # with cache-dir, and there is currently a bug in that functionality on the Trivy GitHub action.
-      # See https://github.com/aquasecurity/trivy-action/issues/12.
       - name: Install Trivy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p /home/runner/vuln-cache
-          latest=$(gh release view --repo aquasecurity/trivy --json tagName -q '.tagName' | head -n 1)
-          wget https://github.com/aquasecurity/trivy/releases/download/${latest}/trivy_${latest#v}_Linux-64bit.deb
-          sudo dpkg -i trivy_${latest#v}_Linux-64bit.deb
+        uses: canonical/lxd/.github/actions/install-trivy@main
 
       - name: Run Trivy vulnerability scanner
         run: |
@@ -71,12 +62,7 @@ jobs:
           ref: ${{ (matrix.version == 'latest' && 'main') || format('stable-{0}', matrix.version) }}
 
       - name: Install Trivy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          latest=$(gh release view --repo aquasecurity/trivy --json tagName -q '.tagName' | head -n 1)
-          wget https://github.com/aquasecurity/trivy/releases/download/${latest}/trivy_${latest#v}_Linux-64bit.deb
-          sudo dpkg -i trivy_${latest#v}_Linux-64bit.deb
+        uses: canonical/lxd/.github/actions/install-trivy@main
 
       - name: Restore cached Trivy vulnerability database
         uses: actions/cache/restore@v4
