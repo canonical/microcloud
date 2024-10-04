@@ -390,7 +390,7 @@ ovn:
   ipv4_gateway: 10.1.123.1/24
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
-storage:
+ceph:
   cephfs: true
 EOF
 
@@ -525,7 +525,7 @@ ovn:
   ipv4_gateway: 10.1.123.1/24
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
-storage:
+ceph:
   cephfs: true
 EOF
 
@@ -661,7 +661,6 @@ ovn:
   ipv6_gateway: fd42:1:1234:1234::1/64
 ceph:
   internal_network: ${ceph_dedicated_subnet_prefix}.0/24
-storage:
   cephfs: true
 EOF
 
@@ -1144,6 +1143,8 @@ ovn:
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
   dns_servers: 10.1.123.1,8.8.8.8
+ceph:
+  cephfs: true
 storage:
   local:
     - find: device_id == *lxd_disk1
@@ -1152,7 +1153,6 @@ storage:
     - find: device_id == *lxd_disk2
       find_min: 3
       wipe: true
-  cephfs: true
 EOF
 
   services_validator
@@ -1563,7 +1563,7 @@ ovn:
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
   dns_servers: 10.1.123.1,8.8.8.8
-storage:
+ceph:
   cephfs: true
 EOF
 
@@ -1617,7 +1617,7 @@ ovn:
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
   dns_servers: 10.1.123.1,8.8.8.8
-storage:
+ceph:
   cephfs: true
 EOF
 
