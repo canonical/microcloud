@@ -56,11 +56,13 @@ func NewCloudService(name string, addr string, dir string) (*CloudService, error
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint, verbose bool, debug bool) error {
+func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint, verbose bool, debug bool, heartbeatInterval time.Duration) error {
 	args := microcluster.DaemonArgs{
-		Verbose:              verbose,
-		Debug:                debug,
-		Version:              version.Version,
+		Verbose:           verbose,
+		Debug:             debug,
+		Version:           version.Version,
+		HeartbeatInterval: heartbeatInterval,
+
 		PreInitListenAddress: "[::]:" + strconv.FormatInt(CloudPort, 10),
 		Hooks: &state.Hooks{
 			PostBootstrap: func(ctx context.Context, s state.State, cfg map[string]string) error { return service.StopBroadcast() },

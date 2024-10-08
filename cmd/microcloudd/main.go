@@ -37,7 +37,8 @@ type cmdGlobal struct {
 type cmdDaemon struct {
 	global *cmdGlobal
 
-	flagMicroCloudDir string
+	flagMicroCloudDir     string
+	flagHeartbeatInterval time.Duration
 }
 
 func (c *cmdDaemon) Command() *cobra.Command {
@@ -139,7 +140,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy(s),
 	}
 
-	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints, c.global.flagLogVerbose, c.global.flagLogDebug)
+	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints, c.global.flagLogVerbose, c.global.flagLogDebug, c.flagHeartbeatInterval)
 }
 
 func main() {
@@ -160,6 +161,7 @@ func main() {
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogVerbose, "verbose", "v", false, "Show all information messages")
 
 	app.PersistentFlags().StringVar(&daemonCmd.flagMicroCloudDir, "state-dir", "", "Path to store state information for MicroCloud"+"``")
+	app.PersistentFlags().DurationVar(&daemonCmd.flagHeartbeatInterval, "heartbeat", time.Second*10, "Time between attempted heartbeats")
 
 	app.SetVersionTemplate("{{.Version}}\n")
 
