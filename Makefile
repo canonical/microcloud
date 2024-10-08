@@ -1,4 +1,5 @@
 GOMIN=1.22.7
+GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 
 .PHONY: default
 default: build
@@ -6,8 +7,13 @@ default: build
 # Build targets.
 .PHONY: build
 build:
+ifeq "$(GOCOVERDIR)" ""
 	go install -tags=agent -v ./cmd/microcloud
 	go install -tags=agent -v ./cmd/microcloudd
+else
+	go install -tags=agent -v -cover ./cmd/microcloud
+	go install -tags=agent -v -cover ./cmd/microcloudd
+endif	
 
 # Testing targets.
 .PHONY: check
@@ -15,7 +21,11 @@ check: check-static check-unit check-system
 
 .PHONY: check-unit
 check-unit:
+ifeq "$(GOCOVERDIR)" ""
 	go test ./...
+else
+	go test ./... -cover -test.gocoverdir="${GOCOVERDIR}"
+endif
 
 .PHONY: check-system
 check-system:
