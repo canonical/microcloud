@@ -1,6 +1,21 @@
 #!/bin/bash
 
+cleanup_preseed() {
+  # Cleanup child processes sent to the background using &.
+  child_processes="$(jobs -pr)"
+  if [ -n "${child_processes}" ]; then
+    for p in ${child_processes}; do
+      kill -9 "${p}"
+    done
+  fi
+
+  cleanup
+}
+
 test_preseed() {
+  # Overwrite the regular trap to cleanup background processes.
+  trap cleanup_preseed EXIT HUP INT TERM
+
   reset_systems 4 3 2
   lookup_gateway=$(lxc network get lxdbr0 ipv4.address)
 
@@ -21,9 +36,10 @@ test_preseed() {
   done
 
   # Create a MicroCloud with storage directly given by-path on one node, and by filter on other nodes.
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
+  preseed="$(cat << EOF
 lookup_subnet: ${lookup_gateway}
-lookup_interface: enp5s0
+initiator: micro01
+session_passphrase: foo
 systems:
 - name: micro01
   ovn_uplink_interface: enp6s0
@@ -74,6 +90,15 @@ storage:
       wipe: true
       encrypt: true
 EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   for m in micro01 micro03 ; do
     validate_system_lxd ${m} 3 disk1 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
@@ -87,9 +112,10 @@ EOF
   validate_system_microovn micro02 "${ovn_underlay_subnet_prefix}"
 
   # Grow the MicroCloud with a new node, with filter-based storage selection.
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud add --preseed --lookup-timeout 10 <<EOF
+  preseed="$(cat << EOF
 lookup_subnet: ${lookup_gateway}
-lookup_interface: enp5s0
+initiator: micro01
+session_passphrase: foo
 systems:
 - name: micro04
   ovn_uplink_interface: enp6s0
@@ -109,6 +135,13 @@ storage:
       wipe: true
       encrypt: true
 EOF
+  )"
+
+  lxc exec micro04 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   validate_system_lxd micro04 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
   validate_system_microceph micro04 1 1 "${ceph_cluster_subnet_prefix}.0/24" disk2 disk2
@@ -117,14 +150,24 @@ EOF
   reset_systems 3 3 2
 
   # Create a MicroCloud but don't set up storage or network (Should get a FAN setup).
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
+  preseed="$(cat << EOF
 lookup_subnet: ${lookup_gateway}
-lookup_interface: enp5s0
+initiator: micro01
+session_passphrase: foo
 systems:
 - name: micro01
 - name: micro02
 - name: micro03
 EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd ${m} 3
@@ -139,14 +182,24 @@ EOF
   lxc exec micro01 -- snap disable microovn
   sleep 1
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed --lookup-timeout 10 << EOF
+  preseed="$(cat << EOF
 lookup_subnet: ${lookup_gateway}
-lookup_interface: enp5s0
+initiator: micro01
+session_passphrase: foo
 systems:
 - name: micro01
 - name: micro02
 - name: micro03
 EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd ${m} 3

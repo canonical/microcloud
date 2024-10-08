@@ -22,7 +22,7 @@ var ServiceTokensCmd = func(sh *service.Handler) rest.Endpoint {
 		Name:              "services/{serviceType}/tokens",
 		Path:              "services/{serviceType}/tokens",
 
-		Post: rest.EndpointAction{Handler: authHandler(sh, serviceTokensPost), AllowUntrusted: true, ProxyTarget: true},
+		Post: rest.EndpointAction{Handler: authHandlerMTLS(sh, serviceTokensPost), ProxyTarget: true},
 	}
 }
 

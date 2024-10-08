@@ -21,7 +21,6 @@ test_add_interactive() {
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
-  export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
@@ -39,8 +38,10 @@ test_add_interactive() {
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,fd42:1:1234:1234::1"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  microcloud_interactive init micro01 | capture_and_join micro02 micro03
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   # Re-enable the nodes.
   # shellcheck disable=SC2043
@@ -50,7 +51,6 @@ test_add_interactive() {
   done
 
   unset_interactive_vars
-  export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=1
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
@@ -61,8 +61,10 @@ test_add_interactive() {
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
+  microcloud_interactive add micro01 |
+    LOOKUP_IFACE="enp5s0" capture_and_join micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
     validate_system_lxd "${m}" 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64  10.1.123.1,fd42:1:1234:1234::1
@@ -70,13 +72,11 @@ test_add_interactive() {
     validate_system_microovn "${m}"
   done
 
-
   reset_systems 4 2 1
   echo "Test growing a MicroCloud with missing services"
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
-  export LIMIT_SUBNET="yes"
   export SKIP_SERVICE="yes"
   export EXPECT_PEERS=2
   export SETUP_ZFS="no"
@@ -91,20 +91,24 @@ test_add_interactive() {
 
   lxc exec micro04 -- snap disable microcloud
 
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  microcloud_interactive init micro01 | capture_and_join micro02 micro03
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
   lxc exec micro04 -- snap enable microcloud
   lxc exec micro04 -- snap start microcloud
 
   unset_interactive_vars
-  export LIMIT_SUBNET="yes"
   export SKIP_SERVICE=yes
   export EXPECT_PEERS=1
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
+  microcloud_interactive add micro01 |
+    LOOKUP_IFACE="enp5s0" capture_and_join micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   for m in micro01 micro02 micro03 micro04 ; do
     validate_system_lxd "${m}" 4 disk1
@@ -115,14 +119,13 @@ test_add_interactive() {
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
-  export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=2
   export SETUP_ZFS="no"
   export SETUP_CEPH="no"
   export SETUP_OVN="no"
 
   lxc exec micro04 -- snap disable microcloud
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud init > out"
+  microcloud_interactive init micro01 | capture_and_join micro02 micro03
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03; do
@@ -132,7 +135,6 @@ test_add_interactive() {
   done
 
   unset_interactive_vars
-  export LIMIT_SUBNET="yes"
   export EXPECT_PEERS=1
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
@@ -153,9 +155,10 @@ test_add_interactive() {
 
   lxc exec micro04 -- snap enable microcloud
   lxc exec micro04 -- snap start microcloud
-  microcloud_interactive | lxc exec micro01 -- sh -c "microcloud add > out"
-
+  microcloud_interactive add micro01 |
+    LOOKUP_IFACE="enp5s0" capture_and_join micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
   default_cluster_subnet="$(lxc exec micro01 -- ip -4 -br a show enp5s0 | awk '{print $3}')"
   for m in micro01 micro02 micro03 micro04 ; do

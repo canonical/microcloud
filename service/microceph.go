@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -55,8 +56,7 @@ func NewCephService(name string, addr string, cloudDir string) (*CephService, er
 }
 
 // Client returns a client to the Ceph unix socket. If target is specified, it will be added to the query params.
-// If secret is specified, it will be added to the request header.
-func (s CephService) Client(target string, secret string) (*client.Client, error) {
+func (s CephService) Client(target string) (*client.Client, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (s CephService) Client(target string, secret string) (*client.Client, error
 		c = c.UseTarget(target)
 	}
 
-	c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCeph)
+	c, err = cloudClient.UseAuthProxy(c, types.MicroCeph, cloudClient.AuthConfig{})
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +108,16 @@ func (s CephService) IssueToken(ctx context.Context, peer string) (string, error
 }
 
 // DeleteToken deletes a token by its name.
-func (s CephService) DeleteToken(ctx context.Context, tokenName string, address string, secret string) error {
+func (s CephService) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c *client.Client
 	var err error
-	if address != "" && secret != "" {
+	if address != "" {
 		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
 		if err != nil {
 			return err
 		}
 
-		c, err = cloudClient.UseAuthProxy(c, secret, types.MicroCeph)
+		c, err = cloudClient.UseAuthProxy(c, types.MicroCeph, cloudClient.AuthConfig{})
 	} else {
 		c, err = s.m.LocalClient()
 	}
@@ -136,7 +136,7 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return err
 	}
 
-	c, err := s.Client("", "")
+	c, err := s.Client("")
 	if err != nil {
 		return err
 	}
@@ -151,14 +151,35 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return nil
 }
 
-// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address, authenticated with the given secret.
-func (s CephService) RemoteClusterMembers(ctx context.Context, secret string, address string) (map[string]string, error) {
-	client, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
+// remoteClient returns an https client for the given address:port.
+// It picks the cluster certificate if none is provided to verify the remote.
+func (s CephService) remoteClient(cert *x509.Certificate, address string) (*client.Client, error) {
+	var err error
+	var client *client.Client
+
+	canonicalAddress := util.CanonicalNetworkAddress(address, CloudPort)
+	if cert != nil {
+		client, err = s.m.RemoteClientWithCert(canonicalAddress, cert)
+	} else {
+		client, err = s.m.RemoteClient(canonicalAddress)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	client, err = cloudClient.UseAuthProxy(client, secret, types.MicroCeph)
+	return client, nil
+}
+
+// RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
+// Provide the certificate of the remote server for mTLS.
+func (s CephService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+	client, err := s.remoteClient(cert, address)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err = cloudClient.UseAuthProxy(client, types.MicroCeph, cloudClient.AuthConfig{})
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +189,7 @@ func (s CephService) RemoteClusterMembers(ctx context.Context, secret string, ad
 
 // ClusterMembers returns a map of cluster member names and addresses.
 func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, error) {
-	client, err := s.Client("", "")
+	client, err := s.Client("")
 	if err != nil {
 		return nil, err
 	}
@@ -187,21 +208,21 @@ func (s CephService) DeleteClusterMember(ctx context.Context, name string, force
 }
 
 // ClusterConfig returns the Ceph cluster configuration.
-func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, targetSecret string) (map[string]string, error) {
+func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, cert *x509.Certificate) (map[string]string, error) {
 	var c *client.Client
 	var err error
-	if targetAddress == "" && targetSecret == "" {
-		c, err = s.Client("", "")
+	if targetAddress == "" {
+		c, err = s.Client("")
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(targetAddress, CloudPort))
+		c, err = s.remoteClient(cert, targetAddress)
 		if err != nil {
 			return nil, err
 		}
 
-		c, err = cloudClient.UseAuthProxy(c, targetSecret, types.MicroCeph)
+		c, err = cloudClient.UseAuthProxy(c, types.MicroCeph, cloudClient.AuthConfig{})
 		if err != nil {
 			return nil, err
 		}

@@ -1,4 +1,4 @@
-GOMIN=1.22.5
+GOMIN=1.22.6
 
 .PHONY: default
 default: build

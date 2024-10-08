@@ -23,7 +23,7 @@ var ServicesCmd = func(sh *service.Handler) rest.Endpoint {
 		Name:              "services",
 		Path:              "services",
 
-		Put: rest.EndpointAction{Handler: authHandler(sh, servicesPut), AllowUntrusted: true, ProxyTarget: true},
+		Put: rest.EndpointAction{Handler: authHandlerMTLS(sh, servicesPut), ProxyTarget: true},
 	}
 }
 

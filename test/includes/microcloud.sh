@@ -2,14 +2,14 @@
 
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
-  unset SKIP_LOOKUP LOOKUP_IFACE LIMIT_SUBNET SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
+  unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
     REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
 }
 
-# microcloud_interactive: outputs text that can be passed to `TEST_CONSOLE=1 microcloud init`
+# microcloud_interactive: generates text that is being passed to `TEST_CONSOLE=1 microcloud *`
 # to simulate terminal input to the interactive CLI.
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
@@ -24,7 +24,6 @@ microcloud_interactive() {
   MULTI_NODE=${MULTI_NODE:-}                     # (yes/no) whether to set up multiple nodes
   SKIP_LOOKUP=${SKIP_LOOKUP:-}                   # whether or not to skip the whole lookup block in the interactive command list.
   LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
-  LIMIT_SUBNET=${LIMIT_SUBNET:-}                 # (yes/no) input for limiting lookup of systems to the above subnet.
   SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
   EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
   PEERS_FILTER=${PEERS_FILTER:-}                 # filter string for the particular peer to init/add
@@ -67,7 +66,6 @@ $(true)
 
   if ! [ "${SKIP_LOOKUP}" = 1 ]; then
     setup="${setup}
-${LIMIT_SUBNET}                                             # limit lookup subnet (yes/no)
 $([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
 expect ${EXPECT_PEERS}                                      # wait until the systems show up
 ${PEERS_FILTER}                                             # filter discovered peers
@@ -161,9 +159,82 @@ $(true)                                                 # workaround for set -e
 fi
 
   # clear comments and empty lines.
-  echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d' | tee /dev/stderr
+  setup="$(echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d' | tee /dev/stderr)"
   if [ ${enable_xtrace} = 1 ]; then
     set -x
+  fi
+
+  # append the session timeout if applicable.
+  args=""
+  if [ "${1}" = "init" ] || [ "${1}" = "add" ]; then
+    args="--session-timeout=60"
+  fi
+
+  echo "${setup}" | lxc exec "${2}" -- sh -c "tee in | microcloud ${1} ${args} 2>&1 | tee out"
+}
+
+# capture_and_join: extracts the passphrase from stdin and outputs text that is being passed to `TEST_CONSOLE=1 microcloud join`
+# to simulate terminal input to the interactive CLI.
+# Set the first argument to either true or false if you want to skip missing services.
+# All the remaining arguments are systems you want to join.
+capture_and_join() {
+  enable_xtrace=0
+
+  if set -o | grep -q "xtrace.*on" ; then
+    enable_xtrace=1
+    set +x
+  fi
+
+  next_line=0
+  passphrase=""
+  while IFS= read -r line; do
+    # Skip the empty placeholder line.
+    # Indicate that the next line will be the one.
+    if [ "$next_line" = 1 ]; then
+      next_line=2
+      continue
+    # Passphrase found.
+    elif [ "$next_line" = 2 ]; then
+      # Trim the trailing whitespace.
+      passphrase="${line## }"
+      break
+    fi
+
+    # The second next line contains the passphrase.
+    if [ "$line" = "When requested enter the passphrase:" ]; then
+      next_line=1
+    fi
+  done
+
+  LOOKUP_IFACE=${LOOKUP_IFACE:-} # filter string for the lookup interface table.
+
+  # Select the first usable address and enter the passphrase.
+  setup="${LOOKUP_IFACE}                       # filter the lookup interface
+$([ -n "${LOOKUP_IFACE}" ] && printf "select") # select the interface
+$([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
+${passphrase}                                  # the captured passphrase
+$(true)                                        # workaround for set -e
+"
+
+  # clear comments and empty lines.
+  setup="$(echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d' | tee /dev/stderr)"
+  if [ ${enable_xtrace} = 1 ]; then
+    set -x
+  fi
+
+  for member in "$@"; do
+    lxc exec "${member}" -- sh -c "tee in | microcloud join 2>&1 | tee out" <<< "${setup}" &
+  done
+
+  # wait for the parent.
+  cat
+
+  # kill the childs if they are still running.
+  child_processes="$(jobs -pr)"
+  if [ -n "${child_processes}" ]; then
+    for p in ${child_processes}; do
+      kill -9 "${p}"
+    done
   fi
 }
 

@@ -158,7 +158,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:dqlite/dev -y --no-update
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
+          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config openvswitch-switch
 
       - name: Build
         run: |

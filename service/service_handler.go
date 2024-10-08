@@ -2,21 +2,19 @@ package service
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/x509"
 	"fmt"
-	"math"
-	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 
-	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
-	"github.com/hashicorp/mdns"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
-	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
+	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
 const (
@@ -35,14 +33,13 @@ const (
 
 // Handler holds a set of services and an mdns server for communication between them.
 type Handler struct {
-	servers []*mdns.Server
-
 	Services map[types.ServiceType]Service
 	Name     string
 	Address  string
 	Port     int64
 
-	AuthSecret string
+	sessionLock sync.RWMutex
+	Session     *Session
 }
 
 // NewHandler creates a new Handler with a client for each of the given services.
@@ -70,7 +67,6 @@ func NewHandler(name string, addr string, stateDir string, services ...types.Ser
 	}
 
 	return &Handler{
-		servers:  []*mdns.Server{},
 		Services: servicesMap,
 		Name:     name,
 		Address:  addr,
@@ -90,90 +86,6 @@ func (s *Handler) Start(ctx context.Context, state state.State) error {
 	err = s.Services[types.LXD].(*LXDService).Restart(ctx, 30)
 	if err != nil {
 		logger.Error("Failed to restart LXD", logger.Ctx{"error": err})
-	}
-
-	s.AuthSecret, err = shared.RandomCryptoString()
-	if err != nil {
-		return err
-	}
-
-	return s.Broadcast()
-}
-
-// Broadcast broadcasts service information over mDNS.
-func (s *Handler) Broadcast() error {
-	services := make([]types.ServiceType, 0, len(s.Services))
-	for service := range s.Services {
-		services = append(services, service)
-	}
-
-	networks, err := cloudMDNS.GetNetworkInfo()
-	if err != nil {
-		return err
-	}
-
-	info := cloudMDNS.ServerInfo{
-		Version:    cloudMDNS.Version,
-		Name:       s.Name,
-		Services:   services,
-		AuthSecret: s.AuthSecret,
-	}
-
-	// Prepare up to `ServiceSize` variations of the broadcast for each network interface.
-	broadcasts := make([][]cloudMDNS.ServerInfo, cloudMDNS.ServiceSize)
-	for i, net := range networks {
-		info.Address = net.Address
-		info.Interface = net.Interface.Name
-
-		services := broadcasts[i%cloudMDNS.ServiceSize]
-		if services == nil {
-			services = []cloudMDNS.ServerInfo{}
-		}
-
-		services = append(services, info)
-		broadcasts[i%cloudMDNS.ServiceSize] = services
-	}
-
-	// Broadcast up to `ServiceSize` times with different service names before overlapping.
-	// The lookup won't know how many records there are, so this will reduce the amount of
-	// overlapping records preventing us from finding new ones.
-	for i, payloads := range broadcasts {
-		service := fmt.Sprintf("%s_%d", cloudMDNS.ClusterService, i)
-		for _, info := range payloads {
-			bytes, err := json.Marshal(info)
-			if err != nil {
-				return fmt.Errorf("Failed to marshal server info: %w", err)
-			}
-
-			iface, err := net.InterfaceByName(info.Interface)
-			if err != nil {
-				return err
-			}
-
-			if s.Port < 1 || s.Port > math.MaxUint16 {
-				return fmt.Errorf("Port number for service %q (%q) is out of range", s.Name, s.Port)
-			}
-
-			server, err := cloudMDNS.NewBroadcast(info.LookupKey(), iface, info.Address, int(s.Port), service, bytes)
-			if err != nil {
-				return err
-			}
-
-			s.servers = append(s.servers, server)
-		}
-	}
-
-	return nil
-}
-
-// StopBroadcast stops the mDNS broadcast and token lookup, as we are initiating a new cluster.
-func (s *Handler) StopBroadcast() error {
-	for i, server := range s.servers {
-		service := fmt.Sprintf("%s_%d", cloudMDNS.ClusterService, i)
-		err := server.Shutdown()
-		if err != nil {
-			return fmt.Errorf("Failed to shut down %q server: %w", service, err)
-		}
 	}
 
 	return nil
@@ -229,6 +141,80 @@ func (s *Handler) RunConcurrent(firstService types.ServiceType, lastService type
 	}
 
 	return nil
+}
+
+// StartSession starts a new local trust establishment session.
+func (s *Handler) StartSession(role types.SessionRole, passphrase string, gw *cloudClient.WebsocketGateway) error {
+	session, err := NewSession(role, passphrase, gw)
+	if err != nil {
+		return err
+	}
+
+	s.sessionLock.Lock()
+	s.Session = session
+	s.sessionLock.Unlock()
+
+	return nil
+}
+
+// StopSession stops the current session started on this handler.
+// If there isn't an active session it's a no-op.
+func (s *Handler) StopSession(cause error) error {
+	s.sessionLock.Lock()
+	defer s.sessionLock.Unlock()
+
+	if s.Session != nil {
+		err := s.Session.Stop(cause)
+		if err != nil {
+			return fmt.Errorf("Failed to stop session: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ActiveSession returns true if there is an active trust establishment session.
+func (s *Handler) ActiveSession() bool {
+	// Try to open a transaction in the current session.
+	// If it succeeds there is an active session.
+	err := s.SessionTransaction(true, func(session *Session) error {
+		return nil
+	})
+	return err == nil
+}
+
+// SessionTransaction allows running f within the current handler's session.
+// It allows running multiple operations on the handler's session struct without always
+// checking if the session is still alive.
+// Set readOnly to false if you don't modify the session.
+// Set it to false if you intend to perform any modifications on the session.
+func (s *Handler) SessionTransaction(readOnly bool, f func(session *Session) error) error {
+	if readOnly {
+		s.sessionLock.RLock()
+		defer s.sessionLock.RUnlock()
+	} else {
+		s.sessionLock.Lock()
+		defer s.sessionLock.Unlock()
+	}
+
+	if s.Session == nil || s.Session != nil && s.Session.Passphrase() == "" {
+		return api.NewStatusError(http.StatusBadRequest, "No active session")
+	}
+
+	return f(s.Session)
+}
+
+// TemporaryTrustStore returns a copy of the trust establishment's session truststore.
+func (s *Handler) TemporaryTrustStore() map[string]x509.Certificate {
+	var trustStore = make(map[string]x509.Certificate, 0)
+
+	// Ignore the error from the session and return the empty trust store instead.
+	_ = s.SessionTransaction(true, func(session *Session) error {
+		trustStore = session.TemporaryTrustStore()
+		return nil
+	})
+
+	return trustStore
 }
 
 // Exists returns true if we can stat the unix socket in the state directory of the given service.
