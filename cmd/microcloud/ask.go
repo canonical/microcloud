@@ -1291,30 +1291,49 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		availableCephNetworkInterfaces[name] = ifaces
 	}
 
-	var defaultCephNetwork *net.IPNet
+	var internalCephNetwork *net.IPNet
+	var publicCephNetwork *net.IPNet
 	for _, state := range c.state {
 		if state.CephConfig != nil {
 			value, ok := state.CephConfig["cluster_network"]
-			if !ok || value == "" {
-				continue
+			if ok && value != "" {
+				// Sometimes, the default cluster_network value in the Ceph configuration
+				// is not a network range but a regular IP address. We need to extract the network range.
+				_, valueNet, err := net.ParseCIDR(value)
+				if err != nil {
+					return fmt.Errorf("Failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
+				}
+
+				internalCephNetwork = valueNet
 			}
 
-			// Sometimes, the default cluster_network value in the Ceph configuration
-			// is not a network range but a regular IP address. We need to extract the network range.
-			_, valueNet, err := net.ParseCIDR(value)
-			if err != nil {
-				return fmt.Errorf("Failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
-			}
+			value, ok = state.CephConfig["public_network"]
+			if ok && value != "" {
+				_, valueNet, err := net.ParseCIDR(value)
+				if err != nil {
+					return fmt.Errorf("Failed to parse the Ceph public network configuration from the existing Ceph cluster: %v", err)
+				}
 
-			defaultCephNetwork = valueNet
-			break
+				publicCephNetwork = valueNet
+			}
 		}
 	}
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if defaultCephNetwork != nil {
-		if defaultCephNetwork.String() != "" && defaultCephNetwork.String() != c.lookupSubnet.String() {
-			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, defaultCephNetwork.String())
+	if internalCephNetwork != nil {
+		if internalCephNetwork.String() != "" && internalCephNetwork.String() != c.lookupSubnet.String() {
+			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, internalCephNetwork.String())
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	if publicCephNetwork != nil {
+		if publicCephNetwork.String() != "" && publicCephNetwork.String() != c.lookupSubnet.String() {
+			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, publicCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1341,6 +1360,32 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		bootstrapSystem := c.systems[sh.Name]
 		bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
 		c.systems[sh.Name] = bootstrapSystem
+	}
+
+	publicCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: %s] ", internalCephSubnet), internalCephSubnet, validate.IsNetwork)
+	if err != nil {
+		return err
+	}
+
+	if publicCephSubnet != internalCephSubnet {
+		err = validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, publicCephSubnet)
+		if err != nil {
+			return err
+		}
+	}
+
+	if publicCephSubnet != microCloudInternalNetworkAddrCIDR {
+		bootstrapSystem := c.systems[sh.Name]
+		bootstrapSystem.MicroCephPublicNetworkSubnet = publicCephSubnet
+		c.systems[sh.Name] = bootstrapSystem
+
+		// This is to avoid the situation where the internal network for Ceph has been skipped, but the public network has been set.
+		// Ceph will automatically set the internal network to the public Ceph network if the internal network is not set, which is not what we want.
+		// Instead, we still want to keep the internal Ceph network to use the MicroCloud internal network as a default.
+		if internalCephSubnet == microCloudInternalNetworkAddrCIDR {
+			bootstrapSystem.MicroCephInternalNetworkSubnet = microCloudInternalNetworkAddrCIDR
+			c.systems[sh.Name] = bootstrapSystem
+		}
 	}
 
 	return nil
