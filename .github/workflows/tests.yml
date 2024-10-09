@@ -6,6 +6,10 @@ on:
     branches:
       - v2-edge
   pull_request:
+  workflow_dispatch:
+
+env:
+  GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/runner/work/microcloud/microcloud/cover' || '' }}
 
 permissions:
   contents: read
@@ -73,8 +77,30 @@ jobs:
       - name: Run static analysis
         run: make check-static
 
+      - name: Make GOCOVERDIR
+        run: mkdir -p "${GOCOVERDIR}"
+        if: env.GOCOVERDIR != ''
+
       - name: Unit tests
-        run: make check-unit
+        run: |
+          set -eux
+          make check-unit 
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: ${{env.GOCOVERDIR}}
+        if: env.GOCOVERDIR != '' 
+
+      - name: Upload system test dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-test-deps
+          path: |
+            /home/runner/go/bin/microcloud
+            /home/runner/go/bin/microcloudd
+          retention-days: 1 
 
   system-tests:
     env:
@@ -82,7 +108,8 @@ jobs:
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
     name: System
-    runs-on: GitHubMicrocloud
+    runs-on: GitHubMicrocloud 
+    needs: code-tests
     strategy:
       fail-fast: false
       matrix:
@@ -193,11 +220,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
-      - name: Build
+      - name: Download system test dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: system-test-deps
+          merge-multiple: true
+          path: /home/runner/go/bin
+
+      - name: Make GOCOVERDIR
+        run: mkdir -p "${GOCOVERDIR}"
+        if: env.GOCOVERDIR != ''
+
+      - name: Sideload debug binaries
         run: |
           set -eux
-
-          make
 
           # Binaries to sideload
           export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
@@ -259,7 +295,7 @@ jobs:
           export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
 
           cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
+          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
 
           echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
           echo "BASE_OS=${BASE_OS}" >> "${GITHUB_ENV}"
@@ -273,7 +309,79 @@ jobs:
           set -eux
           chmod +x ~
           cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
+          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
+          echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.go }}-${{ matrix.suite }}-${{ env.TIMESTAMP }}
+          path: ${{ env.GOCOVERDIR }} 
+        if: env.GOCOVERDIR != ''
+
+  tics:
+    name: Tiobe TICS
+    runs-on: ubuntu-22.04
+    needs: system-tests 
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: ${{env.GOCOVERDIR}}
+          merge-multiple: true
+
+      - name: Extract coverage data
+        run: |
+          find ${{ env.GOCOVERDIR }}/micro*/cover/ -type f -exec mv {} ${{ env.GOCOVERDIR }} \; 
+          rm -rf ${{ env.GOCOVERDIR }}/micro*
+          ls -la ${{ env.GOCOVERDIR }}
+
+      - name: Download system test dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: system-test-deps
+          merge-multiple: true
+          path: /home/runner/go/bin
+
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:dqlite/dev -y --no-update
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
+          go install github.com/axw/gocov/gocov@latest
+          go install github.com/AlekSi/gocov-xml@latest
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Convert coverage files
+        run: |
+          go tool covdata textfmt -i="${GOCOVERDIR}" -o "${GOCOVERDIR}"/coverage.out
+          gocov convert "${GOCOVERDIR}"/coverage.out > "${GOCOVERDIR}"/coverage.json
+          gocov-xml < "${GOCOVERDIR}"/coverage.json > "${GOCOVERDIR}"/coverage-go.xml
+          go tool covdata percent -i="${GOCOVERDIR}"
+
+      - name: Run TICS
+        uses: tiobe/tics-github-action@v3
+        with:
+          mode: qserver
+          project: microcloud
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+          branchdir: ${{ github.workspace }}
+          ticsAuthToken: ${{ secrets.TICS_AUTH_TOKEN }}
+          installTics: true
+          calc: ALL
+          tmpdir: /tmp/tics
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
