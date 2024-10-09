@@ -123,6 +123,8 @@ EOF`)
 
 	app.InitDefaultHelpCmd()
 
+	app.SetErr(&tui.ColorErr{})
+
 	err := app.Execute()
 	if err != nil {
 		os.Exit(1)
