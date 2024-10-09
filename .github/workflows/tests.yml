@@ -146,6 +146,12 @@ jobs:
           sudo ip link delete docker0
           sudo nft flush ruleset
 
+      - name: "Disable br_netfilter"
+        run: |
+          # When br_netfilter is enabled, the multicast traffic that passes the native LXD bridge
+          # will get masqueraded too which breaks the multicast discovery.
+          sudo rmmod br_netfilter
+
       - name: Checkout
         uses: actions/checkout@v4
 
