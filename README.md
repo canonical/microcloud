@@ -3,7 +3,7 @@
 **MicroCloud** MicroCloud allows you to deploy your own fully functional cloud in minutes.
 
 It’s a snap package that can automatically configure LXD, Ceph, and OVN across a set of servers.
-It relies on mDNS to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on one of the machines.
+It can leverage multicast to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on each of the machines.
 
 MicroCloud creates a small footprint cluster of compute nodes with distributed storage and secure networking, optimized for repeatable, reliable remote deployments. MicroCloud is aimed at edge computing, and anyone in need of a small-scale private cloud.
 
