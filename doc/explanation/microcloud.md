@@ -74,10 +74,13 @@ Network interface to connect to an OVN underlay network
 
 See {ref}`howto-ovn-underlay` for how to set up a dedicated OVN underlay network.
 
-### Dedicated internal network for Ceph
-You can set up a dedicated network for Ceph to separate the internal Ceph traffic from the rest of the MicroCloud cluster traffic.
+### Dedicated networks for Ceph
+You can set up dedicated networks for Ceph to separate either or both public and internal Ceph traffic from the rest of the MicroCloud cluster traffic.
 
-See {ref}`howto-ceph-networking` for how to set up a dedicated internal network for Ceph.
+You can choose to separate Ceph public and internal traffic onto separate dedicated networks (fully disaggregated) or you can choose to have all Ceph traffic use a single separate network (partially disaggregated).
+In either setups all of your cluster members must have an IP address configured on a network interface for the Ceph network(s) specified.
+
+See {ref}`howto-ceph-networking` for how to set up dedicated networks for Ceph.
 
 ## Storage
 
