@@ -201,7 +201,7 @@ testbed_setup() {
   echo "==> SETUP STARTED"
   START_TIME="$(date +%s)"
 
-  new_systems 4 3 3
+  new_systems 4 3 4
   TESTBED_READY=1
 
   END_TIME="$(date +%s)"
