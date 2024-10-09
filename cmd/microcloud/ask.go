@@ -490,10 +490,10 @@ func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map
 
 // getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
 // If the system passed as an argument is nil, we will fetch the local Ceph network configuration.
-func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetwork *net.IPNet, err error) {
+func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwork *net.IPNet, internalCephNetwork *net.IPNet, err error) {
 	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
 	if microCephService == nil {
-		return nil, fmt.Errorf("Failed to get MicroCeph service")
+		return nil, nil, fmt.Errorf("Failed to get MicroCeph service")
 	}
 
 	var cephAddr string
@@ -505,7 +505,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 
 	remoteCephConfigs, err := microCephService.ClusterConfig(context.Background(), cephAddr, cephCert)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for key, value := range remoteCephConfigs {
@@ -514,14 +514,23 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (internalCephNetw
 			// is not a network range but a regular IP address. We need to extract the network range.
 			_, valueNet, err := net.ParseCIDR(value)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
+				return nil, nil, fmt.Errorf("Failed to parse the Ceph cluster network configuration from the existing Ceph cluster: %v", err)
 			}
 
 			internalCephNetwork = valueNet
 		}
+
+		if key == "public_network" && value != "" {
+			_, valueNet, err := net.ParseCIDR(value)
+			if err != nil {
+				return nil, nil, fmt.Errorf("Failed to parse the Ceph public network configuration from the existing Ceph cluster: %v", err)
+			}
+
+			publicCephNetwork = valueNet
+		}
 	}
 
-	return internalCephNetwork, nil
+	return publicCephNetwork, internalCephNetwork, nil
 }
 
 func (c *initConfig) askRemotePool(sh *service.Handler) error {
