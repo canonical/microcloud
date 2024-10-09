@@ -53,7 +53,9 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephClusterNetworkSubnet is an optional the subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
+	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
+	MicroCephPublicNetworkSubnet string
+	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
 	MicroCephInternalNetworkSubnet string
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
@@ -669,6 +671,10 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			microCephBootstrapConf := make(map[string]string)
 			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
 				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			}
+
+			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
 			}
 
 			if len(microCephBootstrapConf) > 0 {
