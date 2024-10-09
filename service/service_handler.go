@@ -34,7 +34,7 @@ const (
 	CloudMulticastPort int64 = 9444
 )
 
-// Handler holds a set of services and an mdns server for communication between them.
+// Handler holds a set of stateful services.
 type Handler struct {
 	Services map[types.ServiceType]Service
 	Name     string
@@ -77,8 +77,7 @@ func NewHandler(name string, addr string, stateDir string, services ...types.Ser
 	}, nil
 }
 
-// Start is run after the MicroCloud daemon has started. It will periodically check for join token broadcasts, and if
-// found, will join all known services.
+// Start is run after the MicroCloud daemon has started.
 func (s *Handler) Start(ctx context.Context, state state.State) error {
 	// If we are already initialized, there's nothing to do.
 	err := state.Database().IsOpen(context.Background())

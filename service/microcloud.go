@@ -166,7 +166,7 @@ func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address
 	return c.DeleteTokenRecord(ctx, tokenName)
 }
 
-// RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized by mDNS.
+// RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized using mTLS.
 func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, peer string, serviceType types.ServiceType) (string, error) {
 	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))
 	if err != nil {
