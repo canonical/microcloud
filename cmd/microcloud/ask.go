@@ -22,7 +22,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -134,7 +134,7 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 }
 
 func (c *initConfig) askAddress(filterAddress string) error {
-	info, err := mdns.GetNetworkInfo()
+	info, err := multicast.GetNetworkInfo()
 	if err != nil {
 		return fmt.Errorf("Failed to find network interfaces: %w", err)
 	}

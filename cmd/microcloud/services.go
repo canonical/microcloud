@@ -17,7 +17,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -261,7 +261,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	state, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
+	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	clusters := cfg.state[cfg.name].ExistingServices
 	for name, address := range clusters[types.MicroCloud] {
 		cfg.systems[name] = InitSystem{
-			ServerInfo: mdns.ServerInfo{
+			ServerInfo: multicast.ServerInfo{
 				Name:     name,
 				Address:  address,
 				Services: services,

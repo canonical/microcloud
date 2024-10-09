@@ -5,13 +5,13 @@ import (
 
 	lxdAPI "github.com/canonical/lxd/shared/api"
 
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
 func newSystemWithNetworks(address string, networks []lxdAPI.NetworksPost) InitSystem {
 	return InitSystem{
-		ServerInfo: mdns.ServerInfo{
+		ServerInfo: multicast.ServerInfo{
 			Name:    "testSystem",
 			Address: address,
 		},
