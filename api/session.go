@@ -81,7 +81,11 @@ func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state s
 			defer func() {
 				err := conn.Close()
 				if err != nil {
-					logger.Error("Failed to close the websocket connection", logger.Ctx{"err": err})
+					// Ignore "use of closed network connection" errors as this happens normally
+					// if the connection already got closed.
+					if !errors.Is(err, net.ErrClosed) {
+						logger.Error("Failed to close the websocket connection", logger.Ctx{"err": err})
+					}
 				}
 			}()
 
