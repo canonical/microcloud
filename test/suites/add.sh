@@ -1,13 +1,17 @@
 #!/bin/bash
 
 test_add_interactive() {
-  reset_systems 4 2 2
+  reset_systems 4 2 3
 
   ceph_cluster_subnet_prefix="10.0.1"
   ceph_cluster_subnet_iface="enp7s0"
+  ceph_public_subnet_prefix="10.0.2"
+  ceph_public_subnet_iface="enp8s0"
 
   for n in $(seq 2 5); do
+    public_ip="${ceph_public_subnet_prefix}.${n}/24"
     cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${public_ip}" dev "${ceph_public_subnet_iface}"
     lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
   done
 
@@ -29,6 +33,7 @@ test_add_interactive() {
   export SETUP_CEPHFS="yes"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
@@ -68,7 +73,7 @@ test_add_interactive() {
 
   for m in micro01 micro02 micro03 micro04 ; do
     validate_system_lxd "${m}" 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64  10.1.123.1,fd42:1:1234:1234::1
-    validate_system_microceph "${m}" 1 "${ceph_cluster_subnet_prefix}.0/24" disk2
+    validate_system_microceph "${m}" 1 "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2
     validate_system_microovn "${m}"
   done
 
