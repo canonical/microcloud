@@ -27,8 +27,8 @@ var ServiceTokensCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // serviceTokensPost issues a token for service using the MicroCloud proxy.
-// Normally a token request to a service would be restricted to trusted systems,
-// so this endpoint validates the mDNS auth token and then proxies the request to the local unix socket of the remote system.
+// Normally a token request to a service is restricted to trusted systems,
+// so this endpoint makes use of the estblished mTLS and then proxies the request to the local unix socket of the remote system.
 func serviceTokensPost(s state.State, r *http.Request) response.Response {
 	serviceType, err := url.PathUnescape(mux.Vars(r)["serviceType"])
 	if err != nil {
