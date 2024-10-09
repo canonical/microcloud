@@ -18,17 +18,20 @@ import (
 )
 
 const (
-	// OVNPort is the efault MicroOVN port.
+	// OVNPort is the default MicroOVN port.
 	OVNPort int64 = 6443
 
-	// CephPort is the efault MicroCeph port.
+	// CephPort is the default MicroCeph port.
 	CephPort int64 = 7443
 
-	// LXDPort is the efault LXD port.
+	// LXDPort is the default LXD port.
 	LXDPort int64 = 8443
 
-	// CloudPort is the efault MicroCloud port.
+	// CloudPort is the default MicroCloud port.
 	CloudPort int64 = 9443
+
+	// CloudMulticastPort is the default MicroCloud multicast discovery port.
+	CloudMulticastPort int64 = 9444
 )
 
 // Handler holds a set of services and an mdns server for communication between them.
