@@ -9,7 +9,7 @@ import (
 	"github.com/canonical/lxd/shared/api"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 )
 
 // SystemInformation represents all information MicroCloud needs from a system in order to set it up as part of the MicroCloud.
@@ -64,7 +64,7 @@ type SystemInformation struct {
 }
 
 // CollectSystemInformation fetches the current cluster information of the system specified by the connection info.
-func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdns.ServerInfo) (*SystemInformation, error) {
+func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo multicast.ServerInfo) (*SystemInformation, error) {
 	if connectInfo.Name == "" || connectInfo.Address == "" {
 		return nil, fmt.Errorf("Connection information is incomplete")
 	}
@@ -187,7 +187,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mdn
 // GetExistingClusters checks against the services reachable by the specified ServerInfo,
 // and returns a map of cluster members for each service supported by the Handler.
 // If a service is not clustered, its map will be nil.
-func (sh *Handler) GetExistingClusters(ctx context.Context, connectInfo mdns.ServerInfo) (map[types.ServiceType]map[string]string, error) {
+func (sh *Handler) GetExistingClusters(ctx context.Context, connectInfo multicast.ServerInfo) (map[types.ServiceType]map[string]string, error) {
 	localSystem := sh.Name == connectInfo.Name
 	var err error
 	existingServices := map[types.ServiceType]map[string]string{}

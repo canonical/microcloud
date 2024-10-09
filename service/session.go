@@ -3,20 +3,17 @@ package service
 import (
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"strings"
 	"sync"
 
 	"github.com/canonical/lxd/shared"
-	"github.com/hashicorp/mdns"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 )
 
 // AllowedFailedJoinAttempts contains the number of allowed failed session join attempts.
@@ -26,7 +23,6 @@ const AllowedFailedJoinAttempts uint8 = 50
 type Session struct {
 	lock           sync.RWMutex
 	passphrase     string
-	server         *mdns.Server
 	trustStore     map[string]x509.Certificate
 	failedAttempts uint8
 	gw             *cloudClient.WebsocketGateway
@@ -100,32 +96,19 @@ func (s *Session) Role() types.SessionRole {
 	return s.role
 }
 
-// Broadcast starts a new mDNS listener in the current trust establishment session.
-func (s *Session) Broadcast(name string, address string, ifaceName string) error {
-	info := cloudMDNS.ServerInfo{
-		Version: cloudMDNS.Version,
+// MulticastDiscovery starts a new multicast discovery listener in the current trust establishment session.
+func (s *Session) MulticastDiscovery(name string, address string, ifaceName string) error {
+	info := multicast.ServerInfo{
+		Version: multicast.Version,
 		Name:    name,
 		Address: address,
 	}
 
-	bytes, err := json.Marshal(info)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal server info: %w", err)
-	}
-
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		return fmt.Errorf("Failed to get interface %q by name: %w", ifaceName, err)
-	}
-
-	server, err := cloudMDNS.NewBroadcast(name, iface, address, int(CloudPort), cloudMDNS.ClusterService, bytes)
+	discovery := multicast.NewDiscovery(ifaceName, CloudMulticastPort)
+	err := discovery.Respond(s.gw.Context(), info)
 	if err != nil {
 		return err
 	}
-
-	s.lock.Lock()
-	s.server = server
-	s.lock.Unlock()
 
 	return nil
 }
@@ -194,13 +177,6 @@ func (s *Session) Stop(cause error) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.server != nil {
-		err := s.server.Shutdown()
-		if err != nil {
-			return fmt.Errorf("Failed to shutdown mDNS server: %w", err)
-		}
-	}
-
 	// If a cause is provided also write it onto the session's websocket
 	// to notify the client.
 	if cause != nil {
@@ -210,7 +186,6 @@ func (s *Session) Stop(cause error) error {
 		}
 	}
 
-	s.server = nil
 	s.passphrase = ""
 	s.trustStore = make(map[string]x509.Certificate, 0)
 	s.joinIntentFingerprints = []string{}
