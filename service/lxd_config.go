@@ -11,9 +11,6 @@ import (
 	"github.com/canonical/lxd/shared/api"
 )
 
-// lxdMinVersion is the minimum version of LXD that fully supports all MicroCloud features.
-const lxdMinVersion = "5.21"
-
 // DefaultFANNetwork is the name of the default FAN network.
 const DefaultFANNetwork = "lxdfan0"
 
