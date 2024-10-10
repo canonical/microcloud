@@ -310,10 +310,10 @@ func (s *SystemInformation) ServiceClustered(service types.ServiceType) bool {
 
 // ClustersConflict compares the cluster members reported by each system in the list of systems, for each given service.
 // If two distinct clusters exist for any service, this function returns true, with the name of the service.
-func ClustersConflict(systems map[string]SystemInformation, services []types.ServiceType) (bool, types.ServiceType) {
+func ClustersConflict(systems map[string]SystemInformation, services map[types.ServiceType]string) (bool, types.ServiceType) {
 	firstEncounteredClusters := map[types.ServiceType]map[string]string{}
 	for _, info := range systems {
-		for _, service := range services {
+		for service := range services {
 			// If a service is not clustered, it cannot conflict.
 			if !info.ServiceClustered(service) {
 				continue
