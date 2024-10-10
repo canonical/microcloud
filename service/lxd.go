@@ -638,6 +638,26 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 	return data, nil
 }
 
+// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
+func (s LXDService) GetVersion(ctx context.Context) (string, error) {
+	client, err := s.Client(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	server, _, err := client.GetServer()
+	if err != nil {
+		return "", fmt.Errorf("Failed to retrieve current server configuration: %w", err)
+	}
+
+	err = validateVersion(s.Type(), server.Environment.ServerVersion)
+	if err != nil {
+		return "", err
+	}
+
+	return server.Environment.ServerVersion, nil
+}
+
 // isInitialized checks if LXD is initialized by fetching the storage pools.
 // If none exist, that means LXD has not yet been set up.
 func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {

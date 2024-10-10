@@ -27,4 +27,5 @@ type Service interface {
 	Port() int64
 	SetConfig(config map[string]string)
 	SupportsFeature(ctx context.Context, feature string) (bool, error)
+	GetVersion(ctx context.Context) (string, error)
 }
