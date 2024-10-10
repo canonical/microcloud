@@ -13,6 +13,8 @@ unset_interactive_vars() {
 # to simulate terminal input to the interactive CLI.
 # The lines that are output are based on the values passed to the listed environment variables.
 # Any unset variables will be omitted.
+# The first argument is the microcloud command you want to run interactively.
+# The second argument is the system on which the command gets executed.
 microcloud_interactive() {
   enable_xtrace=0
 
@@ -175,8 +177,9 @@ fi
 
 # capture_and_join: extracts the passphrase from stdin and outputs text that is being passed to `TEST_CONSOLE=1 microcloud join`
 # to simulate terminal input to the interactive CLI.
-# Set the first argument to either true or false if you want to skip missing services.
-# All the remaining arguments are systems you want to join.
+# The lines that are output are based on the values passed to the listed environment variables.
+# Any unset variables will be omitted.
+# The arguments are the systems you want to join interactively.
 capture_and_join() {
   enable_xtrace=0
 
