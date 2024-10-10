@@ -206,20 +206,31 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
+	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = c.askMissingServices(services, optionalServices)
+	installedServices, err = c.askMissingServices(installedServices, optionalServices)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, services...)
+	// check the API for service versions.
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedServices...)
 	if err != nil {
 		return err
+	}
+
+	services := make(map[types.ServiceType]string, len(installedServices))
+	for _, s := range s.Services {
+		version, err := s.GetVersion(context.Background())
+		if err != nil {
+			return err
+		}
+
+		services[s.Type()] = version
 	}
 
 	if c.setupMany {
