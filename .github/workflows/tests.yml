@@ -6,6 +6,10 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
+env:
+  GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/runner/work/microcloud/microcloud/coverage' || '' }}
 
 permissions:
   contents: read
@@ -73,8 +77,87 @@ jobs:
       - name: Run static analysis
         run: make check-static
 
+      - name: Make GOCOVERDIR
+        run: mkdir -p "${GOCOVERDIR}"
+        if: env.GOCOVERDIR != ''
+
       - name: Unit tests
-        run: make check-unit
+        run: |
+          set -eux
+          sudo --preserve-env=PATH,GOPATH,GOCOVERDIR make check-unit 
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: ${{env.GOCOVERDIR}}
+        if: env.GOCOVERDIR != ''
+
+      - name: Upload TIOBE TICS dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiobe-tics-deps
+          path: |
+            /home/runner/go/bin/microcloud
+            /home/runner/go/bin/microcloudd
+            /home/runner/go/bin/dqlite
+          retention-days: 1
+
+  tics:
+    name: Tiobe TICS
+    runs-on: ubuntu-22.04
+    needs: code-tests
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-unit
+          path: ${{env.GOCOVERDIR}}
+          merge-multiple: true
+
+      - name: Download TIOBE TICS dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: tiobe-tics-deps
+          merge-multiple: true
+          path: /home/runner/go/bin
+
+      - name: Install dependencies
+        run: |
+          go install github.com/axw/gocov/gocov@latest
+          go install github.com/AlekSi/gocov-xml@latest
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Convert coverage files
+        working-directory: /home/runner/work/microcloud/microcloud
+        run: |
+          go tool covdata textfmt -i="${GOCOVERDIR}" -o "${GOCOVERDIR}"/coverage.out
+          gocov convert "${GOCOVERDIR}"/coverage.out > "${GOCOVERDIR}"/coverage.json
+          gocov-xml < "${GOCOVERDIR}"/coverage.json > "${GOCOVERDIR}"/coverage-go.xml
+          go tool covdata percent -i="${GOCOVERDIR}"
+
+      # - name: Run TICS
+      #   uses: tiobe/tics-github-action@v3
+      #   with:
+      #     mode: qserver
+      #     project: MicroCloud
+      #     viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+      #     branchdir: ${{ github.workspace }}
+      #     ticsAuthToken: ${{ secrets.TICS_AUTH_TOKEN }}
+      #     installTics: true
+      #     calc: ALL
+      #     tmpdir: /tmp/tics
 
   system-tests:
     env:
