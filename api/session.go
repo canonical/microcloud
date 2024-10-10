@@ -273,7 +273,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 
 	// No address selected, try to lookup system.
 	if session.InitiatorAddress == "" {
-		lookupCtx, cancel := context.WithTimeout(gw.Context(), session.LookupTimeout)
+		lookupCtx, cancel := context.WithTimeoutCause(gw.Context(), session.LookupTimeout, fmt.Errorf("Lookup timeout exceeded"))
 		defer cancel()
 
 		discovery := multicast.NewDiscovery(session.Interface, service.CloudMulticastPort)
