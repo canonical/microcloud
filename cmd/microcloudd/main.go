@@ -18,6 +18,10 @@ import (
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
+// MinimumHeartbeatInterval is used to prevent a user from setting the MicroCluster
+// heartbeat to 0.
+const MinimumHeartbeatInterval = time.Millisecond * 200
+
 // Debug indicates whether to log debug messages or not.
 var Debug bool
 
@@ -56,6 +60,10 @@ func (c *cmdDaemon) Command() *cobra.Command {
 func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
+	}
+
+	if c.flagHeartbeatInterval < MinimumHeartbeatInterval {
+		return fmt.Errorf("Invalid heartbeat interval: Must be >%s", MinimumHeartbeatInterval)
 	}
 
 	addr := util.NetworkInterfaceAddress()
