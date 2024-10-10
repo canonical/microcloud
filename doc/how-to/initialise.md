@@ -44,7 +44,7 @@ Complete the following steps to initialise MicroCloud:
        sudo microcloud join
 
    It will automatically detect the machine acting as the initiator.
-   See {ref}`trust-establishment-session` for more information and  {ref}`automatic-server-detection` in case the network doesn't support mDNS.
+   See {ref}`trust-establishment-session` for more information and  {ref}`automatic-server-detection` in case the network doesn't support multicast.
 1. Select the machines that you want to add to the MicroCloud cluster.
 
    MicroCloud displays all machines that have reached out during the trust establishment session.

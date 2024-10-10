@@ -11,7 +11,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -115,7 +115,7 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 
 		// Register init system
 		c.systems[joinIntent.Name] = InitSystem{
-			ServerInfo: mdns.ServerInfo{
+			ServerInfo: multicast.ServerInfo{
 				Version:  joinIntent.Version,
 				Name:     joinIntent.Name,
 				Address:  joinIntent.Address,
