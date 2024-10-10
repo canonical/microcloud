@@ -88,6 +88,7 @@ Complete the following steps to initialise MicroCloud:
 
    1. You can choose to optionally set up a CephFS distributed file system.
 1. Select either an IPv4 or IPv6 CIDR subnet for the Ceph internal traffic. You can leave it empty to use the default value, which is the MicroCloud internal network (see {ref}`howto-ceph-networking` for how to configure it).
+1. Select either an IPv4 or IPv6 CIDR subnet for the Ceph public traffic. You can leave it empty to use the default value, which is the MicroCloud internal network if you chose this as default for the Ceph internal network question, or the Ceph internal network if you chose to set a custom network other than the MicroCloud internal network (see {ref}`howto-ceph-networking` for how to configure it).
 1. Select whether you want to set up distributed networking (using MicroOVN).
 
    If you choose `yes`, configure the distributed networking:
