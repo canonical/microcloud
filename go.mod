@@ -10,7 +10,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/canonical/lxd v0.0.0-20241001102405-5bba53b1ecd4
-	github.com/canonical/microceph/microceph v0.0.0-20240912190827-ef42f096671e
+	github.com/canonical/microceph/microceph v0.0.0-20241010081327-c76c1f5fe923
 	github.com/canonical/microcluster/v2 v2.0.2
 	github.com/canonical/microovn/microovn v0.0.0-20240912142147-31ce8c71de4f
 	github.com/creack/pty v1.1.21

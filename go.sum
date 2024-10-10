@@ -62,6 +62,8 @@ github.com/canonical/lxd v0.0.0-20241001102405-5bba53b1ecd4 h1:dVHeJJSpW7jFqC96s
 github.com/canonical/lxd v0.0.0-20241001102405-5bba53b1ecd4/go.mod h1:UyjqYS/HZYiXb+kjpnYUphDy5wewkdVs7+ZnXUGpzq0=
 github.com/canonical/microceph/microceph v0.0.0-20240912190827-ef42f096671e h1:enQgR0bgyQ1SfYIvYx5rU4n0OLjtpbIraGiwzqBtpYk=
 github.com/canonical/microceph/microceph v0.0.0-20240912190827-ef42f096671e/go.mod h1:l/yzvjl6FsuNClbYx2VffcL4QZsYff5qElaKWFqktjc=
+github.com/canonical/microceph/microceph v0.0.0-20241010081327-c76c1f5fe923 h1:lW44Hx/wGlK6qgP89rX+qyyGQ25QE0y6KwUMZGzpSsE=
+github.com/canonical/microceph/microceph v0.0.0-20241010081327-c76c1f5fe923/go.mod h1:1oixdFctmTokA7hcDP3zlJGG84pz4nyMEeJ/uZvZsDk=
 github.com/canonical/microcluster/v2 v2.0.0-20240911074836-85e676b8f4bc h1:nFhj6x5C7syjO1BoxBCWlRexxRa18H1Ema6RsMJePr8=
 github.com/canonical/microcluster/v2 v2.0.0-20240911074836-85e676b8f4bc/go.mod h1:XNhXLFX75lmDbFAggZ4oDgJRWO9xLdhDcDfWTOEgzSQ=
 github.com/canonical/microovn/microovn v0.0.0-20240912142147-31ce8c71de4f h1:PGrs8+znx4IqgwywlEljB9H7r/QEc6Pba6nVB7+VVRc=
