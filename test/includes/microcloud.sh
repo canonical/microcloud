@@ -1031,6 +1031,7 @@ restore_system() {
     done
   )
 
+  set_debug_binaries "${name}"
   echo "==> Restored ${name}"
 }
 
