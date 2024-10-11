@@ -123,7 +123,7 @@ trap cleanup EXIT HUP INT TERM
 # Import all the testsuites
 import_subdir_files suites
 
-LXD_SNAP_CHANNEL="${LXD_SNAP_CHANNEL:-latest/edge}"
+LXD_SNAP_CHANNEL="${LXD_SNAP_CHANNEL:-5.21/candidate}"
 export LXD_SNAP_CHANNEL
 
 MICROCEPH_SNAP_CHANNEL="${MICROCEPH_SNAP_CHANNEL:-latest/edge}"
