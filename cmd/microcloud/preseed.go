@@ -23,7 +23,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -271,7 +271,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	}
 
 	if !c.bootstrap {
-		existingClusters, err := s.GetExistingClusters(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address})
+		existingClusters, err := s.GetExistingClusters(context.Background(), multicast.ServerInfo{Name: c.name, Address: c.address})
 		if err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 			_, ok := c.systems[name]
 			if !ok {
 				c.systems[name] = InitSystem{
-					ServerInfo: mdns.ServerInfo{
+					ServerInfo: multicast.ServerInfo{
 						Name:     name,
 						Address:  address,
 						Services: services,
@@ -591,7 +591,7 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSystem, error) {
 	c.systems = make(map[string]InitSystem, len(p.Systems))
 	if c.bootstrap {
-		c.systems[s.Name] = InitSystem{ServerInfo: mdns.ServerInfo{Name: s.Name}}
+		c.systems[s.Name] = InitSystem{ServerInfo: multicast.ServerInfo{Name: s.Name}}
 	}
 
 	expectedSystems := make([]string, 0, len(p.Systems))
@@ -698,7 +698,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 		}
 	}
 
-	localInfo, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address})
+	localInfo, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: c.name, Address: c.address})
 	if err != nil {
 		return nil, err
 	}

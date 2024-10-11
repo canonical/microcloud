@@ -22,7 +22,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	cloudMDNS "github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
@@ -81,7 +81,11 @@ func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state s
 			defer func() {
 				err := conn.Close()
 				if err != nil {
-					logger.Error("Failed to close the websocket connection", logger.Ctx{"err": err})
+					// Ignore "use of closed network connection" errors as this happens normally
+					// if the connection already got closed.
+					if !errors.Is(err, net.ErrClosed) {
+						logger.Error("Failed to close the websocket connection", logger.Ctx{"err": err})
+					}
 				}
 			}()
 
@@ -169,9 +173,9 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 		return fmt.Errorf("Failed to send session details: %w", err)
 	}
 
-	err = sh.Session.Broadcast(state.Name(), session.Address, session.Interface)
+	err = sh.Session.MulticastDiscovery(state.Name(), session.Address, session.Interface)
 	if err != nil {
-		return fmt.Errorf("Failed to start broadcast: %w", err)
+		return fmt.Errorf("Failed to start multicast discovery: %w", err)
 	}
 
 	confirmedIntents, err := confirmedIntents(sh, gw)
@@ -198,7 +202,7 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 		}
 
 		joinIntent := types.SessionJoinPost{
-			Version:     cloudMDNS.Version,
+			Version:     multicast.Version,
 			Name:        state.Name(),
 			Address:     session.Address,
 			Certificate: string(cert.PublicKey()),
@@ -267,17 +271,13 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 		}
 	}()
 
-	iface, err := net.InterfaceByName(session.Interface)
-	if err != nil {
-		return fmt.Errorf("Failed to lookup interface by name: %w", err)
-	}
-
 	// No address selected, try to lookup system.
 	if session.InitiatorAddress == "" {
-		lookupCtx, cancel := context.WithTimeout(gw.Context(), session.LookupTimeout)
+		lookupCtx, cancel := context.WithTimeoutCause(gw.Context(), session.LookupTimeout, fmt.Errorf("Lookup timeout exceeded"))
 		defer cancel()
 
-		peer, err := cloudMDNS.LookupPeer(lookupCtx, iface, cloudMDNS.Version)
+		discovery := multicast.NewDiscovery(session.Interface, service.CloudMulticastPort)
+		peer, err := discovery.Lookup(lookupCtx, multicast.Version)
 		if err != nil {
 			return fmt.Errorf("Failed to lookup eligible system: %w", err)
 		}
@@ -293,7 +293,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 	}
 
 	joinIntent := types.SessionJoinPost{
-		Version:     cloudMDNS.Version,
+		Version:     multicast.Version,
 		Name:        state.Name(),
 		Address:     session.Address,
 		Certificate: string(cert.PublicKey()),

@@ -52,9 +52,6 @@ test_interactive() {
   done
 
   # Reset the systems with just LXD and no IPv6 support.
-  # First replace the bridge driver to use openvswitch instead of native.
-  # This is a workaround to allow the multicast traffic flowing through seamlessly.
-  lxc network set lxdbr0 bridge.driver=openvswitch
   reset_systems 3 3 1
 
   for m in micro01 micro02 micro03 ; do
@@ -76,9 +73,6 @@ test_interactive() {
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1
   done
-
-  # Reset the bridge driver back to native.
-  lxc network unset lxdbr0 bridge.driver
 
   # Reset the systems with no IPv4 support.
   gw_net_addr=$(lxc network get lxdbr0 ipv4.address)

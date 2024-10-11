@@ -26,11 +26,11 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/mdns"
+	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
-// DefaultAutoLookupTimeout is the default time limit for automatically finding systems over mDNS.
+// DefaultAutoLookupTimeout is the default time limit for automatically finding systems over multicast.
 const DefaultAutoLookupTimeout time.Duration = 5 * time.Second
 
 // DefaultLookupTimeout is the default time limit for finding systems interactively.
@@ -47,8 +47,8 @@ const DefaultSessionTimeout time.Duration = 60 * time.Minute
 
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
-	// ServerInfo contains the data reported by mDNS about this system.
-	ServerInfo mdns.ServerInfo
+	// ServerInfo contains the data reported about this system.
+	ServerInfo multicast.ServerInfo
 	// AvailableDisks contains the disks as reported by LXD.
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
@@ -95,7 +95,7 @@ type initConfig struct {
 	// setupMany indicates whether we are setting up remote nodes concurrently, or just a single cluster member.
 	setupMany bool
 
-	// lookupTimeout is the duration to wait for mDNS records to appear during system lookup.
+	// lookupTimeout is the duration to wait for peers to appear during multicast system lookup.
 	lookupTimeout time.Duration
 
 	// sessionTimeout is the duration to wait for the trust establishment session to complete.
@@ -107,10 +107,11 @@ type initConfig struct {
 	// encryptAllDisks indicates whether all disks should be encrypted, or if the user should be prompted.
 	encryptAllDisks bool
 
-	// lookupIface is the interface used for mDNS lookup.
+	// lookupIface is the interface used for multicast lookup.
 	lookupIface *net.Interface
 
-	// lookupSubnet is the subnet to limit mDNS lookup over.
+	// lookupSubnet is the subnet in which other peers are being expected.
+	// It represents the internal network used for MicroCloud.
 	lookupSubnet *net.IPNet
 
 	// systems is a map of system configuration to supply for cluster creation.
@@ -199,7 +200,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	c.systems[c.name] = InitSystem{
-		ServerInfo: mdns.ServerInfo{
+		ServerInfo: multicast.ServerInfo{
 			Name:    c.name,
 			Address: c.address,
 		},
@@ -230,7 +231,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	state, err := s.CollectSystemInformation(context.Background(), mdns.ServerInfo{Name: c.name, Address: c.address, Services: services})
+	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: c.name, Address: c.address, Services: services})
 	if err != nil {
 		return err
 	}
@@ -586,7 +587,7 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 	// Ensure that no system's management address falls within the OVN ranges
 	// to prevent OVN from allocating an IP that's already in use.
 	for systemName, system := range c.systems {
-		// If the system is ourselves, we don't have an mDNS payload so grab the address locally.
+		// If the system is ourselves, we don't have a multicast discovery payload so grab the address locally.
 		addr := system.ServerInfo.Address
 		if systemName == s.Name {
 			addr = s.Address

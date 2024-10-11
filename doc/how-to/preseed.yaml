@@ -1,4 +1,4 @@
-# `initiator` defines which system takes over the role of the initiator during the trust establishment with mDNS.
+# `initiator` defines which system takes over the role of the initiator during the trust establishment using multicast discovery.
 # Make sure to also set `lookup_subnet`.
 # The field cannot be set together with `initiator_address`.
 initiator: micro01
@@ -8,11 +8,11 @@ initiator: micro01
 # The field cannot be set together with `initiator`.
 initiator_address: 10.0.0.1
 
-# `lookup_subnet` limits the subnet when looking up systems with mDNS.
+# `lookup_subnet` limits the subnet when looking up systems using multicast discovery.
 # The first assigned address of this subnet is used for MicroCloud.
 lookup_subnet: 10.0.0.0/24
 
-# `lookup_timeout` is optional and configures how long the joining system will wait for a system to be discovered with mDNS.
+# `lookup_timeout` is optional and configures how long the joining system will wait for a system to be discovered using multicast discovery.
 # The value has to be provided in seconds.
 # It defaults to 60 seconds.
 lookup_timeout: 300
