@@ -172,7 +172,7 @@ fi
     args="--session-timeout=60"
   fi
 
-  echo "${setup}" | lxc exec "${2}" -- sh -c "tee in | microcloud ${1} ${args} 2>&1 | tee out"
+  echo "${setup}" | lxc exec "${2}" -- sh -c "tee in | (microcloud ${1} ${args} 2>&1 ; echo \$? > code) | tee out"
 }
 
 # capture_and_join: extracts the passphrase from stdin and outputs text that is being passed to `TEST_CONSOLE=1 microcloud join`
@@ -226,7 +226,7 @@ $(true)                                        # workaround for set -e
   fi
 
   for member in "$@"; do
-    lxc exec "${member}" -- sh -c "tee in | microcloud join 2>&1 | tee out" <<< "${setup}" &
+    lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 ; echo \$? > code) | tee out" <<< "${setup}" &
   done
 
   # wait for the parent.
@@ -239,6 +239,13 @@ $(true)                                        # workaround for set -e
       kill -9 "${p}"
     done
   fi
+
+  initiator="$(lxc exec "${1}" -- cat out | grep -o 'Found system.* at' | cut -d'"' -f2)"
+  lxc exec "${initiator}" -- cat code | grep -q '0'
+
+  for joiner in "$@" ; do
+    lxc exec "${joiner}" -- cat code | grep -q '0'
+  done
 }
 
 # set_debug_binaries: Adds {app}.debug binaries if the corresponding {APP}_DEBUG_PATH environment variable is set.
