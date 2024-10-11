@@ -52,8 +52,9 @@ Complete the following steps to initialise MicroCloud:
 1. Select whether you want to set up local storage.
 
    ```{note}
-   To set up local storage, each machine must have a local disk.
-   The disks must not contain any partitions.
+   - To set up local storage, each machine must have a local disk.
+   - The disks must not contain any partitions.
+   - A disk used for local storage will not be available for distributed storage.
    ```
 
    If you choose `yes`, configure the local storage:
@@ -66,8 +67,9 @@ Complete the following steps to initialise MicroCloud:
 1. Select whether you want to set up distributed storage (using MicroCeph).
 
    ```{note}
-   To set up distributed storage, you need at least three additional disks on at least three different machines.
-   The disks must not contain any partitions.
+   - To set up distributed storage, you need at least three additional disks on at least three different machines.
+   - The disks must not contain any partitions.
+   - A disk used for local storage will not be available for distributed storage.
    ```
 
    If you choose `yes`, configure the distributed storage:
