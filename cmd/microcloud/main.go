@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
@@ -21,6 +22,7 @@ type CmdControl struct {
 	FlagHelp          bool
 	FlagVersion       bool
 	FlagMicroCloudDir string
+	FlagNoColor       bool
 
 	asker cli.Asker
 }
@@ -34,6 +36,11 @@ func main() {
 
 	// common flags.
 	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin), logger.Log)}
+
+	noColor := os.Getenv("NO_COLOR")
+	if noColor != "" {
+		tui.DisableColors()
+	}
 
 	useTestConsole := os.Getenv("TEST_CONSOLE")
 	if useTestConsole == "1" {
@@ -64,11 +71,17 @@ EOF`)
 		Version:           version.Version,
 		SilenceUsage:      true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if commonCmd.FlagNoColor {
+				tui.DisableColors()
+			}
+		},
 	}
 
 	app.PersistentFlags().StringVar(&commonCmd.FlagMicroCloudDir, "state-dir", "", "Path to store MicroCloud state information"+"``")
 	app.PersistentFlags().BoolVarP(&commonCmd.FlagHelp, "help", "h", false, "Print help")
 	app.PersistentFlags().BoolVar(&commonCmd.FlagVersion, "version", false, "Print version number")
+	app.PersistentFlags().BoolVar(&commonCmd.FlagNoColor, "no-color", false, "Disable colorization of the CLI")
 
 	app.SetVersionTemplate("{{.Version}}\n")
 
@@ -90,6 +103,9 @@ EOF`)
 	var cmdService = cmdServices{common: &commonCmd}
 	app.AddCommand(cmdService.Command())
 
+	var cmdStatus = cmdStatus{common: &commonCmd}
+	app.AddCommand(cmdStatus.Command())
+
 	var cmdPeers = cmdClusterMembers{common: &commonCmd}
 	app.AddCommand(cmdPeers.Command())
 
@@ -106,6 +122,8 @@ EOF`)
 	app.AddCommand(cmdWaitready.Command())
 
 	app.InitDefaultHelpCmd()
+
+	app.SetErr(&tui.ColorErr{})
 
 	err := app.Execute()
 	if err != nil {

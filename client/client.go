@@ -16,6 +16,20 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
+// GetStatus fetches a set of status information for the whole cluster.
+func GetStatus(ctx context.Context, c *client.Client) ([]types.Status, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	var statuses []types.Status
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("status"), nil, &statuses)
+	if err != nil {
+		return nil, err
+	}
+
+	return statuses, nil
+}
+
 // StartSession starts a new session and returns the underlying websocket connection.
 func StartSession(ctx context.Context, c *client.Client, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
