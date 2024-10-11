@@ -1033,6 +1033,18 @@ test_service_mismatch() {
     validate_system_microovn "${m}"
   done
 
+  reset_systems 1 3 1
+
+  lxc exec micro01 -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp5s0/disable_ipv6"
+  lxc exec micro01 -- snap refresh microceph --channel reef/stable
+
+  microcloud_interactive init micro01
+  lxc exec micro01 -- tail -1 out | grep -q "The installed version of MicroCeph is not supported"
+
+  lxc exec micro01 -- rm -rf out
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- sh -c "microcloud join 2> out" || false
+  lxc exec micro01 -- tail -1 out | grep -q "The installed version of MicroCeph is not supported"
+
   # Try to set up a LXD-only MicroCloud while some systems have other services present.
   reset_systems 3 3 1
 
