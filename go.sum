@@ -64,8 +64,8 @@ github.com/canonical/lxd v0.0.0-20241001102405-5bba53b1ecd4 h1:dVHeJJSpW7jFqC96s
 github.com/canonical/lxd v0.0.0-20241001102405-5bba53b1ecd4/go.mod h1:UyjqYS/HZYiXb+kjpnYUphDy5wewkdVs7+ZnXUGpzq0=
 github.com/canonical/microceph/microceph v0.0.0-20240912190827-ef42f096671e h1:enQgR0bgyQ1SfYIvYx5rU4n0OLjtpbIraGiwzqBtpYk=
 github.com/canonical/microceph/microceph v0.0.0-20240912190827-ef42f096671e/go.mod h1:l/yzvjl6FsuNClbYx2VffcL4QZsYff5qElaKWFqktjc=
-github.com/canonical/microcluster/v2 v2.0.0-20240911074836-85e676b8f4bc h1:nFhj6x5C7syjO1BoxBCWlRexxRa18H1Ema6RsMJePr8=
-github.com/canonical/microcluster/v2 v2.0.0-20240911074836-85e676b8f4bc/go.mod h1:XNhXLFX75lmDbFAggZ4oDgJRWO9xLdhDcDfWTOEgzSQ=
+github.com/canonical/microcluster/v2 v2.0.0-20241010184845-bc97112f9a28 h1:wcWkJtNGe+Tvxyqcb3otxwmDAJlD5BAKYR3ZANt1rxg=
+github.com/canonical/microcluster/v2 v2.0.0-20241010184845-bc97112f9a28/go.mod h1:+Zb+8JiZREtxm8kMbk4IwPwwI67c/GOcSemCn5l3LH4=
 github.com/canonical/microovn/microovn v0.0.0-20240912142147-31ce8c71de4f h1:PGrs8+znx4IqgwywlEljB9H7r/QEc6Pba6nVB7+VVRc=
 github.com/canonical/microovn/microovn v0.0.0-20240912142147-31ce8c71de4f/go.mod h1:e23IdSkgJMqi9gwNhCQPznblE0/X7KLVZUIOvkDYPa8=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -265,8 +265,8 @@ github.com/mattn/go-runewidth v0.0.13/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh
 github.com/mattn/go-runewidth v0.0.16 h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6TULQc=
 github.com/mattn/go-runewidth v0.0.16/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/mattn/go-sqlite3 v1.14.7/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
-github.com/mattn/go-sqlite3 v1.14.23 h1:gbShiuAP1W5j9UOksQ06aiiqPMxYecovVGwmTxWtuw0=
-github.com/mattn/go-sqlite3 v1.14.23/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
+github.com/mattn/go-sqlite3 v1.14.24 h1:tpSp2G2KyMnnQu99ngJ47EIkWVmliIizyZBfPrBWDRM=
+github.com/mattn/go-sqlite3 v1.14.24/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
@@ -547,8 +547,8 @@ golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.25.0 h1:r+8e+loiHxRqhXVl6ML1nO3l1+oFoWbnlu2Ehimmi34=
-golang.org/x/sys v0.25.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.26.0 h1:KHjCJyddX0LoSTb3J+vWpupP9p0oznkqVk/IfjymZbo=
+golang.org/x/sys v0.26.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
 golang.org/x/term v0.1.0/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
