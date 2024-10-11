@@ -90,7 +90,7 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
+	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
@@ -98,16 +98,26 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 
 	// Enable auto setup to skip service related questions.
 	cfg.autoSetup = true
-	services, err = cfg.askMissingServices(services, optionalServices)
+	installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
 	if err != nil {
 		return err
 	}
 
 	cfg.autoSetup = false
 
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedServices...)
 	if err != nil {
 		return err
+	}
+
+	services := make(map[types.ServiceType]string, len(installedServices))
+	for _, s := range s.Services {
+		version, err := s.GetVersion(context.Background())
+		if err != nil {
+			return err
+		}
+
+		services[s.Type()] = version
 	}
 
 	passphrase, err := cfg.askPassphrase(s)

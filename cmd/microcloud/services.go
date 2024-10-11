@@ -243,22 +243,32 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg.autoSetup = false
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
+	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
 	// Set the auto flag to true so that we automatically omit any services that aren't installed.
-	services, err = cfg.askMissingServices(services, optionalServices)
+	installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
 	if err != nil {
 		return err
 	}
 
 	// Instantiate a handler for the services.
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedServices...)
 	if err != nil {
 		return err
+	}
+
+	services := make(map[types.ServiceType]string, len(installedServices))
+	for _, s := range s.Services {
+		version, err := s.GetVersion(context.Background())
+		if err != nil {
+			return err
+		}
+
+		services[s.Type()] = version
 	}
 
 	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
@@ -292,7 +302,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		cfg.state[system.ServerInfo.Name] = *state
 	}
 
-	askClusteredServices := []types.ServiceType{}
+	askClusteredServices := map[types.ServiceType]string{}
 	serviceMap := map[types.ServiceType]bool{}
 	for _, state := range cfg.state {
 		localState := cfg.state[s.Name]
@@ -301,12 +311,12 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(state.ExistingServices[types.MicroCeph]) <= 0 && !serviceMap[types.MicroCeph] {
-			askClusteredServices = append(askClusteredServices, types.MicroCeph)
+			askClusteredServices[types.MicroCeph] = services[types.MicroCeph]
 			serviceMap[types.MicroCeph] = true
 		}
 
 		if len(state.ExistingServices[types.MicroOVN]) <= 0 && !serviceMap[types.MicroOVN] {
-			askClusteredServices = append(askClusteredServices, types.MicroOVN)
+			askClusteredServices[types.MicroOVN] = services[types.MicroOVN]
 			serviceMap[types.MicroOVN] = true
 		}
 	}
@@ -321,7 +331,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Go through the normal setup for disks and networks if necessary.
-	for _, service := range askClusteredServices {
+	for service := range askClusteredServices {
 		switch service {
 		case types.MicroCeph:
 			err := cfg.askDisks(s)

@@ -207,22 +207,32 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	}
 
 	// Build the service handler.
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
+	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = c.askMissingServices(services, optionalServices)
+	installedServices, err = c.askMissingServices(installedServices, optionalServices)
 	if err != nil {
 		return err
 	}
 
 	c.name = hostname
 	c.address = listenIP.String()
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, services...)
+	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedServices...)
 	if err != nil {
 		return err
+	}
+
+	services := make(map[types.ServiceType]string, len(installedServices))
+	for _, s := range s.Services {
+		version, err := s.GetVersion(context.Background())
+		if err != nil {
+			return err
+		}
+
+		services[s.Type()] = version
 	}
 
 	initiator := config.isInitiator(c.name, c.address)
@@ -235,7 +245,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("MicroCloud is already initialized and can only be the initiator")
 	}
 
-	systems, err := config.Parse(s, c)
+	systems, err := config.Parse(s, c, services)
 	if err != nil {
 		return err
 	}
@@ -588,7 +598,7 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 }
 
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
-func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSystem, error) {
+func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map[types.ServiceType]string) (map[string]InitSystem, error) {
 	c.systems = make(map[string]InitSystem, len(p.Systems))
 	if c.bootstrap {
 		c.systems[s.Name] = InitSystem{ServerInfo: multicast.ServerInfo{Name: s.Name}}
@@ -636,21 +646,16 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig) (map[string]InitSyste
 
 	initiator := p.isInitiator(c.name, c.address)
 
-	expectedServices := make([]types.ServiceType, 0, len(s.Services))
-	for _, v := range s.Services {
-		expectedServices = append(expectedServices, v.Type())
-	}
-
 	if !initiator {
 		err = c.runSession(context.Background(), s, types.SessionJoining, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.joiningSession(gw, s, expectedServices, p.InitiatorAddress, p.SessionPassphrase)
+			return c.joiningSession(gw, s, installedServices, p.InitiatorAddress, p.SessionPassphrase)
 		})
 		return nil, err
 	}
 
 	if len(expectedSystems) > 0 {
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.initiatingSession(gw, s, expectedServices, p.SessionPassphrase, expectedSystems)
+			return c.initiatingSession(gw, s, installedServices, p.SessionPassphrase, expectedSystems)
 		})
 		if err != nil {
 			return nil, err

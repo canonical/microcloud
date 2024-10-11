@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,7 +52,7 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 			// Only validate the intent (services) on the initiator.
 			// The joiner has to accept the services from the initiator.
 			if session.Role() == types.SessionInitiating {
-				err = validateIntent(sh, req)
+				err = validateIntent(r.Context(), sh, req)
 				if err != nil {
 					return api.NewStatusError(http.StatusBadRequest, err.Error())
 				}
@@ -83,11 +84,22 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 
 // validateIntent validates the given join intent.
 // It checks whether or not the peer is missing any of our services and returns an error if one is missing.
-func validateIntent(sh *service.Handler, intent types.SessionJoinPost) error {
+// Also compares each service's daemon version between the joiner and initiator.
+func validateIntent(ctx context.Context, sh *service.Handler, intent types.SessionJoinPost) error {
 	// Reject any peers that are missing our services.
-	for service := range sh.Services {
-		if !shared.ValueInSlice(service, intent.Services) {
-			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(service))
+	for _, service := range sh.Services {
+		intentVersion, ok := intent.Services[service.Type()]
+		if !ok {
+			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(service.Type()))
+		}
+
+		version, err := service.GetVersion(ctx)
+		if err != nil {
+			return fmt.Errorf("Unable to determine initiator's %s version: %w", service.Type(), err)
+		}
+
+		if intentVersion != version {
+			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, service.Type(), version, intentVersion)
 		}
 	}
 

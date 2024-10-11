@@ -76,20 +76,30 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
+	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = cfg.askMissingServices(services, optionalServices)
+	installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, services...)
+	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedServices...)
 	if err != nil {
 		return err
+	}
+
+	services := make(map[types.ServiceType]string, len(installedServices))
+	for _, s := range s.Services {
+		version, err := s.GetVersion(context.Background())
+		if err != nil {
+			return err
+		}
+
+		services[s.Type()] = version
 	}
 
 	err = cfg.runSession(context.Background(), s, types.SessionInitiating, cfg.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
@@ -128,7 +138,16 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ensure there are no existing cluster conflicts.
-	conflict, serviceType := service.ClustersConflict(cfg.state, []types.ServiceType{types.MicroOVN, types.MicroCloud})
+	conflictableServices := map[types.ServiceType]string{}
+	for service, version := range services {
+		if service == types.LXD {
+			continue
+		}
+
+		conflictableServices[service] = version
+	}
+
+	conflict, serviceType := service.ClustersConflict(cfg.state, conflictableServices)
 	if conflict {
 		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
 	}

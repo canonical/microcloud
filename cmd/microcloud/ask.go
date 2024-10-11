@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -1341,12 +1340,12 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 // If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
 // In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
 // This works by deleting the record for the service from the `service.Handler`, thus ignoring it for the remainder of the setup.
-func (c *initConfig) askClustered(s *service.Handler, expectedServices []types.ServiceType) error {
+func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types.ServiceType]string) error {
 	if !c.setupMany {
 		return nil
 	}
 
-	for _, serviceType := range expectedServices {
+	for serviceType := range expectedServices {
 		for name, info := range c.state {
 			_, newSystem := c.systems[name]
 			if !newSystem {
@@ -1578,7 +1577,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 	return systems, nil
 }
 
-func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, services []types.ServiceType) error {
+func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, services map[types.ServiceType]string) error {
 	session := types.Session{}
 	err := gw.ReceiveWithContext(gw.Context(), &session)
 	if err != nil {
@@ -1602,14 +1601,18 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 
 	fmt.Println("Successfully joined the MicroCloud cluster and closing the session.")
 
-	// Filter out MicroCloud.
-	services = slices.DeleteFunc(services, func(t types.ServiceType) bool {
-		return t == types.MicroCloud
-	})
+	newServices := make(map[types.ServiceType]string, len(services)-1)
+	for serviceType, version := range services {
+		if serviceType == types.MicroCloud {
+			continue
+		}
 
-	if len(services) > 0 {
+		newServices[serviceType] = version
+	}
+
+	if len(newServices) > 0 {
 		var servicesStr []string
-		for _, service := range services {
+		for _, service := range newServices {
 			servicesStr = append(servicesStr, string(service))
 		}
 

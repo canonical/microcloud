@@ -29,7 +29,7 @@ func (c *initConfig) runSession(ctx context.Context, s *service.Handler, role ty
 	return f(cloudClient.NewWebsocketGateway(ctx, conn))
 }
 
-func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services []types.ServiceType, passphrase string, expectedSystems []string) error {
+func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, passphrase string, expectedSystems []string) error {
 	session := types.Session{
 		Address:    c.address,
 		Interface:  c.lookupIface.Name,
@@ -139,7 +139,7 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 	return nil
 }
 
-func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services []types.ServiceType, initiatorAddress string, passphrase string) error {
+func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, initiatorAddress string, passphrase string) error {
 	session := types.Session{
 		Passphrase:       passphrase,
 		Address:          sh.Address,

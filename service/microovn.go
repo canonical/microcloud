@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/microcluster"
@@ -183,6 +184,25 @@ func (s OVNService) Address() string {
 // Port returns the port of this Service instance.
 func (s OVNService) Port() int64 {
 	return s.port
+}
+
+// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
+func (s OVNService) GetVersion(ctx context.Context) (string, error) {
+	status, err := s.m.Status(ctx)
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return "", fmt.Errorf("The installed version of %s is not supported", s.Type())
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	err = validateVersion(s.Type(), status.Version)
+	if err != nil {
+		return "", err
+	}
+
+	return status.Version, nil
 }
 
 // SetConfig sets the config of this Service instance.

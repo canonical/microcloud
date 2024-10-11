@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -349,6 +350,20 @@ func (s *CloudService) SetConfig(config map[string]string) {
 	for key, value := range config {
 		s.config[key] = value
 	}
+}
+
+// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
+func (s CloudService) GetVersion(ctx context.Context) (string, error) {
+	status, err := s.client.Status(ctx)
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return "", fmt.Errorf("The installed version of %s is not supported", s.Type())
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	return status.Version, nil
 }
 
 // SupportsFeature checks if the specified API feature of this Service instance if supported.
