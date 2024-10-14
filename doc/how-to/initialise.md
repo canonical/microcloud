@@ -69,7 +69,7 @@ Complete the following steps to initialise MicroCloud:
    ```{note}
    - To set up distributed storage, you need at least three additional disks on at least three different machines.
    - The disks must not contain any partitions.
-   - A disk used for local storage will not be available for distributed storage.
+   - A disk that was previously selected for local storage will not be shown for distributed storage.
    ```
 
    If you choose `yes`, configure the distributed storage:
