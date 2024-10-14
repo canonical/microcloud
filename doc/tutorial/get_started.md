@@ -296,6 +296,7 @@ Complete the following steps:
    1. You don't need to encrypt any disks to get started.
    1. Select `yes` to optionally configure the CephFS distributed file system.
    1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
+   1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph public network.
    1. Select `yes` to configure distributed networking.
    1. Select all listed network interfaces (these should be `enp6s0` on the four different VMs).
    1. Specify the IPv4 address that you noted down for your `microbr0` network as the IPv4 gateway.

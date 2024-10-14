@@ -13,6 +13,7 @@ test_interactive() {
   export SETUP_CEPH="no"
   export SETUP_OVN="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -41,6 +42,7 @@ test_interactive() {
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   unset SETUP_CEPH SETUP_OVN
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
 
@@ -121,6 +123,7 @@ test_interactive() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
 
@@ -151,6 +154,7 @@ test_interactive() {
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export OVN_UNDERLAY_NETWORK="no"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
 
@@ -172,6 +176,7 @@ test_interactive() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
 
@@ -208,7 +213,7 @@ test_interactive() {
     lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
   done
 
-  echo "Creating a MicroCloud with ZFS, Ceph storage with a fully disaggregated Ceph networking setup, and OVN network"
+  echo "Creating a MicroCloud with ZFS, Ceph storage with a partially disaggregated Ceph networking setup, and OVN network"
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
@@ -217,6 +222,7 @@ test_interactive() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export CEPH_PUBLIC_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
@@ -228,22 +234,66 @@ test_interactive() {
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
-    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" disk2
+    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" "${CEPH_PUBLIC_NETWORK}" disk2
     validate_system_microovn "${m}"
   done
 
+  # Reset the systems and install microovn and microceph with a fully disaggregated ceph network setup.
   reset_systems 3 3 3
 
-  ceph_cluster_subnet_prefix="10.2.123"
+  ceph_cluster_subnet_prefix="10.0.1"
   ceph_cluster_subnet_iface="enp7s0"
+  ceph_public_subnet_prefix="10.0.2"
+  ceph_public_subnet_iface="enp8s0"
 
   for n in $(seq 2 4); do
     cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    public_ip="${ceph_public_subnet_prefix}.${n}/24"
     lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
+    lxc exec "micro0$((n-1))" -- ip addr add "${public_ip}" dev "${ceph_public_subnet_iface}"
   done
 
-  ovn_underlay_subnet_prefix="10.3.123"
-  ovn_underlay_subnet_iface="enp8s0"
+  echo "Creating a MicroCloud with ZFS, Ceph storage with a fully disaggregated Ceph networking setup, and OVN network"
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export SETUP_CEPHFS="yes"
+  export CEPH_FILTER="lxd_disk2"
+  export CEPH_WIPE="yes"
+  export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export OVN_UNDERLAY_NETWORK="no"
+  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
+    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" "${CEPH_PUBLIC_NETWORK}" disk2
+    validate_system_microovn "${m}"
+  done
+
+  reset_systems 3 3 4
+
+  ceph_cluster_subnet_prefix="10.2.123"
+  ceph_cluster_subnet_iface="enp7s0"
+  ceph_public_subnet_prefix="10.3.123"
+  ceph_public_subnet_iface="enp8s0"
+
+  for n in $(seq 2 4); do
+    cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    public_ip="${ceph_public_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
+    lxc exec "micro0$((n-1))" -- ip addr add "${public_ip}" dev "${ceph_public_subnet_iface}"
+  done
+
+  ovn_underlay_subnet_prefix="10.4.123"
+  ovn_underlay_subnet_iface="enp9s0"
 
   for n in $(seq 2 4); do
     ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
@@ -252,6 +302,7 @@ test_interactive() {
 
   echo "Creating a MicroCloud with ZFS, Ceph storage with a fully disaggregated Ceph networking setup, OVN management network and OVN underlay network"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   export OVN_UNDERLAY_NETWORK="yes"
   export OVN_UNDERLAY_FILTER="${ovn_underlay_subnet_prefix}"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
@@ -259,7 +310,7 @@ test_interactive() {
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1 3 1 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
-    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" disk2
+    validate_system_microceph "${m}" 1 "${CEPH_CLUSTER_NETWORK}" "${CEPH_PUBLIC_NETWORK}" disk2
     validate_system_microovn "${m}" "${ovn_underlay_subnet_prefix}"
   done
 
@@ -831,6 +882,7 @@ _test_case() {
     export MULTI_NODE="yes"
     export LOOKUP_IFACE="enp5s0" # filter string for the lookup interface table.
     export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+    export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
     export OVN_UNDERLAY_NETWORK="no"
 
     export EXPECT_PEERS="$((num_systems - 1))"
@@ -1093,6 +1145,7 @@ test_disk_mismatch() {
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 micro04 ; do
@@ -1265,6 +1318,7 @@ test_remove_cluster_member() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
@@ -1313,6 +1367,7 @@ test_remove_cluster_member() {
   # With 3 or fewer systems, MicroCeph requires --force to be used to remove cluster members. We tested that above so ignore MicroCeph for the rest of the test.
   unset SETUP_CEPH
   unset CEPH_CLUSTER_NETWORK
+  unset CEPH_PUBLIC_NETWORK
   export SKIP_SERVICE="yes"
 
   # LXD will require --force if we have storage volumes, so don't set those up.
@@ -1401,6 +1456,8 @@ test_add_services() {
 
   ceph_cluster_subnet_prefix="10.0.1"
   ceph_cluster_subnet_iface="enp7s0"
+  ceph_public_subnet_prefix="10.0.2"
+  ceph_public_subnet_iface="enp8s0"
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export EXPECT_PEERS=2
@@ -1420,10 +1477,12 @@ test_add_services() {
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage without updating the profile.
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
@@ -1441,6 +1500,7 @@ test_add_services() {
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage.
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
@@ -1463,6 +1523,7 @@ test_add_services() {
 
   reset_systems 3 3 3
   set_cluster_subnet 3 "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
 
   echo Add MicroOVN to MicroCloud that was set up without it, and setup ovn network
   lxc exec micro01 -- snap disable microovn
@@ -1481,6 +1542,7 @@ test_add_services() {
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
 
   echo Add both MicroOVN and MicroCeph to a MicroCloud that was set up without it
   lxc exec micro01 -- snap disable microovn
@@ -1502,6 +1564,7 @@ test_add_services() {
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
 
   echo Reuse a MicroCeph that was set up on one node of the MicroCloud
   lxc exec micro01 -- snap disable microceph
@@ -1520,11 +1583,13 @@ test_add_services() {
   unset SETUP_ZFS
   unset SETUP_OVN
   unset CEPH_CLUSTER_NETWORK
+  unset CEPH_PUBLIC_NETWORK
   microcloud_interactive "service add" micro01
   services_validator
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
 
   echo Fail to add any services if they have been set up
   export MULTI_NODE="yes"
@@ -1535,6 +1600,7 @@ test_add_services() {
   unset SKIP_LOOKUP
   unset SKIP_SERVICE
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
+  export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   microcloud_interactive init micro01 | capture_and_join micro02 micro03
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1554,6 +1620,7 @@ test_non_ha() {
   export CEPH_FILTER="lxd_disk1"
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
   export CEPH_RETRY_HA="no"
   export SETUP_OVN="yes"
@@ -1619,6 +1686,7 @@ test_non_ha() {
   unset SKIP_LOOKUP
   unset MULTI_NODE
   unset CEPH_CLUSTER_NETWORK
+  unset CEPH_PUBLIC_NETWORK
   unset CEPH_RETRY_HA
   unset IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
   unset SETUP_CEPHFS

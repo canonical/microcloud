@@ -74,6 +74,7 @@ type InitNetwork struct {
 
 // CephOptions represents the structure of the ceph options in the preseed yaml.
 type CephOptions struct {
+	PublicNetwork   string `yaml:"public_network"`
 	InternalNetwork string `yaml:"internal_network"`
 	CephFS          bool   `yaml:"cephfs"`
 }
@@ -414,6 +415,18 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	}
 
 	containsCephStorage = directCephCount > 0 || len(p.Storage.Ceph) > 0
+	usingCephPublicNetwork := p.Ceph.PublicNetwork != ""
+	if !containsCephStorage && usingCephPublicNetwork {
+		return fmt.Errorf("Cannot specify a Ceph public network without Ceph storage disks")
+	}
+
+	if usingCephPublicNetwork {
+		err := validate.IsNetwork(p.Ceph.PublicNetwork)
+		if err != nil {
+			return fmt.Errorf("Invalid Ceph public network subnet: %v", err)
+		}
+	}
+
 	usingCephInternalNetwork := p.Ceph.InternalNetwork != ""
 	if !containsCephStorage && usingCephInternalNetwork {
 		return fmt.Errorf("Cannot specify a Ceph internal network without Ceph storage disks")
@@ -1031,13 +1044,17 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			}
 		}
 
-		var customTargetCephInternalNetwork string
+		var customTargetCephPublicNetwork, customTargetCephInternalNetwork string
 		if initializedMicroCephSystem != nil {
 			// If there is at least one initialized system with MicroCeph (we consider that more than one initialized MicroCeph systems are part of the same cluster),
 			// we need to fetch its Ceph configuration to validate against this to-be-bootstrapped cluster.
-			targetInternalCephNetwork, err := getTargetCephNetworks(s, initializedMicroCephSystem)
+			targetPublicCephNetwork, targetInternalCephNetwork, err := getTargetCephNetworks(s, initializedMicroCephSystem)
 			if err != nil {
 				return nil, err
+			}
+
+			if targetPublicCephNetwork.String() != c.lookupSubnet.String() {
+				customTargetCephPublicNetwork = targetPublicCephNetwork.String()
 			}
 
 			if targetInternalCephNetwork.String() != c.lookupSubnet.String() {
@@ -1062,14 +1079,39 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephNetwork
 			c.systems[s.Name] = bootstrapSystem
 		}
+
+		var publicCephNetwork string
+		if customTargetCephPublicNetwork == "" {
+			publicCephNetwork = p.Ceph.PublicNetwork
+		} else {
+			publicCephNetwork = customTargetCephPublicNetwork
+		}
+
+		if publicCephNetwork != "" {
+			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, publicCephNetwork)
+			if err != nil {
+				return nil, err
+			}
+
+			bootstrapSystem := c.systems[s.Name]
+			bootstrapSystem.MicroCephPublicNetworkSubnet = publicCephNetwork
+			c.systems[s.Name] = bootstrapSystem
+		}
 	} else {
-		localInternalCephNetwork, err := getTargetCephNetworks(s, nil)
+		localPublicCephNetwork, localInternalCephNetwork, err := getTargetCephNetworks(s, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != c.lookupSubnet.String() {
 			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, localInternalCephNetwork.String())
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if localPublicCephNetwork.String() != "" && localPublicCephNetwork.String() != c.lookupSubnet.String() {
+			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, localPublicCephNetwork.String())
 			if err != nil {
 				return nil, err
 			}

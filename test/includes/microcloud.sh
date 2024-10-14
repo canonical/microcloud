@@ -4,7 +4,7 @@
 unset_interactive_vars() {
   unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK \
+    SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
     REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
 }
@@ -41,7 +41,8 @@ microcloud_interactive() {
   CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
   CEPH_RETRY_HA=${CEPH_RETRY_HA:-}                     # (yes/no) input for warning setup is not HA.
   CEPH_ENCRYPT=${CEPH_ENCRYPT:-}                  # (yes/no) to encrypt all disks.
-  CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet or Ceph public network if specified previously) input for setting up a cluster network.
+  CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet) input for setting up a cluster network.
+  CEPH_PUBLIC_NETWORK=${CEPH_PUBLIC_NETWORK:-}   # (default: MicroCloud internal subnet or Ceph internal network if specified previously) input for setting up a public network.
   PROCEED_WITH_NO_OVERLAY_NETWORKING=${PROCEED_WITH_NO_OVERLAY_NETWORKING:-} # (yes/no) input for proceeding without overlay networking.
   SETUP_OVN=${SETUP_OVN:-}                        # (yes/no) input for initiating OVN network setup.
   OVN_WARNING=${OVN_WARNING:-}                    # (yes/no) input for warning about eligible interface detection.
@@ -114,6 +115,7 @@ $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_RETRY_HA}" ) # allow ceph s
 ${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_CLUSTER_NETWORK}" ) # set ceph cluster network
+$([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_PUBLIC_NETWORK}" )  # set ceph public network
 $(true)                                                 # workaround for set -e
 "
 fi
@@ -327,6 +329,12 @@ validate_system_microceph() {
       shift 1
     fi
 
+    public_ceph_subnet=""
+    if echo "${1:-}" | grep -Pq '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'; then
+      public_ceph_subnet="${1}"
+      shift 1
+    fi
+
     if [ "${encrypt}" = 1 ]; then
       local disks_to_encrypt="${1}"
       shift 1
@@ -335,7 +343,7 @@ validate_system_microceph() {
 
     disks="${*}"
 
-    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}, Encrypt: {${encrypt}}"
+    echo "==> ${name} Validating MicroCeph. Using disks: {${disks}}, Using CephFS: {${cephfs}}, Cluster Ceph Subnet: {${cluster_ceph_subnet}}, Public Ceph Subnet: {${public_ceph_subnet}}, Encrypt: {${encrypt}}"
 
     lxc remote switch local
     lxc exec "${name}" -- sh -ceu "
@@ -365,6 +373,12 @@ validate_system_microceph() {
     if [ -n "${cluster_ceph_subnet}" ]; then
       lxc exec "${name}" -- sh -ceu "
         microceph.ceph config show osd.1 cluster_network | grep -q ${cluster_ceph_subnet}
+      " > /dev/null
+    fi
+
+    if [ -n "${public_ceph_subnet}" ]; then
+      lxc exec "${name}" -- sh -ceu "
+        microceph.ceph config show osd.1 public_network | grep -q ${public_ceph_subnet}
       " > /dev/null
     fi
 }
