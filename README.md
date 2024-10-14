@@ -35,13 +35,19 @@ Then start the bootstrapping process with the following command:
 microcloud init
 ```
 
+In case you want to setup a multi machine MicroCloud, run the following command on all the other machines:
+
+```sh
+microcloud join
+```
+
 Following the simple CLI prompts, a working MicroCloud will be ready within minutes.
 
 <!-- include start about -->
 
 The MicroCloud snap drives three other snaps ([LXD](https://documentation.ubuntu.com/lxd), [MicroCeph](https://canonical-microceph.readthedocs-hosted.com/), and [MicroOVN](https://canonical-microovn.readthedocs-hosted.com/)), enabling automated deployment of a highly available LXD cluster for compute with Ceph as the storage driver and OVN as the managed network.
 
-During initialisation, MicroCloud detects the other servers and then prompts you to add disks to Ceph and configure the networking setup.
+During initialisation, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
 
 At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
