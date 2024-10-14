@@ -1009,7 +1009,7 @@ test_service_mismatch() {
   # Init should fail to find the other systems as they don't have the same services.
   # The error is reported on the joining side.
   echo "Peers with missing services cannot join"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  ! microcloud_interactive init micro01 | capture_and_join micro02 micro03 || false
 
   # Ensure the joiners exited due to missing services.
   # The initiator exits automatically after the session timeout.
@@ -1196,7 +1196,7 @@ test_reuse_cluster() {
   lxc exec micro02 -- microceph cluster bootstrap
   token="$(lxc exec micro02 -- microceph cluster add micro04)"
   lxc exec micro04 -- microceph cluster join "${token}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03 micro04
+  microcloud_interactive init micro01 | capture_and_join micro02 micro03
   services_validator
   validate_system_microceph micro04 1
 
@@ -1204,7 +1204,7 @@ test_reuse_cluster() {
   echo "Fail to create a MicroCloud due to conflicting existing services"
   lxc exec micro02 -- microceph cluster bootstrap
   lxc exec micro03 -- microceph cluster bootstrap
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  ! microcloud_interactive init micro01 | capture_and_join micro02 micro03 || false
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
 
   reset_systems 3 3 3
