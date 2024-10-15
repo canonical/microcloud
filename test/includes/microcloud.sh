@@ -290,19 +290,18 @@ set_debug_binaries() {
 set_remote() {
   remote="${1}"
   name="${2}"
+  client="${3}"
 
   lxc remote switch local
-
-  addr="$(lxc exec "${name}" -- lxc config get cluster.https_address)"
 
   if lxc remote list -f csv | cut -d',' -f1 | grep -qwF "${remote}" ; then
     lxc remote remove "${remote}"
   fi
 
-  token="$(lxc exec "${name}" -- lxc config trust add --name test --quiet)"
+  token="$(lxc exec "${name}" -- lxc config trust add --name "${client}" --quiet)"
 
   # Suppress the confirmation as it's noisy.
-  lxc remote add "${remote}" "https://${addr}" --token "${token}" > /dev/null 2>&1
+  lxc remote add "${remote}" "${token}" > /dev/null 2>&1
   lxc remote switch "${remote}"
 }
 
@@ -580,8 +579,8 @@ validate_system_lxd() {
 
     lxc remote switch local
 
-    # Add the peer as a remote.
-    set_remote microcloud-test "${name}"
+    # Add the peer as a remote using the name test for the trust.
+    set_remote microcloud-test "${name}" test
 
     # Ensure we are clustered and online.
     lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
@@ -629,6 +628,12 @@ validate_system_lxd() {
     fi
 
     lxc remote switch local
+
+    # Remove the trust on the remote which was added when adding the remote.
+    fingerprint="$(lxc query microcloud-test:/1.0/certificates?recursion=1 | jq -r '.[] | select(.name=="test") | .fingerprint')"
+    lxc config trust remove "microcloud-test:${fingerprint}"
+
+    # Remove the remote.
     lxc remote remove microcloud-test
 
     echo "==> ${name} Validated LXD"
