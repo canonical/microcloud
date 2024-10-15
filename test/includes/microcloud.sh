@@ -302,7 +302,7 @@ set_remote() {
   token="$(lxc exec "${name}" -- lxc config trust add --name test --quiet)"
 
   # Suppress the confirmation as it's noisy.
-  lxc remote add "${remote}" "https://${addr}" --token "${token}" --accept-certificate > /dev/null 2>&1
+  lxc remote add "${remote}" "https://${addr}" --token "${token}" > /dev/null 2>&1
   lxc remote switch "${remote}"
 }
 
