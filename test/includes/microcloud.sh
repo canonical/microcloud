@@ -503,7 +503,6 @@ validate_system_lxd_ovn() {
   dns_namesersers=${7:-}
 
   echo "    ${name} Validating OVN network"
-  addr=$(lxc exec local:"${name}" -- lxc config get cluster.https_address)
 
   num_conns=3
   if [ "${num_peers}" -lt "${num_conns}" ]; then
