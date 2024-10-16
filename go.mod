@@ -10,7 +10,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/canonical/lxd v0.0.0-20241001102405-5bba53b1ecd4
-	github.com/canonical/microceph/microceph v0.0.0-20240912190827-ef42f096671e
+	github.com/canonical/microceph/microceph v0.0.0-20241016100220-e32ad499ad83
 	github.com/canonical/microcluster/v2 v2.0.2
 	github.com/canonical/microovn/microovn v0.0.0-20240912142147-31ce8c71de4f
 	github.com/charmbracelet/lipgloss v0.13.0
