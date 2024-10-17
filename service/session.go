@@ -27,6 +27,7 @@ type Session struct {
 	failedAttempts uint8
 	gw             *cloudClient.WebsocketGateway
 	role           types.SessionRole
+	discovery      *multicast.Discovery
 
 	joinIntentFingerprints []string
 	joinIntents            chan types.SessionJoinPost
@@ -104,8 +105,8 @@ func (s *Session) MulticastDiscovery(name string, address string, ifaceName stri
 		Address: address,
 	}
 
-	discovery := multicast.NewDiscovery(ifaceName, CloudMulticastPort)
-	err := discovery.Respond(s.gw.Context(), info)
+	s.discovery = multicast.NewDiscovery(ifaceName, CloudMulticastPort)
+	err := s.discovery.Respond(s.gw.Context(), info)
 	if err != nil {
 		return err
 	}
@@ -183,6 +184,13 @@ func (s *Session) Stop(cause error) error {
 		err := s.gw.WriteClose(cause)
 		if err != nil {
 			return fmt.Errorf("Failed to write session stop cause to websocket: %w", err)
+		}
+	}
+
+	if s.discovery != nil {
+		err := s.discovery.StopResponder()
+		if err != nil {
+			return fmt.Errorf("Failed to stop multicast discovery: %w", err)
 		}
 	}
 
