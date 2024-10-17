@@ -782,11 +782,36 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if len(allDisks) > 0 {
 			defaultPoolSize := len(allDisks)
-			if defaultPoolSize > 3 {
-				defaultPoolSize = 3
+			if defaultPoolSize > RecommendedOSDHosts {
+				defaultPoolSize = RecommendedOSDHosts
 			}
 
-			err = cephClient.PoolSetReplicationFactor(context.Background(), c, &cephTypes.PoolPut{Pools: []string{"*"}, Size: int64(defaultPoolSize)})
+			pools, err := cephClient.GetPools(context.Background(), c)
+			if err != nil {
+				return err
+			}
+
+			defaultOSDPools := map[string]bool{
+				service.DefaultMgrOSDPool:        true,
+				service.DefaultCephFSDataOSDPool: true,
+				service.DefaultCephFSMetaOSDPool: true,
+				service.DefaultCephFSOSDPool:     true,
+				service.DefaultCephOSDPool:       true,
+			}
+
+			poolsToUpdate := []string{}
+			for _, pool := range pools {
+				if defaultOSDPools[pool.Pool] && pool.Size < int64(defaultPoolSize) {
+					poolsToUpdate = append(poolsToUpdate, pool.Pool)
+				}
+			}
+
+			// If there are no OSD pools, MicroCeph requires us to pass an empty string to set the default OSD pool size.
+			if len(poolsToUpdate) == 0 {
+				poolsToUpdate = append(poolsToUpdate, "")
+			}
+
+			err = cephClient.PoolSetReplicationFactor(context.Background(), c, &cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(defaultPoolSize)})
 			if err != nil {
 				return err
 			}
