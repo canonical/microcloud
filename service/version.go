@@ -2,7 +2,7 @@ package service
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 
 	"golang.org/x/mod/semver"
 
@@ -36,15 +36,13 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 		}
 
 	case types.MicroCeph:
-		// Parse out the underlying ceph version from the version string.
-		before, after, ok := strings.Cut(daemonVersion, "ceph-version: ")
-		cephVersion := strings.Split(after, "~")
-		if !ok || before != "" || !strings.Contains(after, "~") || len(cephVersion) != 2 || cephVersion[0] == "" {
+		regex := regexp.MustCompile(`\d+\.\d+\.\d+`)
+		match := regex.FindString(daemonVersion)
+		if match == "" {
 			return fmt.Errorf("%s version format not supported (%s)", serviceType, daemonVersion)
 		}
 
-		daemonVersion = cephVersion[0]
-		daemonVersion = semver.Canonical(fmt.Sprintf("v%s", daemonVersion))
+		daemonVersion = semver.Canonical(fmt.Sprintf("v%s", match))
 		expectedVersion := semver.Canonical(fmt.Sprintf("v%s", microCephMinVersion))
 		if semver.Compare(semver.MajorMinor(daemonVersion), semver.MajorMinor(expectedVersion)) != 0 {
 			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
