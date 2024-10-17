@@ -11,23 +11,40 @@ import (
 	"github.com/canonical/lxd/shared/api"
 )
 
-// DefaultFANNetwork is the name of the default FAN network.
-const DefaultFANNetwork = "lxdfan0"
+const (
+	// DefaultFANNetwork is the name of the default FAN network.
+	DefaultFANNetwork = "lxdfan0"
 
-// DefaultUplinkNetwork is the name of the default OVN uplink network.
-const DefaultUplinkNetwork = "UPLINK"
+	// DefaultUplinkNetwork is the name of the default OVN uplink network.
+	DefaultUplinkNetwork = "UPLINK"
 
-// DefaultOVNNetwork is the name of the default OVN network.
-const DefaultOVNNetwork = "default"
+	// DefaultOVNNetwork is the name of the default OVN network.
+	DefaultOVNNetwork = "default"
 
-// DefaultZFSPool is the name of the default ZFS storage pool.
-const DefaultZFSPool = "local"
+	// DefaultZFSPool is the name of the default ZFS storage pool.
+	DefaultZFSPool = "local"
 
-// DefaultCephPool is the name of the default Ceph storage pool.
-const DefaultCephPool = "remote"
+	// DefaultCephPool is the name of the default Ceph storage pool.
+	DefaultCephPool = "remote"
 
-// DefaultCephFSPool is the name of the default CephFS storage pool.
-const DefaultCephFSPool = "remote-fs"
+	// DefaultCephFSPool is the name of the default CephFS storage pool.
+	DefaultCephFSPool = "remote-fs"
+
+	// DefaultCephFSOSDPool is the default OSD pool name used for the CephFS storage pool.
+	DefaultCephFSOSDPool = "lxd_cephfs"
+
+	// DefaultCephOSDPool is the default OSD pool name used for the Ceph storage pool.
+	DefaultCephOSDPool = "lxd_remote"
+
+	// DefaultCephFSDataOSDPool is the default OSD pool name used for the CephFS's underlying data pool.
+	DefaultCephFSDataOSDPool = "lxd_cephfs_data"
+
+	// DefaultCephFSMetaOSDPool is the default OSD pool name used for the CephFS's underlying metadata pool.
+	DefaultCephFSMetaOSDPool = "lxd_cephfs_meta"
+
+	// DefaultMgrOSDPool is the reserved .mgr OSD pool created by Ceph.
+	DefaultMgrOSDPool = ".mgr"
+)
 
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
@@ -214,7 +231,7 @@ func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
-				"source": "lxd_remote",
+				"source": DefaultCephOSDPool,
 			},
 		},
 	}
@@ -243,7 +260,7 @@ func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKe
 		Entity: "storage-pool",
 		Name:   DefaultCephPool,
 		Key:    "source",
-		Value:  "lxd_remote",
+		Value:  DefaultCephOSDPool,
 	}
 }
 
@@ -255,7 +272,7 @@ func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 		Driver: "cephfs",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
-				"source": "lxd_cephfs",
+				"source": DefaultCephFSOSDPool,
 			},
 		},
 	}
@@ -270,8 +287,8 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
 				"cephfs.create_missing": "true",
-				"cephfs.meta_pool":      "lxd_cephfs_meta",
-				"cephfs.data_pool":      "lxd_cephfs_data",
+				"cephfs.meta_pool":      DefaultCephFSMetaOSDPool,
+				"cephfs.data_pool":      DefaultCephFSDataOSDPool,
 			},
 			Description: "Distributed file-system storage using CephFS",
 		},
@@ -285,6 +302,6 @@ func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfig
 		Entity: "storage-pool",
 		Name:   "remote-fs",
 		Key:    "source",
-		Value:  "lxd_cephfs",
+		Value:  DefaultCephFSOSDPool,
 	}
 }
