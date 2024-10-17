@@ -1666,7 +1666,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 
 	if len(newServices) > 0 {
 		var servicesStr []string
-		for _, service := range newServices {
+		for service := range newServices {
 			servicesStr = append(servicesStr, string(service))
 		}
 
