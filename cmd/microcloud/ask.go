@@ -244,7 +244,8 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for _, info := range c.state {
 		hasPool, supportsPool := info.SupportsLocalPool()
 		if !supportsPool {
-			logger.Warn("Skipping local storage pool setup, some systems don't support it")
+			fmt.Println("Skipping local storage pool setup, some systems don't support it")
+
 			return nil
 		}
 
@@ -268,13 +269,10 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
-	// Local storage is already set up on every system.
-	if len(askSystems) == 0 {
-		return nil
-	}
+	// Local storage is already set up on every system, or if not every system has a disk.
+	if len(askSystems) == 0 || len(availableDisks) != len(askSystems) {
+		fmt.Println("No disks available for local storage. Skipping configuration")
 
-	// We can't setup a local pool if not every system has a disk.
-	if len(availableDisks) != len(askSystems) {
 		return nil
 	}
 
