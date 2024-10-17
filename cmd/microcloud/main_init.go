@@ -763,9 +763,25 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				}
 
 				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
-				_, err = cephClient.AddDisk(context.Background(), client, &disk)
+				resp, err := cephClient.AddDisk(context.Background(), client, &disk)
 				if err != nil {
 					return err
+				}
+
+				var diskErr string
+				for _, report := range resp.Reports {
+					if report.Error != "" {
+						if diskErr == "" {
+							diskErr = report.Error
+						} else {
+							// Populate errors backwards, as the latest error is at the end of the list.
+							diskErr = fmt.Sprintf("%s: %s", report.Error, diskErr)
+						}
+					}
+				}
+
+				if diskErr != "" {
+					return fmt.Errorf("Failed to add disk to MicroCeph: %s", diskErr)
 				}
 			}
 		}
