@@ -60,6 +60,11 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = cloudApp.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
+	}
+
 	status, err := cloudApp.Status(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)

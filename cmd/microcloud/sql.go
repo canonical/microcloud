@@ -42,6 +42,11 @@ func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = m.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
+	}
+
 	query := args[0]
 	dump, batch, err := m.SQL(context.Background(), query)
 	if err != nil {

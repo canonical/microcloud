@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	cli "github.com/canonical/lxd/shared/cmd"
@@ -61,6 +62,11 @@ func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = m.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
+	}
+
 	records, err := m.ListJoinTokens(context.Background())
 	if err != nil {
 		return err
@@ -100,6 +106,11 @@ func (c *cmdTokensRevoke) Run(cmd *cobra.Command, args []string) error {
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
+	}
+
+	err = m.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
 	}
 
 	err = m.RevokeJoinToken(context.Background(), args[0])

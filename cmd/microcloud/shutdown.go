@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
@@ -30,6 +31,11 @@ func (c *cmdShutdown) Run(cmd *cobra.Command, args []string) error {
 	m, err := microcluster.App(options)
 	if err != nil {
 		return err
+	}
+
+	err = m.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
 	}
 
 	client, err := m.LocalClient()
