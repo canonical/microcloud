@@ -1222,9 +1222,11 @@ setup_system() {
         sleep 1
       done
 
-      # dm-crypt needs to be manually connected for microceph full disk encyption.
-      snap connect microceph:dm-crypt
-      snap restart microceph.daemon
+      if [ ! \"${BASE_OS}\" = \"22.04\" ]; then
+        # dm-crypt needs to be manually connected for microceph full disk encyption.
+        snap connect microceph:dm-crypt
+        snap restart microceph.daemon
+      fi
 
       while ! test -e /snap/bin/microovn ; do
         snap install microovn --channel=\"${MICROOVN_SNAP_CHANNEL}\" --cohort='+' || true
