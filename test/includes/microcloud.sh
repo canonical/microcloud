@@ -1203,12 +1203,13 @@ setup_system() {
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq yq zfsutils-linux htop
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
     else
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq yq
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
     fi
 
     lxc exec "${name}" -- snap install snapd
+    lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
