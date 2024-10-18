@@ -215,8 +215,13 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return fmt.Errorf("Failed to retrieve LXD config: %w", err)
 	}
 
+	addr := util.CanonicalNetworkAddress(s.address, s.port)
 	newServer := currentServer.Writable()
 	newServer.Config["core.https_address"] = "[::]:8443"
+	newServer.Config["cluster.https_address"] = addr
+	if client.HasExtension("migration_stateful_default") {
+		newServer.Config["instances.migration.stateful"] = "true"
+	}
 
 	err = client.UpdateServer(newServer, etag)
 	if err != nil {
