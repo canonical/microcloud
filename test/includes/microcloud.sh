@@ -1138,6 +1138,8 @@ create_system() {
   num_disks="${2:-0}"
   shift 2
 
+  os="${BASE_OS:-24.04}"
+
   echo "==> ${name} Creating VM with ${num_disks} disks"
   (
     set -eu
@@ -1146,7 +1148,7 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init ubuntu-minimal-daily:24.04 "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
+    lxc init "ubuntu-minimal-daily:${os}" "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
 
     # Disable vGPU to save RAM
     lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
