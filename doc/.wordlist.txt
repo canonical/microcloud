@@ -30,6 +30,7 @@ LTS
 Makefile
 Matrix
 Mattermost
+monmap
 MyST
 namespace
 namespaces
