@@ -26,9 +26,11 @@ type ServerInfo struct {
 
 // Discovery represents the information used for discovering peers using multicast.
 type Discovery struct {
-	iface string
-	port  int64
-	group net.IP
+	iface           string
+	port            int64
+	group           net.IP
+	responderConn   *ipv4.PacketConn
+	responderCancel context.CancelFunc
 }
 
 // NewDiscovery returns a new instance of Discovery which allows to lookup peers
@@ -57,13 +59,14 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 		return fmt.Errorf("Failed to listen on %d: %w", d.port, err)
 	}
 
-	receiverP := ipv4.NewPacketConn(receiver)
-	err = receiverP.JoinGroup(iface, &net.UDPAddr{IP: d.group})
+	ctx, d.responderCancel = context.WithCancel(ctx)
+	d.responderConn = ipv4.NewPacketConn(receiver)
+	err = d.responderConn.JoinGroup(iface, &net.UDPAddr{IP: d.group})
 	if err != nil {
 		return fmt.Errorf("Failed to join multicast group %q: %w", d.group.String(), err)
 	}
 
-	err = receiverP.SetControlMessage(ipv4.FlagDst, true)
+	err = d.responderConn.SetControlMessage(ipv4.FlagDst, true)
 	if err != nil {
 		return fmt.Errorf("Failed to set IPv4 control flag for destination address: %w", err)
 	}
@@ -72,7 +75,7 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 	// This allows existing the endpoint's blocking read using ReadFrom.
 	go func() {
 		<-ctx.Done()
-		err := receiverP.Close()
+		err := d.responderConn.Close()
 		if err != nil {
 			logger.Error("Failed to close network endpoint after context got cancelled", logger.Ctx{"err": err})
 		}
@@ -84,7 +87,7 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 		for {
 			// See the comment on the sender (lookup) for the reasoning about using 500.
 			b := make([]byte, 500)
-			n, cm, src, err := receiverP.ReadFrom(b)
+			n, cm, src, err := d.responderConn.ReadFrom(b)
 			if err != nil {
 				// Ignore "use of closed network connection" errors as this happens normally
 				// if the outer context gets cancelled in the connection closer go routine.
@@ -119,7 +122,7 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 					}
 
 					// Send a unicast message back to the source.
-					_, err = receiverP.WriteTo(bytes, nil, src)
+					_, err = d.responderConn.WriteTo(bytes, nil, src)
 					if err != nil {
 						logger.Error("Failed to send reply", logger.Ctx{"dest": src.String(), "err": err})
 						continue
@@ -130,6 +133,27 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 			}
 		}
 	}()
+
+	return nil
+}
+
+// StopResponder stops the responder server and cancels it's inner context.
+func (d *Discovery) StopResponder() error {
+	// Check if this instance of discovery has an active responder server connection.
+	if d.responderConn != nil {
+		err := d.responderConn.Close()
+		// Ignore errors if the connection is already closed.
+		// This can happen if the responders context already got cancelled
+		// which also triggers a close of the connection.
+		if err != nil && !errors.Is(err, net.ErrClosed) {
+			return fmt.Errorf("Failed to stop responder: %w", err)
+		}
+
+		// Cancel the inner context too and release all routines of the responder.
+		if d.responderCancel != nil {
+			d.responderCancel()
+		}
+	}
 
 	return nil
 }
