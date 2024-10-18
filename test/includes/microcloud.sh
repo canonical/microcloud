@@ -586,7 +586,15 @@ validate_system_lxd() {
     [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
     # Check core config options
-    [ "$(lxc config get core.https_address)" = "[::]:8443" ]
+    lxd_address="$(lxc config get core.https_address)"
+    if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/stable" ]; then
+      # There was a bug in MicroCloud 1 that set different addresses.
+      # See https://github.com/canonical/microcloud/issues/214
+      system_address="$(lxc ls local:"${name}" -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')"
+      [ "${lxd_address}" = "${system_address}:8443" ] || [ "${lxd_address}" = "[::]:8443" ]
+    else
+      [ "${lxd_address}" = "[::]:8443" ]
+    fi
 
     has_microovn=0
     has_microceph=0
