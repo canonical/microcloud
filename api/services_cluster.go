@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
@@ -114,6 +115,47 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 
 		if !memberExists && ok {
 			memberExists = ok
+		}
+
+		if s.Type() == types.MicroCeph {
+			c, err := ceph.(*service.CephService).Client("")
+			if err != nil {
+				return err
+			}
+
+			disks, err := cephClient.GetDisks(r.Context(), c)
+			if err != nil {
+				return err
+			}
+
+			diskCount := 0
+			for _, disk := range disks {
+				if disk.Location != name {
+					diskCount++
+				}
+			}
+
+			pools, err := cephClient.GetPools(r.Context(), c)
+			if err != nil {
+				return err
+			}
+
+			poolsToUpdate := []string{}
+			for _, pool := range pools {
+				if pool.Size > int64(diskCount) {
+					poolsToUpdate = append(poolsToUpdate, pool.Pool)
+				}
+			}
+
+			// MicroCeph requires to pass an empty string to set the default pool size.
+			if len(poolsToUpdate) == 0 {
+				poolsToUpdate = []string{""}
+			}
+
+			err = cephClient.PoolSetReplicationFactor(r.Context(), c, &cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(diskCount)})
+			if err != nil {
+				return err
+			}
 		}
 
 		return s.DeleteClusterMember(r.Context(), name, force)
