@@ -25,9 +25,6 @@ session_passphrase: 83P27XWKbDczUyE7xaX3pgVfaEacfQ2qiQ0r6gPb
 # It defaults to 60 minutes.
 session_timeout: 300
 
-# `reuse_existing_clusters` is optional and configures whether or not to reuse existing clusters.
-reuse_existing_clusters: true
-
 # `systems` lists the systems we expect to find by their host name.
 #   `name` represents the host name.
 #   `address` sets the address used for MicroCloud and is required in case `initiator_address` is present.
