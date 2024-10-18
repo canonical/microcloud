@@ -101,5 +101,10 @@ If you don't want to use MicroCloud's full functionality, you can install only s
 However, this is not recommended.
 ```
 
+```{note}
+It's possible that a required snap is already installed on your machine. For example, it might be running a version of Ubuntu that comes with LXD pre-installed.
+In this case, run `sudo snap refresh <snap> --channel=<track>/stable --cohort="+"`
+``` to refresh (update) the installed snap.
+
 After installing the snaps make sure to hold any automatic updates to keep the used snap versions across MicroCloud in sync.
 See {ref}`howto-snap-hold-updates` for more information.
