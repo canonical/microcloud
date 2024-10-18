@@ -17,3 +17,8 @@ See {ref}`howto-snap` for more information.
 If you don't want to use MicroCloud's full functionality, you can install only some of the snaps.
 However, this is not recommended.
 ```
+
+```{note}
+Depending on you machine OS and state, the LXD snap might already be installed (e.g, you have a version of Ubuntu on the machine having LXD 5.0 already installed).
+In this case instead of doing `sudo snap install lxd --channel=5.21/stable --cohort="+"`, just do `sudo snap remove lxd --purge && sudo snap install lxd --channel=5.21/stable --cohort="+"`
+```
