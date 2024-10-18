@@ -243,6 +243,10 @@ run_preseed_tests() {
   run_test test_preseed "preseed"
 }
 
+run_upgrade_tests() {
+  run_test test_upgrade "upgrade"
+}
+
 # allow for running a specific set of tests
 if [ "${1:-"all"}" = "all" ]; then
   run_add_tests
@@ -252,6 +256,7 @@ if [ "${1:-"all"}" = "all" ]; then
   run_interactive_tests
   run_mismatch_tests
   run_preseed_tests
+  run_upgrade_tests
 elif [ "${1}" = "add" ]; then
   run_add_tests
 elif [ "${1}" = "instances" ]; then
@@ -266,6 +271,8 @@ elif [ "${1}" = "mismatch" ]; then
   run_mismatch_tests
 elif [ "${1}" = "preseed" ]; then
   run_preseed_tests
+elif [ "${1}" = "upgrade" ]; then
+  run_upgrade_tests
 elif [ "${1}" = "setup" ]; then
   testbed_setup
 else
