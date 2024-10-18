@@ -66,6 +66,11 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = cloudApp.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
+	}
+
 	// Fetch the name and address, and ensure we're initialized.
 	status, err := cloudApp.Status(context.Background())
 	if err != nil {
@@ -221,6 +226,11 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
 	if err != nil {
 		return err
+	}
+
+	err = cloudApp.Ready(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
 	}
 
 	// Fetch the name and address, and ensure we're initialized.
