@@ -339,13 +339,12 @@ func (s *preseedSuite) Test_preseedMatchDisksMemory() {
 
 // Tests that ReuseExistingClusters only works when initializing, not when growing the cluster.
 func (s *preseedSuite) Test_restrictClusterReuse() {
-	p := Preseed{SessionPassphrase: "foo", Initiator: "B", ReuseExistingClusters: true, Systems: []System{{Name: "B"}, {Name: "C"}}}
+	p := Preseed{SessionPassphrase: "foo", Initiator: "B", Systems: []System{{Name: "B"}, {Name: "C"}}}
 
 	s.NoError(p.validate("B", true))
 
 	s.Error(p.validate("A", false))
 
-	p.ReuseExistingClusters = false
 	s.NoError(p.validate("A", false))
 }
 
