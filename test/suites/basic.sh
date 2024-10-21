@@ -1259,46 +1259,6 @@ test_reuse_cluster() {
   lxc exec micro03 -- microceph cluster bootstrap
   ! microcloud_interactive init micro01 | capture_and_join micro02 micro03 || false
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
-
-  reset_systems 3 3 3
-  echo "Create a MicroCloud that re-uses an existing service with preseed"
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  preseed="$(cat << EOF
-lookup_subnet: ${addr}/24
-initiator: micro01
-session_passphrase: foo
-reuse_existing_clusters: true
-systems:
-- name: micro01
-- name: micro02
-- name: micro03
-ovn:
-  ipv4_gateway: 10.1.123.1/24
-  ipv4_range: 10.1.123.100-10.1.123.254
-  ipv6_gateway: fd42:1:1234:1234::1/64
-  dns_servers: 10.1.123.1,8.8.8.8
-ceph:
-  cephfs: true
-storage:
-  local:
-    - find: device_id == *lxd_disk1
-      wipe: true
-  ceph:
-    - find: device_id == *lxd_disk2
-      find_min: 3
-      wipe: true
-EOF
-  )"
-
-  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
-  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
-  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
-
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
-  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
-
-  services_validator
 }
 
 test_remove_cluster_member() {

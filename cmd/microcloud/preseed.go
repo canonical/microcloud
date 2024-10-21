@@ -29,17 +29,16 @@ import (
 
 // Preseed represents the structure of the supported preseed yaml.
 type Preseed struct {
-	LookupSubnet          string        `yaml:"lookup_subnet"`
-	LookupTimeout         int64         `yaml:"lookup_timeout"`
-	SessionPassphrase     string        `yaml:"session_passphrase"`
-	SessionTimeout        int64         `yaml:"session_timeout"`
-	ReuseExistingClusters bool          `yaml:"reuse_existing_clusters"`
-	Initiator             string        `yaml:"initiator"`
-	InitiatorAddress      string        `yaml:"initiator_address"`
-	Systems               []System      `yaml:"systems"`
-	OVN                   InitNetwork   `yaml:"ovn"`
-	Ceph                  CephOptions   `yaml:"ceph"`
-	Storage               StorageFilter `yaml:"storage"`
+	LookupSubnet      string        `yaml:"lookup_subnet"`
+	LookupTimeout     int64         `yaml:"lookup_timeout"`
+	SessionPassphrase string        `yaml:"session_passphrase"`
+	SessionTimeout    int64         `yaml:"session_timeout"`
+	Initiator         string        `yaml:"initiator"`
+	InitiatorAddress  string        `yaml:"initiator_address"`
+	Systems           []System      `yaml:"systems"`
+	OVN               InitNetwork   `yaml:"ovn"`
+	Ceph              CephOptions   `yaml:"ceph"`
+	Storage           StorageFilter `yaml:"storage"`
 }
 
 // System represents the structure of the systems we expect to find in the preseed yaml.
@@ -391,10 +390,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		}
 
 		systemNames = append(systemNames, system.Name)
-	}
-
-	if !bootstrap && p.ReuseExistingClusters {
-		return fmt.Errorf("Additional cluster members cannot be part of a pre-existing cluster")
 	}
 
 	if bootstrap && !localInit {
