@@ -18,7 +18,6 @@ import (
 type cmdJoin struct {
 	common *CmdControl
 
-	flagAutoSetup        bool
 	flagWipe             bool
 	flagLookupTimeout    int64
 	flagSessionTimeout   int64
@@ -32,7 +31,6 @@ func (c *cmdJoin) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait when finding systems on the network. Defaults: 60s")
 	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 10m")
@@ -48,7 +46,6 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 
 	cfg := initConfig{
 		bootstrap:    false,
-		autoSetup:    c.flagAutoSetup,
 		wipeAllDisks: c.flagWipe,
 		common:       c.common,
 		asker:        &c.common.asker,
