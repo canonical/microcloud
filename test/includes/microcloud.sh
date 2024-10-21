@@ -127,10 +127,16 @@ $(true)                                                 # workaround for set -e
 "
 fi
 
+if [ -n "${OVN_WARNING}" ] ; then
+  setup="${setup}
+${OVN_WARNING}                                         # continue with some peers missing an interface? (yes/no)
+$(true)                                                 # workaround for set -e
+"
+fi
+
 if [ -n "${SETUP_OVN}" ]; then
   setup="${setup}
 ${SETUP_OVN}                                           # agree to setup OVN
-${OVN_WARNING}                                         # continue with some peers missing an interface? (yes/no)
 $([ "${SETUP_OVN}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
 ${OVN_FILTER}                                          # filter interfaces
 $([ "${SETUP_OVN}" = "yes" ] && printf "select-all")   # select all interfaces matching the filter
