@@ -327,6 +327,18 @@ Up/down to move; right to select all; left to select none.`,
 		}()
 	}
 
+	stdioSet := make(chan bool)
+	defer close(stdioSet)
+
+	// Inject our own survey option at the end of the list which populates a channel after
+	// all the other options are applied.
+	// This ensures the stdio settings in case of TEST_CONSOLE=1 are applied when Render returns.
+	// Otherwise subsequent calls to update the table might panic if the values aren't yet populated.
+	surveyOpts = append(surveyOpts, func(options *survey.AskOptions) error {
+		stdioSet <- true
+		return nil
+	})
+
 	go func() {
 		err := survey.AskOne(t.prompt, &t.answers, surveyOpts...)
 		if err != nil && err.Error() != "please provide options to select from" {
@@ -345,6 +357,7 @@ Up/down to move; right to select all; left to select none.`,
 		t.askChan <- nil
 	}()
 
+	<-stdioSet
 	return nil
 }
 
