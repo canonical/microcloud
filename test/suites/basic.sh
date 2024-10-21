@@ -1342,15 +1342,10 @@ test_remove_cluster_member() {
     fi
   done
 
-  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro02 || true
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro02 || false
 
-  for s in "microcloud" "microovn" ; do
-    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
-    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
-    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
-  done
-
-  for s in "lxc" "microceph" ; do
+  # No systems are removed, because LXD is attempted first, and fails to be removed cleanly.
+  for s in "microcloud" "microovn" "microceph" "lxc"; do
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02"
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
@@ -1360,7 +1355,7 @@ test_remove_cluster_member() {
 
   for s in "microcloud" "microovn" "microceph" "lxc" ; do
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
-    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || false
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
   done
 
@@ -1393,7 +1388,7 @@ test_remove_cluster_member() {
 
   for s in "microcloud" "microovn" "lxc" ; do
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
-    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || false
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
   done
 
@@ -1413,7 +1408,7 @@ test_remove_cluster_member() {
 
   lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster remove micro02
 
-  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q "micro02" || true
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q "micro02" || false
   for s in "microovn" "lxc" ; do
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02"
@@ -1424,7 +1419,7 @@ test_remove_cluster_member() {
 
   for s in "microcloud" "microovn" "lxc" ; do
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
-    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || true
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || false
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
   done
 
@@ -1441,7 +1436,7 @@ test_remove_cluster_member() {
     fi
   done
 
-  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove abcd || true
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove abcd || false
 
   for s in "microcloud" "microovn" "lxc" ; do
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
