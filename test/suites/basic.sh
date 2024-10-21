@@ -1359,6 +1359,22 @@ test_remove_cluster_member() {
     lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03"
   done
 
+  # Fail to shrink the cluster down to 1 member, because of MicroCeph's monmap restriction.
+  ! lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro03 --force || false
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microceph.ceph mon remove micro03
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microceph cluster sql "delete from services where member_id = (select id from core_cluster_members where name='micro03') and service='mon'"
+  lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud remove micro03 --force
+
+  for s in "microcloud" "microovn" "microceph" "lxc" ; do
+    lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro01"
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro02" || false
+    ! lxc exec micro01 --env "TEST_CONSOLE=0" -- ${s} cluster list | grep -q "micro03" || false
+  done
+
+  # Ensure ceph & ovn still work.
+  lxc exec micro01 -- microceph.ceph osd ls
+  lxc exec micro01 -- microovn.ovn-sbctl find Encap
+
   # With 3 or fewer systems, MicroCeph requires --force to be used to remove cluster members. We tested that above so ignore MicroCeph for the rest of the test.
   unset SETUP_CEPH
   unset CEPH_CLUSTER_NETWORK
