@@ -367,3 +367,34 @@ func (s *inputSuite) Test_waitExpectDynamic() {
 
 	s.NoError(c.Close())
 }
+
+func (s *inputSuite) Test_fastRender() {
+	s.NoError(os.Setenv("TEST_CONSOLE", "1"))
+	c, err := NewTestConsole()
+	s.NoError(err)
+	s.NotNil(c)
+
+	// This is necessary so that the parser detects a table & begins reading.
+	_, _ = c.Tty().WriteString("Space to select; enter to confirm; type to filter results.\n")
+
+	b := bytes.Buffer{}
+	_, _ = b.WriteString(fmt.Sprintf("%s\n", "expect 2"))
+	_, _ = b.WriteString("---\n")
+
+	r := bufio.NewReader(bytes.NewReader(b.Bytes()))
+	prepareTestAsker(r)
+
+	rows := [][]string{{"a", "b"}}
+	table := NewSelectableTable([]string{"row1", "row2"}, rows)
+
+	s.NoError(table.Render(table.rows))
+
+	// Add another row right after initially rendering the table.
+	// In testing mode this ensures the render routines have already configured the required settings.
+	table.Update([]string{"c", "d"})
+
+	_, err = table.GetSelections()
+	s.NoError(err)
+
+	s.NoError(c.Close())
+}
