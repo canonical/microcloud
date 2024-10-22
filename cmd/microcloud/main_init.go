@@ -103,9 +103,6 @@ type initConfig struct {
 	// sessionTimeout is the duration to wait for the trust establishment session to complete.
 	sessionTimeout time.Duration
 
-	// wipeAllDisks indicates whether all disks should be wiped, or if the user should be prompted.
-	wipeAllDisks bool
-
 	// encryptAllDisks indicates whether all disks should be encrypted, or if the user should be prompted.
 	encryptAllDisks bool
 
