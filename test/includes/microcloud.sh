@@ -1156,7 +1156,13 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init "ubuntu-minimal-daily:${os}" "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
+    # Pre fetch additional images to be used by the VM through security.devlxd.images=true
+    lxc image copy ubuntu-minimal-daily:24.04 local:
+    lxc image copy ubuntu-minimal-daily:22.04 local:
+    lxc image copy ubuntu-minimal-daily:24.04 local: --vm
+    lxc image copy ubuntu-minimal-daily:22.04 local: --vm
+
+    lxc init "ubuntu-minimal-daily:${os}" "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB -c security.devlxd.images=true
 
     # Disable vGPU to save RAM
     lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
