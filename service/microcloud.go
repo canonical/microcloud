@@ -70,7 +70,7 @@ func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoin
 	args := microcluster.DaemonArgs{
 		Verbose:           verbose,
 		Debug:             debug,
-		Version:           version.Version,
+		Version:           version.RawVersion,
 		HeartbeatInterval: heartbeatInterval,
 
 		PreInitListenAddress: "[::]:" + strconv.FormatInt(CloudPort, 10),
