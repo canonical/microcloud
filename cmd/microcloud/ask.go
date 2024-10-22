@@ -724,8 +724,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 	}
 
-	encryptDisks := c.encryptAllDisks
-	if !c.encryptAllDisks && len(selectedDisks) > 0 {
+	encryptDisks := false
+	if len(selectedDisks) > 0 {
 		var err error
 		encryptDisks, err = c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
 		if err != nil {
