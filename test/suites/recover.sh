@@ -9,9 +9,7 @@ test_recover() {
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export EXPECT_PEERS=3
-  export SETUP_ZFS="no"
-  export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export OVN_WARNING="yes"
 
   microcloud_interactive init micro01 | capture_and_join micro02 micro03 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q

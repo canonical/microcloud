@@ -940,6 +940,8 @@ _test_case() {
       else
         export SETUP_OVN="no"
       fi
+    else
+      export OVN_WARNING="yes"
     fi
 
     join_systems=""

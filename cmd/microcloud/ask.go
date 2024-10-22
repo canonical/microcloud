@@ -244,7 +244,8 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for _, info := range c.state {
 		hasPool, supportsPool := info.SupportsLocalPool()
 		if !supportsPool {
-			logger.Warn("Skipping local storage pool setup, some systems don't support it")
+			fmt.Println("Skipping local storage pool setup, some systems don't support it")
+
 			return nil
 		}
 
@@ -268,13 +269,10 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
-	// Local storage is already set up on every system.
-	if len(askSystems) == 0 {
-		return nil
-	}
+	// Local storage is already set up on every system, or if not every system has a disk.
+	if len(askSystems) == 0 || len(availableDisks) != len(askSystems) {
+		fmt.Println("No disks available for local storage. Skipping configuration")
 
-	// We can't setup a local pool if not every system has a disk.
-	if len(availableDisks) != len(askSystems) {
 		return nil
 	}
 
@@ -868,11 +866,13 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 	useOVNJoinConfig := false
 	askSystems := map[string]bool{}
+	allSystemsEligible := true
 	for _, state := range c.state {
 		hasOVN, supportsOVN := state.SupportsOVNNetwork()
 		if !supportsOVN || len(state.AvailableUplinkInterfaces) == 0 {
-			logger.Warn("Skipping OVN network setup, some systems don't support it")
-			return nil
+			allSystemsEligible = false
+
+			continue
 		}
 
 		if hasOVN {
@@ -882,8 +882,17 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	if len(askSystems) == 0 {
-		return nil
+	if len(askSystems) == 0 || !allSystemsEligible {
+		wantsContinue, err := c.asker.AskBool("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		if err != nil {
+			return err
+		}
+
+		if wantsContinue {
+			return nil
+		}
+
+		return fmt.Errorf("User aborted")
 	}
 
 	// Ask the user if they want OVN.
@@ -894,25 +903,6 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 	if !wantsOVN {
 		return nil
-	}
-
-	for name, state := range c.state {
-		if !askSystems[name] {
-			continue
-		}
-
-		if len(state.AvailableUplinkInterfaces) == 0 {
-			wantsContinue, err := c.asker.AskBool("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway? (yes/no) [default=yes]: ", "yes")
-			if err != nil {
-				return err
-			}
-
-			if wantsContinue {
-				return nil
-			}
-
-			return fmt.Errorf("User aborted")
-		}
 	}
 
 	// Uplink selection table.
