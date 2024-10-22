@@ -9,6 +9,8 @@ import (
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/gorilla/mux"
@@ -59,6 +61,35 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
+	ceph := sh.Services[types.MicroCeph]
+	if ceph != nil {
+		// If we got a 503 error back, that means the service is installed, but hasn't been set up yet, so there are no cluster members to remove.
+		cluster, err := ceph.ClusterMembers(r.Context())
+		if err != nil && !api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
+			return response.SmartError(err)
+		}
+
+		// We can't remove nodes from a 2 node MicroCeph cluster if that node is still in the monmap,
+		// because MicroCeph does not clean it up properly, thus leaving the cluster broken as it tries to reach the removed node.
+		if err == nil && len(cluster) == 2 && cluster[name] != "" {
+			c, err := ceph.(*service.CephService).Client("")
+			if err != nil {
+				return response.SmartError(err)
+			}
+
+			cephServices, err := cephClient.GetServices(r.Context(), c)
+			if err != nil {
+				return response.SmartError(err)
+			}
+
+			for _, service := range cephServices {
+				if service.Location == name && service.Service == "mon" {
+					return response.SmartError(fmt.Errorf("%q must be removed from the Ceph monmap before it can be removed from MicroCloud", name))
+				}
+			}
+		}
+	}
+
 	// Remove the node from services in the following order:
 	// 1. Remove from LXD first as it may have storage & networks that depend on the others for cleanup.
 	// 2. Remove from MicroCeph and MicroOVN next, concurrently.
@@ -84,6 +115,47 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 
 		if !memberExists && ok {
 			memberExists = ok
+		}
+
+		if s.Type() == types.MicroCeph {
+			c, err := ceph.(*service.CephService).Client("")
+			if err != nil {
+				return err
+			}
+
+			disks, err := cephClient.GetDisks(r.Context(), c)
+			if err != nil {
+				return err
+			}
+
+			diskCount := 0
+			for _, disk := range disks {
+				if disk.Location != name {
+					diskCount++
+				}
+			}
+
+			pools, err := cephClient.GetPools(r.Context(), c)
+			if err != nil {
+				return err
+			}
+
+			poolsToUpdate := []string{}
+			for _, pool := range pools {
+				if pool.Size > int64(diskCount) {
+					poolsToUpdate = append(poolsToUpdate, pool.Pool)
+				}
+			}
+
+			// MicroCeph requires to pass an empty string to set the default pool size.
+			if len(poolsToUpdate) == 0 {
+				poolsToUpdate = []string{""}
+			}
+
+			err = cephClient.PoolSetReplicationFactor(r.Context(), c, &cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(diskCount)})
+			if err != nil {
+				return err
+			}
 		}
 
 		return s.DeleteClusterMember(r.Context(), name, force)

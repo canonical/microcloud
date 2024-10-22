@@ -271,8 +271,8 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 		}
 
 		for _, service := range allServices {
-			_, ok := s.Clusters[service]
-			if !ok {
+			members, ok := s.Clusters[service]
+			if !ok || len(members) == 0 {
 				if uninstalledServices[service] == nil {
 					uninstalledServices[service] = []string{}
 				}
