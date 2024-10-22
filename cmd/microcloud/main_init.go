@@ -126,10 +126,7 @@ type initConfig struct {
 type cmdInit struct {
 	common *CmdControl
 
-	flagSessionTimeout  int64
-	flagWipeAllDisks    bool
-	flagEncryptAllDisks bool
-	flagAddress         string
+	flagSessionTimeout int64
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -140,9 +137,6 @@ func (c *cmdInit) Command() *cobra.Command {
 		RunE:    c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
-	cmd.Flags().BoolVar(&c.flagEncryptAllDisks, "encrypt", false, "Encrypt disks to add to MicroCeph")
-	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
 	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
 
 	return cmd
@@ -154,15 +148,12 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := initConfig{
-		bootstrap:       true,
-		setupMany:       true,
-		address:         c.flagAddress,
-		wipeAllDisks:    c.flagWipeAllDisks,
-		encryptAllDisks: c.flagEncryptAllDisks,
-		common:          c.common,
-		asker:           &c.common.asker,
-		systems:         map[string]InitSystem{},
-		state:           map[string]service.SystemInformation{},
+		bootstrap: true,
+		setupMany: true,
+		common:    c.common,
+		asker:     &c.common.asker,
+		systems:   map[string]InitSystem{},
+		state:     map[string]service.SystemInformation{},
 	}
 
 	cfg.sessionTimeout = DefaultSessionTimeout
