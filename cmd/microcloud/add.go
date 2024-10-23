@@ -18,7 +18,6 @@ import (
 type cmdAdd struct {
 	common *CmdControl
 
-	flagWipe           bool
 	flagSessionTimeout int64
 }
 
@@ -29,7 +28,6 @@ func (c *cmdAdd) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().BoolVar(&c.flagWipe, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
 
 	return cmd
@@ -41,13 +39,12 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := initConfig{
-		bootstrap:    false,
-		setupMany:    true,
-		wipeAllDisks: c.flagWipe,
-		common:       c.common,
-		asker:        &c.common.asker,
-		systems:      map[string]InitSystem{},
-		state:        map[string]service.SystemInformation{},
+		bootstrap: false,
+		setupMany: true,
+		common:    c.common,
+		asker:     &c.common.asker,
+		systems:   map[string]InitSystem{},
+		state:     map[string]service.SystemInformation{},
 	}
 
 	cfg.sessionTimeout = DefaultSessionTimeout

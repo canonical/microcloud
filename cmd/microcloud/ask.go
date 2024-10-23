@@ -346,7 +346,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
 		}
 
-		if !c.wipeAllDisks && wipeable {
+		if wipeable {
 			fmt.Println("Select which disks to wipe:")
 			err := table.Render(selectedRows)
 			if err != nil {
@@ -377,7 +377,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		return nil
 	}
 
-	if c.wipeAllDisks && wipeable {
+	if wipeable {
 		toWipe = selectedDisks
 	}
 
@@ -638,11 +638,6 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			sort.Sort(cli.SortColumnsNaturally(data))
 			table := NewSelectableTable(header, data)
-			selected := table.rows
-			var toWipe []string
-			if c.wipeAllDisks {
-				toWipe = selected
-			}
 
 			if len(table.rows) == 0 {
 				return nil
@@ -654,12 +649,13 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				return err
 			}
 
-			selected, err = table.GetSelections()
+			selected, err := table.GetSelections()
 			if err != nil {
 				return fmt.Errorf("Invalid disk configuration: %w", err)
 			}
 
-			if len(selected) > 0 && !c.wipeAllDisks {
+			var toWipe []string
+			if len(selected) > 0 {
 				fmt.Println("Select which disks to wipe:")
 				err := table.Render(selected)
 				if err != nil {
@@ -728,8 +724,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 	}
 
-	encryptDisks := c.encryptAllDisks
-	if !c.encryptAllDisks && len(selectedDisks) > 0 {
+	encryptDisks := false
+	if len(selectedDisks) > 0 {
 		var err error
 		encryptDisks, err = c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
 		if err != nil {
