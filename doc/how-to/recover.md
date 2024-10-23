@@ -1,3 +1,4 @@
+(howto-recover)=
 # How to recover a MicroCloud cluster
 
 ```{note}

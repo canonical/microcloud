@@ -36,10 +36,11 @@ check_empty() {
 }
 
 check_snap_channels() {
-    non_edge=""
-    if [ "${LXD_SNAP_CHANNEL}" != "latest/edge" ]; then
-        non_edge="${non_edge} lxd"
+    if [ "${LXD_SNAP_CHANNEL}" != "5.21/edge" ]; then
+        echo "::warning::lxd channel not set to 5.21/edge, continuing anyway"
     fi
+
+	non_edge=""
     if [ "${MICROCEPH_SNAP_CHANNEL}" != "latest/edge" ]; then
         non_edge="${non_edge} microceph"
     fi

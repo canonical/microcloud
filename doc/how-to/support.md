@@ -3,13 +3,14 @@
 
 We recommend using the following channels for the snaps required to run MicroCloud:
 
-* For MicroCloud: `latest/[stable|candidate|edge]`
-* For LXD: `5.21/[stable|candidate|edge]`
-* For MicroCeph: `quincy/[stable|candidate|edge]`
-* For MicroOVN: `22.03/[stable|candidate|edge]`
+* For MicroCloud: `2/(stable|candidate|edge)`
+* For LXD: `5.21/(stable|candidate|edge)`
+* For MicroCeph: `squid/(stable|candidate|edge)`
+* For MicroOVN: `24.03/(stable|candidate|edge)`
 
 ```{note}
-Currently, there is no LTS version of MicroCloud.
+The LTS version of MicroCloud is available in the `2` track.
+It's recommended to use the `<track>/stable` channels for production deployments.
 ```
 
 ## Support and community

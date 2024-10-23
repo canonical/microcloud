@@ -13,7 +13,7 @@ The installed snap versions must be compatible with one another, and for each of
 Snaps come with different channels that define which release of a snap is installed and tracked for updates.
 See [Channels and tracks](https://snapcraft.io/docs/channels) in the snap documentation for detailed information.
 
-MicroCloud currently provides only the `latest` track.
+MicroCloud currently provides the legacy `1` and the latest `2` track.
 
 ```{tip}
 In general, you should use the default channels for all snaps required to run MicroCloud.
@@ -27,29 +27,22 @@ When installing a snap, specify the channel as follows:
 
 For example:
 
-    sudo snap install microcloud --channel=latest/stable
+    sudo snap install microcloud --channel=2/stable
 
 To see all available channels of a snap, run the following command:
 
     snap info <snap_name>
 
+(howto-snap-control-updates)=
 ## Control updates
 
 By default, snaps are updated automatically.
 In the case of MicroCloud, this can be problematic because the related snaps must always use compatible versions, and because all machines of a cluster must use the same version of each snap.
 
-Therefore, you should schedule your updates and make sure that all cluster members are in sync regarding the snap versions that they use.
+Therefore, you should manually apply your updates and make sure that all cluster members are in sync regarding the snap versions that they use.
 
-### Schedule updates
-
-There are two methods for scheduling when your snaps should be updated:
-
-- You can hold snap updates for a specific time, either for specific snaps or for all snaps on your system.
-  After the duration of the hold, or when you remove the hold, your snaps are automatically refreshed.
-- You can specify a system-wide refresh window, so that snaps are automatically refreshed only within this time frame.
-  Such a refresh window applies to all snaps.
-
-#### Hold updates
+(howto-snap-hold-updates)=
+### Hold updates
 
 You can hold snap updates for a specific time or forever, for all snaps or for specific snaps.
 
@@ -60,48 +53,17 @@ Enter the following command to indefinitely hold all updates to the snaps needed
 
     sudo snap refresh --hold lxd microceph microovn microcloud
 
-When you choose to update your installation, use the following commands to remove the hold, update the snaps, and hold the updates again:
-
-    sudo snap refresh --unhold lxd microceph microovn microcloud
-    sudo snap refresh lxd --cohort="+"
-    sudo snap refresh microceph --cohort="+"
-    sudo snap refresh microovn --cohort="+"
-    sudo snap refresh microcloud --cohort="+"
-    sudo snap refresh --hold lxd microceph microovn microcloud
-
 See [Hold refreshes](https://snapcraft.io/docs/managing-updates#heading--hold) in the snap documentation for detailed information about holding snap updates.
-
-#### Specify a refresh window
-
-Depending on your setup, you might want your snaps to update regularly, but only at specific times that don't disturb normal operation.
-
-You can achieve this by specifying a refresh timer.
-This option defines a refresh window for all snaps that are installed on the system.
-
-For example, to configure your system to update snaps only between 8:00 am and 9:00 am on Mondays, set the following option:
-
-    sudo snap set system refresh.timer=mon,8:00-9:00
-
-You can use a similar mechanism (setting `refresh.hold`) to hold snap updates as well.
-However, in this case the snaps will be refreshed after 90 days, irrespective of the value of `refresh.hold`.
-
-See [Control updates with system options](https://snapcraft.io/docs/managing-updates#heading--refresh-hold) in the snap documentation for detailed information.
 
 (howto-snap-cluster)=
 ### Keep cluster members in sync
-
-The cluster members that are part of the MicroCloud deployment must always run the same version of the snaps.
-This means that when the snaps on one of the cluster members are refreshed, they must also be refreshed on all other cluster members before MicroCloud is operational again.
 
 Snap updates are delivered as [progressive releases](https://snapcraft.io/docs/progressive-releases), which means that updated snap versions are made available to different machines at different times.
 This method can cause a problem for cluster updates if some cluster members are refreshed to a version that is not available to other cluster members yet.
 
 To avoid this problem, use the `--cohort="+"` flag when refreshing your snaps:
 
-    sudo snap refresh lxd --cohort="+"
-    sudo snap refresh microceph --cohort="+"
-    sudo snap refresh microovn --cohort="+"
-    sudo snap refresh microcloud --cohort="+"
+    sudo snap refresh <snap> --cohort="+"
 
 This flag ensures that all machines in a cluster see the same snap revision and are therefore not affected by a progressive rollout.
 

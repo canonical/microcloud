@@ -7,6 +7,7 @@ These how-to guides cover key operations and processes in MicroCloud.
 :maxdepth: 1
 
 Install MicroCloud </how-to/install>
+Update and upgrade </how-to/update_upgrade>
 Manage the snaps </how-to/snaps>
 Initialise MicroCloud </how-to/initialise>
 Configure Ceph networking </how-to/ceph_networking>

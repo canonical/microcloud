@@ -86,7 +86,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ["1.22.x"]
+        # Test suites that will be combined with the set versions.
+        # Define this first in the matrix so that it's readable
+        # after GitHub as formed the name for the respective check.
         suite:
           - "add"
           - "instances"
@@ -95,6 +97,31 @@ jobs:
           - "interactive"
           - "mismatch"
           - "preseed"
+        # Set of versions to use for the matrix tests.
+        os: ["24.04"]
+        go: ["1.22.x"]
+        microceph: ["latest/edge"]
+        microovn: ["latest/edge"]
+        lxd: ["5.21/edge"]
+        microcloud: ["latest/edge"]
+        # Additional test suites that will get included using a different set of versions.
+        include:
+          # Upgrade MicroCloud from 1 to 2 on 22.04
+          - suite: "upgrade"
+            os: "22.04"
+            go: "1.22.x"
+            microceph: "reef/stable"
+            microovn: "22.03/stable"
+            lxd: "5.21/stable"
+            microcloud: "1/stable"
+          # Upgrade MicroCloud from 1 to 2 on 24.04
+          - suite: "upgrade"
+            os: "24.04"
+            go: "1.22.x"
+            lxd: "5.21/stable"
+            microceph: "reef/stable"
+            microovn: "22.03/stable"
+            microcloud: "1/stable"
 
     steps:
       - name: Performance tuning
@@ -224,16 +251,29 @@ jobs:
         run: |
           set -eux
           chmod +x ~
-          cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh setup
-          echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
 
-      - name: "Run system tests (${{ matrix.go }}, ${{ matrix.suite }})"
+          export BASE_OS="${{ matrix.os }}"
+          export LXD_SNAP_CHANNEL="${{ matrix.lxd }}"
+          export MICROCEPH_SNAP_CHANNEL="${{ matrix.microceph }}"
+          export MICROOVN_SNAP_CHANNEL="${{ matrix.microovn }}"
+          export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
+
+          cd test
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
+
+          echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
+          echo "BASE_OS=${BASE_OS}" >> "${GITHUB_ENV}"
+          echo "LXD_SNAP_CHANNEL=${LXD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+          echo "MICROCEPH_SNAP_CHANNEL=${MICROCEPH_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+          echo "MICROOVN_SNAP_CHANNEL=${MICROOVN_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+          echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+
+      - name: "Run system tests (${{ matrix.suite }})"
         run: |
           set -eux
           chmod +x ~
           cd test
-          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY ./main.sh ${{ matrix.suite }}
+          sudo --preserve-env=DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
 
   documentation-checks:
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main

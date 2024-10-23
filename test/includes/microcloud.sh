@@ -592,7 +592,15 @@ validate_system_lxd() {
     [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
     # Check core config options
-    [ "$(lxc config get core.https_address)" = "[::]:8443" ]
+    lxd_address="$(lxc config get core.https_address)"
+    if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/stable" ]; then
+      # There was a bug in MicroCloud 1 that set different addresses.
+      # See https://github.com/canonical/microcloud/issues/214
+      system_address="$(lxc ls local:"${name}" -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')"
+      [ "${lxd_address}" = "${system_address}:8443" ] || [ "${lxd_address}" = "[::]:8443" ]
+    else
+      [ "${lxd_address}" = "[::]:8443" ]
+    fi
 
     has_microovn=0
     has_microceph=0
@@ -1144,6 +1152,8 @@ create_system() {
   num_disks="${2:-0}"
   shift 2
 
+  os="${BASE_OS:-24.04}"
+
   echo "==> ${name} Creating VM with ${num_disks} disks"
   (
     set -eu
@@ -1152,7 +1162,13 @@ create_system() {
       exec > /dev/null
     fi
 
-    lxc init ubuntu-minimal-daily:24.04 "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB
+    # Pre fetch additional images to be used by the VM through security.devlxd.images=true
+    lxc image copy ubuntu-minimal-daily:24.04 local:
+    lxc image copy ubuntu-minimal-daily:22.04 local:
+    lxc image copy ubuntu-minimal-daily:24.04 local: --vm
+    lxc image copy ubuntu-minimal-daily:22.04 local: --vm
+
+    lxc init "ubuntu-minimal-daily:${os}" "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB -c security.devlxd.images=true
 
     # Disable vGPU to save RAM
     lxc config set "${name}" raw.qemu.conf='[device "qemu_gpu"]'
@@ -1199,12 +1215,13 @@ setup_system() {
     # Install the snaps.
     lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq yq zfsutils-linux htop
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
     else
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq yq
+      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
     fi
 
     lxc exec "${name}" -- snap install snapd
+    lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
@@ -1217,9 +1234,11 @@ setup_system() {
         sleep 1
       done
 
-      # dm-crypt needs to be manually connected for microceph full disk encyption.
-      snap connect microceph:dm-crypt
-      snap restart microceph.daemon
+      if [ ! \"${BASE_OS}\" = \"22.04\" ]; then
+        # dm-crypt needs to be manually connected for microceph full disk encyption.
+        snap connect microceph:dm-crypt
+        snap restart microceph.daemon
+      fi
 
       while ! test -e /snap/bin/microovn ; do
         snap install microovn --channel=\"${MICROOVN_SNAP_CHANNEL}\" --cohort='+' || true
