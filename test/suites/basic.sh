@@ -486,8 +486,8 @@ EOF
 "
 
   # Launch a container and VM with CEPH storage & OVN network.
-  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
-  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
+  lxc exec micro01 -- lxc init ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  lxc exec micro01 -- lxc init ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
 
   # Ensure proper storage pool and network selection by inspecting their used_by.
   for m in c1 v1 ; do
@@ -559,9 +559,9 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n default
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
@@ -644,8 +644,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -665,10 +663,10 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 c2 v1 ; do
@@ -697,11 +695,20 @@ EOF
   IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
   IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
 
+  # Sometimes ping is not installed by cloud-init, so try to install it manually
+  for m in c1 c2 ; do
+    lxc exec micro01 -- lxc exec "${m}" -- apt-get update
+    lxc exec micro01 -- lxc exec "${m}" -- apt-get install -y --no-install-recommends iputils-ping
+  done
+
   lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -4 "${IPV4_GW}"
   lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -4 "${IPV4_GW}"
   lxc exec micro01 -- lxc exec c1 -- ping -nc1 -w5 -6 "${IPV6_GW}"
   lxc exec micro01 -- lxc exec c2 -- ping -nc1 -w5 -6 "${IPV6_GW}"
   if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+    # Sometimes ping is not installed by cloud-init, so try to install it manually
+    lxc exec micro01 -- lxc exec v1 -- apt-get update
+    lxc exec micro01 -- lxc exec v1 -- apt-get install -y --no-install-recommends iputils-ping
     lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -4 "${IPV4_GW}"
     lxc exec micro01 -- lxc exec v1 -- ping -nc1 -w5 -6 "${IPV6_GW}"
   fi
@@ -804,9 +811,9 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
