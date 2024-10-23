@@ -658,7 +658,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	fmt.Println("Initializing new services")
 	mu := sync.Mutex{}
-	err = s.RunConcurrent(types.MicroCloud, "", func(s service.Service) error {
+	err = s.RunConcurrent(types.MicroCloud, types.LXD, func(s service.Service) error {
 		// If there's already an initialized system for this service, we don't need to bootstrap it.
 		if initializedServices[s.Type()] != "" {
 			return nil
@@ -909,25 +909,18 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		targetClient := lxdClient.UseTarget(name)
 
-		for _, network := range system.TargetNetworks {
-			err = targetClient.CreateNetwork(network)
-			if err != nil {
-				return err
-			}
-		}
-
 		for _, pool := range system.TargetStoragePools {
 			err = targetClient.CreateStoragePool(pool)
 			if err != nil {
 				return err
 			}
 		}
-	}
 
-	for _, network := range system.Networks {
-		err = lxdClient.CreateNetwork(network)
-		if err != nil {
-			return err
+		for _, network := range system.TargetNetworks {
+			err = targetClient.CreateNetwork(network)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -951,6 +944,13 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	if cephFSPool.Driver != "" {
 		err = lxdClient.CreateStoragePool(cephFSPool)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, network := range system.Networks {
+		err = lxdClient.CreateNetwork(network)
 		if err != nil {
 			return err
 		}
