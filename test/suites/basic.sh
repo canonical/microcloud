@@ -486,8 +486,8 @@ EOF
 "
 
   # Launch a container and VM with CEPH storage & OVN network.
-  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
-  lxc exec micro01 -- lxc init ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
+  lxc exec micro01 -- lxc init ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  lxc exec micro01 -- lxc init ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=3GiB -s remote -n default
 
   # Ensure proper storage pool and network selection by inspecting their used_by.
   for m in c1 v1 ; do
@@ -559,9 +559,9 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n default
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
@@ -663,10 +663,10 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 c2 v1 ; do
@@ -811,9 +811,9 @@ EOF
   if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     echo "::warning::SKIPPING VM LAUNCH TEST"
   else
-    lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
