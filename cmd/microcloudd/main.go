@@ -49,7 +49,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "microcloudd",
 		Short:   "MicroCloud daemon",
-		Version: version.Version,
+		Version: version.Version(),
 	}
 
 	cmd.RunE = c.Run

@@ -40,7 +40,7 @@ func (s *versionSuite) Test_validateVersions() {
 		},
 		{
 			desc:      "Valid MicroCloud",
-			version:   version.Version,
+			version:   version.RawVersion,
 			service:   types.MicroCloud,
 			expectErr: false,
 		},

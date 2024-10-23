@@ -68,7 +68,7 @@ EOF`)
 	app := &cobra.Command{
 		Use:               "microcloud",
 		Short:             "Command for managing the MicroCloud daemon",
-		Version:           version.Version,
+		Version:           version.Version(),
 		SilenceUsage:      true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
