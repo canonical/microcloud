@@ -924,25 +924,18 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		targetClient := lxdClient.UseTarget(name)
 
-		for _, network := range system.TargetNetworks {
-			err = targetClient.CreateNetwork(network)
-			if err != nil {
-				return err
-			}
-		}
-
 		for _, pool := range system.TargetStoragePools {
 			err = targetClient.CreateStoragePool(pool)
 			if err != nil {
 				return err
 			}
 		}
-	}
 
-	for _, network := range system.Networks {
-		err = lxdClient.CreateNetwork(network)
-		if err != nil {
-			return err
+		for _, network := range system.TargetNetworks {
+			err = targetClient.CreateNetwork(network)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -966,6 +959,13 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	if cephFSPool.Driver != "" {
 		err = lxdClient.CreateStoragePool(cephFSPool)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, network := range system.Networks {
+		err = lxdClient.CreateNetwork(network)
 		if err != nil {
 			return err
 		}
