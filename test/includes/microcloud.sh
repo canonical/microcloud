@@ -277,8 +277,8 @@ set_debug_binaries() {
     lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
     lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
 
-    lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug
-    lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug
+    lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug --mode 0755
+    lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug --mode 0755
 
     lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
   fi
@@ -888,6 +888,8 @@ cluster_reset() {
 
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
+  collect_go_cover_files 
+
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     # shellcheck disable=SC2048,SC2086
     restore_systems ${*}
@@ -943,6 +945,8 @@ reset_systems() {
 # restore_systems: Restores the systems from a snapshot at snap0.
 restore_systems() {
   echo "::group::restore_systems"
+
+  collect_go_cover_files
 
   num_vms=3
   num_disks=3
