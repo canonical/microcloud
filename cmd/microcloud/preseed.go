@@ -667,6 +667,19 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	}
 
 	if len(expectedSystems) > 0 {
+		if initiator {
+			joiners := []string{}
+			for _, name := range expectedSystems {
+				if name == s.Name {
+					continue
+				}
+
+				joiners = append(joiners, name)
+			}
+
+			fmt.Printf("Searching for joining systems (%s)\n", strings.Join(joiners, ", "))
+		}
+
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
 			return c.initiatingSession(gw, s, installedServices, p.SessionPassphrase, expectedSystems)
 		})

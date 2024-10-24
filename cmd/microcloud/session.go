@@ -86,6 +86,16 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 		return err
 	}
 
+	if c.autoSetup {
+		for _, info := range confirmedIntents {
+			if info.Name == c.name {
+				continue
+			}
+
+			fmt.Printf("Detected joining system %q at %q\n", info.Name, info.Address)
+		}
+	}
+
 	err = gw.Write(types.Session{
 		ConfirmedIntents: confirmedIntents,
 	})
@@ -172,6 +182,8 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 
 		fmt.Printf("\n Found system %q at %q using fingerprint %q\n\n", session.InitiatorName, session.InitiatorAddress, fingerprint)
 		fmt.Printf("Select %q on %q to let it join the cluster\n", sh.Name, session.InitiatorName)
+	} else {
+		fmt.Printf("Connected to initiator %q\n", session.InitiatorName)
 	}
 
 	return c.askJoinConfirmation(gw, services)
