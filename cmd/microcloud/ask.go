@@ -609,6 +609,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return nil
 		}
 
+		var insufficientDisks bool
 		err = c.askRetry("Change disk selection?", func() error {
 			selectedDisks = map[string][]string{}
 			wipeDisks = map[string]map[string]bool{}
@@ -696,7 +697,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				return fmt.Errorf("No disks were selected")
 			}
 
-			insufficientDisks := !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
+			insufficientDisks = !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
 
 			if insufficientDisks {
 				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
@@ -711,15 +712,18 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 		if len(selectedDisks) == 0 {
 			return nil
-		}
-
-		for target, disks := range selectedDisks {
-			if len(disks) > 0 {
-				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), target)
+		} else {
+			// If we had to warn about insufficient disks, the table spacing will be overwritten so add a new-line.
+			if insufficientDisks {
+				fmt.Println()
 			}
-		}
 
-		if len(selectedDisks) > 0 {
+			for target, disks := range selectedDisks {
+				if len(disks) > 0 {
+					fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), target)
+				}
+			}
+
 			fmt.Println()
 		}
 	}
