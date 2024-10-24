@@ -1578,7 +1578,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 				retry = true
 			}()
 
-			fmt.Println("Select which systems you want to join:")
+			fmt.Println("Select the systems that should join the cluster:")
 
 			if retry {
 				err := table.Render(table.rows)
