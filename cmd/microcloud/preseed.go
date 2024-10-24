@@ -1070,7 +1070,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		if internalCephNetwork != "" {
-			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, internalCephNetwork)
+			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, internalCephNetwork)
 			if err != nil {
 				return nil, err
 			}
@@ -1088,7 +1088,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		if publicCephNetwork != "" {
-			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, publicCephNetwork)
+			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, publicCephNetwork)
 			if err != nil {
 				return nil, err
 			}
@@ -1104,14 +1104,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != c.lookupSubnet.String() {
-			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, localInternalCephNetwork.String())
+			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localInternalCephNetwork.String())
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		if localPublicCephNetwork.String() != "" && localPublicCephNetwork.String() != c.lookupSubnet.String() {
-			err = validateCephInterfacesForSubnet(lxd, c.systems, addressedInterfaces, localPublicCephNetwork.String())
+			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localPublicCephNetwork.String())
 			if err != nil {
 				return nil, err
 			}

@@ -461,22 +461,24 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	return nil
 }
 
-func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map[string]InitSystem, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
+func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
 		return err
 	}
 
 	// List the detected network interfaces
-	for _, interfaces := range validatedCephInterfacesData {
-		for _, iface := range interfaces {
-			fmt.Printf("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0])
+	if !c.autoSetup {
+		for _, interfaces := range validatedCephInterfacesData {
+			for _, iface := range interfaces {
+				fmt.Printf("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0])
+			}
 		}
 	}
 
 	// Even though not all the cluster members might have OSDs,
 	// we check that all the machines have at least one interface to sustain the Ceph network
-	for systemName := range systems {
+	for systemName := range c.systems {
 		if len(validatedCephInterfacesData[systemName]) == 0 {
 			return fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
 		}
@@ -1322,7 +1324,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	if internalCephNetwork != nil {
 		if internalCephNetwork.String() != "" && internalCephNetwork.String() != c.lookupSubnet.String() {
-			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, internalCephNetwork.String())
+			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1333,7 +1335,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 
 	if publicCephNetwork != nil {
 		if publicCephNetwork.String() != "" && publicCephNetwork.String() != c.lookupSubnet.String() {
-			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, publicCephNetwork.String())
+			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1352,7 +1354,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	}
 
 	if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
-		err = validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, internalCephSubnet)
+		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephSubnet)
 		if err != nil {
 			return err
 		}
@@ -1368,7 +1370,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	}
 
 	if publicCephSubnet != internalCephSubnet {
-		err = validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, publicCephSubnet)
+		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephSubnet)
 		if err != nil {
 			return err
 		}
