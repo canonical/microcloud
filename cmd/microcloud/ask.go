@@ -1102,7 +1102,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(ovnUnderlayData) != 0 && canOVNUnderlay {
-		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated OVN underlay networking? (yes/no) [default=no]: ", "no")
 		if err != nil {
 			return err
 		}
@@ -1133,7 +1133,12 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
 					}
 
-					ovnUnderlaySelectedIPs[target] = ipAddr
+					ip, _, err := net.ParseCIDR(ipAddr)
+					if err != nil {
+						return err
+					}
+
+					ovnUnderlaySelectedIPs[target] = ip.String()
 				}
 
 				return nil
@@ -1142,6 +1147,18 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 				return err
 			}
 		}
+	}
+
+	if len(ovnUnderlaySelectedIPs) > 0 {
+		for peer := range askSystems {
+			underlayIP, ok := ovnUnderlaySelectedIPs[peer]
+			if ok {
+				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayIP, peer)
+			}
+		}
+
+		// Add a space between the result summary and the next question.
+		fmt.Println()
 	}
 
 	for peer, system := range c.systems {
@@ -1176,13 +1193,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		if ovnUnderlaySelectedIPs != nil {
 			ovnUnderlayIpAddr, ok := ovnUnderlaySelectedIPs[peer]
 			if ok {
-				ip, _, err := net.ParseCIDR(ovnUnderlayIpAddr)
-				if err != nil {
-					return err
-				}
-
-				fmt.Printf("Using %q for OVN underlay traffic on %q\n", ip.String(), peer)
-				system.OVNGeneveAddr = ip.String()
+				system.OVNGeneveAddr = ovnUnderlayIpAddr
 			}
 		}
 
