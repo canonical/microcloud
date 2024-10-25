@@ -6,7 +6,8 @@ import (
 )
 
 // RawVersion is the current daemon version of MicroCloud.
-const RawVersion = "2.1"
+// LTS versions also include the patch number.
+const RawVersion = "2.1.0"
 
 // LTS should be set if the current version is an LTS (long-term support) version.
 const LTS = true
