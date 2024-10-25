@@ -4,7 +4,7 @@ on:
     - cron: '0 0 * * 0' # Weekly on Sunday at 00:00 UTC
   push:
     branches:
-      - main
+      - v2-edge
   pull_request:
 
 permissions:
@@ -316,7 +316,7 @@ jobs:
           TARGET: >-
             ${{ fromJson('{
               "main": "latest-edge",
-              "stable-5.0": "5.0-edge",
+              "v2-edge": "v2-edge",
             }')[github.ref_name] }}
         run: |
           set -eux
