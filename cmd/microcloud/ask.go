@@ -461,22 +461,24 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	return nil
 }
 
-func validateCephInterfacesForSubnet(lxdService *service.LXDService, systems map[string]InitSystem, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
+func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
 		return err
 	}
 
 	// List the detected network interfaces
-	for _, interfaces := range validatedCephInterfacesData {
-		for _, iface := range interfaces {
-			fmt.Printf("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0])
+	if !c.autoSetup {
+		for _, interfaces := range validatedCephInterfacesData {
+			for _, iface := range interfaces {
+				fmt.Printf("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0])
+			}
 		}
 	}
 
 	// Even though not all the cluster members might have OSDs,
 	// we check that all the machines have at least one interface to sustain the Ceph network
-	for systemName := range systems {
+	for systemName := range c.systems {
 		if len(validatedCephInterfacesData[systemName]) == 0 {
 			return fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
 		}
@@ -609,6 +611,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return nil
 		}
 
+		var insufficientDisks bool
 		err = c.askRetry("Change disk selection?", func() error {
 			selectedDisks = map[string][]string{}
 			wipeDisks = map[string]map[string]bool{}
@@ -696,7 +699,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				return fmt.Errorf("No disks were selected")
 			}
 
-			insufficientDisks := !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
+			insufficientDisks = !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
 
 			if insufficientDisks {
 				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
@@ -711,15 +714,18 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 		if len(selectedDisks) == 0 {
 			return nil
-		}
-
-		for target, disks := range selectedDisks {
-			if len(disks) > 0 {
-				fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), target)
+		} else {
+			// If we had to warn about insufficient disks, the table spacing will be overwritten so add a new-line.
+			if insufficientDisks {
+				fmt.Println()
 			}
-		}
 
-		if len(selectedDisks) > 0 {
+			for target, disks := range selectedDisks {
+				if len(disks) > 0 {
+					fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), target)
+				}
+			}
+
 			fmt.Println()
 		}
 	}
@@ -1098,7 +1104,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(ovnUnderlayData) != 0 && canOVNUnderlay {
-		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated underlay networking? (yes/no) [default=no]: ", "no")
+		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated OVN underlay networking? (yes/no) [default=no]: ", "no")
 		if err != nil {
 			return err
 		}
@@ -1129,7 +1135,12 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
 					}
 
-					ovnUnderlaySelectedIPs[target] = ipAddr
+					ip, _, err := net.ParseCIDR(ipAddr)
+					if err != nil {
+						return err
+					}
+
+					ovnUnderlaySelectedIPs[target] = ip.String()
 				}
 
 				return nil
@@ -1138,6 +1149,18 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 				return err
 			}
 		}
+	}
+
+	if len(ovnUnderlaySelectedIPs) > 0 {
+		for peer := range askSystems {
+			underlayIP, ok := ovnUnderlaySelectedIPs[peer]
+			if ok {
+				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayIP, peer)
+			}
+		}
+
+		// Add a space between the result summary and the next question.
+		fmt.Println()
 	}
 
 	for peer, system := range c.systems {
@@ -1172,13 +1195,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		if ovnUnderlaySelectedIPs != nil {
 			ovnUnderlayIpAddr, ok := ovnUnderlaySelectedIPs[peer]
 			if ok {
-				ip, _, err := net.ParseCIDR(ovnUnderlayIpAddr)
-				if err != nil {
-					return err
-				}
-
-				fmt.Printf("Using %q for OVN underlay traffic on %q\n", ip.String(), peer)
-				system.OVNGeneveAddr = ip.String()
+				system.OVNGeneveAddr = ovnUnderlayIpAddr
 			}
 		}
 
@@ -1307,7 +1324,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	if internalCephNetwork != nil {
 		if internalCephNetwork.String() != "" && internalCephNetwork.String() != c.lookupSubnet.String() {
-			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, internalCephNetwork.String())
+			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1318,7 +1335,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 
 	if publicCephNetwork != nil {
 		if publicCephNetwork.String() != "" && publicCephNetwork.String() != c.lookupSubnet.String() {
-			err := validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, publicCephNetwork.String())
+			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1337,7 +1354,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	}
 
 	if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
-		err = validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, internalCephSubnet)
+		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephSubnet)
 		if err != nil {
 			return err
 		}
@@ -1353,7 +1370,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	}
 
 	if publicCephSubnet != internalCephSubnet {
-		err = validateCephInterfacesForSubnet(lxd, c.systems, availableCephNetworkInterfaces, publicCephSubnet)
+		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephSubnet)
 		if err != nil {
 			return err
 		}
@@ -1561,7 +1578,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 				retry = true
 			}()
 
-			fmt.Println("Select which systems you want to join:")
+			fmt.Println("Select the systems that should join the cluster:")
 
 			if retry {
 				err := table.Render(table.rows)
