@@ -16,7 +16,6 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v2/microcluster"
 	microTypes "github.com/canonical/microcluster/v2/rest/types"
-	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -182,11 +181,6 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 
 // Join joins a cluster with the given token.
 func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	err := s.Restart(ctx, 30)
-	if err != nil {
-		return err
-	}
-
 	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err
@@ -700,57 +694,6 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 	}
 
 	return len(pools) != 0, nil
-}
-
-// Restart requests LXD to shutdown, then waits until it is ready.
-func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
-	c, err := s.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	isInit, err := s.isInitialized(c)
-	if err != nil {
-		return fmt.Errorf("Failed to check LXD initialization: %w", err)
-	}
-
-	if isInit {
-		return fmt.Errorf("Detected pre-existing LXD storage pools. LXD might have already been initialized")
-	}
-
-	server, _, err := c.GetServer()
-	if err != nil {
-		return fmt.Errorf("Failed to get LXD server information: %w", err)
-	}
-
-	// As of LXD 5.21, the LXD snap should support content interfaces to automatically detect the presence of MicroOVN and MicroCeph.
-	// For older LXDs, we must restart to trigger the snap's detection of MicroOVN and MicroCeph to properly set up LXD's snap environment to work with them.
-	// semver.Compare will return 1 if the first argument is larger, 0 if the arguments are the same, and -1 if the first argument is smaller.
-	lxdVersion := semver.Canonical(fmt.Sprintf("v%s", server.Environment.ServerVersion))
-	expectedVersion := semver.Canonical(fmt.Sprintf("v%s", lxdMinVersion))
-	if semver.Compare(lxdVersion, expectedVersion) >= 0 {
-		return nil
-	}
-
-	logger.Warnf("Detected LXD at version %q (older than %q), attempting restart to detect MicroOVN and MicroCeph integration", lxdVersion, expectedVersion)
-
-	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
-	if err != nil && err.Error() != "Shutdown already in progress" {
-		return fmt.Errorf("Failed to send shutdown request to LXD: %w", err)
-	}
-
-	err = s.waitReady(ctx, c, timeoutSeconds)
-	if err != nil {
-		return err
-	}
-
-	// A sleep might be necessary here on slower machines?
-	_, _, err = c.GetServer()
-	if err != nil {
-		return fmt.Errorf("Failed to initialize LXD server: %w", err)
-	}
-
-	return nil
 }
 
 // waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
