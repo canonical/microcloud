@@ -28,4 +28,5 @@ type Service interface {
 	SetConfig(config map[string]string)
 	SupportsFeature(ctx context.Context, feature string) (bool, error)
 	GetVersion(ctx context.Context) (string, error)
+	IsInitialized(ctx context.Context) (bool, error)
 }
