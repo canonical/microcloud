@@ -9,7 +9,7 @@ require (
 	github.com/canonical/microceph/microceph v0.0.0-20241021172252-2dd856d64c62
 	github.com/canonical/microcluster/v2 v2.0.4
 	github.com/canonical/microovn/microovn v0.0.0-20241018151920-4b82d2983810
-	github.com/charmbracelet/lipgloss v0.13.0
+	github.com/charmbracelet/lipgloss v0.13.1
 	github.com/creack/pty v1.1.23
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
