@@ -42,6 +42,12 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
+	fmt.Println("Waiting for services to start ...")
+	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
+	if err != nil {
+		return err
+	}
+
 	cfg := initConfig{
 		bootstrap: false,
 		common:    c.common,
@@ -63,11 +69,6 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
 	if err != nil {
 		return err
-	}
-
-	err = cloudApp.Ready(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
 	}
 
 	status, err := cloudApp.Status(context.Background())
