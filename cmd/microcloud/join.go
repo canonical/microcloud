@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -64,20 +63,6 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 	cfg.sessionTimeout = DefaultSessionTimeout
 	if c.flagSessionTimeout > 0 {
 		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
-	}
-
-	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
-	if err != nil {
-		return err
-	}
-
-	status, err := cloudApp.Status(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
-	}
-
-	if status.Ready {
-		return fmt.Errorf("MicroCloud is already initialized, run 'microcloud add' instead")
 	}
 
 	err = cfg.askAddress(c.flagInitiatorAddress)

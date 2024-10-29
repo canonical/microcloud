@@ -68,10 +68,6 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
 	}
 
-	if !status.Ready {
-		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
-	}
-
 	cfg.name = status.Name
 	cfg.address = status.Address.Addr().String()
 	err = cfg.askAddress("")
