@@ -248,7 +248,8 @@ $(true)                                        # workaround for set -e
     done
   fi
 
-  initiator="$(lxc exec "${1}" -- cat out | grep -o 'Found system.* at' | cut -d'"' -f2)"
+  initiator="$(lxc exec "${1}" -- cat out | grep -o 'Found system.* at')"
+  initiator="$(echo "${initiator}" | cut -d'"' -f2)"
   lxc exec "${initiator}" -- cat code | grep -q '0'
 
   for joiner in "$@" ; do
