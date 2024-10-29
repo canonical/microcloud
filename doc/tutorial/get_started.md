@@ -345,6 +345,7 @@ When requested enter the passphrase:
 
 Verify the fingerprint "5d0808de679d" is displayed on joining systems.
 Waiting to detect systems ...
+Select the systems that should join the cluster:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
        +---------+---------------+--------------+
@@ -423,6 +424,8 @@ Up/down to move; right to select all; left to select none.
 
 Do you want to encrypt the selected disks? (yes/no) [default=no]: no
 Would you like to set up CephFS remote storage? (yes/no) [default=yes]:  yes
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: 203.0.113.0/24]:
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: 203.0.113.0/24]:
 Configure distributed networking? (yes/no) [default=yes]:  yes
 Select an available interface per system to provide external connectivity for distributed network(s):
 Space to select; enter to confirm; type to filter results.
