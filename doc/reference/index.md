@@ -5,11 +5,6 @@ The reference material in this section provides technical descriptions of MicroC
 
 ## Requirements
 
-```{image} https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg
-:alt: LXD requirements illustration
-:align: center
-```
-
 (hardware-requirements)=
 ### Hardware requirements
 
