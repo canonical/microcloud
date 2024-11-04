@@ -10,7 +10,7 @@ require (
 	github.com/canonical/microcluster/v2 v2.0.4
 	github.com/canonical/microovn/microovn v0.0.0-20241018151920-4b82d2983810
 	github.com/charmbracelet/lipgloss v0.13.0
-	github.com/creack/pty v1.1.23
+	github.com/creack/pty v1.1.24
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
