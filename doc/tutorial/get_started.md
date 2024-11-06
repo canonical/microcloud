@@ -55,7 +55,11 @@ Complete the following steps to install and initialise LXD:
           sudo apt update
           sudo apt install snapd
 
-1. Enter the following command to install LXD:
+1. If LXD is already installed, enter the following command to update it:
+
+       sudo snap refresh lxd
+
+   Otherwise, enter the following command to install LXD:
 
        sudo snap install lxd
 
