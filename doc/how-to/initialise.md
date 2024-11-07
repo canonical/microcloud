@@ -155,5 +155,43 @@ The preseed YAML file must use the following syntax:
 
 ```{literalinclude} preseed.yaml
 :language: YAML
-:emphasize-lines: 1-3,6-8,11-12,15-17,20,23-25,28-33,61-64,70,77-85
+:emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-87
+```
+
+### Minimal preseed using multicast discovery
+
+You can use the following minimal preseed file to initialise a MicroCloud across three machines.
+In this case `micro01` takes over the role of the initiator.
+Multicast discovery is used to find the other machines on the network.
+
+On each of the machines `eth1` is used as uplink for the OVN network.
+For local storage the disk `/dev/sdb` is occupied.
+In case of remote storage `/dev/sdc` will be used by MicroCeph:
+
+```yaml
+lookup_subnet: 10.0.0.0/24
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro01
+  ovn_uplink_interface: eth1
+  storage:
+    local:
+      path: /dev/sdb
+    ceph:
+      - path: /dev/sdc
+- name: micro02
+  ovn_uplink_interface: eth1
+  storage:
+    local:
+      path: /dev/sdb
+    ceph:
+      - path: /dev/sdc
+- name: micro03
+  ovn_uplink_interface: eth1
+  storage:
+    local:
+      path: /dev/sdb
+    ceph:
+      - path: /dev/sdc
 ```
