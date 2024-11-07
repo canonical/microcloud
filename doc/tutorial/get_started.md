@@ -31,7 +31,7 @@ It uses virtual machines in LXD, so you don't need any extra hardware to follow 
    We recommend a storage pool size of at least 40 GiB for that.
 ```
 
-Complete the following steps to install and initialise LXD:
+MicroCloud requires LXD version 5.21:
 
 1. Install `snapd`:
 
@@ -57,7 +57,7 @@ Complete the following steps to install and initialise LXD:
 
 1. If LXD is already installed, enter the following command to update it:
 
-       sudo snap refresh lxd
+       sudo snap refresh lxd --channel=5.21/stable
 
    Otherwise, enter the following command to install LXD:
 
