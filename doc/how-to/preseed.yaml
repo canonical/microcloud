@@ -1,15 +1,17 @@
 # `initiator` defines which system takes over the role of the initiator during the trust establishment using multicast discovery.
 # Make sure to also set `lookup_subnet`.
 # The field cannot be set together with `initiator_address`.
+# Required if `initiator_address` isn't specified.
 initiator: micro01
 
 # `initiator_address` defines which system takes over the role of the initiator during the trust establishment.
 # It also allows joining systems to learn about the address they have to connect to.
 # The field cannot be set together with `initiator`.
+# Required if `initiator` isn't specified.
 initiator_address: 10.0.0.1
 
-# `lookup_subnet` limits the subnet when looking up systems using multicast discovery.
-# The first assigned address of this subnet is used for MicroCloud.
+# `lookup_subnet` is required and limits the subnet when looking up systems using multicast discovery.
+# The first assigned address of this subnet is used for MicroCloud itself.
 lookup_subnet: 10.0.0.0/24
 
 # `lookup_timeout` is optional and configures how long the joining system will wait for a system to be discovered using multicast discovery.
@@ -17,7 +19,7 @@ lookup_subnet: 10.0.0.0/24
 # It defaults to 60 seconds.
 lookup_timeout: 300
 
-# `session_passphrase` configures the passphrase used during the trust establishment session.
+# `session_passphrase` is required and configures the passphrase used during the trust establishment session.
 session_passphrase: 83P27XWKbDczUyE7xaX3pgVfaEacfQ2qiQ0r6gPb
 
 # `session_timeout` is optional and configures how long the trust establishment session will last.
@@ -25,8 +27,8 @@ session_passphrase: 83P27XWKbDczUyE7xaX3pgVfaEacfQ2qiQ0r6gPb
 # It defaults to 60 minutes.
 session_timeout: 300
 
-# `systems` lists the systems we expect to find by their host name.
-#   `name` represents the host name.
+# `systems` is required and lists the systems we expect to find by their host name.
+#   `name` is required and represents the host name.
 #   `address` sets the address used for MicroCloud and is required in case `initiator_address` is present.
 #   `ovn_uplink_interface` is optional and represents the name of the interface reserved for use with OVN.
 #   `ovn_underlay_ip` is optional and represents the Geneve Encap IP for each system.
