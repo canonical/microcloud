@@ -30,3 +30,28 @@ The preseed YAML file must use the following syntax:
 :language: YAML
 :emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-87
 ```
+
+### Minimal preseed using multicast discovery
+
+You can use the following minimal preseed file to add another machine to an existing MicroCloud.
+In this case `micro01` takes over the role of the initiator.
+Multicast discovery is used to find the existing MicroCloud on the network:
+
+The disk `/dev/sdb` will be used for the machine's local storage pool.
+The already existing remote storage pool will be extended with `/dev/sdc`:
+
+```yaml
+lookup_subnet: 10.0.0.0/24
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro04
+  ovn_uplink_interface: eth1
+  storage:
+    local:
+      path: /dev/sdb
+    ceph:
+      - path: /dev/sdc
+```
+
+Run the {command}`microcloud preseed` command on `micro01` and `micro04` to add the additional machine.
