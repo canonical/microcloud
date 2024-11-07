@@ -28,9 +28,9 @@ Also see Ceph's {ref}`ceph:hardware-recommendations`.
 
 ### Networking requirements
 
-For networking, MicroCloud requires two dedicated network interfaces: one for intra-cluster communication and one for external connectivity.
-To allow for external connectivity, MicroCloud requires an uplink network that supports broadcast and multicast.
-See {ref}`explanation-networking` for more information.
+For networking, MicroCloud requires at least two dedicated network interfaces: one for intra-cluster communication and one for external connectivity. If you want to segregate the Ceph networks and the OVN underlay network, you might need more dedicated interfaces.
+
+To allow for external connectivity, MicroCloud requires an uplink network that supports broadcast and multicast. See {ref}`explanation-networking` for more information.
 
 The IP addresses of the machines must not change after installation, so DHCP is not supported.
 
