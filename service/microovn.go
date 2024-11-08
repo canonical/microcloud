@@ -205,6 +205,25 @@ func (s OVNService) GetVersion(ctx context.Context) (string, error) {
 	return status.Version, nil
 }
 
+// IsInitialized returns whether the service is initialized.
+func (s OVNService) IsInitialized(ctx context.Context) (bool, error) {
+	err := s.m.Ready(ctx)
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("Failed to wait for %s to get ready: %w", s.Type(), err)
+	}
+
+	status, err := s.m.Status(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get %s status: %w", s.Type(), err)
+	}
+
+	return status.Ready, nil
+}
+
 // SetConfig sets the config of this Service instance.
 func (s *OVNService) SetConfig(config map[string]string) {
 	if s.config == nil {

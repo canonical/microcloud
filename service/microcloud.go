@@ -366,6 +366,21 @@ func (s CloudService) GetVersion(ctx context.Context) (string, error) {
 	return status.Version, nil
 }
 
+// IsInitialized returns whether the service is initialized.
+func (s CloudService) IsInitialized(ctx context.Context) (bool, error) {
+	err := s.client.Ready(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to wait for %s to get ready: %w", s.Type(), err)
+	}
+
+	status, err := s.client.Status(ctx)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get %s status: %w", s.Type(), err)
+	}
+
+	return status.Ready, nil
+}
+
 // SupportsFeature checks if the specified API feature of this Service instance if supported.
 func (s *CloudService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
 	server, err := s.client.Status(ctx)

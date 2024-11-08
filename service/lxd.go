@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,10 +14,8 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/microcluster"
 	microTypes "github.com/canonical/microcluster/v2/rest/types"
-	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -182,11 +181,6 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 
 // Join joins a cluster with the given token.
 func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
-	err := s.Restart(ctx, 30)
-	if err != nil {
-		return err
-	}
-
 	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err
@@ -658,9 +652,42 @@ func (s LXDService) GetVersion(ctx context.Context) (string, error) {
 	return server.Environment.ServerVersion, nil
 }
 
-// isInitialized checks if LXD is initialized by fetching the storage pools.
+// IsInitialized returns whether the service is initialized.
+func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
+	c, err := s.Client(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	err = s.waitReady(ctx, c)
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	isInit, err := s.isInitialized(c)
+	if err != nil {
+		return false, fmt.Errorf("Failed to check LXD initialization: %w", err)
+	}
+
+	return isInit, nil
+}
+
+// isInitialized checks if LXD is initialized by fetching the storage pools, and cluster status.
 // If none exist, that means LXD has not yet been set up.
 func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
+	server, _, err := c.GetServer()
+	if err != nil {
+		return false, err
+	}
+
+	if server.Environment.ServerClustered {
+		return true, nil
+	}
+
 	pools, err := c.GetStoragePoolNames()
 	if err != nil {
 		return false, err
@@ -669,105 +696,51 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 	return len(pools) != 0, nil
 }
 
-// Restart requests LXD to shutdown, then waits until it is ready.
-func (s *LXDService) Restart(ctx context.Context, timeoutSeconds int) error {
-	c, err := s.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	isInit, err := s.isInitialized(c)
-	if err != nil {
-		return fmt.Errorf("Failed to check LXD initialization: %w", err)
-	}
-
-	if isInit {
-		return fmt.Errorf("Detected pre-existing LXD storage pools. LXD might have already been initialized")
-	}
-
-	server, _, err := c.GetServer()
-	if err != nil {
-		return fmt.Errorf("Failed to get LXD server information: %w", err)
-	}
-
-	// As of LXD 5.21, the LXD snap should support content interfaces to automatically detect the presence of MicroOVN and MicroCeph.
-	// For older LXDs, we must restart to trigger the snap's detection of MicroOVN and MicroCeph to properly set up LXD's snap environment to work with them.
-	// semver.Compare will return 1 if the first argument is larger, 0 if the arguments are the same, and -1 if the first argument is smaller.
-	lxdVersion := semver.Canonical(fmt.Sprintf("v%s", server.Environment.ServerVersion))
-	expectedVersion := semver.Canonical(fmt.Sprintf("v%s", lxdMinVersion))
-	if semver.Compare(lxdVersion, expectedVersion) >= 0 {
-		return nil
-	}
-
-	logger.Warnf("Detected LXD at version %q (older than %q), attempting restart to detect MicroOVN and MicroCeph integration", lxdVersion, expectedVersion)
-
-	_, _, err = c.RawQuery("PUT", "/internal/shutdown", nil, "")
-	if err != nil && err.Error() != "Shutdown already in progress" {
-		return fmt.Errorf("Failed to send shutdown request to LXD: %w", err)
-	}
-
-	err = s.waitReady(ctx, c, timeoutSeconds)
-	if err != nil {
-		return err
-	}
-
-	// A sleep might be necessary here on slower machines?
-	_, _, err = c.GetServer()
-	if err != nil {
-		return fmt.Errorf("Failed to initialize LXD server: %w", err)
-	}
-
-	return nil
-}
-
 // waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
-func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer, timeoutSeconds int) error {
-	finger := make(chan error, 1)
+// Waits up to a minute for LXD to start, before failing.
+// Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
+func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error {
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
+	defer timeoutCancel()
+
+	ctx, cancel := context.WithCancelCause(timeoutCtx)
+	defer cancel(context.Canceled)
+
+	unixCtx, unixCancel := context.WithTimeout(ctx, time.Second*5)
+	defer unixCancel()
+
 	var errLast error
 	go func() {
-		for i := 0; ; i++ {
-			// Start logging only after the 10'th attempt (about 5
-			// seconds). Then after the 30'th attempt (about 15
-			// seconds), log only only one attempt every 10
-			// attempts (about 5 seconds), to avoid being too
-			// verbose.
-			doLog := false
-			if i > 10 {
-				doLog = i < 30 || ((i % 10) == 0)
-			}
-
-			if doLog {
-				logger.Debugf("Checking if LXD daemon is ready (attempt %d)", i)
-			}
-
+		for ctx.Err() == nil {
 			_, _, err := c.RawQuery("GET", "/internal/ready", nil, "")
 			if err != nil {
-				errLast = err
-				if doLog {
-					logger.Warnf("Failed to check if LXD daemon is ready (attempt %d): %v", i, err)
+				if api.StatusErrorCheck(err, http.StatusNotFound) {
+					if unixCtx.Err() != nil {
+						cancel(err)
+
+						return
+					}
 				}
 
+				errLast = err
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
 
-			finger <- nil
+			cancel(context.Canceled)
+
 			return
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
+	<-ctx.Done()
 
-	if timeoutSeconds > 0 {
-		select {
-		case <-finger:
-			break
-		case <-ctx.Done():
-			return fmt.Errorf("LXD is still not running after %ds timeout (%v)", timeoutSeconds, errLast)
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) || !errors.Is(context.Cause(ctx), context.Canceled) {
+		if errLast == nil {
+			errLast = context.Cause(ctx)
 		}
-	} else {
-		<-finger
+
+		return fmt.Errorf("Timed out waiting for LXD to start: %w", errLast)
 	}
 
 	return nil

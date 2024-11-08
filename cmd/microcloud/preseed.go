@@ -153,16 +153,9 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("Failed to parse the preseed yaml: %w", err)
 	}
 
-	c.bootstrap = config.isBootstrap()
-
-	c.lookupTimeout = DefaultLookupTimeout
-	if config.LookupTimeout > 0 {
-		c.lookupTimeout = time.Duration(config.LookupTimeout) * time.Second
-	}
-
-	c.sessionTimeout = DefaultSessionTimeout
-	if config.SessionTimeout > 0 {
-		c.sessionTimeout = time.Duration(config.SessionTimeout) * time.Second
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
 	}
 
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
@@ -170,28 +163,9 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
-	err = cloudApp.Ready(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
-	}
-
 	status, err := cloudApp.Status(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
-	}
-
-	if status.Ready && c.bootstrap {
-		return fmt.Errorf("MicroCloud is already initialized")
-	}
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-
-	err = config.validate(hostname, c.bootstrap)
-	if err != nil {
-		return err
 	}
 
 	var listenAddr string
@@ -211,6 +185,32 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("Invalid MicroCloud listen address %q", listenAddr)
 	}
 
+	c.name = hostname
+	c.address = listenIP.String()
+	initiator := config.isInitiator(c.name, c.address)
+	c.bootstrap = config.isBootstrap()
+
+	fmt.Println("Waiting for services to start ...")
+	err = checkInitialized(c.common.FlagMicroCloudDir, initiator && !c.bootstrap, true)
+	if err != nil {
+		return err
+	}
+
+	c.lookupTimeout = DefaultLookupTimeout
+	if config.LookupTimeout > 0 {
+		c.lookupTimeout = time.Duration(config.LookupTimeout) * time.Second
+	}
+
+	c.sessionTimeout = DefaultSessionTimeout
+	if config.SessionTimeout > 0 {
+		c.sessionTimeout = time.Duration(config.SessionTimeout) * time.Second
+	}
+
+	err = config.validate(hostname, c.bootstrap)
+	if err != nil {
+		return err
+	}
+
 	// Build the service handler.
 	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
 	optionalServices := map[types.ServiceType]string{
@@ -223,8 +223,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
-	c.name = hostname
-	c.address = listenIP.String()
 	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedServices...)
 	if err != nil {
 		return err
@@ -239,8 +237,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 
 		services[s.Type()] = version
 	}
-
-	initiator := config.isInitiator(c.name, c.address)
 
 	if !status.Ready && !c.bootstrap && initiator {
 		return fmt.Errorf("MicroCloud isn't yet initialized and cannot be the initiator")

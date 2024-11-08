@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -83,11 +82,6 @@ func (s *Handler) Start(ctx context.Context, state state.State) error {
 	err := state.Database().IsOpen(context.Background())
 	if err == nil {
 		return nil
-	}
-
-	err = s.Services[types.LXD].(*LXDService).Restart(ctx, 30)
-	if err != nil {
-		logger.Error("Failed to restart LXD", logger.Ctx{"error": err})
 	}
 
 	return nil

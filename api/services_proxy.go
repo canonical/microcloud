@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -62,8 +63,14 @@ func lxdHandler(s state.State, r *http.Request) response.Response {
 		return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
 	}
 
+	unixPath := filepath.Join(LXDDir, "unix.socket")
+	_, err := os.Stat(unixPath)
+	if err != nil {
+		return response.NotFound(fmt.Errorf("Failed to find LXD unix socket %q: %w", unixPath, err))
+	}
+
 	if r.Header.Get("Upgrade") == "websocket" {
-		client, err := lxd.ConnectLXDUnix(filepath.Join(LXDDir, "unix.socket"), nil)
+		client, err := lxd.ConnectLXDUnix(unixPath, nil)
 		if err != nil {
 			return response.SmartError(fmt.Errorf("Failed to connect to local LXD: %w", err))
 		}
@@ -115,6 +122,12 @@ func microHandler(service string, stateDir string) func(state.State, *http.Reque
 		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
 		if !ok {
 			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
+		}
+
+		unixPath := filepath.Join(stateDir, "control.socket")
+		_, err := os.Stat(unixPath)
+		if err != nil {
+			return response.NotFound(fmt.Errorf("Failed to find %s unix socket %q: %w", service, unixPath, err))
 		}
 
 		// Must unset the RequestURI. It is an error to set this in a client request.
