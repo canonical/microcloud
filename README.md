@@ -1,3 +1,8 @@
+<p align="left">
+    <img alt="MicroCloud logo" width="10%" src="doc/images/microcloud_logo_dark.svg#gh-dark-mode-only">
+    <img alt="MicroCloud logo" width="10%" src="doc/images/microcloud_logo_light.svg#gh-light-mode-only">
+</p>
+
 # **MicroCloud**
 
 **MicroCloud** allows you to deploy your own fully functional cloud in minutes.
@@ -14,10 +19,6 @@ It supports up to 50 machines.
 
 To use local storage, each machine requires a local disk.
 To use distributed storage, at least three additional disks (not only partitions) for use by Ceph are required, and these disks must be on at least three different machines.
-
-<p align="center" width="100%">
-    <img alt="MicroCloud logo" width="33%" src="https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg">
-</p>
 
 Once the simple initialisation is complete, users can launch, run and manage their workloads using system containers or VMs, and otherwise utilise regular LXD functionality.
 
@@ -45,7 +46,7 @@ Following the simple CLI prompts, a working MicroCloud will be ready within minu
 
 <!-- include start about -->
 
-The MicroCloud snap drives three other snaps ([LXD](https://documentation.ubuntu.com/lxd), [MicroCeph](https://canonical-microceph.readthedocs-hosted.com/), and [MicroOVN](https://canonical-microovn.readthedocs-hosted.com/)), enabling automated deployment of a highly available LXD cluster for compute with Ceph as the storage driver and OVN as the managed network.
+The MicroCloud snap drives three other snaps ([LXD](https://canonical-microcloud.readthedocs-hosted.com/en/latest/lxd/), [MicroCeph](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microceph/), and [MicroOVN](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microovn/)), enabling automated deployment of a highly available LXD cluster for compute, with Ceph as the storage driver and OVN as the managed network.
 
 During initialisation, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
 
@@ -57,6 +58,11 @@ At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD clus
 
 By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
 If you decide to not use MicroOVN, MicroCloud falls back on the Ubuntu fan for basic networking.
+
+You can optionally add the following dedicated networks:
+  - a network for Ceph management traffic (also called public traffic)
+  - a network for internal traffic (also called cluster traffic)
+  - a network for OVN underlay traffic
 
 ## **What's next?**
 
