@@ -234,7 +234,7 @@ jobs:
         with:
           name: system-test-deps
           merge-multiple: true
-          path: /home/runner/go/bin
+          path: /home/ubuntu/go/bin
 
       - name: Make GOCOVERDIR
         run: mkdir -p "${GOCOVERDIR}"
