@@ -135,7 +135,12 @@ jobs:
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
     name: System
-    runs-on: ubuntu-22.04
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - jammy
+      - large
     needs: code-tests
     strategy:
       fail-fast: false
