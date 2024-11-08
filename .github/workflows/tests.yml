@@ -133,6 +133,14 @@ jobs:
         microcloud: ["latest/edge"]
         # Additional test suites that will get included using a different set of versions.
         include:
+          # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph quincy and LXD 5.0
+          - suite: "upgrade"
+            os: "22.04"
+            go: "1.22.x"
+            microceph: "quincy/stable"
+            microovn: "22.03/stable"
+            lxd: "5.0/stable"
+            microcloud: "1/stable"
           # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph reef
           - suite: "upgrade"
             os: "22.04"
