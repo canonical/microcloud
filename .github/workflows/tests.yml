@@ -134,6 +134,8 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
+      # Use a different cover directory on the self hosted runner as the users home path is different.
+      GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/ubuntu/cover' || '' }}
     name: System
     runs-on:
       - self-hosted
