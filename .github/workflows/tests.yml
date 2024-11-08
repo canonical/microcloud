@@ -204,9 +204,9 @@ jobs:
           set -eux
 
           free -mt
-          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer phpsessionclean.timer update-notifier-download.timer update-notifier-motd.timer
+          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
           sudo systemctl stop iscsid.socket multipathd.socket
-          sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
+          sudo systemctl stop cron.service irqbalance.service multipathd.service networkd-dispatcher.service
           free -mt
 
       - name: Disable Docker
