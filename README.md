@@ -1,6 +1,6 @@
 # **MicroCloud**
 
-**MicroCloud** MicroCloud allows you to deploy your own fully functional cloud in minutes.
+**MicroCloud** allows you to deploy your own fully functional cloud in minutes.
 
 It’s a snap package that can automatically configure LXD, Ceph, and OVN across a set of servers.
 It can leverage multicast to automatically detect other servers on the network, making it possible to set up a complete cluster by running a single command on each of the machines.
