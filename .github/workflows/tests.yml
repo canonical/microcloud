@@ -221,12 +221,8 @@ jobs:
           sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
           free -mt
 
-      - name: Remove docker
-        run: |
-          set -eux
-          sudo apt-get autopurge -y containerd.io moby-containerd docker docker-ce podman uidmap
-          sudo ip link delete docker0
-          sudo nft flush ruleset
+      - name: Disable Docker
+        uses: canonical/lxd/.github/actions/disable-docker@main
 
       - name: "Disable br_netfilter"
         run: |
