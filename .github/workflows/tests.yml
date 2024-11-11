@@ -186,24 +186,7 @@ jobs:
         uses: canonical/lxd/.github/actions/tune-disk-performance@main
 
       - name: Reclaim some space
-        run: |
-          set -eux
-
-          sudo snap remove lxd --purge
-          # Purge older snap revisions that are disabled/superseded by newer revisions of the same snap
-          snap list --all | while read -r name _ rev _ _ notes _; do
-            [[ "${notes}" =~ disabled$ ]] && sudo snap remove "${name}" --revision "${rev}" --purge
-          done || true
-
-          # This was inspired from https://github.com/easimon/maximize-build-space
-          df -h /
-          # dotnet
-          sudo rm -rf /usr/share/dotnet
-          # android
-          sudo rm -rf /usr/local/lib/android
-          # haskell
-          sudo rm -rf /opt/ghc
-          df -h /
+        uses: canonical/lxd/.github/actions/reclaim-disk-space@main
 
       - name: Reclaim some memory
         run: |
