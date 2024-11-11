@@ -63,7 +63,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.22.x
+          go-version-file: 'go.mod'
 
       - name: Check compatibility with min Go version
         run: |
@@ -153,7 +153,6 @@ jobs:
           - "preseed"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
-        go: ["1.22.x"]
         microceph: ["squid/stable"]
         microovn: ["24.03/stable"]
         lxd: ["5.21/stable"]
@@ -163,7 +162,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph reef
           - suite: "upgrade"
             os: "22.04"
-            go: "1.22.x"
             microceph: "reef/stable"
             microovn: "22.03/stable"
             lxd: "5.21/stable"
@@ -171,7 +169,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 24.04 using MicroCeph reef
           - suite: "upgrade"
             os: "24.04"
-            go: "1.22.x"
             lxd: "5.21/stable"
             microceph: "reef/stable"
             microovn: "22.03/stable"
@@ -179,7 +176,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph quincy
           - suite: "upgrade"
             os: "22.04"
-            go: "1.22.x"
             microceph: "quincy/stable"
             microovn: "22.03/stable"
             lxd: "5.21/stable"
@@ -187,7 +183,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 24.04 using MicroCeph quincy
           - suite: "upgrade"
             os: "24.04"
-            go: "1.22.x"
             lxd: "5.21/stable"
             microceph: "quincy/stable"
             microovn: "22.03/stable"
@@ -251,10 +246,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Go (${{ matrix.go }})
+      - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: 'go.mod'
 
       - name: Install dependencies
         run: |
@@ -357,7 +352,7 @@ jobs:
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.go }}-${{ matrix.suite }}-${{ env.TIMESTAMP }}
+          name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
           path: ${{ env.GOCOVERDIR }}
         if: env.GOCOVERDIR != ''
 
