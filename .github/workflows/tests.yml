@@ -285,7 +285,7 @@ jobs:
         run: |
           set -eux
           sudo snap install lxd --channel 5.21/edge || sudo snap refresh lxd --channel 5.21/edge
-          sudo lxd init --auto
+          sudo lxd init --auto --storage-backend=zfs
 
       - name: "Prepare for system tests"
         run: |
