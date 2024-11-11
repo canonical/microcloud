@@ -228,7 +228,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
       - name: Download system test dependencies
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: system-test-deps
           merge-multiple: true
@@ -344,7 +344,7 @@ jobs:
           go-version: 1.23.x
 
       - name: Download coverage data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           pattern: coverage-*
           path: ${{env.GOCOVERDIR}}
@@ -357,7 +357,7 @@ jobs:
           ls -la ${{ env.GOCOVERDIR }}
 
       - name: Download system test dependencies
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: system-test-deps
           merge-multiple: true
