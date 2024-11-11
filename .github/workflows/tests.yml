@@ -270,11 +270,14 @@ jobs:
           export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
           export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
 
-          # strip debug binaries
-          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
-
           echo "MICROCLOUD_DEBUG_PATH=${MICROCLOUD_DEBUG_PATH}"   >> "${GITHUB_ENV}"
           echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
+
+      - name: Strip debug binaries
+        if: env.GOCOVERDIR == ''
+        run: |
+          set -eux
+          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
 
       - name: "Free up the ephemeral disk"
         run: |
