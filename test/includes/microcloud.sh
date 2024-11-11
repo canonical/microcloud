@@ -1170,8 +1170,10 @@ create_system() {
     # Pre fetch additional images to be used by the VM through security.devlxd.images=true
     lxc image copy ubuntu-minimal-daily:24.04 local:
     lxc image copy ubuntu-minimal-daily:22.04 local:
-    lxc image copy ubuntu-minimal-daily:24.04 local: --vm
-    lxc image copy ubuntu-minimal-daily:22.04 local: --vm
+    if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+        lxc image copy ubuntu-minimal-daily:24.04 local: --vm
+        lxc image copy ubuntu-minimal-daily:22.04 local: --vm
+    fi
 
     lxc init "ubuntu-minimal-daily:${os}" "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB -c security.devlxd.images=true
 
