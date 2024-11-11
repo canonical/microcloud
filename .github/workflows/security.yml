@@ -72,13 +72,16 @@ jobs:
     needs: trivy-repo
     strategy:
       matrix:
-        version:
-          - "latest"
+        include:
+          - channel: "3/edge"
+            branch: "main"
+          - channel: "2/candidate"
+            branch: "v2-edge"
     steps:
       - name: Checkout
         uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
-          ref: ${{ (matrix.version == 'latest' && 'main') || format('stable-{0}', matrix.version) }}
+          ref: ${{ matrix.branch }}
 
       - name: Install Trivy
         uses: canonical/lxd/.github/actions/install-trivy@main
@@ -91,7 +94,7 @@ jobs:
 
       - name: Download snap for scan
         run: |
-          snap download microcloud --channel=${{ matrix.version }}/stable
+          snap download microcloud --channel=${{ matrix.channel }}
           unsquashfs ./microcloud*.snap
 
       - name: Run Trivy vulnerability scanner
@@ -101,16 +104,16 @@ jobs:
           --format sarif \
           --cache-dir /home/runner/vuln-cache \
           --severity LOW,MEDIUM,HIGH,CRITICAL \
-          --output ${{ matrix.version }}-stable.sarif squashfs-root
+          --output snap-scan-results.sarif squashfs-root
 
       - name: Flag snap scanning alerts
         run: |
-          jq '.runs[].tool.driver.rules[] |= (.shortDescription.text |= "Snap scan - " + .)' ${{ matrix.version }}-stable.sarif > tmp.json
-          mv tmp.json ${{ matrix.version }}-stable.sarif
+          jq '.runs[].tool.driver.rules[] |= (.shortDescription.text |= "Snap scan - " + .)' snap-scan-results.sarif > tmp.json
+          mv tmp.json snap-scan-results.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@f779452ac5af1c261dce0346a8f964149f49322b # v3.26.13
         with:
-          sarif_file: "${{ matrix.version }}-stable.sarif"
+          sarif_file: "snap-scan-results.sarif"
           sha: ${{ github.sha }}
-          ref: refs/heads/${{ (matrix.version == 'latest' && 'main') || format('stable-{0}', matrix.version) }}
+          ref: refs/heads/${{ matrix.branch }}
