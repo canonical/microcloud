@@ -250,10 +250,10 @@ $(true)                                        # workaround for set -e
 
   initiator="$(lxc exec "${1}" -- cat out | grep -o 'Found system.* at')"
   initiator="$(echo "${initiator}" | cut -d'"' -f2)"
-  lxc exec "${initiator}" -- cat code | grep -q '0'
+  [ "$(lxc exec "${initiator}" -- cat code)" = "0" ]
 
   for joiner in "$@" ; do
-    lxc exec "${joiner}" -- cat code | grep -q '0'
+    [ "$(lxc exec "${joiner}" -- cat code)" = "0" ]
   done
 }
 
@@ -447,8 +447,8 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
-  lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
+  [ "$(lxc config get storage.backups_volume --target "${name}")" = "local/backups" ]
+  [ "$(lxc config get storage.images_volume  --target "${name}")" = "local/images"  ]
 
   cfg="$(lxc storage show local)"
   grep -q "config: {}" <<< "${cfg}"
