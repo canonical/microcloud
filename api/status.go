@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -65,16 +66,28 @@ func statusGet(sh *service.Handler) endpointHandler {
 			}
 		}
 
+		var address string
+		addrPort, err := microTypes.ParseAddrPort(s.Address().URL.Host)
+		if err != nil {
+			return response.SmartError(fmt.Errorf("Failed to parse MicroCloud listen address: %w", err))
+		}
+
+		// The address may be empty if we haven't initialized MicroCloud yet.
+		address = addrPort.String()
+		if address != "" {
+			address = addrPort.Addr().String()
+		}
+
 		status := &types.Status{
-			Name:         sh.Name,
-			Address:      sh.Address,
+			Name:         s.Name(),
+			Address:      address,
 			Clusters:     make(map[types.ServiceType][]microTypes.ClusterMember, len(sh.Services)),
 			OSDs:         []cephTypes.Disk{},
 			CephServices: []cephTypes.Service{},
 			OVNServices:  []ovnTypes.Service{},
 		}
 
-		err := sh.RunConcurrent("", "", func(s service.Service) error {
+		err = sh.RunConcurrent("", "", func(s service.Service) error {
 			switch s.Type() {
 			case types.LXD:
 				clusterMembers, err := lxdStatus(r.Context(), s)
