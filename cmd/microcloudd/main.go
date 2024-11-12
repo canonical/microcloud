@@ -133,6 +133,19 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy(s),
 	}
 
+	setHandlerAddress := func(url string) error {
+		addrPort, err := microTypes.ParseAddrPort(url)
+		if err != nil {
+			return err
+		}
+
+		if addrPort != (microTypes.AddrPort{}) {
+			s.SetAddress(addrPort.Addr().String())
+		}
+
+		return nil
+	}
+
 	dargs := microcluster.DaemonArgs{
 		Verbose:           c.global.flagLogVerbose,
 		Debug:             c.global.flagLogDebug,
@@ -141,6 +154,9 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 		PreInitListenAddress: "[::]:" + strconv.FormatInt(service.CloudPort, 10),
 		Hooks: &state.Hooks{
+			PostBootstrap: func(ctx context.Context, state state.State, initConfig map[string]string) error {
+				return setHandlerAddress(state.Address().URL.Host)
+			},
 			PostJoin: func(ctx context.Context, state state.State, cfg map[string]string) error {
 				// If the node has joined close the session.
 				// This will signal to the client to exit out gracefully
@@ -151,7 +167,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 				case <-ctx.Done():
 				}
 
-				return nil
+				return setHandlerAddress(state.Address().URL.Host)
 			},
 			OnStart: s.Start,
 		},
