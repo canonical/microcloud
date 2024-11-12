@@ -103,8 +103,9 @@ func (m *multicastSuite) Test_Lookup() {
 		testDiscovery := NewDiscovery(c.lookupIface, c.lookupPort)
 
 		ctx := context.Background()
+		var cancel context.CancelFunc
 		if c.lookupTimeout > 0 {
-			ctx, _ = context.WithTimeoutCause(ctx, c.lookupTimeout, fmt.Errorf("Timeout exceeded"))
+			ctx, cancel = context.WithTimeoutCause(ctx, c.lookupTimeout, fmt.Errorf("Timeout exceeded"))
 		}
 
 		receivedInfo, err := testDiscovery.Lookup(ctx, c.lookupVersion)
@@ -114,6 +115,11 @@ func (m *multicastSuite) Test_Lookup() {
 		} else {
 			m.Require().Error(err)
 			m.Require().Equal(c.lookupErr.Error(), err.Error())
+		}
+
+		// Cancel the timeout to avoid leaking the context.
+		if cancel != nil {
+			cancel()
 		}
 
 		// Stop the responder.
