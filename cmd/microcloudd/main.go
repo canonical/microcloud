@@ -5,11 +5,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microcluster/v2/rest"
+	microTypes "github.com/canonical/microcluster/v2/rest/types"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -129,7 +133,44 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy(s),
 	}
 
-	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints, c.global.flagLogVerbose, c.global.flagLogDebug, c.flagHeartbeatInterval)
+	dargs := microcluster.DaemonArgs{
+		Verbose:           c.global.flagLogVerbose,
+		Debug:             c.global.flagLogDebug,
+		Version:           version.RawVersion,
+		HeartbeatInterval: c.flagHeartbeatInterval,
+
+		PreInitListenAddress: "[::]:" + strconv.FormatInt(service.CloudPort, 10),
+		Hooks: &state.Hooks{
+			PostJoin: func(ctx context.Context, state state.State, cfg map[string]string) error {
+				// If the node has joined close the session.
+				// This will signal to the client to exit out gracefully
+				// and ultimately lead to the closing of the websocket connection.
+				// Prevent blocking of the hook by also watching the outer context.
+				select {
+				case s.Session.ExitCh() <- true:
+				case <-ctx.Done():
+				}
+
+				return nil
+			},
+			OnStart: s.Start,
+		},
+		ExtensionServers: map[string]rest.Server{
+			"microcloud": {
+				CoreAPI:   true,
+				PreInit:   true,
+				ServeUnix: true,
+				Resources: []rest.Resources{
+					{
+						PathPrefix: types.APIVersion,
+						Endpoints:  endpoints,
+					},
+				},
+			},
+		},
+	}
+
+	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), dargs)
 }
 
 func main() {

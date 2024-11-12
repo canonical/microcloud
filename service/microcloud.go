@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
@@ -15,14 +14,11 @@ import (
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 	microClient "github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/microcluster"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
 	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/version"
 )
 
 // CloudService is a MicroCloud service.
@@ -66,44 +62,7 @@ func NewCloudService(name string, addr string, dir string) (*CloudService, error
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(ctx context.Context, service *Handler, endpoints []rest.Endpoint, verbose bool, debug bool, heartbeatInterval time.Duration) error {
-	args := microcluster.DaemonArgs{
-		Verbose:           verbose,
-		Debug:             debug,
-		Version:           version.RawVersion,
-		HeartbeatInterval: heartbeatInterval,
-
-		PreInitListenAddress: "[::]:" + strconv.FormatInt(CloudPort, 10),
-		Hooks: &state.Hooks{
-			PostJoin: func(ctx context.Context, s state.State, cfg map[string]string) error {
-				// If the node has joined close the session.
-				// This will signal to the client to exit out gracefully
-				// and ultimately lead to the closing of the websocket connection.
-				// Prevent blocking of the hook by also watching the outer context.
-				select {
-				case service.Session.ExitCh() <- true:
-				case <-ctx.Done():
-				}
-
-				return nil
-			},
-			OnStart: service.Start,
-		},
-		ExtensionServers: map[string]rest.Server{
-			"microcloud": {
-				CoreAPI:   true,
-				PreInit:   true,
-				ServeUnix: true,
-				Resources: []rest.Resources{
-					{
-						PathPrefix: types.APIVersion,
-						Endpoints:  endpoints,
-					},
-				},
-			},
-		},
-	}
-
+func (s *CloudService) StartCloud(ctx context.Context, args microcluster.DaemonArgs) error {
 	return s.client.Start(ctx, args)
 }
 
