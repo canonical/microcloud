@@ -4,11 +4,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microcluster/v2/rest"
@@ -169,8 +171,21 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 				return setHandlerAddress(state.Address().URL.Host)
 			},
-			OnStart: s.Start,
+			OnStart: func(ctx context.Context, state state.State) error {
+				// If we are already initialized, there's nothing to do.
+				err := state.Database().IsOpen(ctx)
+
+				// If we encounter a non-503 error, that means the database failed for some reason.
+				if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
+					return nil
+				}
+
+				// With a 503 error or no error, we can be sure there is an address trying to connect to dqlite, so we can proceed with the handler address update.
+
+				return setHandlerAddress(state.Address().URL.Host)
+			},
 		},
+
 		ExtensionServers: map[string]rest.Server{
 			"microcloud": {
 				CoreAPI:   true,
