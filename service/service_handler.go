@@ -37,11 +37,13 @@ const (
 type Handler struct {
 	Services map[types.ServiceType]Service
 	Name     string
-	Address  string
 	Port     int64
 
 	sessionLock sync.RWMutex
 	Session     *Session
+
+	initMu  sync.RWMutex
+	address string
 }
 
 // NewHandler creates a new Handler with a client for each of the given services.
@@ -71,7 +73,7 @@ func NewHandler(name string, addr string, stateDir string, services ...types.Ser
 	return &Handler{
 		Services: servicesMap,
 		Name:     name,
-		Address:  addr,
+		address:  addr,
 		Port:     CloudPort,
 	}, nil
 }
@@ -223,4 +225,20 @@ func Exists(service types.ServiceType, stateDir string) bool {
 	_, err := os.Stat(socketPath)
 
 	return err == nil
+}
+
+// Address gets the address used for the MicroCloud API.
+func (s *Handler) Address() string {
+	s.initMu.RLock()
+	defer s.initMu.RUnlock()
+
+	return s.address
+}
+
+// SetAddress sets the address used for the MicroCloud API.
+func (s *Handler) SetAddress(addr string) {
+	s.initMu.Lock()
+	defer s.initMu.Unlock()
+
+	s.address = addr
 }
