@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"crypto/x509"
 	"fmt"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -76,17 +74,6 @@ func NewHandler(name string, addr string, stateDir string, services ...types.Ser
 		address:  addr,
 		Port:     CloudPort,
 	}, nil
-}
-
-// Start is run after the MicroCloud daemon has started.
-func (s *Handler) Start(ctx context.Context, state state.State) error {
-	// If we are already initialized, there's nothing to do.
-	err := state.Database().IsOpen(context.Background())
-	if err == nil {
-		return nil
-	}
-
-	return nil
 }
 
 // RunConcurrent runs the given hook concurrently across all services.
