@@ -582,7 +582,7 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 		// If the system is ourselves, we don't have a multicast discovery payload so grab the address locally.
 		addr := system.ServerInfo.Address
 		if systemName == s.Name {
-			addr = s.Address
+			addr = s.Address()
 		}
 
 		systemAddr := net.ParseIP(addr)
@@ -836,7 +836,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		conns := []string{}
 		for _, service := range services {
 			if service.Service == "central" {
-				addr := s.Address
+				addr := s.Address()
 				if service.Location != s.Name {
 					addr = clusterMap[service.Location]
 				}

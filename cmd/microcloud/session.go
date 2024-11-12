@@ -152,7 +152,7 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, initiatorAddress string, passphrase string) error {
 	session := types.Session{
 		Passphrase:       passphrase,
-		Address:          sh.Address,
+		Address:          sh.Address(),
 		InitiatorAddress: initiatorAddress,
 		Interface:        c.lookupIface.Name,
 		Services:         services,
