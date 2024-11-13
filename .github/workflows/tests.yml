@@ -148,8 +148,8 @@ jobs:
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
         go: ["1.22.x"]
-        microceph: ["latest/edge"]
-        microovn: ["latest/edge"]
+        microceph: ["squid/candidate"]
+        microovn: ["24.03/stable"]
         lxd: ["5.21/edge"]
         microcloud: ["latest/edge"]
         # Additional test suites that will get included using a different set of versions.
