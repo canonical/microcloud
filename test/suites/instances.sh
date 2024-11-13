@@ -439,4 +439,212 @@ EOF
   if ! [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     lxc exec micro01 -- lxc delete -f v1
   fi
+
+  # Create a MicroCloud with ceph, fully disaggregated ceph networking and ovn underlay network.
+  reset_systems 3 3 5
+  addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
+
+  ceph_cluster_subnet_prefix="10.0.1"
+  ceph_cluster_subnet_iface="enp7s0"
+  ceph_public_subnet_prefix="10.0.2"
+  ceph_public_subnet_iface="enp8s0"
+  ovn_underlay_subnet_prefix="10.0.3"
+  ovn_underlay_subnet_iface="enp9s0"
+  set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
+  set_cluster_subnet 3  "${ovn_underlay_subnet_iface}" "${ovn_underlay_subnet_prefix}"
+
+  preseed="$(cat << EOF
+lookup_subnet: ${addr}/24
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro01
+  ovn_underlay_ip: 10.0.3.2
+  ovn_uplink_interface: enp6s0
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+- name: micro02
+  ovn_underlay_ip: 10.0.3.3
+  ovn_uplink_interface: enp6s0
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+- name: micro03
+  ovn_underlay_ip: 10.0.3.4
+  ovn_uplink_interface: enp6s0
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+ceph:
+  internal_network: ${ceph_cluster_subnet_prefix}.0/24
+  public_network: ${ceph_public_subnet_prefix}.0/24
+  cephfs: true
+EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- lxc profile edit default << EOF
+config:
+  cloud-init.user-data: |
+    #cloud-config
+    packages:
+    - iputils-ping
+    write_files:
+      - content: |
+          #!/bin/sh
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{"state": "Ready"}'
+        path: /var/lib/cloud/scripts/per-boot/ready.sh
+        permissions: "0755"
+devices:
+  fs:
+    ceph.cluster_name: ceph
+    ceph.user_name: admin
+    path: /cephfs
+    source: cephfs:lxd_cephfs/
+    type: disk
+EOF
+
+  # Launch a container and VM with CEPH storage & OVN network.
+  if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    echo "::warning::SKIPPING VM LAUNCH TEST"
+  else
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
+  fi
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+
+  check_instance_connectivity "c1" "c2" "0"
+  check_instance_connectivity "v1" "c1" "1"
+
+  lxc exec micro01 -- lxc delete -f c1 c2
+  if ! [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    lxc exec micro01 -- lxc delete -f v1
+  fi
+
+  # Create a MicroCloud with ceph, fully disaggregated ceph networking and ovn underlay network with an extended cluster.
+  reset_systems 3 3 5
+  addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
+
+  ceph_cluster_subnet_prefix="10.0.1"
+  ceph_cluster_subnet_iface="enp7s0"
+  ceph_public_subnet_prefix="10.0.2"
+  ceph_public_subnet_iface="enp8s0"
+  ovn_underlay_subnet_prefix="10.0.3"
+  ovn_underlay_subnet_iface="enp9s0"
+  set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
+  set_cluster_subnet 3  "${ovn_underlay_subnet_iface}" "${ovn_underlay_subnet_prefix}"
+
+  preseed="$(cat << EOF
+lookup_subnet: ${addr}/24
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro01
+  ovn_underlay_ip: 10.0.3.2
+  ovn_uplink_interface: enp6s0
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+- name: micro02
+  ovn_underlay_ip: 10.0.3.3
+  ovn_uplink_interface: enp6s0
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+ceph:
+  internal_network: ${ceph_cluster_subnet_prefix}.0/24
+  public_network: ${ceph_public_subnet_prefix}.0/24
+  cephfs: true
+EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  preseed="$(cat << EOF
+lookup_subnet: ${addr}/24
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro03
+  ovn_underlay_ip: 10.0.3.4
+  ovn_uplink_interface: enp6s0
+  storage:
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+        wipe: true
+EOF
+  )"
+
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  # Add cloud-init entry for checking ready state on launched instances.
+  lxc exec micro01 -- lxc profile edit default << EOF
+config:
+  cloud-init.user-data: |
+    #cloud-config
+    packages:
+    - iputils-ping
+    write_files:
+      - content: |
+          #!/bin/sh
+          exec curl --unix-socket /dev/lxd/sock lxd/1.0 -X PATCH -d '{"state": "Ready"}'
+        path: /var/lib/cloud/scripts/per-boot/ready.sh
+        permissions: "0755"
+devices:
+  fs:
+    ceph.cluster_name: ceph
+    ceph.user_name: admin
+    path: /cephfs
+    source: cephfs:lxd_cephfs/
+    type: disk
+EOF
+
+  # Launch a container and VM with CEPH storage & OVN network.
+  if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    echo "::warning::SKIPPING VM LAUNCH TEST"
+  else
+    lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default --target micro03
+  fi
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro01
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro03
+
+  check_instance_connectivity "c1" "c2" "0"
+  check_instance_connectivity "v1" "c1" "1"
+
+  lxc exec micro01 -- lxc delete -f c1 c2
+  if ! [ "${SKIP_VM_LAUNCH}" = "1" ]; then
+    lxc exec micro01 -- lxc delete -f v1
+  fi
 }
