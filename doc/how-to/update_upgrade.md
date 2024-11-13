@@ -101,7 +101,7 @@ Upgrading the dependencies can be done by running `snap refresh --channel <new t
 
 Make sure to consult the dedicated upgrade guides of each dependency before you perform the actual upgrade:
 
-* {doc}`How to upgrade MicroCeph <microceph:how-to/reef-upgrade>`
+* {doc}`How to upgrade MicroCeph <microceph:how-to/major-upgrade>`
 * {doc}`How to upgrade MicroOVN <microovn:how-to/major-upgrades>`
 * {doc}`How to upgrade LXD <lxd:howto/cluster_manage>`
 
