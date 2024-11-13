@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"crypto/x509"
 	"fmt"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -37,11 +35,13 @@ const (
 type Handler struct {
 	Services map[types.ServiceType]Service
 	Name     string
-	Address  string
 	Port     int64
 
 	sessionLock sync.RWMutex
 	Session     *Session
+
+	initMu  sync.RWMutex
+	address string
 }
 
 // NewHandler creates a new Handler with a client for each of the given services.
@@ -71,20 +71,9 @@ func NewHandler(name string, addr string, stateDir string, services ...types.Ser
 	return &Handler{
 		Services: servicesMap,
 		Name:     name,
-		Address:  addr,
+		address:  addr,
 		Port:     CloudPort,
 	}, nil
-}
-
-// Start is run after the MicroCloud daemon has started.
-func (s *Handler) Start(ctx context.Context, state state.State) error {
-	// If we are already initialized, there's nothing to do.
-	err := state.Database().IsOpen(context.Background())
-	if err == nil {
-		return nil
-	}
-
-	return nil
 }
 
 // RunConcurrent runs the given hook concurrently across all services.
@@ -223,4 +212,20 @@ func Exists(service types.ServiceType, stateDir string) bool {
 	_, err := os.Stat(socketPath)
 
 	return err == nil
+}
+
+// Address gets the address used for the MicroCloud API.
+func (s *Handler) Address() string {
+	s.initMu.RLock()
+	defer s.initMu.RUnlock()
+
+	return s.address
+}
+
+// SetAddress sets the address used for the MicroCloud API.
+func (s *Handler) SetAddress(addr string) {
+	s.initMu.Lock()
+	defer s.initMu.Unlock()
+
+	s.address = addr
 }

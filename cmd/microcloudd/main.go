@@ -4,12 +4,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microcluster/v2/rest"
+	microTypes "github.com/canonical/microcluster/v2/rest/types"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -129,7 +135,73 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.OVNProxy(s),
 	}
 
-	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), s, endpoints, c.global.flagLogVerbose, c.global.flagLogDebug, c.flagHeartbeatInterval)
+	setHandlerAddress := func(url string) error {
+		addrPort, err := microTypes.ParseAddrPort(url)
+		if err != nil {
+			return err
+		}
+
+		if addrPort != (microTypes.AddrPort{}) {
+			s.SetAddress(addrPort.Addr().String())
+		}
+
+		return nil
+	}
+
+	dargs := microcluster.DaemonArgs{
+		Verbose:           c.global.flagLogVerbose,
+		Debug:             c.global.flagLogDebug,
+		Version:           version.RawVersion,
+		HeartbeatInterval: c.flagHeartbeatInterval,
+
+		PreInitListenAddress: "[::]:" + strconv.FormatInt(service.CloudPort, 10),
+		Hooks: &state.Hooks{
+			PostBootstrap: func(ctx context.Context, state state.State, initConfig map[string]string) error {
+				return setHandlerAddress(state.Address().URL.Host)
+			},
+			PostJoin: func(ctx context.Context, state state.State, cfg map[string]string) error {
+				// If the node has joined close the session.
+				// This will signal to the client to exit out gracefully
+				// and ultimately lead to the closing of the websocket connection.
+				// Prevent blocking of the hook by also watching the outer context.
+				select {
+				case s.Session.ExitCh() <- true:
+				case <-ctx.Done():
+				}
+
+				return setHandlerAddress(state.Address().URL.Host)
+			},
+			OnStart: func(ctx context.Context, state state.State) error {
+				// If we are already initialized, there's nothing to do.
+				err := state.Database().IsOpen(ctx)
+
+				// If we encounter a non-503 error, that means the database failed for some reason.
+				if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
+					return nil
+				}
+
+				// With a 503 error or no error, we can be sure there is an address trying to connect to dqlite, so we can proceed with the handler address update.
+
+				return setHandlerAddress(state.Address().URL.Host)
+			},
+		},
+
+		ExtensionServers: map[string]rest.Server{
+			"microcloud": {
+				CoreAPI:   true,
+				PreInit:   true,
+				ServeUnix: true,
+				Resources: []rest.Resources{
+					{
+						PathPrefix: types.APIVersion,
+						Endpoints:  endpoints,
+					},
+				},
+			},
+		},
+	}
+
+	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), dargs)
 }
 
 func main() {
