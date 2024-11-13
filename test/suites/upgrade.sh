@@ -5,8 +5,8 @@ test_upgrade() {
 
   # Perform upgrade test from MicroCloud 1 to 2.
   if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/stable" ]; then
-    microceph_target="squid/edge" # TODO: squid/stable when available
-    microovn_target="latest/edge" # TODO: 24.03/stable when available
+    microceph_target="squid/candidate" # TODO: squid/stable when available
+    microovn_target="24.03/stable" # TODO: 24.03/stable when available
     lxd_target="5.21/edge"
     microcloud_target="latest/edge" # TODO: 2/stable when available
 
