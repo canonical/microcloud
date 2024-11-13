@@ -539,7 +539,7 @@ EOF
   fi
 
   # Create a MicroCloud with ceph, fully disaggregated ceph networking and ovn underlay network with an extended cluster.
-  reset_systems 3 3 5
+  reset_systems 4 3 5
   addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
 
   ceph_cluster_subnet_prefix="10.0.1"
@@ -548,9 +548,9 @@ EOF
   ceph_public_subnet_iface="enp8s0"
   ovn_underlay_subnet_prefix="10.0.3"
   ovn_underlay_subnet_iface="enp9s0"
-  set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
-  set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
-  set_cluster_subnet 3  "${ovn_underlay_subnet_iface}" "${ovn_underlay_subnet_prefix}"
+  set_cluster_subnet 4 "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+  set_cluster_subnet 4 "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
+  set_cluster_subnet 4 "${ovn_underlay_subnet_iface}" "${ovn_underlay_subnet_prefix}"
 
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
@@ -643,7 +643,36 @@ EOF
   check_instance_connectivity "c1" "c2" "0"
   check_instance_connectivity "v1" "c1" "1"
 
-  lxc exec micro01 -- lxc delete -f c1 c2
+
+  # Add a new node, don't add any OSDs to keep Ceph fully remote.
+  preseed="$(cat << EOF
+lookup_subnet: ${addr}/24
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro04
+  ovn_underlay_ip: 10.0.3.5
+  ovn_uplink_interface: enp6s0
+EOF
+  )"
+
+  lxc exec micro04 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro01
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro04
+  lxc exec micro01 -- lxc stop c3
+  lxc exec micro01 -- lxc move c3 --target micro04
+  lxc exec micro01 -- lxc start c3
+
+
+  check_instance_connectivity "c1" "c3" "0"
+  check_instance_connectivity "c1" "c4" "0"
+
+  lxc exec micro01 -- lxc delete -f c1 c2 c3 c4
   if ! [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     lxc exec micro01 -- lxc delete -f v1
   fi
