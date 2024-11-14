@@ -212,6 +212,12 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
+	fmt.Println("Waiting for services to start ...")
+	err := checkInitialized(c.common.FlagMicroCloudDir, true, false)
+	if err != nil {
+		return err
+	}
+
 	cfg := initConfig{
 		// Set bootstrap to true because we are setting up a new cluster for new services.
 		bootstrap: true,
@@ -228,19 +234,10 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = cloudApp.Ready(context.Background())
-	if err != nil {
-		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
-	}
-
 	// Fetch the name and address, and ensure we're initialized.
 	status, err := cloudApp.Status(context.Background())
 	if err != nil {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
-	}
-
-	if !status.Ready {
-		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
 	cfg.name = status.Name

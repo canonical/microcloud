@@ -1,4 +1,5 @@
 GOMIN=1.22.7
+GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 
 .PHONY: default
 default: build
@@ -6,8 +7,13 @@ default: build
 # Build targets.
 .PHONY: build
 build:
+ifeq "$(GOCOVERDIR)" ""
 	go install -tags=agent -v ./cmd/microcloud
 	go install -tags=agent -v ./cmd/microcloudd
+else
+	go install -tags=agent -v -cover ./cmd/microcloud
+	go install -tags=agent -v -cover ./cmd/microcloudd
+endif
 
 # Testing targets.
 .PHONY: check
@@ -15,7 +21,11 @@ check: check-static check-unit check-system
 
 .PHONY: check-unit
 check-unit:
+ifeq "$(GOCOVERDIR)" ""
 	go test ./...
+else
+	go test ./... -cover -test.gocoverdir="${GOCOVERDIR}"
+endif
 
 .PHONY: check-system
 check-system:
@@ -36,7 +46,13 @@ endif
 # Update targets.
 .PHONY: update-gomod
 update-gomod:
-	go get -u ./...
+	go get -t -v -u ./...
+
+	# Static pins
+	go get github.com/canonical/lxd@stable-5.21 # Stay on v2 dqlite and LXD LTS client
+	go get github.com/canonical/microceph@1200ba77f2320be2acec45939f4b96a8ac4f0722 # Right after releasing squid LTS.
+	go get github.com/canonical/microovn@branch-24.03 # 24.03 LTS.
+
 	go mod tidy -go=$(GOMIN)
 
 # Update lxd-generate generated database helpers.

@@ -9,9 +9,9 @@
 
 current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
-LXDVERSION       = origin/main
-MICROCEPHVERSION = origin/main
-MICROOVNVERSION  = origin/main
+LXDVERSION       = origin/stable-5.21
+MICROCEPHVERSION = 1200ba77f2320be2acec45939f4b96a8ac4f0722 # origin/main right after squid LTS.
+MICROOVNVERSION  = origin/branch-24.03
 
 # Put it first so that "make" without argument is like "make help".
 help:

@@ -19,11 +19,64 @@ import (
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
 
+	cloudAPI "github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
+
+func checkInitialized(stateDir string, expectInitialized bool, preseed bool) error {
+	cfg := initConfig{autoSetup: true}
+
+	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
+
+	// MicroCloud will automatically set up previously-uninitialized services,
+	// and incorporate already-initialized services in interactive setup,
+	// so we can ignore optional services unless using preseed.
+	if preseed {
+		optionalServices := map[types.ServiceType]string{
+			types.MicroCeph: cloudAPI.MicroCephDir,
+			types.MicroOVN:  cloudAPI.MicroOVNDir,
+		}
+
+		var err error
+		installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
+		if err != nil {
+			return err
+		}
+	}
+
+	s, err := service.NewHandler("", "", stateDir, installedServices...)
+	if err != nil {
+		return err
+	}
+
+	return s.RunConcurrent("", "", func(s service.Service) error {
+		initialized, err := s.IsInitialized(context.Background())
+		if err != nil {
+			return err
+		}
+
+		if expectInitialized && !initialized {
+			errMsg := fmt.Sprintf("%s is not initialized", s.Type())
+			if s.Type() == types.MicroCloud && !preseed {
+				errMsg = fmt.Sprintf("%s. Run 'microcloud init' first", errMsg)
+			}
+
+			return fmt.Errorf("%s", errMsg)
+		} else if !expectInitialized && initialized {
+			errMsg := fmt.Sprintf("%s is already initialized", s.Type())
+			if s.Type() == types.MicroCloud && !preseed {
+				errMsg = fmt.Sprintf("%s. Use 'microcloud add' instead", errMsg)
+			}
+
+			return fmt.Errorf("%s", errMsg)
+		}
+
+		return nil
+	})
+}
 
 // askUpdateProfile asks whether to update the existing profile configuration if it has changed.
 func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []string, lxdClient lxd.InstanceServer) (*api.ProfilePut, error) {

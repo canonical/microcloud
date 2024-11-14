@@ -192,6 +192,8 @@ run_test() {
 	${TEST_CURRENT}
 	END_TIME="$(date +%s)"
 
+	collect_go_cover_files
+
 	echo "::notice::==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
 }
 
@@ -206,6 +208,18 @@ testbed_setup() {
 
   END_TIME="$(date +%s)"
   echo "::notice::==> SETUP DONE ($((END_TIME - START_TIME))s)"
+}
+
+collect_go_cover_files() {
+	if [ -n "${GOCOVERDIR}" ]; then
+		echo "==> Collecting Go coverage files"
+		lxc list -c n -f csv | xargs --no-run-if-empty -I {} sh -c "
+		container_name=\"{}\"
+		timestamp=\$(date +%Y%m%d_%H%M%S_%N)
+		destination=\"${GOCOVERDIR}/\${container_name}_\${timestamp}\"
+		lxc file pull -r \"\${container_name}/var/snap/microcloud/common/data/cover\" \"\${destination}\" || true
+		"
+	fi
 }
 
 # test groups

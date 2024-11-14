@@ -5,9 +5,6 @@ relatedlinks: https://documentation.ubuntu.com/lxd/
 (get-started)=
 # Get started with MicroCloud
 
-```{youtube} https://www.youtube.com/watch?v=iWZYUU8lX5A
-```
-
 MicroCloud is quick to set up.
 Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
@@ -31,7 +28,7 @@ It uses virtual machines in LXD, so you don't need any extra hardware to follow 
    We recommend a storage pool size of at least 40 GiB for that.
 ```
 
-Complete the following steps to install and initialise LXD:
+MicroCloud requires LXD version 5.21:
 
 1. Install `snapd`:
 
@@ -55,7 +52,11 @@ Complete the following steps to install and initialise LXD:
           sudo apt update
           sudo apt install snapd
 
-1. Enter the following command to install LXD:
+1. If LXD is already installed, enter the following command to update it:
+
+       sudo snap refresh lxd --channel=5.21/stable
+
+   Otherwise, enter the following command to install LXD:
 
        sudo snap install lxd
 
@@ -178,10 +179,10 @@ Complete the following steps:
 
 1. Create and add network interfaces that use the dedicated MicroCloud network to each VM:
 
-       lxc config device add micro1 eth1 nic network=microbr0 name=eth1
-       lxc config device add micro2 eth1 nic network=microbr0 name=eth1
-       lxc config device add micro3 eth1 nic network=microbr0 name=eth1
-       lxc config device add micro4 eth1 nic network=microbr0 name=eth1
+       lxc config device add micro1 eth1 nic network=microbr0
+       lxc config device add micro2 eth1 nic network=microbr0
+       lxc config device add micro3 eth1 nic network=microbr0
+       lxc config device add micro4 eth1 nic network=microbr0
 
 1. Start the VMs:
 
@@ -345,6 +346,7 @@ When requested enter the passphrase:
 
 Verify the fingerprint "5d0808de679d" is displayed on joining systems.
 Waiting to detect systems ...
+Select the systems that should join the cluster:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
        +---------+---------------+--------------+
@@ -423,6 +425,8 @@ Up/down to move; right to select all; left to select none.
 
 Do you want to encrypt the selected disks? (yes/no) [default=no]: no
 Would you like to set up CephFS remote storage? (yes/no) [default=yes]:  yes
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: 203.0.113.0/24]:
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: 203.0.113.0/24]:
 Configure distributed networking? (yes/no) [default=yes]:  yes
 Select an available interface per system to provide external connectivity for distributed network(s):
 Space to select; enter to confirm; type to filter results.

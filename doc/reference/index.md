@@ -3,12 +3,8 @@
 
 The reference material in this section provides technical descriptions of MicroCloud.
 
+(reference-requirements)=
 ## Requirements
-
-```{image} https://res.cloudinary.com/canonical/image/fetch/f_auto,q_auto,fl_sanitize,w_236,h_214/https://assets.ubuntu.com/v1/904e5156-LXD+illustration+2.svg
-:alt: LXD requirements illustration
-:align: center
-```
 
 (hardware-requirements)=
 ### Hardware requirements
@@ -28,9 +24,9 @@ Also see Ceph's {ref}`ceph:hardware-recommendations`.
 
 ### Networking requirements
 
-For networking, MicroCloud requires two dedicated network interfaces: one for intra-cluster communication and one for external connectivity.
-To allow for external connectivity, MicroCloud requires an uplink network that supports broadcast and multicast.
-See {ref}`explanation-networking` for more information.
+For networking, MicroCloud requires at least two dedicated network interfaces: one for intra-cluster communication and one for external connectivity. If you want to segregate the Ceph networks and the OVN underlay network, you might need more dedicated interfaces.
+
+To allow for external connectivity, MicroCloud requires an uplink network that supports broadcast and multicast. See {ref}`explanation-networking` for more information.
 
 The IP addresses of the machines must not change after installation, so DHCP is not supported.
 

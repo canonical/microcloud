@@ -159,14 +159,8 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
-	// Initially restart LXD so that the correct MicroCloud service related state is set by the LXD snap.
-	fmt.Println("Waiting for LXD to start ...")
-	lxdService, err := service.NewLXDService("", "", c.common.FlagMicroCloudDir)
-	if err != nil {
-		return err
-	}
-
-	err = lxdService.Restart(context.Background(), 30)
+	fmt.Println("Waiting for services to start ...")
+	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
 	if err != nil {
 		return err
 	}
@@ -588,7 +582,7 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 		// If the system is ourselves, we don't have a multicast discovery payload so grab the address locally.
 		addr := system.ServerInfo.Address
 		if systemName == s.Name {
-			addr = s.Address
+			addr = s.Address()
 		}
 
 		systemAddr := net.ParseIP(addr)
@@ -842,7 +836,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		conns := []string{}
 		for _, service := range services {
 			if service.Service == "central" {
-				addr := s.Address
+				addr := s.Address()
 				if service.Location != s.Name {
 					addr = clusterMap[service.Location]
 				}

@@ -5,22 +5,22 @@ go 1.22.7
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-	github.com/canonical/lxd v0.0.0-20241022112222-538639622c38
-	github.com/canonical/microceph/microceph v0.0.0-20241021172252-2dd856d64c62
-	github.com/canonical/microcluster/v2 v2.0.4
-	github.com/canonical/microovn/microovn v0.0.0-20241018151920-4b82d2983810
-	github.com/charmbracelet/lipgloss v0.13.0
-	github.com/creack/pty v1.1.23
+	github.com/canonical/lxd v0.0.0-20241113163054-fc7c37f10646
+	github.com/canonical/microceph/microceph v0.0.0-20241112215406-1200ba77f232
+	github.com/canonical/microcluster/v2 v2.0.5
+	github.com/canonical/microovn/microovn v0.0.0-20241113083034-071827517062
+	github.com/charmbracelet/lipgloss v1.0.0
+	github.com/creack/pty v1.1.24
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/mod v0.21.0
-	golang.org/x/net v0.30.0
-	golang.org/x/sync v0.8.0
-	golang.org/x/sys v0.26.0
+	golang.org/x/mod v0.22.0
+	golang.org/x/net v0.31.0
+	golang.org/x/sync v0.9.0
+	golang.org/x/sys v0.27.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -29,11 +29,11 @@ require (
 	github.com/Rican7/retry v0.3.1 // indirect
 	github.com/armon/go-proxyproto v0.1.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/canonical/go-dqlite v1.22.0 // indirect
-	github.com/charmbracelet/x/ansi v0.3.2 // indirect
+	github.com/canonical/go-dqlite/v2 v2.0.0 // indirect
+	github.com/charmbracelet/x/ansi v0.4.5 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -54,7 +54,7 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/sftp v1.13.6 // indirect
+	github.com/pkg/sftp v1.13.7 // indirect
 	github.com/pkg/xattr v0.4.10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -62,13 +62,13 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zitadel/logging v0.6.1 // indirect
-	github.com/zitadel/oidc/v3 v3.31.0 // indirect
+	github.com/zitadel/oidc/v3 v3.33.1 // indirect
 	github.com/zitadel/schema v1.3.0 // indirect
-	go.opentelemetry.io/otel v1.31.0 // indirect
-	go.opentelemetry.io/otel/metric v1.31.0 // indirect
-	go.opentelemetry.io/otel/trace v1.31.0 // indirect
-	golang.org/x/crypto v0.28.0 // indirect
-	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/term v0.25.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	go.opentelemetry.io/otel v1.32.0 // indirect
+	go.opentelemetry.io/otel/metric v1.32.0 // indirect
+	go.opentelemetry.io/otel/trace v1.32.0 // indirect
+	golang.org/x/crypto v0.29.0 // indirect
+	golang.org/x/oauth2 v0.24.0 // indirect
+	golang.org/x/term v0.26.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 )
