@@ -50,6 +50,8 @@ update-gomod:
 
 	# Static pins
 	go get github.com/canonical/lxd@stable-5.21 # Stay on v2 dqlite and LXD LTS client
+	go get github.com/canonical/microceph@1200ba77f2320be2acec45939f4b96a8ac4f0722 # Right after releasing squid LTS.
+	go get github.com/canonical/microovn@branch-24.03 # 24.03 LTS.
 
 	go mod tidy -go=$(GOMIN)
 
