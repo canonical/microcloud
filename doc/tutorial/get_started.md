@@ -5,9 +5,6 @@ relatedlinks: https://documentation.ubuntu.com/lxd/
 (get-started)=
 # Get started with MicroCloud
 
-```{youtube} https://www.youtube.com/watch?v=iWZYUU8lX5A
-```
-
 MicroCloud is quick to set up.
 Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
