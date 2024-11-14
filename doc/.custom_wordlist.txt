@@ -11,6 +11,7 @@ DCO
 DHCP
 DNS
 GiB
+HWE
 intra
 IOV
 IPs
@@ -24,6 +25,7 @@ MicroCloud
 MicroCloud's
 MicroOVN
 multicast
+NVMe
 OVN
 pre
 preseed
