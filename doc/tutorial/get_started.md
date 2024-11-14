@@ -182,10 +182,10 @@ Complete the following steps:
 
 1. Create and add network interfaces that use the dedicated MicroCloud network to each VM:
 
-       lxc config device add micro1 eth1 nic network=microbr0 name=eth1
-       lxc config device add micro2 eth1 nic network=microbr0 name=eth1
-       lxc config device add micro3 eth1 nic network=microbr0 name=eth1
-       lxc config device add micro4 eth1 nic network=microbr0 name=eth1
+       lxc config device add micro1 eth1 nic network=microbr0
+       lxc config device add micro2 eth1 nic network=microbr0
+       lxc config device add micro3 eth1 nic network=microbr0
+       lxc config device add micro4 eth1 nic network=microbr0
 
 1. Start the VMs:
 
