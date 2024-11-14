@@ -5,10 +5,10 @@ go 1.22.7
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-	github.com/canonical/lxd v0.0.0-20241106165613-4aab50ec18c3
-	github.com/canonical/microceph/microceph v0.0.0-20241021172252-2dd856d64c62
+	github.com/canonical/lxd v0.0.0-20241113163054-fc7c37f10646
+	github.com/canonical/microceph/microceph v0.0.0-20241112215406-1200ba77f232
 	github.com/canonical/microcluster/v2 v2.0.5
-	github.com/canonical/microovn/microovn v0.0.0-20241101125123-0d5d663f6575
+	github.com/canonical/microovn/microovn v0.0.0-20241113083034-071827517062
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/creack/pty v1.1.24
 	github.com/gorilla/mux v1.8.1
@@ -62,13 +62,13 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zitadel/logging v0.6.1 // indirect
-	github.com/zitadel/oidc/v3 v3.32.1 // indirect
+	github.com/zitadel/oidc/v3 v3.33.1 // indirect
 	github.com/zitadel/schema v1.3.0 // indirect
-	go.opentelemetry.io/otel v1.31.0 // indirect
-	go.opentelemetry.io/otel/metric v1.31.0 // indirect
-	go.opentelemetry.io/otel/trace v1.31.0 // indirect
+	go.opentelemetry.io/otel v1.32.0 // indirect
+	go.opentelemetry.io/otel/metric v1.32.0 // indirect
+	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	golang.org/x/crypto v0.29.0 // indirect
-	golang.org/x/oauth2 v0.23.0 // indirect
+	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/term v0.26.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 )
