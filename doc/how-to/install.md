@@ -11,7 +11,7 @@ The requirements in this section apply to all MicroCloud deployments.
 
 A physical or virtual machine intended for use as a MicroCloud cluster member must meet the following prerequisites:
 
-- Software: 
+- Software:
   - Ubuntu 22.04 or newer (LTS version recommended)
     - If you intend to use ZFS storage, use a non-HWE (Hardware Enabled) variant of Ubuntu 22.04
   - snapd 2.59 or newer
@@ -41,7 +41,7 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
   - 1 member
 - Memory:
   - Minimum 8 GiB RAM per cluster member
-- Storage:   
+- Storage:
   - If high availability is required, use distributed storage with:
     - a minimum of 3 cluster members
     - a minimum of 3 separate disks located across 3 different members
@@ -56,12 +56,12 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
   - For critical deployments, we recommend a minimum of 4 members
 - Memory:
   - Minimum 32 GiB RAM per cluster member
-- Software: 
+- Software:
   - For production deployments subscribed to Ubuntu Pro, each cluster member must use a LTS version of Ubuntu
-- Networking: 
+- Networking:
   - For each cluster member, we recommend dual-port network cards with a minimum 10 GiB capacity, or higher if low latency is essential
 - Storage:
-  - For each cluster member, we recommend at least 3 NVMe disks: 
+  - For each cluster member, we recommend at least 3 NVMe disks:
     - 1 for OS
     - 1 for local storage
     - 1 for distributed storage
@@ -71,6 +71,9 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
 For detailed information, see: {ref}`reference-requirements`.
 
 ## Installation
+
+```{youtube} https://www.youtube.com/watch?v=M0y0hQ16YuE
+```
 
 To install MicroCloud, install all required {ref}`snaps` on all machines that you want to include in your cluster.
 
