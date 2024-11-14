@@ -3,6 +3,7 @@
 
 The reference material in this section provides technical descriptions of MicroCloud.
 
+(reference-requirements)=
 ## Requirements
 
 (hardware-requirements)=
