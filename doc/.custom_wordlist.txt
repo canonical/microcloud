@@ -9,6 +9,8 @@ CephFS
 CIDR
 DCO
 DHCP
+disaggregate
+disaggregated
 DNS
 GiB
 HWE
@@ -38,7 +40,6 @@ VLAN
 VM
 VMs
 ZFS
-disaggregated
 subnets
 GbE
 QSFP
