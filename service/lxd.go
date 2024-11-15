@@ -121,7 +121,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	newServer := currentServer.Writable()
 	newServer.Config["core.https_address"] = "[::]:8443"
 	newServer.Config["cluster.https_address"] = addr
-	if client.HasExtension("migration_stateful_default") {
+	if client.HasExtension("instances_migration_stateful") {
 		newServer.Config["instances.migration.stateful"] = "true"
 	}
 
