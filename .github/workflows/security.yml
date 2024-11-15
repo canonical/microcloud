@@ -75,7 +75,7 @@ jobs:
         include:
           - channel: "3/edge"
             branch: "main"
-          - channel: "2/candidate"
+          - channel: "2/stable"
             branch: "v2-edge"
     steps:
       - name: Checkout
