@@ -250,10 +250,10 @@ $(true)                                        # workaround for set -e
 
   initiator="$(lxc exec "${1}" -- cat out | grep -o 'Found system.* at')"
   initiator="$(echo "${initiator}" | cut -d'"' -f2)"
-  lxc exec "${initiator}" -- cat code | grep -q '0'
+  [ "$(lxc exec "${initiator}" -- cat code)" = "0" ]
 
   for joiner in "$@" ; do
-    lxc exec "${joiner}" -- cat code | grep -q '0'
+    [ "$(lxc exec "${joiner}" -- cat code)" = "0" ]
   done
 }
 
@@ -447,8 +447,8 @@ validate_system_lxd_zfs() {
   name=${1}
   local_disk=${2:-}
   echo "    ${name} Validating ZFS storage"
-  lxc config get storage.backups_volume --target "${name}" | grep -qxF "local/backups"
-  lxc config get storage.images_volume  --target "${name}" | grep -qxF "local/images"
+  [ "$(lxc config get storage.backups_volume --target "${name}")" = "local/backups" ]
+  [ "$(lxc config get storage.images_volume  --target "${name}")" = "local/images"  ]
 
   cfg="$(lxc storage show local)"
   grep -q "config: {}" <<< "${cfg}"
@@ -1170,8 +1170,10 @@ create_system() {
     # Pre fetch additional images to be used by the VM through security.devlxd.images=true
     lxc image copy ubuntu-minimal-daily:24.04 local:
     lxc image copy ubuntu-minimal-daily:22.04 local:
-    lxc image copy ubuntu-minimal-daily:24.04 local: --vm
-    lxc image copy ubuntu-minimal-daily:22.04 local: --vm
+    if [ "${SKIP_VM_LAUNCH}" != "1" ]; then
+        lxc image copy ubuntu-minimal-daily:24.04 local: --vm
+        lxc image copy ubuntu-minimal-daily:22.04 local: --vm
+    fi
 
     lxc init "ubuntu-minimal-daily:${os}" "${name}" --vm -c limits.cpu=4 -c limits.memory=4GiB -c security.devlxd.images=true
 

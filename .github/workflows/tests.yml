@@ -32,10 +32,10 @@ jobs:
       except_docs: ${{ steps.filter.outputs.except_docs }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Check for changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
         with:
           filters: |
@@ -51,15 +51,15 @@ jobs:
     if: ${{ needs.changes.outputs.except_docs == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           # A non-shallow clone is needed for the Differential ShellCheck
           fetch-depth: 0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
-          go-version: 1.22.x
+          go-version-file: 'go.mod'
 
       - name: Check compatibility with min Go version
         run: |
@@ -68,19 +68,19 @@ jobs:
           go mod tidy -go="${GOMIN}"
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@4081bf99e2866ebe428fc0477b69eb4fcda7220a # v4.4.0
         if: github.event_name == 'pull_request'
 
       - id: ShellCheck
         name: Differential ShellCheck
-        uses: redhat-plumbers-in-action/differential-shellcheck@v5
+        uses: redhat-plumbers-in-action/differential-shellcheck@cc6721c45a8800cc666de45493545a07a638d121 # v5.4.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           strict-check-on-push: true
         if: github.event_name == 'pull_request'
 
       - name: Upload artifact with ShellCheck defects in SARIF format
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: Differential ShellCheck SARIF
           path: ${{ steps.ShellCheck.outputs.sarif }}
@@ -108,14 +108,14 @@ jobs:
           make check-unit
 
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: coverage-unit
           path: ${{env.GOCOVERDIR}}
         if: env.GOCOVERDIR != ''
 
       - name: Upload system test dependencies
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: system-test-deps
           path: |
@@ -147,7 +147,6 @@ jobs:
           - "preseed"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
-        go: ["1.22.x"]
         microceph: ["latest/edge"]
         microovn: ["latest/edge"]
         lxd: ["5.21/edge"]
@@ -157,7 +156,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph reef
           - suite: "upgrade"
             os: "22.04"
-            go: "1.22.x"
             microceph: "reef/stable"
             microovn: "22.03/stable"
             lxd: "5.21/stable"
@@ -165,7 +163,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 24.04 using MicroCeph reef
           - suite: "upgrade"
             os: "24.04"
-            go: "1.22.x"
             lxd: "5.21/stable"
             microceph: "reef/stable"
             microovn: "22.03/stable"
@@ -173,7 +170,6 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph quincy
           - suite: "upgrade"
             os: "22.04"
-            go: "1.22.x"
             microceph: "quincy/stable"
             microovn: "22.03/stable"
             lxd: "5.21/stable"
@@ -181,43 +177,16 @@ jobs:
           # Upgrade MicroCloud from 1 to 2 on 24.04 using MicroCeph quincy
           - suite: "upgrade"
             os: "24.04"
-            go: "1.22.x"
             lxd: "5.21/stable"
             microceph: "quincy/stable"
             microovn: "22.03/stable"
             microcloud: "1/stable"
     steps:
       - name: Performance tuning
-        run: |
-          set -eux
-          # optimize ext4 FSes for performance, not reliability
-          for fs in $(findmnt --noheading --type ext4 --list --uniq | awk '{print $1}'); do
-            # nombcache and data=writeback cannot be changed on remount
-            sudo mount -o remount,noatime,barrier=0,commit=6000 "${fs}" || true
-          done
-
-          # disable dpkg from calling sync()
-          echo "force-unsafe-io" | sudo tee /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+        uses: canonical/lxd/.github/actions/tune-disk-performance@main
 
       - name: Reclaim some space
-        run: |
-          set -eux
-
-          sudo snap remove lxd --purge
-          # Purge older snap revisions that are disabled/superseded by newer revisions of the same snap
-          snap list --all | while read -r name _ rev _ _ notes _; do
-            [[ "${notes}" =~ disabled$ ]] && sudo snap remove "${name}" --revision "${rev}" --purge
-          done || true
-
-          # This was inspired from https://github.com/easimon/maximize-build-space
-          df -h /
-          # dotnet
-          sudo rm -rf /usr/share/dotnet
-          # android
-          sudo rm -rf /usr/local/lib/android
-          # haskell
-          sudo rm -rf /opt/ghc
-          df -h /
+        uses: canonical/lxd/.github/actions/reclaim-disk-space@main
 
       - name: Reclaim some memory
         run: |
@@ -229,12 +198,8 @@ jobs:
           sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
           free -mt
 
-      - name: Remove docker
-        run: |
-          set -eux
-          sudo apt-get autopurge -y containerd.io moby-containerd docker docker-ce podman uidmap
-          sudo ip link delete docker0
-          sudo nft flush ruleset
+      - name: Disable Docker
+        uses: canonical/lxd/.github/actions/disable-docker@main
 
       - name: "Disable br_netfilter"
         run: |
@@ -243,12 +208,12 @@ jobs:
           sudo rmmod br_netfilter
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install Go (${{ matrix.go }})
-        uses: actions/setup-go@v5
+      - name: Install Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: 'go.mod'
 
       - name: Install dependencies
         run: |
@@ -257,7 +222,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
       - name: Download system test dependencies
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: system-test-deps
           merge-multiple: true
@@ -275,11 +240,14 @@ jobs:
           export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
           export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
 
-          # strip debug binaries
-          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
-
           echo "MICROCLOUD_DEBUG_PATH=${MICROCLOUD_DEBUG_PATH}"   >> "${GITHUB_ENV}"
           echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
+
+      - name: Strip debug binaries
+        if: env.GOCOVERDIR == ''
+        run: |
+          set -eux
+          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
 
       - name: "Free up the ephemeral disk"
         run: |
@@ -317,7 +285,7 @@ jobs:
         run: |
           set -eux
           sudo snap install lxd --channel 5.21/edge || sudo snap refresh lxd --channel 5.21/edge
-          sudo lxd init --auto
+          sudo lxd init --auto --storage-backend=zfs
 
       - name: "Prepare for system tests"
         run: |
@@ -349,9 +317,9 @@ jobs:
           echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
 
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: coverage-${{ matrix.go }}-${{ matrix.suite }}-${{ env.TIMESTAMP }}
+          name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
           path: ${{ env.GOCOVERDIR }}
         if: env.GOCOVERDIR != ''
 
@@ -362,17 +330,15 @@ jobs:
     if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
           go-version: 1.23.x
 
       - name: Download coverage data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           pattern: coverage-*
           path: ${{env.GOCOVERDIR}}
@@ -385,7 +351,7 @@ jobs:
           ls -la ${{ env.GOCOVERDIR }}
 
       - name: Download system test dependencies
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: system-test-deps
           merge-multiple: true
@@ -408,7 +374,7 @@ jobs:
           go tool covdata percent -i="${GOCOVERDIR}"
 
       - name: Run TICS
-        uses: tiobe/tics-github-action@v3
+        uses: tiobe/tics-github-action@03294702eb0a8e13c06ff1949c7bb6643b4c60fc # v3.2.1
         with:
           mode: qserver
           project: microcloud
@@ -433,7 +399,7 @@ jobs:
     if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Launchpad SSH access
         env:
@@ -450,10 +416,10 @@ jobs:
           ssh-keyscan git.launchpad.net >> ~/.ssh/known_hosts
           ssh-keygen -qlF git.launchpad.net | grep -xF 'git.launchpad.net RSA SHA256:UNOzlP66WpDuEo34Wgs8mewypV0UzqHLsIFoqwe8dYo'
 
-      - name: Install Go (${{ matrix.go }})
-        uses: actions/setup-go@v5
+      - name: Install Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
-          go-version: 1.22.x
+          go-version-file: 'go.mod'
 
       - name: Trigger Launchpad snap build
         env:
