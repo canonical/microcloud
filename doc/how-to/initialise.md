@@ -8,7 +8,7 @@ You run the initialisation on one of the machines, and it configures the require
 ## Interactive configuration
 
 If you run the initialisation process in interactive mode (the default), you are prompted for information about your machines and how you want to set them up.
-The questions that you are asked might differ depending on your setup; for example, if you do not have the MicroOVN snap installed, you will not be prompted to configure your network, and if your machines don't have local disks, you will not be prompted to set up local storage.
+The questions that you are asked might differ depending on your setup. For example, if you do not have the MicroOVN snap installed, you will not be prompted to configure your network; if your machines don't have local disks, you will not be prompted to set up storage.
 
 The following instructions show the full initialisation process.
 
@@ -30,7 +30,7 @@ Complete the following steps to initialise MicroCloud:
 
 1. Select whether you want to set up more than one machine.
 
-   This allows you to create a MicroCloud using a single node.
+   This allows you to create a MicroCloud using a single cluster member.
    It will skip the {ref}`trust-establishment-session` if no more machines should be part of the MicroCloud.
 
    Additional machines can always be added at a later point in time.
@@ -67,7 +67,8 @@ Complete the following steps to initialise MicroCloud:
 1. Select whether you want to set up distributed storage (using MicroCeph).
 
    ```{note}
-   - To set up distributed storage, you need at least three additional disks on at least three different machines.
+   - You can set up distributed storage on a single cluster member.
+   - High availability requires a minimum of 3 cluster members, with 3 separate disks across 3 different cluster members.
    - The disks must not contain any partitions.
    - A disk that was previously selected for local storage will not be shown for distributed storage.
    ```
@@ -76,7 +77,7 @@ Complete the following steps to initialise MicroCloud:
 
    1. Select the disks that you want to use for distributed storage.
 
-      You must select at least three disks.
+      You must select at least one disk.
    1. Select whether you want to wipe any of the disks.
       Wiping a disk will destroy all data on it.
 
