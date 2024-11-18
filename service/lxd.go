@@ -19,6 +19,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/version"
 )
 
 // LXDService is a LXD service.
@@ -121,6 +122,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	newServer := currentServer.Writable()
 	newServer.Config["core.https_address"] = "[::]:8443"
 	newServer.Config["cluster.https_address"] = addr
+	newServer.Config["user.microcloud"] = version.RawVersion
 	if client.HasExtension("instances_migration_stateful") {
 		newServer.Config["instances.migration.stateful"] = "true"
 	}
