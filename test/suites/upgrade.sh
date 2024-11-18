@@ -3,6 +3,22 @@
 test_upgrade() {
   reset_systems 4 2 3
 
+  # Clear out the debug binaries as we want to test upgrades from published versions.
+  for i in $(seq -f "%02g" 1 4) ; do
+    name="micro${i}"
+    if [ -n "${MICROCLOUD_DEBUG_PATH}" ] || [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
+      lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug || true
+      lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug || true
+      lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
+    fi
+
+    if [ -n "${LXD_DEBUG_PATH}" ]; then
+      lxc exec "${name}" -- rm -f /var/snap/lxd/common/lxd.debug
+      lxc exec "${name}" -- systemctl reload snap.lxd.daemon || true
+      lxc exec "${name}" -- lxd waitready
+    fi
+  done
+
   # Perform upgrade test from MicroCloud 1 to 2.
   if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/stable" ]; then
     microceph_target="squid/stable"
@@ -150,6 +166,7 @@ ovn:
     # Fourth upgrade MicroCloud.
     for m in micro01 micro02 micro03; do
       lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
+      set_debug_binaries "${m}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -191,6 +208,7 @@ ovn:
     lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
     lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
     lxc exec micro04 -- snap start microcloud
+    set_debug_binaries "micro04"
 
     # Join micro04 to the old cluster using the MicroCloud 2 preseed format.
     lookup_gateway=$(lxc network get lxdbr0 ipv4.address)
