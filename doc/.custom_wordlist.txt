@@ -12,6 +12,7 @@ DHCP
 disaggregate
 disaggregated
 DNS
+FDE
 GiB
 HWE
 intra

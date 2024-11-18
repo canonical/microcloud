@@ -4,6 +4,12 @@
 The {ref}`initialisation process <explanation-initialisation>` bootstraps the MicroCloud cluster.
 You run the initialisation on one of the machines, and it configures the required services on all of the machines that have been joined.
 
+## Pre-initialisation requirements
+
+- Complete the steps in {ref}`howto-install` before initialisation.
+- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`. 
+  - Follow only the instructions in the Prerequisites section on that page. Skip its Usage section; the MicroCloud initialisation process handles the disk encryption.
+
 (howto-initialise-interactive)=
 ## Interactive configuration
 
@@ -84,9 +90,11 @@ Complete the following steps to initialise MicroCloud:
    1. Select whether you want to encrypt any of the disks.
       Encrypting a disk will store the encryption keys in the Ceph key ring inside the Ceph configuration folder.
 
-      ```{note}
-      Encryption requires a kernel with `dm_crypt` enabled.
-      See {doc}`how full disk encryption works <microceph:explanation/full-disk-encryption>` in the MicroCeph documentation for more information.
+      ```{warning}
+      Cluster members with disks to be encrypted require a kernel with `dm-crypt` enabled. The snap `dm-crypt` plug must also be connected. See the Prerequisites section of this page for more information: {doc}`microceph:explanation/full-disk-encryption`.
+
+      If you have not enabled and connected `dm-crypt` on any cluster member that you want to encrypt, do so now before you continue.
+
       ```
 
    1. You can choose to optionally set up a CephFS distributed file system.
