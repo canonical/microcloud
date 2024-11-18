@@ -42,7 +42,7 @@ jobs:
           path: /home/runner/vuln-cache
           key: trivy-cache-${{ github.run_id }}
 
-      - name: Use previous downloaded database
+      - name: Use previously downloaded database instead
         if: ${{ steps.db_download.outcome == 'failure' }}
         uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
