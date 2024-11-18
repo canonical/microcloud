@@ -267,9 +267,9 @@ Complete the following steps:
    1. Select `yes` to select more than one cluster member.
    1. As the address for MicroCloud's internal traffic, select the listed IPv4 address.
    1. Copy the session passphrase.
-   1. Head to the other servers (`micro02`, `micro03`, and `micro04`) and start the join process:
+   1. Head to the other servers (`micro2`, `micro3`, and `micro4`) and start the join process:
 
-          lxc exec micro02 microcloud join
+          lxc exec micro2 microcloud join
 
          ```{tip}
 
@@ -277,7 +277,7 @@ Complete the following steps:
          ```
 
          In each terminal select an address for MicroCloud's internal traffic.
-         When prompted enter the passphrase in each terminal and return to `micro01`.
+         When prompted enter the passphrase in each terminal and return to `micro1`.
 
    1. Select all listed servers (these should be `micro2`, `micro3`, and `micro4`).
    1. Select `yes` to set up local storage.
@@ -465,7 +465,7 @@ Cluster initialization is complete
 MicroCloud is ready
 ```
 
-See the full process here for one of the joining sides (`micro02`):
+See the full process here for one of the joining sides (`micro2`):
 
 ```{terminal}
 :input: microcloud init
@@ -481,14 +481,14 @@ Verify the fingerprint "84e0b50e13b3" is displayed on the other system.
 Specify the passphrase for joining the system: koala absorbing update dorsal
 Searching for an eligible system ...
 
- Found system "micro01" at "203.0.113.169" using fingerprint "5d0808de679d"
+ Found system "micro1" at "203.0.113.169" using fingerprint "5d0808de679d"
 
-Select "micro02" on "micro01" to let it join the cluster
+Select "micro2" on "micro1" to let it join the cluster
 
- Received confirmation from system "micro01"
+ Received confirmation from system "micro1"
 
 Do not exit out to keep the session alive.
-Complete the remaining configuration on "micro01" ...
+Complete the remaining configuration on "micro1" ...
 Successfully joined the cluster
 ```
 
