@@ -641,6 +641,11 @@ validate_system_lxd() {
        lxc profile device get default eth0 network | grep -q "lxdfan0"
     fi
 
+    # Only check these if MicroCloud is at least at v2.
+    if lxc exec local:"${name}" -- snap list microcloud | awk '{print $2}' | cut -c1 | grep -qE '^[2-9]'; then
+      lxc config get "user.microcloud" | grep -q "$(lxc exec local:"${name}" --env TEST_CONSOLE=0 -- microcloud --version | cut -d' ' -f1)"
+    fi
+
     lxc remote switch local
 
     # Remove the trust on the remote which was added when adding the remote.
@@ -889,7 +894,7 @@ cluster_reset() {
 
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
-  collect_go_cover_files 
+  collect_go_cover_files
 
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     # shellcheck disable=SC2048,SC2086
