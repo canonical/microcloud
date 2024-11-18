@@ -10,6 +10,7 @@ CIDR
 DCO
 DHCP
 DNS
+FDE
 GiB
 HWE
 intra
