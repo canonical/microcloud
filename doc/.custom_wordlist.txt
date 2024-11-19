@@ -14,6 +14,7 @@ disaggregated
 DNS
 FDE
 GiB
+HA
 HWE
 intra
 IOV

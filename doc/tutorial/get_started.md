@@ -8,24 +8,20 @@ relatedlinks: https://documentation.ubuntu.com/lxd/
 MicroCloud is quick to set up.
 Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
-This tutorial guides you through installing MicroCloud in a confined environment and then starting some instances to see what you can do with MicroCloud.
-It uses virtual machines in LXD, so you don't need any extra hardware to follow the tutorial.
+This tutorial guides you through installing and initialising MicroCloud in a confined environment, then starting some instances to see what you can do with MicroCloud.
+It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial. 
 
 ```{tip}
-   In this tutorial, we use four virtual machines in LXD for the MicroCloud cluster members.
-   You can use a different number of machines if you want, but the minimum number of required machines is three.
-
-   We limit each virtual machine to 2 GiB of RAM, which is less than the recommended hardware requirements.
-   In the context of the tutorial, this amount of RAM is sufficient.
-   However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
+   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments.
+   
+   We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
 ```
 
 ## 1. Install and initialise LXD
 
 ```{note}
-   You can skip this step if you already have a LXD server installed and initialised.
-   However, you should make sure that you have a storage pool set up that is big enough to store four virtual machines.
-   We recommend a storage pool size of at least 40 GiB for that.
+   You can skip this step if you already have a LXD server installed and initialised on your host machine.
+   However, you should make sure that you have a storage pool set up that is big enough to store four VMs. We recommend a minimum storage pool size of 40 GiB.
 ```
 
 MicroCloud requires LXD version 5.21:
@@ -68,7 +64,8 @@ MicroCloud requires LXD version 5.21:
 
    - `Size in GiB of the new loop device (1GiB minimum)`
 
-     Enter `40GiB`.
+     Enter `40`.
+
    - `Would you like the LXD server to be available over the network? (yes/no)`
 
      Enter `yes`.
@@ -77,9 +74,9 @@ MicroCloud requires LXD version 5.21:
 
 MicroCloud supports both local and remote storage.
 For local storage, you need one disk per cluster member.
-For remote storage, you need at least three disks that are located on different cluster members.
+For remote storage with high availability (HA), you need at least three disks that are located across three different cluster members.
 
-In this tutorial, we'll set up four cluster members, which means that we need a minimum of seven disks (four for local storage and three for remote storage).
+In this tutorial, we'll set up four cluster members with both local and remote storage (with HA). This means that we need a minimum of seven disks: four for local storage, and three for remote storage.
 
 Complete the following steps to create the required disks in a LXD storage pool:
 
@@ -141,7 +138,8 @@ Complete the following steps to set up this network:
 
        lxc network create microbr0
 
-1. Enter the following commands to find out the assigned IPv4 and IPv6 addresses for the network and note them down:
+(tutorial-note-ips)=
+1. Enter the following commands to find out the assigned IPv4 and IPv6 addresses for the network, and note them down:
 
        lxc network get microbr0 ipv4.address
        lxc network get microbr0 ipv6.address
@@ -160,11 +158,9 @@ Complete the following steps:
        lxc init ubuntu:22.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB
 
    ```{tip}
-      LXD downloads the image the first time you use it to initialise a VM.
-      Therefore, the {command}`init` command will take longer to complete on the first run.
-      For subsequent runs, LXD uses the cached image.
-
-      Therefore, you shouldn't run these commands in parallel.
+      Run these commands in sequence, not in parallel.
+      
+      LXD downloads the image the first time you use it to initialise a VM. For subsequent runs, LXD uses the cached image. Therefore, the {command}`init` command will take longer to complete on the first run.
    ```
 
 1. Attach the disks to the VMs:
@@ -208,7 +204,7 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
    Wait a while and then try again.
    If the error persists, try restarting the VM (`lxc restart micro1`).
    ```
-1. Configure the network interface connected to `microbr0` to not accept any IP addresses (because MicroCloud requires a network interface that doesn't have an IP address assigned):
+1. MicroCloud requires a network interface that doesn't have an IP address assigned. Thus, configure the network interface connected to `microbr0` to refuse any IP addresses:
 
        cat << EOF > /etc/netplan/99-microcloud.yaml
        # MicroCloud requires a network interface that doesn't have an IP address
@@ -246,10 +242,11 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
        snap refresh lxd --channel=5.21/stable --cohort="+"
 
+1. Repeat these steps on all VMs.
+
 ## 6. Initialise MicroCloud
 
-After installing all snaps on all VMs, you can initialise MicroCloud.
-We use `micro1`, but you can choose another machine.
+We use the `micro1` VM to initialise MicroCloud in the instructions below, but you can use any of the four VMs.
 
 Complete the following steps:
 
@@ -267,48 +264,50 @@ Complete the following steps:
    1. Select `yes` to select more than one cluster member.
    1. As the address for MicroCloud's internal traffic, select the listed IPv4 address.
    1. Copy the session passphrase.
-   1. Head to the other servers (`micro02`, `micro03`, and `micro04`) and start the join process:
 
-          lxc exec micro02 microcloud join
+1. Head to the other VMs (`micro2`, `micro3`, and `micro4`) and start the join process on each:
 
-         ```{tip}
+       lxc exec micro2 microcloud join
 
-         Open up three additional terminals to run the commands concurrently.
-         ```
+   ```{tip}
+   Open three additional terminals to run the commands concurrently.
+   ```
 
-         In each terminal select an address for MicroCloud's internal traffic.
-         When prompted enter the passphrase in each terminal and return to `micro01`.
+   In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
 
-   1. Select all listed servers (these should be `micro2`, `micro3`, and `micro4`).
+   When prompted, enter the session passphrase for each joining  member.
+   
+1. Return to `micro1` to continue the initialisation process:
+
+   1. Select all listed systems to join the cluster. These should be `micro2`, `micro3`, and `micro4`.
    1. Select `yes` to set up local storage.
-   1. Select the listed local disks (`local1`, `local2`, `local3`, and `local4`).
+   1. Select the listed local disks. These should be `local1`, `local2`, `local3`, and `local4`.
 
       ```{tip}
-
       Type `local` to display only the local disks.
       The table is filtered by the characters that you type.
       ```
 
-   1. You don't need to wipe any disks (because we just created them).
+   1. You don't need to wipe any local disks, because we just created them. Press {kbd}`Enter` without selecting any disks to wipe.
    1. Select `yes` to set up distributed storage.
    1. Select `yes` to confirm that there are fewer disks available than machines.
    1. Select all listed disks (these should be `remote1`, `remote2`, and `remote3`).
-   1. You don't need to wipe any disks (because we just created them).
+   1. You don't need to wipe any remote disks, because we just created them. Press {kbd}`Enter` without selecting any disks to wipe.
    1. You don't need to encrypt any disks to get started.
    1. Select `yes` to optionally configure the CephFS distributed file system.
-   1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
-   1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph public network.
+   1. Press {kbd}`Enter` to accept the default option for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
+   1. Press {kbd}`Enter` to accept the default option for the IPv4 or IPv6 CIDR subnet address used for the Ceph public network.
    1. Select `yes` to configure distributed networking.
-   1. Select all listed network interfaces (these should be `enp6s0` on the four different VMs).
-   1. Specify the IPv4 address that you noted down for your `microbr0` network as the IPv4 gateway.
+   1. Select all listed network interfaces. These should be `enp6s0` on all four cluster members.
+   1. Specify the IPv4 address that {ref}`you noted down<tutorial-note-ips>` for your `microbr0` network's IPv4 gateway.
    1. Specify an IPv4 address in the address range as the first IPv4 address.
       For example, if your IPv4 gateway is `192.0.2.1/24`, the first address could be `192.0.2.100`.
    1. Specify a higher IPv4 address in the range as the last IPv4 address.
       As we're setting up four machines only, the range must contain a minimum of four addresses, but setting up a bigger range is more fail-safe.
       For example, if your IPv4 gateway is `192.0.2.1/24`, the last address could be `192.0.2.254`.
-   1. Specify the IPv6 address that you noted down for your `microbr0` network as the IPv6 gateway.
-   1. Leave the question empty for the DNS addresses for the distributed network.
-   1. Leave the question empty for configuring an underlay network for OVN.
+   1. Specify the IPv6 address that {ref}`you noted down<tutorial-note-ips>` for your `microbr0` network as the IPv6 gateway.
+   1. Press {kbd}`Enter` to accept the default option for the DNS addresses for the distributed network.
+   1. Press {kbd}`Enter` to accept the default option for configuring an underlay network for OVN.
 
 MicroCloud will now initialise the cluster.
 See {ref}`explanation-initialisation` for more information.
@@ -452,7 +451,7 @@ Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001
 Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: 192.0.2.1,2001:db8:d:200::1):
 Configure dedicated underlay networking? (yes/no) [default=no]:
 
-Initializing a new cluster
+Initializing new services
  Local MicroCloud is ready
  Local LXD is ready
  Local MicroOVN is ready
@@ -461,35 +460,44 @@ Awaiting cluster formation ...
  Peer "micro2" has joined the cluster
  Peer "micro3" has joined the cluster
  Peer "micro4" has joined the cluster
-Cluster initialization is complete
+Configuring cluster-wide devices ...
 MicroCloud is ready
 ```
 
-See the full process here for one of the joining sides (`micro02`):
+See the full process here for one of the joining sides (`micro2`):
 
 ```{terminal}
-:input: microcloud init
+:input: microcloud join
 :user: root
 :host: micro1
 :scroll:
 
 Select an address for MicroCloud's internal traffic:
+Space to select; enter to confirm; type to filter results.
+Up/down to move; right to select all; left to select none.
+       +----------------------------------------+--------+
+       |                ADDRESS                 | IFACE  |
+       +----------------------------------------+--------+
+> [ ]  | 203.0.113.170                          | enp5s0 |
+  [ ]  | fd42:9b32:9511:75de:216:3eff:fed7:b1cf | enp5s0 |
+       +----------------------------------------+--------+
 
- Using address "203.0.113.170" for MicroCloud
+Using address "203.0.113.170" for MicroCloud
 
 Verify the fingerprint "84e0b50e13b3" is displayed on the other system.
 Specify the passphrase for joining the system: koala absorbing update dorsal
 Searching for an eligible system ...
 
- Found system "micro01" at "203.0.113.169" using fingerprint "5d0808de679d"
+ Found system "micro1" at "203.0.113.169" using fingerprint "5d0808de679d"
 
-Select "micro02" on "micro01" to let it join the cluster
+Select "micro2" on "micro1" to let it join the cluster
 
- Received confirmation from system "micro01"
+ Received confirmation from system "micro1"
 
 Do not exit out to keep the session alive.
-Complete the remaining configuration on "micro01" ...
-Successfully joined the cluster
+Complete the remaining configuration on "micro1" ...
+Successfully joined the MicroCloud cluster and closing the session.
+Commencing cluster join of the remaining services (LXD, MicroCeph, MicroOVN)
 ```
 
 ## 7. Inspect your MicroCloud setup
@@ -498,7 +506,7 @@ You can now inspect your cluster setup.
 
 ```{tip}
 You can run these commands on any of the cluster members.
-We continue using `micro1`, but you will see the same results on the other VMs.
+We continue using `micro1`, but you will see the same results on the others.
 ```
 1. Inspect the cluster setup:
 
@@ -659,9 +667,11 @@ We continue using `micro1`, but you will see the same results on the other VMs.
    - micro4
    ```
 
-1. Make sure that you can ping the virtual router within OVN.
-   You can find the IPv4 and IPv6 addresses of the virtual router under `volatile.network.ipv4.address` and `volatile.network.ipv6.address`, respectively, in the output of `lxc network show default`.
+1. Make sure that you can ping the virtual router within OVN. 
 
+   1. Within the output of the previous command (`lxc network show default`), find the value for `volatile.network.ipv4.address`. This is the virtual router's IPv4 address.
+
+   1. Ping that IPv4 address.
    ```{terminal}
    :input: ping 192.0.2.100
    :user: root
@@ -718,7 +728,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
 
        lxc launch ubuntu:22.04 u1
 
-1. Launch another Ubuntu container, but use the local storage instead of the remote storage that is the default:
+1. Launch another Ubuntu container, but use local storage instead of the default remote storage:
 
        lxc launch ubuntu:22.04 u2 --storage local
 
@@ -727,7 +737,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
        lxc launch ubuntu:22.04 u3 --vm
 
 1. Check the list of instances.
-   You will see that the instances are running on different cluster members.
+   Note that the instances are running on different cluster members.
 
    ```{terminal}
    :input: lxc list
@@ -747,7 +757,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
    ```
 
 1. Check the storage.
-   You will see that the instance volumes are located on the specified storage pools.
+   Note that the instance volumes are located on the specified storage pools.
 
    ```{terminal}
    :input: lxc storage volume list remote
@@ -797,7 +807,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
 The instances that you have launched are all on the same subnet.
 You can, however, create a different network to isolate some instances from others.
 
-1. Check the list of instances that are running:
+1. Check the list of running instances:
 
    ```{terminal}
    :input: lxc list
@@ -882,7 +892,7 @@ You can, however, create a different network to isolate some instances from othe
 
        lxc network create isolated --type=ovn
 
-   There is only one `UPLINK` network, so the new network will use this one as its parent.
+   There is only one `UPLINK` network, so the new network uses this one as its parent.
 
 1. Show information about the new network:
 
@@ -972,7 +982,7 @@ You can, however, create a different network to isolate some instances from othe
    14 packets transmitted, 0 received, 100% packet loss, time 13301ms
    ```
 
-   You will see that `u2` is not reachable, because it is on a different OVN subnet.
+   The ping fails; `u2` is not reachable because it is on a different OVN subnet.
 
 ## 10. Access the UI
 
@@ -1001,7 +1011,7 @@ See {ref}`lxd:access-ui` for more information.
    +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    ```
 
-1. In your web browser, navigate to the URL of one of the machines.
+1. In your web browser, navigate to the URL of one of the cluster members.
    For example, for `micro1`, navigate to `https://203.0.113.169:8443`.
 
 1. By default, MicroCloud uses a self-signed certificate, which will cause a security warning in your browser.
@@ -1024,8 +1034,8 @@ See {ref}`lxd:access-ui` for more information.
    ```{note}
    Since LXD 5.21, the LXD UI is enabled by default.
 
-   If you don't see the certificate screen, you might have an older version of LXD (run `snap info lxd` to check).
-   In this case, run the following commands on the machine that you're trying to access (for example, `micro1`) to enable the UI:
+   If you don't see the certificate screen, you might have an earlier version of LXD. Run `snap info lxd` to check.
+   If you have an earlier version, run the following commands on the cluster member that you're trying to access (for example, `micro1`) to enable the UI:
 
        snap set lxd ui.enable=true
        systemctl reload snap.lxd.daemon
