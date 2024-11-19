@@ -11,6 +11,7 @@ DCO
 DHCP
 DNS
 GiB
+HA
 HWE
 intra
 IOV
