@@ -60,9 +60,9 @@ microcloud_interactive() {
   if [ -n "${MULTI_NODE}" ]; then
     setup="
 ${MULTI_NODE}                                           # lookup multiple nodes
-${LOOKUP_IFACE}                                         # filter the lookup interface
-$([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
-$([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
+$([ -n "${LOOKUP_IFACE}" ] && printf "table:filter %s" "${LOOKUP_IFACE}")          # filter the lookup interface
+$([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
+$([ -n "${LOOKUP_IFACE}" ] && printf -- "table:done")
 $(true)
 "
   fi
@@ -70,10 +70,10 @@ $(true)
   if ! [ "${SKIP_LOOKUP}" = 1 ]; then
     setup="${setup}
 $([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
-expect ${EXPECT_PEERS}                                      # wait until the systems show up
-${PEERS_FILTER}                                             # filter discovered peers
-select-all                                                  # select all the systems
----
+table:expect ${EXPECT_PEERS}                                      # wait until the systems show up
+$([ -n "${PEERS_FILTER}" ] && printf "table:filter %s" "${PEERS_FILTER}")          # filter discovered peers
+table:select-all                                                  # select all the systems
+table:done
 $(true)                                                 # workaround for set -e
 "
   fi
@@ -91,12 +91,12 @@ fi
 if [ -n "${SETUP_ZFS}" ]; then
   setup="${setup}
 ${SETUP_ZFS}                                            # add local disks (yes/no)
-$([ "${SETUP_ZFS}" = "yes" ] && printf "wait 300ms")    # wait for the table to populate
-${ZFS_FILTER}                                           # filter zfs disks
-$([ "${SETUP_ZFS}" = "yes" ] && printf "select-all")    # select all disk matching the filter
-$([ "${SETUP_ZFS}" = "yes" ] && printf -- "---" )
-$([ "${ZFS_WIPE}"  = "yes" ] && printf "select-all")    # wipe all disks
-$([ "${SETUP_ZFS}" = "yes" ] && printf -- "---")
+$([ "${SETUP_ZFS}" = "yes" ] && printf "table:wait 300ms")    # wait for the table to populate
+$([ -n "${ZFS_FILTER}" ] && printf "table:filter %s" "${ZFS_FILTER}")          # filter zfs disks
+$([ "${SETUP_ZFS}" = "yes" ] && printf "table:select-all")    # select all disk matching the filter
+$([ "${SETUP_ZFS}" = "yes" ] && printf -- "table:done" )
+$([ "${ZFS_WIPE}"  = "yes" ] && printf "table:select-all")    # wipe all disks
+$([ "${SETUP_ZFS}" = "yes" ] && printf -- "table:done")
 $(true)                                                 # workaround for set -e
 "
 fi
@@ -105,12 +105,12 @@ if [ -n "${SETUP_CEPH}" ]; then
   setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
 ${CEPH_MISSING_DISKS}                                   # continue with some peers missing disks? (yes/no)
-$([ "${SETUP_CEPH}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
-${CEPH_FILTER}                                          # filter ceph disks
-$([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matching the filter
-$([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
-$([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
-$([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+$([ -n "${CEPH_FILTER}" ] && printf "table:filter %s" "${CEPH_FILTER}")          # filter ceph disks
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:select-all")   # select all disk matching the filter
+$([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
+$([ "${CEPH_WIPE}"  = "yes" ] && printf "table:select-all")   # wipe all disks
+$([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_RETRY_HA}" ) # allow ceph setup without 3 systems supplying disks.
 ${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
@@ -137,10 +137,10 @@ fi
 if [ -n "${SETUP_OVN}" ]; then
   setup="${setup}
 ${SETUP_OVN}                                           # agree to setup OVN
-$([ "${SETUP_OVN}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
-${OVN_FILTER}                                          # filter interfaces
-$([ "${SETUP_OVN}" = "yes" ] && printf "select-all")   # select all interfaces matching the filter
-$([ "${SETUP_OVN}" = "yes" ] && printf -- "---")
+$([ "${SETUP_OVN}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+$([ -n "${OVN_FILTER}" ] && printf "table:filter %s" "${OVN_FILTER}")          # filter interfaces
+$([ "${SETUP_OVN}" = "yes" ] && printf "table:select-all")   # select all interfaces matching the filter
+$([ "${SETUP_OVN}" = "yes" ] && printf -- "table:done")
 ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateways and ranges
 ${IPV4_START}
 ${IPV4_END}
@@ -152,10 +152,10 @@ $(true)                                                 # workaround for set -e
   if [ -n "${OVN_UNDERLAY_NETWORK}" ]; then
     setup="${setup}
 ${OVN_UNDERLAY_NETWORK}
-$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "wait 300ms")
-${OVN_UNDERLAY_FILTER}
-$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "select-all")
-$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf -- "---")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "table:wait 300ms")
+$([ -n "${OVN_UNDERLAY_FILTER}" ] && printf "table:filter %s" "${OVN_UNDERLAY_FILTER}")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "table:select-all")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf -- "table:done")
 $(true)                                                 # workaround for set -e
 "
   fi
