@@ -11,7 +11,7 @@ test_recover() {
   export EXPECT_PEERS=3
   export OVN_WARNING="yes"
 
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03 micro04
+  join_session init micro01 micro02 micro03 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
   lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
