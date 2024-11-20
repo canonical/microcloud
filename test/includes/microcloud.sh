@@ -641,6 +641,11 @@ validate_system_lxd() {
        lxc profile device get default eth0 network | grep -q "lxdfan0"
     fi
 
+    # Only check these if MicroCloud is at least at v2.
+    if lxc exec local:"${name}" -- snap list microcloud | awk '{print $2}' | cut -c1 | grep -qE '^[2-9]'; then
+      lxc config get "user.microcloud" | grep -q "$(lxc exec local:"${name}" --env TEST_CONSOLE=0 -- microcloud --version | cut -d' ' -f1)"
+    fi
+
     lxc remote switch local
 
     # Remove the trust on the remote which was added when adding the remote.
