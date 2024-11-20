@@ -17,6 +17,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -183,10 +184,7 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 			fmt.Printf("%s: Not initialized\n", serviceType)
 		} else {
 			fmt.Printf("%s:\n", serviceType)
-			err = cli.RenderTable(cli.TableFormatTable, header, data, nil)
-			if err != nil {
-				return err
-			}
+			fmt.Println(tui.NewTable(header, data))
 		}
 	}
 
