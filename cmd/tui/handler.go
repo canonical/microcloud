@@ -10,6 +10,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// ContextError is the charmbracelet representation of a context cancellation error.
+var ContextError error = tea.ErrProgramKilled
+
 // InputHandler handles input dialogs.
 type InputHandler struct {
 	input  *os.File
