@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -139,6 +140,11 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 		retry := false
 		err := f()
 		if err != nil {
+			// If the error is a context error, then the lifetime is over so we shouldn't ask to retry.
+			if errors.Is(err, tui.ContextError) {
+				return err
+			}
+
 			errParts := strings.Split(err.Error(), "\n")
 			for i := range errParts {
 				if i > 0 {
