@@ -129,7 +129,7 @@ jobs:
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
     name: System
-    runs-on: GitHubMicrocloud
+    runs-on: ubuntu-22.04
     needs: code-tests
     strategy:
       fail-fast: false
