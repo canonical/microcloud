@@ -70,11 +70,18 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 
 			// Prevent locking in case there isn't anymore an active consumer reading on the channel.
 			// This can happen if the initiator's websocket connection isn't anymore active.
+			// Wait up to 10 seconds for an active consumer.
+			// When the initiator returns the dice-generated passphrase, a joiner can go ahead and send
+			// its intent to join. If the initiator hasn't yet started to listen on join intents (too slow),
+			// the API might return an error as there isn't yet any active consumer.
+			timer := time.NewTimer(10 * time.Second)
+			defer timer.Stop()
+
 			select {
 			case session.IntentCh() <- req:
 				return nil
-			default:
-				return fmt.Errorf("No active consumer for join intent")
+			case <-timer.C:
+				return fmt.Errorf("Timeout waiting for an active consumer of the join intent")
 			}
 		})
 
