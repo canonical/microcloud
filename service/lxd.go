@@ -494,47 +494,34 @@ func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, 
 	return server.Writable().Config, nil, nil
 }
 
-// defaultNetworkInterfacesFilter filters a network based on default rules and return whether it should be skipped and the addresses on the interface.
-func defaultNetworkInterfacesFilter(client lxd.InstanceServer, network api.Network) (bool, []string) {
+// defaultNetworkInterfacesFilter filters a network based on default rules and returns whether it should be skipped.
+func defaultNetworkInterfacesFilter(network api.Network, state *api.NetworkState) bool {
 	// Skip managed networks.
 	if network.Managed {
-		return true, []string{}
-	}
-
-	// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
-	if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
-		return true, []string{}
-	}
-
-	state, err := client.GetNetworkState(network.Name)
-	if err != nil {
-		return true, []string{}
-	}
-
-	// OpenVswitch only works with full L2 devices.
-	if state.Type != "broadcast" {
-		return true, []string{}
+		return false
 	}
 
 	// Can't use interfaces that aren't up.
 	if state.State != "up" {
-		return true, []string{}
+		return false
 	}
 
-	// Make sure the interface isn't in use by ensuring there's no global addresses on it.
-	addresses := []string{}
+	return true
+}
 
-	if network.Type != "bridge" {
-		for _, address := range state.Addresses {
-			if address.Scope != "global" {
-				continue
-			}
-
-			addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
-		}
+// ovnNetworkInterfacesFilter filters a network based on OVN specific rules and returns whether it should be skipped.
+func ovnNetworkInterfacesFilter(network api.Network, state *api.NetworkState) bool {
+	// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
+	if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
+		return false
 	}
 
-	return false, addresses
+	// OpenVswitch only works with full L2 devices.
+	if state.Type != "broadcast" {
+		return false
+	}
+
+	return true
 }
 
 // DedicatedInterface represents a dedicated interface for OVN.
