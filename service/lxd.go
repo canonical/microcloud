@@ -557,18 +557,45 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 	uplinkInterfaces := map[string]api.Network{}
 	dedicatedInterfaces := map[string]DedicatedInterface{}
 	for _, network := range networks {
-		filtered, addresses := defaultNetworkInterfacesFilter(client, network)
-		if filtered {
+		state, err := client.GetNetworkState(network.Name)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		// Apply default filter rules and ignore invalid interfaces.
+		filtered := defaultNetworkInterfacesFilter(network, state)
+		if !filtered {
 			continue
 		}
 
-		if len(addresses) == 0 {
-			uplinkInterfaces[network.Name] = network
-		} else {
+		// Get a list of addresses configured on this interface.
+		addresses := []string{}
+		for _, address := range state.Addresses {
+			if address.Scope != "global" {
+				continue
+			}
+
+			addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
+		}
+
+		// Apply OVN specific filter rules.
+		ovnFiltered := ovnNetworkInterfacesFilter(network, state)
+
+		if len(addresses) > 0 {
 			dedicatedInterfaces[network.Name] = DedicatedInterface{
 				Type:      network.Type,
 				Network:   network,
 				Addresses: addresses,
+			}
+
+			// Special case as LXD can plug into the bridge using a veth pair.
+			if ovnFiltered && network.Type == "bridge" {
+				uplinkInterfaces[network.Name] = network
+			}
+		} else {
+			// Accept all filtered interfaces without address as uplink.
+			if ovnFiltered {
+				uplinkInterfaces[network.Name] = network
 			}
 		}
 	}
