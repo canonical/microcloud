@@ -1,13 +1,29 @@
 version: 2
 updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    labels: []
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+
   - package-ecosystem: "gomod"
     directory: "/"
     labels: []
     schedule:
       interval: "weekly"
+    target-branch: "main"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     labels: []
     schedule:
       interval: "weekly"
+    target-branch: "v2-edge"
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    labels: []
+    schedule:
+      interval: "weekly"
+    target-branch: "v2-edge"
