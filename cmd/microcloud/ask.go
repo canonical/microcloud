@@ -1592,7 +1592,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 		var answers []map[string]string
 		err := c.askRetry("Retry selecting systems?", func() error {
 			var err error
-			answers, err = table.Render(gw.Context(), c.asker, "Select the systems that should join the cluster:")
+			answers, err = table.Render(gw.Context(), c.asker, "Systems will appear in the table as they are detected. Select those that should join the cluster:")
 			if err != nil {
 				return fmt.Errorf("Failed to render table: %w", err)
 			}
