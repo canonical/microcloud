@@ -214,6 +214,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		services[s.Type()] = version
 	}
 
+	var reverter *revert.Reverter
 	if c.setupMany {
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
 			return c.initiatingSession(gw, s, services, "", nil)
@@ -221,6 +222,35 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+
+		reverter = revert.New()
+		defer reverter.Fail()
+
+		reverter.Add(func() {
+			// Stop each joiner member session.
+			cloud := s.Services[types.MicroCloud].(*service.CloudService)
+			for peer, system := range c.systems {
+				if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
+					continue
+				}
+
+				if system.ServerInfo.Address == "" {
+					logger.Error("No joiner address provided to stop the session")
+					continue
+				}
+
+				remoteClient, err := cloud.RemoteClient(system.ServerInfo.Certificate, util.CanonicalNetworkAddress(system.ServerInfo.Address, service.CloudPort))
+				if err != nil {
+					logger.Error("Failed to create remote client", logger.Ctx{"address": system.ServerInfo.Address, "error": err})
+					continue
+				}
+
+				err = cloudClient.StopSession(context.Background(), remoteClient, "Initiator aborted the setup")
+				if err != nil {
+					logger.Error("Failed to stop joiner session", logger.Ctx{"joiner": peer, "error": err})
+				}
+			}
+		})
 	}
 
 	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: c.name, Address: c.address, Services: services})
@@ -280,6 +310,10 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	err = c.setupCluster(s)
 	if err != nil {
 		return err
+	}
+
+	if c.setupMany {
+		reverter.Success()
 	}
 
 	return nil
