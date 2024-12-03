@@ -345,7 +345,7 @@ When requested enter the passphrase:
 
 Verify the fingerprint "5d0808de679d" is displayed on joining systems.
 Waiting to detect systems ...
-Select the systems that should join the cluster:
+Systems will appear in the table as they are detected. Select those that should join the cluster:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
        +---------+---------------+--------------+
