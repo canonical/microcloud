@@ -230,7 +230,7 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s local -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s local -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=2GiB -s local -n default
 
   # Ensure we can reach the launched instances.
   for m in c1 v1 ; do
@@ -334,8 +334,8 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default
 
   check_instance_connectivity "c1" "c2" "0"
   check_instance_connectivity "v1" "c1" "1"
@@ -429,8 +429,8 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default
 
   check_instance_connectivity "c1" "c2" "0"
   check_instance_connectivity "v1" "c1" "1"
@@ -527,8 +527,8 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default
 
   check_instance_connectivity "c1" "c2" "0"
   check_instance_connectivity "v1" "c1" "1"
@@ -637,8 +637,8 @@ EOF
   else
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 v1 -c limits.memory=512MiB -d root,size=3GiB --vm -s remote -n default --target micro03
   fi
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro01
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro03
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c1 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c2 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro03
 
   check_instance_connectivity "c1" "c2" "0"
   check_instance_connectivity "v1" "c1" "1"
@@ -662,8 +662,8 @@ EOF
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro01
-  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=1GiB -s remote -n default --target micro04
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
+  lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro04
   lxc exec micro01 -- lxc stop c3
   lxc exec micro01 -- lxc move c3 --target micro04
   lxc exec micro01 -- lxc start c3
