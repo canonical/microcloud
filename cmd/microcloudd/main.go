@@ -130,6 +130,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.SessionJoinCmd(s),
 		api.SessionInitiatingCmd(s),
 		api.SessionJoiningCmd(s),
+		api.SessionStopCmd(s),
 		api.LXDProxy(s),
 		api.CephProxy(s),
 		api.OVNProxy(s),
