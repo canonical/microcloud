@@ -274,18 +274,22 @@ func (s *selectableTable) View() string {
 		return title + "\n"
 	}
 
-	filter := Printf(Fmt{Arg: "\n Filter | %s\n", Color: White}, Fmt{Arg: s.filter, Color: Yellow})
+	var filter string
+	if s.filter == "" {
+		filter = Printf(Fmt{Arg: "\n Filter | %s\n", Color: White}, Fmt{Arg: "<type to filter rows>", Color: White})
+	} else {
+		filter = Printf(Fmt{Arg: "\n Filter | %s\n", Color: White}, Fmt{Arg: s.filter, Color: Yellow})
+	}
 
 	helpEnter := Fmt{Color: Bright, Arg: "enter", Bold: true}
 	helpSpace := Fmt{Color: Bright, Arg: "space", Bold: true}
 	helpRight := Fmt{Color: Bright, Arg: "→", Bold: true}
-	helpType := Fmt{Color: Bright, Arg: "type", Bold: true}
 	helpLeft := Fmt{Color: Bright, Arg: "←", Bold: true}
 	helpUp := Fmt{Color: Bright, Arg: "↑", Bold: true}
 	helpDown := Fmt{Color: Bright, Arg: "↓", Bold: true}
 
-	helpTmpl := Fmt{Arg: " %s to select; %s to confirm; %s to filter results.\n %s/%s to move; %s to select all; %s to select none."}
-	help := Printf(helpTmpl, helpSpace, helpEnter, helpType, helpUp, helpDown, helpRight, helpLeft)
+	helpTmpl := Fmt{Arg: " %s to select; %s to confirm\n %s/%s to move; %s to select all; %s to select none"}
+	help := Printf(helpTmpl, helpSpace, helpEnter, helpUp, helpDown, helpRight, helpLeft)
 
 	return title + filter + strings.Join(parts, "\n") + "\n" + help
 }
