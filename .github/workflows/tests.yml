@@ -9,6 +9,10 @@ on:
   workflow_dispatch:
 
 env:
+  CGO_CFLAGS: -I/home/runner/go/deps/dqlite/include/
+  CGO_LDFLAGS: -L/home/runner/go/deps/dqlite/.libs/
+  LD_LIBRARY_PATH: /home/runner/go/deps/dqlite/.libs/
+  CGO_LDFLAGS_ALLOW: (-Wl,-wrap,pthread_create)|(-Wl,-z,now)
   GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/runner/work/microcloud/microcloud/cover' || '' }}
 
 permissions:
@@ -88,12 +92,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo add-apt-repository ppa:dqlite/dev -y --no-update
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
+          sudo apt-get install --no-install-recommends -y pkg-config autoconf automake libtool make libuv1-dev libsqlite3-dev liblz4-dev
 
       - name: Build
-        run: make
+        run: |
+          make deps
+          make
 
       - name: Run static analysis
         run: make check-static
@@ -121,6 +126,7 @@ jobs:
           path: |
             /home/runner/go/bin/microcloud
             /home/runner/go/bin/microcloudd
+            /home/runner/go/bin/dqlite
           retention-days: 1
 
   system-tests:
@@ -129,7 +135,7 @@ jobs:
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
     name: System
-    runs-on: GitHubMicrocloud
+    runs-on: ubuntu-22.04
     needs: code-tests
     strategy:
       fail-fast: false
@@ -393,9 +399,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo add-apt-repository ppa:dqlite/dev -y --no-update
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
           go install github.com/axw/gocov/gocov@latest
           go install github.com/AlekSi/gocov-xml@latest
           go install honnef.co/go/tools/cmd/staticcheck@latest
