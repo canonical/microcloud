@@ -794,6 +794,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 					return nil, fmt.Errorf("Failed to parse supplied underlay IP %q", sys.UnderlayIP)
 				}
 
+				ovnUnderlayIfaceByPeer := make(map[string]string)
+				ovnUnderlaySubnetByPeer := make(map[string]*net.IPNet)
 				for _, iface := range addressedInterfaces[sys.Name] {
 					for _, cidr := range iface.Addresses {
 						_, subnet, err := net.ParseCIDR(cidr)
@@ -803,6 +805,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 						if subnet.Contains(underlayIP) {
 							assignedSystems[sys.Name] = true
+							ovnUnderlayIfaceByPeer[sys.Name] = iface.Network.Name
+							ovnUnderlaySubnetByPeer[sys.Name] = subnet
 							break
 						}
 					}
@@ -812,8 +816,13 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 					return nil, fmt.Errorf("No available interface found for OVN underlay IP %q", sys.UnderlayIP)
 				}
 
+				ifaceName, ok := ovnUnderlayIfaceByPeer[sys.Name]
+				if !ok {
+					return nil, fmt.Errorf("Failed to find OVN underlay interface name for system %q", sys.Name)
+				}
+
 				system := c.systems[sys.Name]
-				system.OVNGeneveAddr = sys.UnderlayIP
+				system.OVNGeneveNetwork = &Network{Interface: ifaceName, Subnet: ovnUnderlaySubnetByPeer[sys.Name], IP: underlayIP}
 				c.systems[sys.Name] = system
 			}
 		}
@@ -1084,8 +1093,18 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				return nil, err
 			}
 
+			iface, err := lxd.FindInterfaceForSubnet(internalCephNetwork)
+			if err != nil {
+				return nil, err
+			}
+
+			_, internalCephSubnet, err := net.ParseCIDR(internalCephNetwork)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid CIDR for internal Ceph subnet: %v", err)
+			}
+
 			bootstrapSystem := c.systems[s.Name]
-			bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephNetwork
+			bootstrapSystem.MicroCephInternalNetwork = &Network{Interface: iface.Name, Subnet: internalCephSubnet, IP: nil}
 			c.systems[s.Name] = bootstrapSystem
 		}
 
@@ -1102,8 +1121,18 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				return nil, err
 			}
 
+			iface, err := lxd.FindInterfaceForSubnet(publicCephNetwork)
+			if err != nil {
+				return nil, err
+			}
+
+			_, publicCephSubnet, err := net.ParseCIDR(publicCephNetwork)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid CIDR for public Ceph subnet: %v", err)
+			}
+
 			bootstrapSystem := c.systems[s.Name]
-			bootstrapSystem.MicroCephPublicNetworkSubnet = publicCephNetwork
+			bootstrapSystem.MicroCephPublicNetwork = &Network{Interface: iface.Name, Subnet: publicCephSubnet, IP: nil}
 			c.systems[s.Name] = bootstrapSystem
 		}
 	} else {
