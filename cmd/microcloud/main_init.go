@@ -517,24 +517,112 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 }
 
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
+	// subnetsCollisionMap maps a subnet CIDR notation to a map of subnet type to peer names.
+	//
+	// Example:
+	// {
+	//   "10.0.1.0/24": {
+	//       "OVN underlay": ["system1", "system2"],
+	//       "Ceph cluster network": ["system3"]
+	//    },
+	//   "10.0.2.0/24": {
+	//        "Ceph public network": ["system1", "system2", "system3"],
+	//    }
+	// }
+	//
+	// In this example, we have a collision for the subnet "10.0.1.0/24":
+	//  - system1 and system2 are using it for the OVN underlay, whereas system3 is using it for the Ceph cluster network.
+	// Everything is fine for the subnet "10.0.2.0/24" as all systems are using it for the Ceph public network.
+	subnetsCollisionMap := make(map[string]map[string]struct{})
+	interfaceCollisionMap := make(map[string]map[string]struct{})
 	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetwork == nil || sys.OVNGeneveNetwork == nil {
+		if sys.MicroCephInternalNetwork == nil || sys.OVNGeneveNetwork == nil || sys.MicroCloudInternalNetwork == nil {
 			continue
 		}
 
-		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
-		if err != nil {
-			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
+		// We also check for interface collisions at a local level.
+		// This means that we check if the same interface is used for multiple networks in a member.
+		netTypeToNet := map[string]*Network{
+			"Ceph cluster network":        sys.MicroCephInternalNetwork,
+			"OVN underlay":                sys.OVNGeneveNetwork,
+			"MicroCloud internal network": sys.MicroCloudInternalNetwork,
 		}
 
-		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
-		if underlayIP == nil {
-			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
+		// The public Ceph network is not always present (partially disaggregated setup) but we still
+		// wish to check for interface collisions between OVN and the Ceph cluster network.
+		// If it is present though, add it to the list of interfaces to check for collisions.
+		if sys.MicroCephPublicNetwork != nil {
+			netTypeToNet["Ceph public network"] = sys.MicroCephPublicNetwork
 		}
 
-		if sys.MicroCephInternalNetwork.Subnet.Contains(sys.OVNGeneveNetwork.IP) {
-			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", sys.OVNGeneveNetwork.IP.String(), sys.MicroCephInternalNetwork.Subnet.String()))
-			break
+		// Collect local interface collisions
+		interfaceToTypes := make(map[string][]string)
+		for netType, net := range netTypeToNet {
+			interfaceToTypes[net.Interface] = append(interfaceToTypes[net.Interface], netType)
+		}
+
+		for iface, types := range interfaceToTypes {
+			if len(types) > 1 {
+				_, ok := interfaceCollisionMap[iface]
+				if !ok {
+					interfaceCollisionMap[iface] = make(map[string]struct{})
+				}
+
+				for _, t := range types {
+					interfaceCollisionMap[iface][t] = struct{}{}
+				}
+			}
+		}
+
+		// Collect subnet collisions
+		subnetToTypes := make(map[string][]string)
+		for netType, net := range netTypeToNet {
+			subnetStr := net.Subnet.String()
+			subnetToTypes[subnetStr] = append(subnetToTypes[subnetStr], netType)
+		}
+
+		for subnet, types := range subnetToTypes {
+			if len(types) > 1 {
+				_, ok := subnetsCollisionMap[subnet]
+				if !ok {
+					subnetsCollisionMap[subnet] = make(map[string]struct{})
+				}
+
+				for _, t := range types {
+					subnetsCollisionMap[subnet][t] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Prepare warning messages
+	warnings := make([]string, 0)
+
+	// Interface collisions
+	for iface, typesSet := range interfaceCollisionMap {
+		types := make([]string, 0, len(typesSet))
+		for t := range typesSet {
+			types = append(types, t)
+		}
+
+		warnings = append(warnings, fmt.Sprintf("- %s sharing network interface %q", strings.Join(types, ", "), iface))
+	}
+
+	// Subnet collisions
+	for subnet, typesSet := range subnetsCollisionMap {
+		types := make([]string, 0, len(typesSet))
+		for t := range typesSet {
+			types = append(types, t)
+		}
+
+		warnings = append(warnings, fmt.Sprintf("- %s sharing subnet %q", strings.Join(types, ", "), subnet))
+	}
+
+	// Print warnings if any
+	if len(warnings) > 0 {
+		tui.PrintWarning("Network collision:")
+		for _, warning := range warnings {
+			tui.PrintWarning(warning)
 		}
 	}
 
