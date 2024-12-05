@@ -53,19 +53,24 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
-	MicroCephPublicNetworkSubnet string
-	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	MicroCephInternalNetworkSubnet string
+	// MicroCephPublicNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network and
+	// the network interface name to use for the Ceph public network and its IP address within the subnet.
+	MicroCephPublicNetwork *Network
+	// MicroCephInternalNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network and
+	// the network interface name to use for the Ceph cluster network and its IP address within the subnet.
+	MicroCephInternalNetwork *Network
+	// MicroCloudInternalNetwork contains the network configuration for the MicroCloud internal network.
+	MicroCloudInternalNetwork *Network
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
 	// TargetStoragePools contains the storage pool configuration for the target system.
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
-	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// OVNGeneveNetwork contains an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
 	// If left empty, the system will choose to route the Geneve traffic through the management network.
-	OVNGeneveAddr string
+	// It also contains the network interface name to use for the OVN Geneve tunnel and the network subnet.
+	OVNGeneveNetwork *Network
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -354,9 +359,9 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			CephConfig: info.MicroCephDisks,
 		}
 
-		if info.OVNGeneveAddr != "" {
+		if info.OVNGeneveNetwork != nil {
 			p := joinConfig[peer]
-			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveNetwork.IP.String()}
 			joinConfig[peer] = p
 		}
 	}
@@ -513,7 +518,7 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
+		if sys.MicroCephInternalNetwork == nil || sys.OVNGeneveNetwork == nil {
 			continue
 		}
 
@@ -527,9 +532,8 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
 		}
 
-		if subnet.Contains(underlayIP) {
-			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String()))
-
+		if sys.MicroCephInternalNetwork.Subnet.Contains(sys.OVNGeneveNetwork.IP) {
+			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", sys.OVNGeneveNetwork.IP.String(), sys.MicroCephInternalNetwork.Subnet.String()))
 			break
 		}
 	}
@@ -660,12 +664,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroCeph {
 			microCephBootstrapConf := make(map[string]string)
-			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
-				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			if bootstrapSystem.MicroCephInternalNetwork != nil {
+				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetwork.Subnet.String()
 			}
 
-			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
-				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
+			if bootstrapSystem.MicroCephPublicNetwork != nil {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetwork.Subnet.String()
 			}
 
 			if len(microCephBootstrapConf) > 0 {
@@ -675,8 +679,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroOVN {
 			microOvnBootstrapConf := make(map[string]string)
-			if bootstrapSystem.OVNGeneveAddr != "" {
-				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveAddr
+			if bootstrapSystem.OVNGeneveNetwork != nil {
+				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveNetwork.IP.String()
 			}
 
 			if len(microOvnBootstrapConf) > 0 {
