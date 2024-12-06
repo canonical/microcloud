@@ -19,6 +19,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 	"gopkg.in/yaml.v2"
+
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 )
 
 const recoveryConfirmation = `You should only run this command if:
@@ -83,7 +85,7 @@ func (c *cmdClusterMembersList) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", cli.TableFormatTable, "Format (csv|json|table|yaml|compact)")
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", tui.TableFormatTable, "Format (csv|json|table|yaml|compact)")
 	cmd.Flags().BoolVarP(&c.flagLocal, "local", "l", false, "provide only the locally available cluster info (no database query)")
 
 	return cmd
@@ -141,8 +143,14 @@ func (c *cmdClusterMembersList) listClusterMembers(ctx context.Context, client *
 
 	header := []string{"NAME", "ADDRESS", "ROLE", "FINGERPRINT", "STATUS"}
 	sort.Sort(cli.SortColumnsNaturally(data))
+	table, err := tui.FormatData(c.flagFormat, header, data, clusterMembers)
+	if err != nil {
+		return err
+	}
 
-	return cli.RenderTable(c.flagFormat, header, data, clusterMembers)
+	fmt.Println(table)
+
+	return nil
 }
 
 func (c *cmdClusterMembersList) listLocalClusterMembers(m *microcluster.MicroCluster) error {
@@ -159,7 +167,14 @@ func (c *cmdClusterMembersList) listLocalClusterMembers(m *microcluster.MicroClu
 	header := []string{"DQLITE ID", "NAME", "ADDRESS", "ROLE"}
 	sort.Sort(cli.SortColumnsNaturally(data))
 
-	return cli.RenderTable(c.flagFormat, header, data, members)
+	table, err := tui.FormatData(c.flagFormat, header, data, members)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(table)
+
+	return nil
 }
 
 type cmdClusterMemberRemove struct {

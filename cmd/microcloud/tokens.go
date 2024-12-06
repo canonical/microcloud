@@ -8,6 +8,8 @@ import (
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
+
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 )
 
 type cmdSecrets struct {
@@ -46,7 +48,7 @@ func (c *cmdTokensList) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", cli.TableFormatTable, "Format (csv|json|table|yaml|compact)")
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", tui.TableFormatTable, "Format (csv|json|table|yaml|compact)")
 
 	return cmd
 }
@@ -80,7 +82,14 @@ func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 	header := []string{"NAME", "TOKENS"}
 	sort.Sort(cli.SortColumnsNaturally(data))
 
-	return cli.RenderTable(c.flagFormat, header, data, records)
+	table, err := tui.FormatData(c.flagFormat, header, data, records)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(table)
+
+	return nil
 }
 
 type cmdTokensRevoke struct {
