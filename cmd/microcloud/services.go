@@ -338,19 +338,17 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Go through the normal setup for disks and networks if necessary.
-	for service := range askClusteredServices {
-		switch service {
-		case types.MicroCeph:
-			err := cfg.askDisks(s)
-			if err != nil {
-				return err
-			}
+	if askClusteredServices[types.MicroCeph] != "" {
+		err := cfg.askDisks(s)
+		if err != nil {
+			return err
+		}
+	}
 
-		case types.MicroOVN:
-			err := cfg.askNetwork(s)
-			if err != nil {
-				return err
-			}
+	if askClusteredServices[types.MicroOVN] != "" {
+		err := cfg.askNetwork(s)
+		if err != nil {
+			return err
 		}
 	}
 
