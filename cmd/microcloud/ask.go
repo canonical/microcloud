@@ -914,6 +914,22 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	return nil
 }
 
+// Network is a helper struct to store an IP address, its subnet and
+// its corresponding network interface name.
+type Network struct {
+	// Interface is the name of the network interface. An example
+	// of why this is useful in MicroCloud is when we want to check that different network types (OVN, Ceph, etc)
+	// are on different network interfaces.
+	Interface string
+	// IP is the IP address of the network. An example of why this is useful in MicroCloud is when we want to store
+	// a member OVN underlay network IP address.
+	IP        net.IP
+	// Subnet is the subnet of the network. An example of why this is useful in MicroCloud is when we want to check
+	// that we don't have subnet collisions between different network types (OVN, Ceph, etc) in a cluster.
+	// For example, we don't want a member using 'subnet A' for OVN and an other member using 'subnet A' for Ceph.
+	Subnet    *net.IPNet
+}
+
 func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	if sh.Services[types.MicroOVN] == nil {
 		return nil
@@ -1138,7 +1154,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	var ovnUnderlaySelectedIPs map[string]string
+	var ovnUnderlaySelectedNets map[string]*Network
 	ovnUnderlayData := [][]string{}
 	for peer, system := range c.systems {
 		// skip any systems that have already been clustered, but are available for other configuration.
@@ -1167,7 +1183,6 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 			fmt.Println("Select exactly one network interface from each cluster member:")
 
 			table = NewSelectableTable(header, ovnUnderlayData)
-			ovnUnderlaySelectedIPs = map[string]string{}
 			err = c.askRetry("Retry selecting underlay network interfaces?", func() error {
 				err = table.Render(table.rows)
 				if err != nil {
@@ -1179,21 +1194,22 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 					return err
 				}
 
-				ovnUnderlaySelectedIPs = map[string]string{}
+				ovnUnderlaySelectedNets = make(map[string]*Network)
 				for _, answer := range answers {
 					target := table.SelectionValue(answer, "LOCATION")
+					ifaceName := table.SelectionValue(answer, "IFACE")
 					ipAddr := table.SelectionValue(answer, "IP ADDRESS (CIDR)")
 
-					if ovnUnderlaySelectedIPs[target] != "" {
+					if ovnUnderlaySelectedNets[target] != nil {
 						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
 					}
 
-					ip, _, err := net.ParseCIDR(ipAddr)
+					ip, ipNet, err := net.ParseCIDR(ipAddr)
 					if err != nil {
 						return err
 					}
 
-					ovnUnderlaySelectedIPs[target] = ip.String()
+					ovnUnderlaySelectedNets[target] = &Network{Interface: ifaceName, IP: ip, Subnet: ipNet}
 				}
 
 				return nil
@@ -1204,11 +1220,11 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	if len(ovnUnderlaySelectedIPs) > 0 {
+	if len(ovnUnderlaySelectedNets) > 0 {
 		for peer := range askSystems {
-			underlayIP, ok := ovnUnderlaySelectedIPs[peer]
+			underlayIP, ok := ovnUnderlaySelectedNets[peer]
 			if ok {
-				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayIP, peer)
+				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayIP.IP.String(), peer)
 			}
 		}
 
@@ -1245,10 +1261,10 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 			system.Networks = append(system.Networks, finalConfigs...)
 		}
 
-		if ovnUnderlaySelectedIPs != nil {
-			ovnUnderlayIpAddr, ok := ovnUnderlaySelectedIPs[peer]
+		if ovnUnderlaySelectedNets != nil {
+			ovnUnderlayNet, ok := ovnUnderlaySelectedNets[peer]
 			if ok {
-				system.OVNGeneveAddr = ovnUnderlayIpAddr
+				system.OVNGeneveNetwork = ovnUnderlayNet
 			}
 		}
 
@@ -1406,20 +1422,35 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		return err
 	}
 
+	internalCephNetworkInterface, err := lxd.FindInterfaceForSubnet(internalCephSubnet)
+	if err != nil {
+		return fmt.Errorf("Failed to find interface for subnet %q: %w", internalCephSubnet, err)
+	}
+
 	if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
 		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephSubnet)
 		if err != nil {
 			return err
 		}
 
+		internalCephIP, internalCephNet, err := net.ParseCIDR(internalCephSubnet)
+		if err != nil {
+			return fmt.Errorf("Failed to parse the internal Ceph network: %w", err)
+		}
+
 		bootstrapSystem := c.systems[sh.Name]
-		bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
+		bootstrapSystem.MicroCephPublicNetwork = &Network{Interface: internalCephNetworkInterface.Name, Subnet: internalCephNet, IP: internalCephIP}
 		c.systems[sh.Name] = bootstrapSystem
 	}
 
 	publicCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: %s] ", internalCephSubnet), internalCephSubnet, validate.IsNetwork)
 	if err != nil {
 		return err
+	}
+
+	publicCephNetworkInterface, err := lxd.FindInterfaceForSubnet(publicCephSubnet)
+	if err != nil {
+		return fmt.Errorf("Failed to find interface for subnet %q: %w", publicCephSubnet, err)
 	}
 
 	if publicCephSubnet != internalCephSubnet {
@@ -1430,15 +1461,30 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	}
 
 	if publicCephSubnet != microCloudInternalNetworkAddrCIDR {
+		publicCephIP, publicCephNet, err := net.ParseCIDR(publicCephSubnet)
+		if err != nil {
+			return fmt.Errorf("Failed to parse the public Ceph network: %w", err)
+		}
+
 		bootstrapSystem := c.systems[sh.Name]
-		bootstrapSystem.MicroCephPublicNetworkSubnet = publicCephSubnet
+		bootstrapSystem.MicroCephPublicNetwork = &Network{Interface: publicCephNetworkInterface.Name, Subnet: publicCephNet, IP: publicCephIP}
 		c.systems[sh.Name] = bootstrapSystem
 
 		// This is to avoid the situation where the internal network for Ceph has been skipped, but the public network has been set.
 		// Ceph will automatically set the internal network to the public Ceph network if the internal network is not set, which is not what we want.
 		// Instead, we still want to keep the internal Ceph network to use the MicroCloud internal network as a default.
 		if internalCephSubnet == microCloudInternalNetworkAddrCIDR {
-			bootstrapSystem.MicroCephInternalNetworkSubnet = microCloudInternalNetworkAddrCIDR
+			microcloudNetworkInterface, err := lxd.FindInterfaceForSubnet(microCloudInternalNetworkAddrCIDR)
+			if err != nil {
+				return fmt.Errorf("Failed to find interface for subnet %q: %w", publicCephSubnet, err)
+			}
+
+			microcloudInternalIP, microcloudNet, err := net.ParseCIDR(microCloudInternalNetworkAddrCIDR)
+			if err != nil {
+				return fmt.Errorf("Failed to parse the internal MicroCloud network: %w", err)
+			}
+
+			bootstrapSystem.MicroCephInternalNetwork = &Network{Interface: microcloudNetworkInterface.Name, Subnet: microcloudNet, IP: microcloudInternalIP}
 			c.systems[sh.Name] = bootstrapSystem
 		}
 	}
