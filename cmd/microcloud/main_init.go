@@ -53,19 +53,22 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
-	MicroCephPublicNetworkSubnet string
-	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	MicroCephInternalNetworkSubnet string
+	// MicroCephPublicNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network and
+	// the network interface name to use for the Ceph public network and its IP address within the subnet.
+	MicroCephPublicNetwork *Network
+	// MicroCephInternalNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network and
+	// the network interface name to use for the Ceph cluster network and its IP address within the subnet.
+	MicroCephInternalNetwork *Network
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
 	// TargetStoragePools contains the storage pool configuration for the target system.
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
-	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// OVNGeneveNetwork contains an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
 	// If left empty, the system will choose to route the Geneve traffic through the management network.
-	OVNGeneveAddr string
+	// It also contains the network interface name to use for the OVN Geneve tunnel and the network subnet.
+	OVNGeneveNetwork *Network
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -354,9 +357,9 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			CephConfig: info.MicroCephDisks,
 		}
 
-		if info.OVNGeneveAddr != "" {
+		if info.OVNGeneveNetwork != nil {
 			p := joinConfig[peer]
-			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveNetwork.IP.String()}
 			joinConfig[peer] = p
 		}
 	}
@@ -512,25 +515,81 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 }
 
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
-	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
+	// subnetsCollisionMap maps a subnet CIDR notation to a map of subnet type to peer names.
+	//
+	// Example:
+	// {
+	//   "10.0.1.0/24": {
+	//       "OVN underlay": ["system1", "system2"],
+	//       "Ceph cluster network": ["system3"]
+	//    },
+	//   "10.0.2.0/24": {
+	//        "Ceph public network": ["system1", "system2", "system3"],
+	//    }
+	// }
+	//
+	// In this example, we have a collision for the subnet "10.0.1.0/24":
+	//  - system1 and system2 are using it for the OVN underlay, whereas system3 is using it for the Ceph cluster network.
+	// Everything is fine for the subnet "10.0.2.0/24" as all systems are using it for the Ceph public network.
+	subnetsCollisionMap := make(map[string]map[string][]string)
+	for peer, sys := range c.systems {
+		if sys.MicroCephInternalNetwork == nil || sys.OVNGeneveNetwork == nil {
 			continue
 		}
 
-		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
-		if err != nil {
-			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
+		// We also check for interface collisions at a local level.
+		// This means that we check if the same interface is used for multiple networks in a member.
+		netTypeToNet := map[string]*Network{
+			"Ceph cluster network": sys.MicroCephInternalNetwork,
+			"OVN underlay":         sys.OVNGeneveNetwork,
 		}
 
-		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
-		if underlayIP == nil {
-			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
+		// The public Ceph network is not always present (partially disaggregated setup) but we still
+		// wish to check for interface collisions between OVN and the Ceph cluster network.
+		// If it is present though, add it to the list of interfaces to check for collisions.
+		if sys.MicroCephPublicNetwork != nil {
+			netTypeToNet["Ceph public network"] = sys.MicroCephPublicNetwork
 		}
 
-		if subnet.Contains(underlayIP) {
-			fmt.Printf("Warning: OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String())
+		// This is checking the local collisions (whether the same interface is used for multiple networks in a member).
+		for typeLeft, netLeft := range netTypeToNet {
+			for typeRight, netRight := range netTypeToNet {
+				// Skip self-comparison and already processed pairs
+				// (e.g. if we already compared "A vs B", we don't need to compare "B vs A").
+				if typeLeft >= typeRight {
+					continue
+				}
 
-			break
+				if netLeft.Interface == netRight.Interface {
+					fmt.Printf("Warning: %s is shared on the same network interface %q with the %s\n", typeLeft, netLeft.Interface, typeRight)
+				}
+
+				// Populate the subnetsCollisionMap with the subnet type and the peer using it.
+				subnetTypeToPeers, ok := subnetsCollisionMap[netLeft.Subnet.String()]
+				if !ok {
+					subnetTypeToPeers = make(map[string][]string)
+					subnetTypeToPeers[typeLeft] = make([]string, 0)
+					subnetTypeToPeers[typeLeft] = append(subnetTypeToPeers[typeLeft], peer)
+					subnetsCollisionMap[netLeft.Subnet.String()] = subnetTypeToPeers
+				} else {
+					subnetTypeToPeers[typeLeft] = append(subnetTypeToPeers[typeLeft], peer)
+				}
+			}
+		}
+	}
+
+	// Check for subnet collisions at the cluster level.
+	for subnet, subnetTypeToPeers := range subnetsCollisionMap {
+		// If there are multiple subnet types on the same subnet, we have a collision.
+		if len(subnetTypeToPeers) > 1 {
+			var sb strings.Builder
+			sb.WriteString("WARNING: Subnet collision detected:\n")
+			for subnetType, peers := range subnetTypeToPeers {
+				sb.WriteString(fmt.Sprintf("- Members %s are using the %q subnet for %s\n", strings.Join(peers, ", "), subnet, subnetType))
+			}
+
+			sb.WriteString("Please ensure that each subnet is used for a single network type.")
+			fmt.Printf("%s\n", sb.String())
 		}
 	}
 
@@ -660,12 +719,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroCeph {
 			microCephBootstrapConf := make(map[string]string)
-			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
-				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			if bootstrapSystem.MicroCephInternalNetwork != nil {
+				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetwork.Subnet.String()
 			}
 
-			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
-				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
+			if bootstrapSystem.MicroCephPublicNetwork != nil {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetwork.Subnet.String()
 			}
 
 			if len(microCephBootstrapConf) > 0 {
@@ -675,8 +734,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroOVN {
 			microOvnBootstrapConf := make(map[string]string)
-			if bootstrapSystem.OVNGeneveAddr != "" {
-				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveAddr
+			if bootstrapSystem.OVNGeneveNetwork != nil {
+				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveNetwork.IP.String()
 			}
 
 			if len(microOvnBootstrapConf) > 0 {
