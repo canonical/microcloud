@@ -7,7 +7,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/canonical/lxd v0.0.0-20241106165613-4aab50ec18c3
 	github.com/canonical/microceph/microceph v0.0.0-20241021172252-2dd856d64c62
-	github.com/canonical/microcluster/v2 v2.0.5
+	github.com/canonical/microcluster/v2 v2.1.0
 	github.com/canonical/microovn/microovn v0.0.0-20241101125123-0d5d663f6575
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/creack/pty v1.1.24
