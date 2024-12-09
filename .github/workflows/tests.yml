@@ -134,8 +134,15 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
+      # Use a different cover directory on the self hosted runner as the users home path is different.
+      GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/ubuntu/cover' || '' }}
     name: System
-    runs-on: ubuntu-22.04
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - jammy
+      - large
     needs: code-tests
     strategy:
       fail-fast: false
@@ -199,13 +206,10 @@ jobs:
           set -eux
 
           free -mt
-          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer phpsessionclean.timer update-notifier-download.timer update-notifier-motd.timer
+          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
           sudo systemctl stop iscsid.socket multipathd.socket
-          sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
+          sudo systemctl stop cron.service irqbalance.service multipathd.service networkd-dispatcher.service
           free -mt
-
-      - name: Disable Docker
-        uses: canonical/lxd/.github/actions/disable-docker@main
 
       - name: "Disable br_netfilter"
         run: |
@@ -225,14 +229,14 @@ jobs:
         run: |
           sudo add-apt-repository ppa:dqlite/dev -y --no-update
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
+          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config net-tools
 
       - name: Download system test dependencies
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: system-test-deps
           merge-multiple: true
-          path: /home/runner/go/bin
+          path: /home/ubuntu/go/bin
 
       - name: Make GOCOVERDIR
         run: mkdir -p "${GOCOVERDIR}"
@@ -290,7 +294,7 @@ jobs:
       - name: "Setup host LXD"
         run: |
           set -eux
-          sudo snap install lxd --channel 5.21/edge || sudo snap refresh lxd --channel 5.21/edge
+          sudo snap install lxd --channel 5.21/edge
           sudo lxd init --auto --storage-backend=zfs
 
       - name: "Prepare for system tests"
