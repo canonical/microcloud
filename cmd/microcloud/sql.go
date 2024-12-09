@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/canonical/microcluster/v2/microcluster"
-	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 )
 
 type cmdSQL struct {
@@ -64,7 +64,17 @@ func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		if result.Type == "select" {
-			sqlPrintSelectResult(result.Columns, result.Rows)
+			rows := make([][]string, len(result.Rows))
+			for i, row := range result.Rows {
+				rowStr := make([]string, len(row))
+				for j, c := range row {
+					rowStr[j] = fmt.Sprintf("%v", c)
+				}
+
+				rows[i] = rowStr
+			}
+
+			fmt.Println(tui.NewTable(result.Columns, rows))
 		} else {
 			fmt.Printf("Rows affected: %d\n", result.RowsAffected)
 		}
@@ -74,22 +84,4 @@ func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
-}
-
-func sqlPrintSelectResult(columns []string, rows [][]any) {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeader(columns)
-	for _, row := range rows {
-		data := []string{}
-		for _, col := range row {
-			data = append(data, fmt.Sprintf("%v", col))
-		}
-
-		table.Append(data)
-	}
-
-	table.Render()
 }

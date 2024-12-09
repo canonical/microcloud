@@ -61,6 +61,16 @@ func SetColor(color lipgloss.TerminalColor, str string, bold bool) string {
 	return lipgloss.NewStyle().Foreground(color).SetString(str).Bold(bold).String()
 }
 
+// Note creates a box with a note message inside. The border colour can be set with arguments.
+func Note(borderColor lipgloss.TerminalColor, text string) string {
+	box := lipgloss.NewStyle()
+	box = box.Border(lipgloss.NormalBorder())
+	box = box.BorderForeground(borderColor)
+	box = box.Padding(0, 1)
+
+	return box.Render(text)
+}
+
 // SuccessColor sets the 8-bit color of the text to 82. Green color used for happy messages.
 func SuccessColor(text string, bold bool) string {
 	return SetColor(Green, text, bold)
