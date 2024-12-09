@@ -889,7 +889,7 @@ cluster_reset() {
 
 # reset_systems: Concurrently or sequentially resets the specified number of systems.
 reset_systems() {
-  collect_go_cover_files 
+  collect_go_cover_files
 
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
     # shellcheck disable=SC2048,SC2086
@@ -1050,7 +1050,7 @@ restore_system() {
 
     for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
-      lxc storage volume create zpool "${disk}" size=5GiB --type=block
+      lxc storage volume create zpool "${disk}" size=10GiB --type=block
       lxc config device add "${name}" "disk${n}" disk pool=zpool source="${disk}"
     done
 
@@ -1180,7 +1180,7 @@ create_system() {
 
     for n in $(seq 1 "${num_disks}") ; do
       disk="${name}-disk${n}"
-      lxc storage volume create zpool "${disk}" size=5GiB --type=block
+      lxc storage volume create zpool "${disk}" size=10GiB --type=block
       lxc config device add "${name}" "disk${n}" disk pool=zpool source="${disk}"
     done
 
