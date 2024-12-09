@@ -374,3 +374,28 @@ func (s *CloudService) StartSession(ctx context.Context, role string, sessionTim
 
 	return client.StartSession(ctx, c, role, sessionTimeout)
 }
+
+// StopJoinerSession is called from the initiator member to stop a joiner session.
+func (s *CloudService) StopJoinerSession(ctx context.Context, joinerAddr string, stopMsg string) error {
+	if joinerAddr == "" {
+		return fmt.Errorf("No joiner address provided to stop the session")
+	}
+
+	client, err := s.client.RemoteClient(util.CanonicalNetworkAddress(joinerAddr, CloudPort))
+	if err != nil {
+		return err
+	}
+
+	client, err = cloudClient.UseAuthProxy(client, types.MicroCloud, cloudClient.AuthConfig{})
+	if err != nil {
+		return err
+	}
+
+	data := types.SessionStopPut{Reason: stopMsg}
+	err = client.Query(ctx, "PUT", types.APIVersion, api.NewURL().Path("session", "stop"), data, nil)
+	if err != nil {
+		return fmt.Errorf("Failed to stop joiner session: %w", err)
+	}
+
+	return nil
+}
