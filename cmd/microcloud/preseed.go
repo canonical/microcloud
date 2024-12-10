@@ -887,16 +887,6 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 		// Setup ceph pool for disks specified to MicroCeph.
 		if len(system.MicroCephDisks) > 0 {
-			if c.bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
-
-				if s.Name == peer {
-					system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
-				}
-			} else {
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
-			}
-
 			directCephMatches[peer] = directCephMatches[peer] + 1
 		}
 
@@ -1152,6 +1142,49 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		return nil, fmt.Errorf("Failed to find at least 1 disk on each machine for local storage pool configuration")
 	}
 
+	// If disks where selected for Ceph make sure to create the respective Ceph storage pool on all cluster members.
+	// Members that don't contribute disks still require the storage pool to be created.
+	if len(cephMatches)+len(directCephMatches) > 0 {
+		for name, system := range c.systems {
+			found := false
+			for _, pool := range system.TargetStoragePools {
+				if pool.Name == service.DefaultCephPool {
+					found = true
+				}
+			}
+
+			if !found && c.bootstrap {
+				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
+			}
+
+			found = false
+			for _, pool := range system.StoragePools {
+				if pool.Name == service.DefaultCephPool {
+					found = true
+				}
+			}
+
+			if !found && c.bootstrap && s.Name == name {
+				system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
+			}
+
+			found = false
+			for _, config := range system.JoinConfig {
+				if config.Name == service.DefaultCephPool {
+					found = true
+				}
+			}
+
+			if !found && !c.bootstrap {
+				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
+			}
+
+			c.systems[name] = system
+		}
+	}
+
+	// If disks where selected for Ceph make sure to create the respective CephFS storage pool on all cluster members if requested.
+	// The same applies if CephFS is already present when adding new members.
 	hasCephFS, _ := localInfo.SupportsRemoteFSPool()
 	if (len(cephMatches)+len(directCephMatches) > 0 && p.Ceph.CephFS) || hasCephFS {
 		for name, system := range c.systems {
