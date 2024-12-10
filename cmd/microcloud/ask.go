@@ -1503,7 +1503,7 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 			return fmt.Errorf("Passphrase cannot be empty")
 		}
 
-		passwordSplit := strings.Split(password, " ")
+		passwordSplit := strings.SplitN(password, " ", 5)
 		if len(passwordSplit) != 4 {
 			return fmt.Errorf("Passphrase has to contain exactly four elements")
 		}
