@@ -1498,17 +1498,24 @@ func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 }
 
 func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
+	format := func(password string) (string, error) {
+		trimmed := strings.TrimSpace(password)
+		passwordSplit := strings.SplitN(trimmed, " ", 5)
+
+		if len(passwordSplit) != 4 {
+			return "", fmt.Errorf("Passphrase has to contain exactly four elements")
+		}
+
+		return trimmed, nil
+	}
+
 	validator := func(password string) error {
 		if password == "" {
 			return fmt.Errorf("Passphrase cannot be empty")
 		}
 
-		passwordSplit := strings.Split(password, " ")
-		if len(passwordSplit) != 4 {
-			return fmt.Errorf("Passphrase has to contain exactly four elements")
-		}
-
-		return nil
+		_, err := format(password)
+		return err
 	}
 
 	cloud := s.Services[types.MicroCloud].(*service.CloudService)
@@ -1530,7 +1537,7 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 		return "", err
 	}
 
-	return password, nil
+	return format(password)
 }
 
 func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSystems []string) ([]types.SessionJoinPost, error) {
