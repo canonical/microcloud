@@ -14,20 +14,19 @@ check_instance_connectivity() {
     return 0
   fi
 
-
   # Ensure we can reach the launched instances.
   for m in "${instance_1}" "${instance_2}" ; do
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 100); do
-      if lxc list -f csv -c s ${m} | grep -qxF READY; then
-         lxc exec ${m} -- stat /cephfs
+    for round in \$(seq 60); do
+      if [ \$(lxc list -f csv -c s ${m}) = 'READY' ]; then
+         lxc exec ${m} -- test -d /cephfs
          echo \" ${m} booted successfully\"
 
          return 0
       fi
       echo -n .
-      sleep 3
+      sleep 5
     done
     echo FAIL
     return 1
@@ -240,15 +239,15 @@ EOF
 
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 100); do
-      if lxc list -f csv -c s ${m} | grep -qxF READY; then
+    for round in \$(seq 60); do
+      if [ \$(lxc list -f csv -c s ${m}) = 'READY' ]; then
          echo \" ${m} booted successfully\"
 
          lxc rm ${m} -f
          return 0
       fi
       echo -n .
-      sleep 3
+      sleep 5
     done
     echo FAIL
     return 1
