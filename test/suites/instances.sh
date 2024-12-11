@@ -33,13 +33,12 @@ check_instance_connectivity() {
     "
   done
 
+  echo "Test connectivity to lxdbr0"
+  IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
+  IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
   for m in "${instance_1}" "${instance_2}" ; do
     lxc exec micro01 -- lxc exec "${m}" -- apt-get update
     lxc exec micro01 -- lxc exec "${m}" -- apt-get install -y --no-install-recommends iputils-ping
-
-    echo "Test connectivity to lxdbr0"
-    IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
-    IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
 
     lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -4 "${IPV4_GW}"
     lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -6 "${IPV6_GW}"
