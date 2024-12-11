@@ -663,10 +663,28 @@ EOF
 
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro04
+
+  # Let cloud-init finish its job of installing required packages (i.e: iputils-ping).
+  for m in c3 c4; do
+    echo -n "Waiting up to 5 mins for ${m} to start "
+    lxc exec micro01 -- sh -ceu "
+    for round in \$(seq 60); do
+      if [ \$(lxc list -f csv -c s ${m}) = 'READY' ]; then
+         echo \" ${m} booted successfully\"
+
+         return 0
+      fi
+      echo -n .
+      sleep 5
+    done
+    echo FAIL
+    return 1
+    "
+  done
+
   lxc exec micro01 -- lxc stop c3
   lxc exec micro01 -- lxc move c3 --target micro04
   lxc exec micro01 -- lxc start c3
-
 
   check_instance_connectivity "c1" "c3" "0"
   check_instance_connectivity "c1" "c4" "0"
