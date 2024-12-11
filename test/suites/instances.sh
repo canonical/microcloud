@@ -37,9 +37,6 @@ check_instance_connectivity() {
   IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
   IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
   for m in "${instance_1}" "${instance_2}" ; do
-    lxc exec micro01 -- lxc exec "${m}" -- apt-get update
-    lxc exec micro01 -- lxc exec "${m}" -- apt-get install -y --no-install-recommends iputils-ping
-
     lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -4 "${IPV4_GW}"
     lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -6 "${IPV6_GW}"
   done
@@ -214,6 +211,8 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
+    packages:
+    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -311,6 +310,8 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
+    packages:
+    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
