@@ -1382,13 +1382,9 @@ new_systems() {
 wait_snapd() {
   name="${1}"
 
-  for i in $(seq 60); do # Wait up to 60s.
-    if lxc exec "${name}" -- systemctl show snapd.seeded.service --value --property SubState | grep -qx exited; then
-      return 0 # Success.
-    fi
-
-    sleep 1
-  done
+  if timeout 60s lxc exec "${name}" -- snap wait system seed.loaded; then
+    return 0 # Success.
+  fi
 
   echo "snapd not seeded after ${i}s"
   return 1 # Failed.
