@@ -78,7 +78,8 @@ MicroCloud supports both local and remote storage.
 For local storage, you need one disk per cluster member.
 For remote storage with high availability (HA), you need at least three disks that are located across three different cluster members.
 
-In this tutorial, we'll set up four cluster members with both local and remote storage (with HA). This means that we need a minimum of seven disks: four for local storage, and three for remote storage.
+In this tutorial, we'll set up four cluster members with local and three with remote storage (as minimum for HA), with a total of seven disks.
+You can also add the extra remote storage on the fourth node, but the tutorial intends to show that only three cluster members are required.
 
 Complete the following steps to create the required disks in a LXD storage pool:
 
