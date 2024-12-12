@@ -24,6 +24,8 @@ It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you do
    However, you should make sure that you have a storage pool set up that is big enough to store four VMs. We recommend a minimum storage pool size of 40 GiB.
 ```
 
+Verify that your host machine [supports nested-virtualization](https://ubuntu.com/server/docs/how-to-enable-nested-virtualization#check-if-nested-virtualization-is-enabled)
+
 MicroCloud requires LXD version 5.21:
 
 1. Install `snapd`:
@@ -138,7 +140,7 @@ Complete the following steps to set up this network:
 
        lxc network create microbr0
 
-(tutorial-note-ips)=
+      (tutorial-note-ips)=
 1. Enter the following commands to find out the assigned IPv4 and IPv6 addresses for the network, and note them down:
 
        lxc network get microbr0 ipv4.address
