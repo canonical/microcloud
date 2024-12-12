@@ -197,6 +197,10 @@ In addition, you must configure the network interfaces so they can be used by Mi
 
 Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micro4`):
 
+   ```{tip}
+   Open four terminals, one on each micro vm, to run the commands concurrently (tmux panel multiplexing can help here ;))
+   ```
+
 1. Access the shell in the VM.
    For example, for `micro1`:
 
@@ -271,10 +275,6 @@ Complete the following steps:
 1. Head to the other VMs (`micro2`, `micro3`, and `micro4`) and start the join process on each:
 
        lxc exec micro2 microcloud join
-
-   ```{tip}
-   Open three additional terminals to run the commands concurrently.
-   ```
 
    In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
 
