@@ -5,14 +5,13 @@ go 1.22.7
 require (
 	github.com/canonical/lxd v0.0.0-20241106165613-4aab50ec18c3
 	github.com/canonical/microceph/microceph v0.0.0-20241021172252-2dd856d64c62
-	github.com/canonical/microcluster/v2 v2.0.5
+	github.com/canonical/microcluster/v2 v2.1.0
 	github.com/canonical/microovn/microovn v0.0.0-20241101125123-0d5d663f6575
 	github.com/charmbracelet/bubbletea v1.2.3
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/charmbracelet/x/ansi v0.4.5
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.22.0
@@ -53,6 +52,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.7 // indirect
 	github.com/pkg/xattr v0.4.10 // indirect
