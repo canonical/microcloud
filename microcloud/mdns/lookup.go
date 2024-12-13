@@ -46,10 +46,10 @@ func (f forwardingWriter) Write(p []byte) (int, error) {
 
 	if strings.Contains(logMsg, "[INFO]") {
 		_, after, _ := strings.Cut(logMsg, "[INFO]")
-		logger.Infof(after)
+		logger.Info(after)
 	} else if strings.Contains(logMsg, "[ERR]") {
 		_, after, _ := strings.Cut(logMsg, "[ERR]")
-		logger.Errorf(after)
+		logger.Error(after)
 	} else {
 		return 0, fmt.Errorf("Invalid log %q", logMsg)
 	}

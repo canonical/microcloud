@@ -472,7 +472,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		}
 
 		for _, disk := range directCeph {
-			system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: disk.Path, Wipe: disk.Wipe})
+			system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: []string{disk.Path}, Wipe: disk.Wipe})
 		}
 
 		// Setup ceph pool for disks specified to MicroCeph.
@@ -541,7 +541,7 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 			}
 
 			for _, disk := range matched {
-				system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: parseDiskPath(disk), Wipe: filter.Wipe})
+				system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: []string{parseDiskPath(disk)}, Wipe: filter.Wipe})
 				// There should only be one ceph pool per system.
 				if !addedCephPool {
 					if bootstrap {

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	cli "github.com/canonical/lxd/shared/cmd"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/version"
@@ -34,7 +35,7 @@ func main() {
 	}
 
 	// common flags.
-	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin))}
+	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin), logger.Log)}
 
 	useTestConsole := os.Getenv("TEST_CONSOLE")
 	if useTestConsole == "1" {

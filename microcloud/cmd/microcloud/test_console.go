@@ -13,6 +13,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/Netflix/go-expect"
 	cli "github.com/canonical/lxd/shared/cmd"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/creack/pty"
 	"github.com/hinshun/vt10x"
 )
@@ -39,7 +40,7 @@ func prepareTestAsker(r io.Reader) cli.Asker {
 
 	reader = bufio.NewReader(bytes.NewReader(b.Bytes()))
 
-	return cli.NewAsker(reader)
+	return cli.NewAsker(reader, logger.Log)
 }
 
 // NewTestConsole creates a new testConsole, with an underlying expect.Console and virtual terminal.
