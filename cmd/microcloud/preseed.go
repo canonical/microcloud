@@ -893,31 +893,36 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		c.systems[peer] = system
 	}
 
+	checkFilterZFS := map[string]bool{}
+	checkFilterCeph := map[string]bool{}
+	for _, system := range p.Systems {
+		if (DirectStorage{} == system.Storage.Local) {
+			checkFilterZFS[system.Name] = true
+		}
+
+		if len(system.Storage.Ceph) == 0 {
+			checkFilterCeph[system.Name] = true
+		}
+	}
+
+	if len(checkFilterCeph) == 0 && len(p.Storage.Ceph) > 0 {
+		return nil, fmt.Errorf("Ceph disk filter cannot be used. All systems have explicitly specified disks")
+	}
+
+	if len(checkFilterZFS) == 0 && len(p.Storage.Local) > 0 {
+		return nil, fmt.Errorf("Local disk filter cannot be used. All systems have explicitly specified a disk")
+	}
+
 	allResources := map[string]*lxdAPI.Resources{}
 	for peer, system := range c.systems {
-		// Skip any systems that had direct configuration.
-		if len(system.MicroCephDisks) > 0 || len(system.TargetStoragePools) > 0 || len(system.StoragePools) > 0 {
-			continue
-		}
-
-		setupStorage := false
-		for _, cfg := range system.JoinConfig {
-			if cfg.Entity == "storage-pool" {
-				setupStorage = true
-				break
-			}
-		}
-
-		if setupStorage {
-			continue
-		}
-
 		cert := system.ServerInfo.Certificate
 
 		// Fetch system resources from LXD to find disks if we haven't directly set up disks.
-		allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
+		if checkFilterZFS[peer] || checkFilterCeph[peer] {
+			allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
+			}
 		}
 	}
 
