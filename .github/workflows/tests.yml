@@ -130,12 +130,12 @@ jobs:
             /home/runner/go/bin/dqlite
           retention-days: 1
 
-  system-tests:
+  system-tests-core:
     env:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
-    name: System
+    name: System (core)
     runs-on: ubuntu-22.04
     needs: code-tests
     strategy:
@@ -158,186 +158,79 @@ jobs:
         microovn: ["latest/edge"]
         lxd: ["5.21/edge"]
         microcloud: ["latest/edge"]
-        # Additional test suites that will get included using a different set of versions.
-        include:
-          # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph reef
-          - suite: "upgrade"
-            os: "22.04"
-            microceph: "reef/stable"
-            microovn: "22.03/stable"
-            lxd: "5.21/stable"
-            microcloud: "1/stable"
-          # Upgrade MicroCloud from 1 to 2 on 24.04 using MicroCeph reef
-          - suite: "upgrade"
-            os: "24.04"
-            lxd: "5.21/stable"
-            microceph: "reef/stable"
-            microovn: "22.03/stable"
-            microcloud: "1/stable"
-          # Upgrade MicroCloud from 1 to 2 on 22.04 using MicroCeph quincy
-          - suite: "upgrade"
-            os: "22.04"
-            microceph: "quincy/stable"
-            microovn: "22.03/stable"
-            lxd: "5.21/stable"
-            microcloud: "1/stable"
-          # Upgrade MicroCloud from 1 to 2 on 24.04 using MicroCeph quincy
-          - suite: "upgrade"
-            os: "24.04"
-            lxd: "5.21/stable"
-            microceph: "quincy/stable"
-            microovn: "22.03/stable"
-            microcloud: "1/stable"
     steps:
-      - name: Performance tuning
-        uses: canonical/lxd/.github/actions/tune-disk-performance@main
-
-      - name: Reclaim some space
-        uses: canonical/lxd/.github/actions/reclaim-disk-space@main
-
-      - name: Reclaim some memory
-        run: |
-          set -eux
-
-          free -mt
-          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer phpsessionclean.timer update-notifier-download.timer update-notifier-motd.timer
-          sudo systemctl stop iscsid.socket multipathd.socket
-          sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
-          free -mt
-
-      - name: Disable Docker
-        uses: canonical/lxd/.github/actions/disable-docker@main
-
-      - name: "Disable br_netfilter"
-        run: |
-          # When br_netfilter is enabled, the multicast traffic that passes the native LXD bridge
-          # will get masqueraded too which breaks the multicast discovery.
-          sudo rmmod br_netfilter
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install Go
-        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
+      - name: System test
+        uses: ./.github/actions/system-test
         with:
-          go-version-file: 'go.mod'
+          github_runner: true
 
-      - name: Install dependencies
-        run: |
-          sudo add-apt-repository ppa:dqlite/dev -y --no-update
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config net-tools
+  system-tests-upgrade:
+    env:
+      DEBUG: "1"
+      SKIP_VM_LAUNCH: "1"
+      SNAPSHOT_RESTORE: "1"
+    name: System (upgrade)
+    runs-on: ubuntu-22.04
+    needs: code-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ["upgrade"]
+        os:
+          - "22.04"
+          - "24.04"
+        microceph:
+          - "reef/stable"
+          - "quincy/stable"
+        microovn: ["22.03/stable"]
+        lxd: ["5.21/stable"]
+        microcloud: ["1/stable"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Download system test dependencies
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      - name: System test
+        uses: ./.github/actions/system-test
         with:
-          name: system-test-deps
-          merge-multiple: true
-          path: /home/runner/go/bin
+          github_runner: true
 
-      - name: Make GOCOVERDIR
-        run: mkdir -p "${GOCOVERDIR}"
-        if: env.GOCOVERDIR != ''
+  system-tests-canonical:
+    env:
+      DEBUG: "1"
+      SKIP_VM_LAUNCH: "1"
+      SNAPSHOT_RESTORE: "1"
+    name: System (Canonical)
+    runs-on: self-hosted-linux-amd64-jammy-large
+    needs: code-tests
+    # Run the tests on the Canonical runners only when scheduled.
+    if: ${{ github.event_name == 'schedule' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ["instances"]
+        os:
+          - "22.04"
+          - "24.04"
+        microceph: ["latest/edge"]
+        microovn: ["latest/edge"]
+        lxd: ["5.21/edge"]
+        microcloud: ["latest/edge"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Sideload debug binaries
-        run: |
-          set -eux
-
-          # Binaries to sideload
-          export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
-          export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
-
-          echo "MICROCLOUD_DEBUG_PATH=${MICROCLOUD_DEBUG_PATH}"   >> "${GITHUB_ENV}"
-          echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
-
-      - name: Strip debug binaries
-        if: env.GOCOVERDIR == ''
-        run: |
-          set -eux
-          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
-
-      - name: "Free up the ephemeral disk"
-        run: |
-          set -eux
-
-          if ! mountpoint --quiet /mnt; then
-            echo "INFO: no ephemeral disk mounted on /mnt"
-            mount
-            exit 0
-          fi
-
-          # If the rootfs and the ephemeral part are on the same physical disk, giving the whole
-          # disk to microceph would wipe our rootfs. Since it is pretty rare for GitHub Action
-          # runners to have a single disk, we immediately bail rather than trying to gracefully
-          # handle it. Once snapd releases with https://github.com/snapcore/snapd/pull/13150,
-          # we will be able to stop worrying about that special case.
-          if [ "$(stat -c '%d' /)" = "$(stat -c '%d' /mnt)" ]; then
-            echo "FAIL: rootfs and ephemeral part on the same disk, aborting"
-            lsblk
-            blkid
-            sudo fdisk -l
-            exit 1
-          fi
-
-          # Free-up the ephemeral disk to use it as storage device for LXD.
-          sudo swapoff /mnt/swapfile
-          ephemeral_disk="$(findmnt --noheadings --output SOURCE --target /mnt | sed 's/[0-9]\+$//')"
-          sudo umount /mnt
-          sudo wipefs -a "${ephemeral_disk}"
-          export TEST_STORAGE_SOURCE="${ephemeral_disk}"
-
-          echo "TEST_STORAGE_SOURCE=${TEST_STORAGE_SOURCE}" >> "${GITHUB_ENV}"
-
-      - name: "Setup host LXD"
-        run: |
-          set -eux
-          sudo snap install lxd --channel 5.21/edge
-          sudo lxd init --auto --storage-backend=zfs
-
-          # Save cached images into the (compressed) zpool
-          sudo lxc storage volume create default images
-          sudo lxc config set storage.images_volume=default/images
-
-      - name: "Prepare for system tests"
-        run: |
-          set -eux
-          chmod +x ~
-
-          export BASE_OS="${{ matrix.os }}"
-          export LXD_SNAP_CHANNEL="${{ matrix.lxd }}"
-          export MICROCEPH_SNAP_CHANNEL="${{ matrix.microceph }}"
-          export MICROOVN_SNAP_CHANNEL="${{ matrix.microovn }}"
-          export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
-
-          cd test
-          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
-
-          echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
-          echo "BASE_OS=${BASE_OS}" >> "${GITHUB_ENV}"
-          echo "LXD_SNAP_CHANNEL=${LXD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
-          echo "MICROCEPH_SNAP_CHANNEL=${MICROCEPH_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
-          echo "MICROOVN_SNAP_CHANNEL=${MICROOVN_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
-          echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
-
-      - name: "Run system tests (${{ matrix.suite }})"
-        run: |
-          set -eux
-          chmod +x ~
-          cd test
-          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
-          echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
-
-      - name: Upload coverage data
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - name: System test
+        uses: ./.github/actions/system-test
         with:
-          name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
-          path: ${{ env.GOCOVERDIR }}
-        if: env.GOCOVERDIR != ''
+          github_runner: false
 
   tics:
     name: Tiobe TICS
     runs-on: ubuntu-22.04
-    needs: system-tests
+    needs: [system-tests-core, system-tests-upgrade]
     #if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
     if: false
     steps:
@@ -404,7 +297,7 @@ jobs:
   snap:
     name: Trigger snap edge build
     runs-on: ubuntu-22.04
-    needs: [code-tests, system-tests, doc-tests]
+    needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
     if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
