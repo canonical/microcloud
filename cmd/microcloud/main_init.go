@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
-	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/revert"
 	"github.com/canonical/lxd/shared/validate"
@@ -26,6 +25,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -80,7 +80,7 @@ type initConfig struct {
 	common *CmdControl
 
 	// asker is the CLI user input helper.
-	asker *cli.Asker
+	asker *tui.InputHandler
 
 	// address is the cluster address of the local system.
 	address string
@@ -145,7 +145,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		bootstrap: true,
 		setupMany: true,
 		common:    c.common,
-		asker:     &c.common.asker,
+		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
 		state:     map[string]service.SystemInformation{},
 	}
@@ -165,7 +165,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member? (yes/no) [default=yes]: ", "yes")
+	c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member?", true)
 	if err != nil {
 		return err
 	}
@@ -449,7 +449,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			return nil, err
 		}
 
-		fmt.Printf(" Peer %q has joined the cluster\n", sh.Name)
+		fmt.Println(tui.SummarizeResult("Peer %s has joined the cluster", sh.Name))
 	}
 
 	for peer, cfg := range joinConfig {
@@ -463,7 +463,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			return nil, err
 		}
 
-		fmt.Printf(" Peer %q has joined the cluster\n", peer)
+		fmt.Println(tui.SummarizeResult("Peer %s has joined the cluster", peer))
 	}
 
 	cleanup := reverter.Clone().Fail
@@ -528,7 +528,7 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 		}
 
 		if subnet.Contains(underlayIP) {
-			fmt.Printf("Warning: OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String())
+			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String()))
 
 			break
 		}
@@ -650,7 +650,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
-	fmt.Println("Initializing new services")
+	fmt.Println("Initializing new services ...")
 	mu := sync.Mutex{}
 	err = s.RunConcurrent(types.MicroCloud, types.LXD, func(s service.Service) error {
 		// If there's already an initialized system for this service, we don't need to bootstrap it.
@@ -704,7 +704,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		c.state[s.Name()] = clustered
 		mu.Unlock()
 
-		fmt.Printf(" Local %s is ready\n", s.Type())
+		fmt.Println(tui.SummarizeResult("Local %s is ready", s.Type()))
 
 		return nil
 	})
@@ -1021,7 +1021,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	reverter.Success()
 
-	fmt.Println("MicroCloud is ready")
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 
 	return nil
 }

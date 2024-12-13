@@ -43,7 +43,7 @@ test_add_interactive() {
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export DNS_ADDRESSES="10.1.123.1,fd42:1:1234:1234::1"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
   lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
@@ -66,8 +66,7 @@ test_add_interactive() {
   export SETUP_OVN="yes"
   export OVN_FILTER="enp6s0"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive add micro01 |
-    LOOKUP_IFACE="enp5s0" capture_and_join micro04
+  join_session add micro01 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
@@ -96,7 +95,7 @@ test_add_interactive() {
 
   lxc exec micro04 -- snap disable microcloud
 
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
   lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
@@ -110,8 +109,7 @@ test_add_interactive() {
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
-  microcloud_interactive add micro01 |
-    LOOKUP_IFACE="enp5s0" capture_and_join micro04
+  join_session add micro01 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
@@ -130,7 +128,7 @@ test_add_interactive() {
   export SETUP_OVN="no"
 
   lxc exec micro04 -- snap disable microcloud
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
 
   for m in micro01 micro02 micro03; do
@@ -160,8 +158,7 @@ test_add_interactive() {
 
   lxc exec micro04 -- snap enable microcloud
   lxc exec micro04 -- snap start microcloud
-  microcloud_interactive add micro01 |
-    LOOKUP_IFACE="enp5s0" capture_and_join micro04
+  join_session add micro01 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 

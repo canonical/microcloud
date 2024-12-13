@@ -60,9 +60,9 @@ microcloud_interactive() {
   if [ -n "${MULTI_NODE}" ]; then
     setup="
 ${MULTI_NODE}                                           # lookup multiple nodes
-${LOOKUP_IFACE}                                         # filter the lookup interface
-$([ -n "${LOOKUP_IFACE}" ] && printf "select")          # select the interface
-$([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
+$([ -n "${LOOKUP_IFACE}" ] && printf "table:filter %s" "${LOOKUP_IFACE}")          # filter the lookup interface
+$([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
+$([ -n "${LOOKUP_IFACE}" ] && printf -- "table:done")
 $(true)
 "
   fi
@@ -70,10 +70,10 @@ $(true)
   if ! [ "${SKIP_LOOKUP}" = 1 ]; then
     setup="${setup}
 $([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
-expect ${EXPECT_PEERS}                                      # wait until the systems show up
-${PEERS_FILTER}                                             # filter discovered peers
-select-all                                                  # select all the systems
----
+table:expect ${EXPECT_PEERS}                                      # wait until the systems show up
+$([ -n "${PEERS_FILTER}" ] && printf "table:filter %s" "${PEERS_FILTER}")          # filter discovered peers
+table:select-all                                                  # select all the systems
+table:done
 $(true)                                                 # workaround for set -e
 "
   fi
@@ -91,12 +91,12 @@ fi
 if [ -n "${SETUP_ZFS}" ]; then
   setup="${setup}
 ${SETUP_ZFS}                                            # add local disks (yes/no)
-$([ "${SETUP_ZFS}" = "yes" ] && printf "wait 300ms")    # wait for the table to populate
-${ZFS_FILTER}                                           # filter zfs disks
-$([ "${SETUP_ZFS}" = "yes" ] && printf "select-all")    # select all disk matching the filter
-$([ "${SETUP_ZFS}" = "yes" ] && printf -- "---" )
-$([ "${ZFS_WIPE}"  = "yes" ] && printf "select-all")    # wipe all disks
-$([ "${SETUP_ZFS}" = "yes" ] && printf -- "---")
+$([ "${SETUP_ZFS}" = "yes" ] && printf "table:wait 300ms")    # wait for the table to populate
+$([ -n "${ZFS_FILTER}" ] && printf "table:filter %s" "${ZFS_FILTER}")          # filter zfs disks
+$([ "${SETUP_ZFS}" = "yes" ] && printf "table:select-all")    # select all disk matching the filter
+$([ "${SETUP_ZFS}" = "yes" ] && printf -- "table:done" )
+$([ "${ZFS_WIPE}"  = "yes" ] && printf "table:select-all")    # wipe all disks
+$([ "${SETUP_ZFS}" = "yes" ] && printf -- "table:done")
 $(true)                                                 # workaround for set -e
 "
 fi
@@ -105,12 +105,12 @@ if [ -n "${SETUP_CEPH}" ]; then
   setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
 ${CEPH_MISSING_DISKS}                                   # continue with some peers missing disks? (yes/no)
-$([ "${SETUP_CEPH}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
-${CEPH_FILTER}                                          # filter ceph disks
-$([ "${SETUP_CEPH}" = "yes" ] && printf "select-all")   # select all disk matching the filter
-$([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
-$([ "${CEPH_WIPE}"  = "yes" ] && printf "select-all")   # wipe all disks
-$([ "${SETUP_CEPH}" = "yes" ] && printf -- "---")
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+$([ -n "${CEPH_FILTER}" ] && printf "table:filter %s" "${CEPH_FILTER}")          # filter ceph disks
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:select-all")   # select all disk matching the filter
+$([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
+$([ "${CEPH_WIPE}"  = "yes" ] && printf "table:select-all")   # wipe all disks
+$([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_RETRY_HA}" ) # allow ceph setup without 3 systems supplying disks.
 ${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
@@ -137,10 +137,10 @@ fi
 if [ -n "${SETUP_OVN}" ]; then
   setup="${setup}
 ${SETUP_OVN}                                           # agree to setup OVN
-$([ "${SETUP_OVN}" = "yes" ] && printf "wait 300ms")   # wait for the table to populate
-${OVN_FILTER}                                          # filter interfaces
-$([ "${SETUP_OVN}" = "yes" ] && printf "select-all")   # select all interfaces matching the filter
-$([ "${SETUP_OVN}" = "yes" ] && printf -- "---")
+$([ "${SETUP_OVN}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+$([ -n "${OVN_FILTER}" ] && printf "table:filter %s" "${OVN_FILTER}")          # filter interfaces
+$([ "${SETUP_OVN}" = "yes" ] && printf "table:select-all")   # select all interfaces matching the filter
+$([ "${SETUP_OVN}" = "yes" ] && printf -- "table:done")
 ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateways and ranges
 ${IPV4_START}
 ${IPV4_END}
@@ -152,10 +152,10 @@ $(true)                                                 # workaround for set -e
   if [ -n "${OVN_UNDERLAY_NETWORK}" ]; then
     setup="${setup}
 ${OVN_UNDERLAY_NETWORK}
-$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "wait 300ms")
-${OVN_UNDERLAY_FILTER}
-$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "select-all")
-$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf -- "---")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "table:wait 300ms")
+$([ -n "${OVN_UNDERLAY_FILTER}" ] && printf "table:filter %s" "${OVN_UNDERLAY_FILTER}")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf "table:select-all")
+$([ "${OVN_UNDERLAY_NETWORK}" = "yes" ] && printf -- "table:done")
 $(true)                                                 # workaround for set -e
 "
   fi
@@ -180,67 +180,59 @@ fi
     args="--session-timeout=60"
   fi
 
-  echo "${setup}" | lxc exec "${2}" -- sh -c "tee in | (microcloud ${1} ${args} 2>&1 ; echo \$? > code) | tee out"
+  echo "${setup}" | lxc exec "${2}" -- sh -c "microcloud ${1} ${args} > out 2>&1 3>debug"
 }
 
-# capture_and_join: extracts the passphrase from stdin and outputs text that is being passed to `TEST_CONSOLE=1 microcloud join`
-# to simulate terminal input to the interactive CLI.
-# The lines that are output are based on the values passed to the listed environment variables.
-# Any unset variables will be omitted.
-# The arguments are the systems you want to join interactively.
-capture_and_join() {
+# join_session: Set up a MicroCloud join session.
+# Joiners are spawned as child processes, and are forcibly killed if still running after the initiator returns.
+# Arg 1: initiator command to run (init/add)
+# Arg 2: initiator name
+# Remaining args: names of joiners
+join_session(){
   enable_xtrace=0
+  mode="${1}"
+  initiator="${2}"
+  shift 2
+  joiners="${*}"
 
   if set -o | grep -q "xtrace.*on" ; then
     enable_xtrace=1
     set +x
   fi
 
-  next_line=0
-  passphrase=""
-  while IFS= read -r line; do
-    # Skip the empty placeholder line.
-    # Indicate that the next line will be the one.
-    if [ "$next_line" = 1 ]; then
-      next_line=2
-      continue
-    # Passphrase found.
-    elif [ "$next_line" = 2 ]; then
-      # Trim the trailing whitespace.
-      passphrase="${line## }"
-      break
-    fi
-
-    # The second next line contains the passphrase.
-    if [ "$line" = "When requested enter the passphrase:" ]; then
-      next_line=1
-    fi
-  done
-
   LOOKUP_IFACE=${LOOKUP_IFACE:-} # filter string for the lookup interface table.
 
+  # If we are adding a node, only the joiners will need to supply an address, so pick the first one.
+  if [ "${mode}" = "add" ] && [ -z "${LOOKUP_IFACE}" ] ; then
+    LOOKUP_IFACE="enp5s0"
+  fi
+
+
   # Select the first usable address and enter the passphrase.
-  setup="${LOOKUP_IFACE}                       # filter the lookup interface
-$([ -n "${LOOKUP_IFACE}" ] && printf "select") # select the interface
-$([ -n "${LOOKUP_IFACE}" ] && printf -- "---")
-${passphrase}                                  # the captured passphrase
-$(true)                                        # workaround for set -e
+  setup="$([ -n "${LOOKUP_IFACE}" ] && printf "table:filter %s" "${LOOKUP_IFACE}")          # filter the lookup interface
+$([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
+$([ -n "${LOOKUP_IFACE}" ] && printf -- "table:done")
+a a a a                                 # the test passphrase
+$(true)                                 # workaround for set -e
 "
 
-  # clear comments and empty lines.
+  # Clear comments and empty lines.
   setup="$(echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d' | tee /dev/stderr)"
   if [ ${enable_xtrace} = 1 ]; then
     set -x
   fi
 
-  for member in "$@"; do
-    lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 ; echo \$? > code) | tee out" <<< "${setup}" &
+
+  # Spawn joiner child processes, and capture the exit code.
+  for member in ${joiners}; do
+    lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out" <<< "${setup}" &
   done
 
-  # wait for the parent.
-  cat
+  # Set up microcloud with the initiator.
+  microcloud_interactive "${mode}" "${initiator}"
+  code="$?"
 
-  # kill the childs if they are still running.
+  # Kill the childs if they are still running.
   child_processes="$(jobs -pr)"
   if [ -n "${child_processes}" ]; then
     for p in ${child_processes}; do
@@ -248,13 +240,16 @@ $(true)                                        # workaround for set -e
     done
   fi
 
-  initiator="$(lxc exec "${1}" -- cat out | grep -o 'Found system.* at')"
-  initiator="$(echo "${initiator}" | cut -d'"' -f2)"
-  [ "$(lxc exec "${initiator}" -- cat code)" = "0" ]
 
-  for joiner in "$@" ; do
-    [ "$(lxc exec "${joiner}" -- cat code)" = "0" ]
+  for joiner in ${joiners} ; do
+    if [ "${code}" = 0 ]; then
+      [ "$(lxc exec "${joiner}" -- cat code)" = "0" ]
+    else
+      ! [ "$(lxc exec "${joiner}" -- cat code)" = "0" ] || false
+    fi
   done
+
+  return "${code}"
 }
 
 # set_debug_binaries: Adds {app}.debug binaries if the corresponding {APP}_DEBUG_PATH environment variable is set.

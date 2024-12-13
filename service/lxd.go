@@ -19,6 +19,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
@@ -642,7 +643,7 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 	}
 
 	if len(data) == 0 {
-		fmt.Println("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup")
+		fmt.Println(tui.WarningColor("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup", false))
 	}
 
 	return data, nil
