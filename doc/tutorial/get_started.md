@@ -76,8 +76,8 @@ MicroCloud supports both local and remote storage.
 For local storage, you need one disk per cluster member.
 For remote storage with high availability (HA), you need at least three disks that are located across three different cluster members.
 
-In this tutorial, we'll set up four cluster members with local and three with remote storage (as minimum for HA), with a total of seven disks.
-You can also add the extra remote storage on the fourth node, but the tutorial intends to show that only three cluster members are required.
+In this tutorial, we will set up each of the four cluster members with local storage. We will also set up three of the cluster members with remote storage. In total, we will set up seven disks.
+It's possible to add remote storage on the fourth cluster member, if desired. However, it is not required for HA.
 
 Complete the following steps to create the required disks in a LXD storage pool:
 
@@ -192,14 +192,15 @@ Complete the following steps:
 
 Before you can create the MicroCloud cluster, you must install the required snaps on each VM.
 In addition, you must configure the network interfaces so they can be used by MicroCloud.
-
+   ```{tip}
+   You can run the following commands in parallel on each VM. We recommend that you open three additional terminals, so that you have a terminal for each VM.
+   ```
 Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micro4`):
 
    ```{tip}
    Open four terminals, one on each micro vm, to run the commands concurrently (tmux panel multiplexing can help here ;))
-   ```
 
-1. Access the shell in the VM.
+1. Access the shell in each VM.
    For example, for `micro1`:
 
        lxc exec micro1 -- bash
