@@ -446,7 +446,7 @@ jobs:
           git config --global user.signingkey ~/.ssh/id_ed25519.pub
           localRev="$(git rev-parse HEAD)"
           GOPROXY=direct go install github.com/canonical/lxd-ci/lxd-snapcraft@latest
-          git clone -b "${TARGET}" git+ssh://lxdbot@git.launchpad.net/~canonical-lxd/microcloud ~/microcloud-pkg-snap-lp
+          git clone -b "${TARGET}" git+ssh://lxdbot@git.launchpad.net/~microcloud-snap/microcloud ~/microcloud-pkg-snap-lp
           cd ~/microcloud-pkg-snap-lp
           lxd-snapcraft -package microcloud -set-version "git-${localRev:0:7}" -set-source-commit "${localRev}"
           git add --all
