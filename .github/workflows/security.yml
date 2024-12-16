@@ -37,14 +37,14 @@ jobs:
 
       - name: Cache Trivy vulnerability database
         if: ${{ steps.db_download.outcome == 'success' }}
-        uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: /home/runner/vuln-cache
           key: trivy-cache-${{ github.run_id }}
 
       - name: Use previously downloaded database instead
         if: ${{ steps.db_download.outcome == 'failure' }}
-        uses: actions/cache/restore@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: /home/runner/vuln-cache
           key: download-failed # Use a non existing key to fallback to restore-keys
@@ -60,7 +60,7 @@ jobs:
           --output trivy-microcloud-repo-scan-results.sarif .
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@f09c1c0a94de965c15400f5634aa42fac8fb8f88 # v3.27.5
+        uses: github/codeql-action/upload-sarif@aa578102511db1f4524ed59b8cc2bae4f6e88195 # v3.27.6
         with:
           sarif_file: "trivy-microcloud-repo-scan-results.sarif"
           sha: ${{ github.sha }}
@@ -90,7 +90,7 @@ jobs:
         uses: canonical/lxd/.github/actions/install-trivy@main
 
       - name: Restore cached Trivy vulnerability database
-        uses: actions/cache/restore@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: /home/runner/vuln-cache
           key: download-failed # Use a non existing key to fallback to restore-keys
@@ -116,7 +116,7 @@ jobs:
           mv tmp.json snap-scan-results.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@f09c1c0a94de965c15400f5634aa42fac8fb8f88 # v3.27.5
+        uses: github/codeql-action/upload-sarif@aa578102511db1f4524ed59b8cc2bae4f6e88195 # v3.27.6
         with:
           sarif_file: "snap-scan-results.sarif"
           sha: ${{ github.sha }}

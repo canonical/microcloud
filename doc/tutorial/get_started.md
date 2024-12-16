@@ -9,11 +9,11 @@ MicroCloud is quick to set up.
 Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
 This tutorial guides you through installing and initialising MicroCloud in a confined environment, then starting some instances to see what you can do with MicroCloud.
-It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial. 
+It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial.
 
 ```{tip}
    While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualization enabled. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
-   
+
    We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
 ```
 
@@ -66,9 +66,25 @@ MicroCloud requires LXD version 5.21:
 
      Enter `40`.
 
+   - `What IPv4 address should be used? (CIDR subnet notation, “auto” or “none”)`
+
+     Enter `10.1.123.1/24`.
+
+   - `What IPv6 address should be used? (CIDR subnet notation, “auto” or “none”)`
+
+     Enter `fd42:1:1234:1234::1/64`.
+
    - `Would you like the LXD server to be available over the network? (yes/no)`
 
      Enter `yes`.
+
+1. Modify the default network so we can later define specific IPv6 addresses for the VMs:
+
+       lxc network set lxdbr0 ipv6.dhcp.stateful true
+
+```{note}
+In the steps above, we ask you to specify the IP addresses to be used instead of accepting the defaults. While this is not strictly required for this setup, it causes the example IPs displayed in this tutorial to match what you see on your system, which improves clarity.
+```
 
 ## 2. Provide storage disks
 
@@ -153,14 +169,14 @@ Complete the following steps:
 
 1. Create the VMs, but don't start them yet:
 
-       lxc init ubuntu:22.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB
-       lxc init ubuntu:22.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB
-       lxc init ubuntu:22.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB
-       lxc init ubuntu:22.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB
+       lxc init ubuntu:22.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.10 -d eth0,ipv6.address=fd42:1:1234:1234::10
+       lxc init ubuntu:22.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.20 -d eth0,ipv6.address=fd42:1:1234:1234::20
+       lxc init ubuntu:22.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.30 -d eth0,ipv6.address=fd42:1:1234:1234::30
+       lxc init ubuntu:22.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.40 -d eth0,ipv6.address=fd42:1:1234:1234::40
 
    ```{tip}
       Run these commands in sequence, not in parallel.
-      
+
       LXD downloads the image the first time you use it to initialise a VM. For subsequent runs, LXD uses the cached image. Therefore, the {command}`init` command will take longer to complete on the first run.
    ```
 
@@ -192,13 +208,12 @@ Complete the following steps:
 
 Before you can create the MicroCloud cluster, you must install the required snaps on each VM.
 In addition, you must configure the network interfaces so they can be used by MicroCloud.
-   ```{tip}
-   You can run the following commands in parallel on each VM. We recommend that you open three additional terminals, so that you have a terminal for each VM.
-   ```
+
 Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micro4`):
 
    ```{tip}
-   Open four terminals, one on each micro vm, to run the commands concurrently (tmux panel multiplexing can help here ;))
+   Open four terminals, one on each micro vm, to run the commands in parallel on each VM. (tmux panel multiplexing can help here ;))
+   ```
 
 1. Access the shell in each VM.
    For example, for `micro1`:
@@ -278,7 +293,7 @@ Complete the following steps:
    In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
 
    When prompted, enter the session passphrase for each joining  member.
-   
+
 1. Return to `micro1` to continue the initialisation process:
 
    1. Select all listed systems to join the cluster. These should be `micro2`, `micro3`, and `micro4`.
@@ -331,11 +346,11 @@ Up/down to move; right to select all; left to select none.
        +----------------------+--------+
        |       ADDRESS        | IFACE  |
        +----------------------+--------+
-> [X]  | 203.0.113.169        | enp5s0 |
-  [ ]  | 2001:db8:d:100::169  | enp5s0 |
+> [X]  | 10.1.123.10          | enp5s0 |
+  [ ]  | fd42:1:1234:1234::10 | enp5s0 |
        +----------------------+--------+
 
- Using address "203.0.113.169" for MicroCloud
+ Using address "10.1.123.10" for MicroCloud
 
 Use the following command on systems that you want to join the cluster:
 
@@ -347,21 +362,21 @@ When requested enter the passphrase:
 
 Verify the fingerprint "5d0808de679d" is displayed on joining systems.
 Waiting to detect systems ...
-Select the systems that should join the cluster:
+Systems will appear in the table as they are detected. Select those that should join the cluster:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
-       +---------+---------------+--------------+
-       |  NAME   |    ADDRESS    | FINGERPRINT  |
-       +---------+---------------+--------------+
-> [x]  | micro3  | 203.0.113.171 | 4e80954d6a64 |
-  [x]  | micro2  | 203.0.113.170 | 84e0b50e13b3 |
-  [x]  | micro4  | 203.0.113.172 | 98667a808a99 |
-       +---------+---------------+--------------+
+       +---------+-------------+--------------+
+       |  NAME   |   ADDRESS   | FINGERPRINT  |
+       +---------+-------------+--------------+
+> [x]  | micro3  | 10.1.123.30 | 4e80954d6a64 |
+  [x]  | micro2  | 10.1.123.20 | 84e0b50e13b3 |
+  [x]  | micro4  | 10.1.123.40 | 98667a808a99 |
+       +---------+-------------+--------------+
 
- Selected "micro1" at "203.0.113.169"
- Selected "micro3" at "203.0.113.171"
- Selected "micro2" at "203.0.113.170"
- Selected "micro4" at "203.0.113.172"
+ Selected "micro1" at "10.1.123.10"
+ Selected "micro3" at "10.1.123.30"
+ Selected "micro2" at "10.1.123.20"
+ Selected "micro4" at "10.1.123.40"
 
 Would you like to set up local storage? (yes/no) [default=yes]: yes
 Select exactly one disk from each cluster member:
@@ -426,8 +441,8 @@ Up/down to move; right to select all; left to select none.
 
 Do you want to encrypt the selected disks? (yes/no) [default=no]: no
 Would you like to set up CephFS remote storage? (yes/no) [default=yes]:  yes
-What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: 203.0.113.0/24]:
-What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: 203.0.113.0/24]:
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: 10.1.123.0/24]:
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: 10.1.123.0/24]:
 Configure distributed networking? (yes/no) [default=yes]:  yes
 Select an available interface per system to provide external connectivity for distributed network(s):
 Space to select; enter to confirm; type to filter results.
@@ -477,20 +492,20 @@ See the full process here for one of the joining sides (`micro2`):
 Select an address for MicroCloud's internal traffic:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
-       +----------------------------------------+--------+
-       |                ADDRESS                 | IFACE  |
-       +----------------------------------------+--------+
-> [ ]  | 203.0.113.170                          | enp5s0 |
-  [ ]  | fd42:9b32:9511:75de:216:3eff:fed7:b1cf | enp5s0 |
-       +----------------------------------------+--------+
+       +----------------------+--------+
+       |        ADDRESS       | IFACE  |
+       +----------------------+--------+
+> [ ]  | 10.1.123.20          | enp5s0 |
+  [ ]  | fd42:1:1234:1234::20 | enp5s0 |
+       +----------------------+--------+
 
-Using address "203.0.113.170" for MicroCloud
+Using address "10.1.123.20" for MicroCloud
 
 Verify the fingerprint "84e0b50e13b3" is displayed on the other system.
 Specify the passphrase for joining the system: koala absorbing update dorsal
 Searching for an eligible system ...
 
- Found system "micro1" at "203.0.113.169" using fingerprint "5d0808de679d"
+ Found system "micro1" at "10.1.123.10" using fingerprint "5d0808de679d"
 
 Select "micro2" on "micro1" to let it join the cluster
 
@@ -518,54 +533,54 @@ We continue using `micro1`, but you will see the same results on the others.
    :host: micro1
    :scroll:
 
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   |  NAME  |             URL            |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro1 | https://203.0.113.169:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
-   |        |                            | database         |              |                |             |        |                   |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro2 | https://203.0.113.170:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro3 | https://203.0.113.171:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro4 | https://203.0.113.172:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   |  NAME  |            URL           |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro1 | https://10.1.123.10:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
+   |        |                          | database         |              |                |             |        |                   |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro2 | https://10.1.123.20:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro3 | https://10.1.123.30:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro4 | https://10.1.123.40:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    :input: microcloud cluster list
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   |  NAME  |       ADDRESS      | ROLE     |                           FINGERPRINT                            | STATUS |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro1 | 203.0.113.169:9443 | voter    | 47a74cb2ed8b844544ce71f45e96acb2c8021d4c1ffc2f1f449cdbf2f6898fd8 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro2 | 203.0.113.170:9443 | voter    | 56bee3adbd5e1de2186dd22788baffd5e1358e408ec3d9b713ed930741a339f2 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro3 | 203.0.113.171:9443 | voter    | aabdd5f64d4c2796a50d6ce9d91939f248bfeb27195426158dff05d660f93f86 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro4 | 203.0.113.172:9443 | stand-by | 649ec21815135104f1faa5fca099daddf995f554119c6e34706a2b31681ad1d7 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro1 | 10.1.123.10:9443 | voter    | 47a74cb2ed8b844544ce71f45e96acb2c8021d4c1ffc2f1f449cdbf2f6898fd8 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro2 | 10.1.123.20:9443 | voter    | 56bee3adbd5e1de2186dd22788baffd5e1358e408ec3d9b713ed930741a339f2 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro3 | 10.1.123.30:9443 | voter    | aabdd5f64d4c2796a50d6ce9d91939f248bfeb27195426158dff05d660f93f86 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro4 | 10.1.123.40:9443 | stand-by | 649ec21815135104f1faa5fca099daddf995f554119c6e34706a2b31681ad1d7 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
    :input: microceph cluster list
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   |  NAME  |       ADDRESS      | ROLE     |                           FINGERPRINT                            | STATUS |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro1 | 203.0.113.169:7443 | voter    | a2b370cce1deb02437b583aa73be5e5c519aed75f02f4b98f6df150fd62c648a | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro2 | 203.0.113.170:7443 | voter    | e37ea1acd14b984152cac4cb861cbe35ac438151233b9d0ee606c44c2e27d759 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro3 | 203.0.113.171:7443 | voter    | 152ccf372ecc93faffa8a6801cedd5eca49d977eea72e3f2239245cc22965399 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro4 | 203.0.113.172:7443 | stand-by | 9b75b396f6d59481b8c14221942d775cff4d27c5621b0b541eb5ba3245618093 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro1 | 10.1.123.10:7443 | voter    | a2b370cce1deb02437b583aa73be5e5c519aed75f02f4b98f6df150fd62c648a | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro2 | 10.1.123.20:7443 | voter    | e37ea1acd14b984152cac4cb861cbe35ac438151233b9d0ee606c44c2e27d759 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro3 | 10.1.123.30:7443 | voter    | 152ccf372ecc93faffa8a6801cedd5eca49d977eea72e3f2239245cc22965399 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro4 | 10.1.123.40:7443 | stand-by | 9b75b396f6d59481b8c14221942d775cff4d27c5621b0b541eb5ba3245618093 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
    :input: microovn cluster list
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   |  NAME  |       ADDRESS      | ROLE     |                           FINGERPRINT                            | STATUS |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro1 | 203.0.113.169:6443 | voter    | a552d316c159a50a4e11253c36a1cd25a3902bee50e24ed1e073ee7728be0410 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro2 | 203.0.113.170:6443 | voter    | 2c779eb10409576a33fa01a29cede39abea61f7cd6a07837c369858b515ed02a | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro3 | 203.0.113.171:6443 | voter    | 7f76cddfdbbe3d768c343b1a5f402842565c25d0e4e3ebbc8514263fc14ea28b | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro4 | 203.0.113.172:6443 | stand-by | 5d62b2a63dec514c45c07b24ff93e2bd83ad8b9af4ab774aad3d2ac51ee102d5 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro1 | 10.1.123.10:6443 | voter    | a552d316c159a50a4e11253c36a1cd25a3902bee50e24ed1e073ee7728be0410 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro2 | 10.1.123.20:6443 | voter    | 2c779eb10409576a33fa01a29cede39abea61f7cd6a07837c369858b515ed02a | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro3 | 10.1.123.30:6443 | voter    | 7f76cddfdbbe3d768c343b1a5f402842565c25d0e4e3ebbc8514263fc14ea28b | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro4 | 10.1.123.40:6443 | stand-by | 5d62b2a63dec514c45c07b24ff93e2bd83ad8b9af4ab774aad3d2ac51ee102d5 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
    ```
 
 1. Inspect the storage setup:
@@ -669,7 +684,7 @@ We continue using `micro1`, but you will see the same results on the others.
    - micro4
    ```
 
-1. Make sure that you can ping the virtual router within OVN. 
+1. Make sure that you can ping the virtual router within OVN.
 
    1. Within the output of the previous command (`lxc network show default`), find the value for `volatile.network.ipv4.address`. This is the virtual router's IPv4 address.
 
@@ -824,7 +839,7 @@ You can, however, create a different network to isolate some instances from othe
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
    | u2   | RUNNING | 198.51.100.3 (eth0) | 2001:db8:d960:91cf:216:3eff:fe79:6765 (eth0) | CONTAINER       | 0         | micro3   |
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
-   | u3 | RUNNING | 198.51.100.4 (eth0) | 2001:db8:d960:91cf:216:3eff:fe66:f24b (eth0) | VIRTUAL-MACHINE | 0 | micro2 |
+   | u3   | RUNNING | 198.51.100.4 (eth0) | 2001:db8:d960:91cf:216:3eff:fe66:f24b (eth0) | VIRTUAL-MACHINE | 0         | micro2   |
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
    ```
 
@@ -999,22 +1014,22 @@ See {ref}`lxd:access-ui` for more information.
    :host: micro1
    :scroll:
 
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   |  NAME  |             URL            |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro1 | https://203.0.113.169:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
-   |        |                            | database         |              |                |             |        |                   |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro2 | https://203.0.113.170:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro3 | https://203.0.113.171:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro4 | https://203.0.113.172:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   |  NAME  |            URL           |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro1 | https://10.1.123.10:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
+   |        |                          | database         |              |                |             |        |                   |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro2 | https://10.1.123.20:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro3 | https://10.1.123.30:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro4 | https://10.1.123.40:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    ```
 
 1. In your web browser, navigate to the URL of one of the cluster members.
-   For example, for `micro1`, navigate to `https://203.0.113.169:8443`.
+   For example, for `micro1`, navigate to `https://10.1.123.10:8443`.
 
 1. By default, MicroCloud uses a self-signed certificate, which will cause a security warning in your browser.
    Use your browser’s mechanism to continue despite the security warning.

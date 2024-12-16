@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	cloudAPI "github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -111,7 +113,7 @@ func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []strin
 	}
 
 	if len(askConflictingConfig) > 0 || len(askConflictingDevices) > 0 {
-		replace, err := c.asker.AskBool("Replace existing default profile configuration? (yes/no) [default=no]: ", "no")
+		replace, err := c.asker.AskBool("Replace existing default profile configuration?", false)
 		if err != nil {
 			return nil, err
 		}
@@ -138,9 +140,21 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 		retry := false
 		err := f()
 		if err != nil {
-			fmt.Println(err)
+			// If the error is a context error, then the lifetime is over so we shouldn't ask to retry.
+			if errors.Is(err, tui.ContextError) {
+				return err
+			}
 
-			retry, err = c.asker.AskBool(fmt.Sprintf("%s (yes/no) [default=yes]: ", question), "yes")
+			errParts := strings.Split(err.Error(), "\n")
+			for i := range errParts {
+				if i > 0 {
+					// Add two spaces at the start of each new line, to account for the error symbol at the start of the first line.
+					errParts[i] = "  " + errParts[i]
+				}
+			}
+
+			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(strings.Join(errParts, "\n"), true))
+			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
 			}
@@ -167,7 +181,7 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 
 		// Ignore missing services in case of preseed.
 		if !c.autoSetup {
-			confirm, err := c.asker.AskBool(fmt.Sprintf("%s not found. Continue anyway? (yes/no) [default=yes]: ", serviceStr), "yes")
+			confirm, err := c.asker.AskBoolWarn(fmt.Sprintf("%s not found. Continue anyway?", serviceStr), true)
 			if err != nil {
 				return nil, err
 			}
@@ -214,15 +228,9 @@ func (c *initConfig) askAddress(filterAddress string) error {
 				data = append(data, []string{network.Address, network.Interface.Name})
 			}
 
-			table := NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
 			err := c.askRetry("Retry selecting an address?", func() error {
-				fmt.Println("Select an address for MicroCloud's internal traffic:")
-				err := table.Render(table.rows)
-				if err != nil {
-					return err
-				}
-
-				answers, err := table.GetSelections()
+				table := tui.NewSelectableTable([]string{"ADDRESS", "IFACE"}, data)
+				answers, err := table.Render(context.Background(), c.asker, "Select an address for MicroCloud's internal traffic:")
 				if err != nil {
 					return err
 				}
@@ -231,9 +239,8 @@ func (c *initConfig) askAddress(filterAddress string) error {
 					return fmt.Errorf("You must select exactly one address")
 				}
 
-				listenAddr = table.SelectionValue(answers[0], "ADDRESS")
-
-				fmt.Printf(" Using address %q for MicroCloud\n\n", listenAddr)
+				listenAddr = answers[0]["ADDRESS"]
+				fmt.Printf("\n%s\n\n", tui.SummarizeResult("Using address %s for MicroCloud", listenAddr))
 
 				return nil
 			})
@@ -241,7 +248,7 @@ func (c *initConfig) askAddress(filterAddress string) error {
 				return err
 			}
 		} else {
-			fmt.Printf("Using address %q for MicroCloud\n", listenAddr)
+			fmt.Println(tui.SummarizeResult("Using address %s for MicroCloud", listenAddr))
 		}
 	}
 
@@ -347,7 +354,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
-	wantsDisks, err := c.asker.AskBool("Would you like to set up local storage? (yes/no) [default=yes]: ", "yes")
+	wantsDisks, err := c.asker.AskBool("Would you like to set up local storage?", true)
 	if err != nil {
 		return err
 	}
@@ -367,25 +374,19 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		selected := map[string]string{}
 		sort.Sort(cli.SortColumnsNaturally(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-		table := NewSelectableTable(header, data)
-		fmt.Println("Select exactly one disk from each cluster member:")
-		err := table.Render(table.rows)
+		table := tui.NewSelectableTable(header, data)
+		answers, err := table.Render(context.Background(), c.asker, "Select exactly one disk from each cluster member:")
 		if err != nil {
 			return err
 		}
 
-		selectedRows, err := table.GetSelections()
-		if err != nil {
-			return fmt.Errorf("Failed to confirm local LXD disk selection: %w", err)
-		}
-
-		if len(selectedRows) == 0 {
+		if len(answers) == 0 {
 			return fmt.Errorf("No disks selected")
 		}
 
-		for _, entry := range selectedRows {
-			target := table.SelectionValue(entry, "LOCATION")
-			path := table.SelectionValue(entry, "PATH")
+		for _, entry := range answers {
+			target := entry["LOCATION"]
+			path := entry["PATH"]
 
 			_, ok := selected[target]
 			if ok {
@@ -400,20 +401,22 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		if wipeable {
-			fmt.Println("Select which disks to wipe:")
-			err := table.Render(selectedRows)
-			if err != nil {
-				return err
+			newRows := make([][]string, len(answers))
+			for row := range answers {
+				newRows[row] = make([]string, len(header))
+				for j, h := range header {
+					newRows[row][j] = answers[row][h]
+				}
 			}
 
-			wipeRows, err := table.GetSelections()
+			answers, err := table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
 			if err != nil {
 				return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
 			}
 
-			for _, entry := range wipeRows {
-				target := table.SelectionValue(entry, "LOCATION")
-				path := table.SelectionValue(entry, "PATH")
+			for _, entry := range answers {
+				target := entry["LOCATION"]
+				path := entry["PATH"]
 				toWipe[target] = path
 			}
 		}
@@ -453,8 +456,13 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
+	if len(selectedDisks) > 0 {
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
 	for target, path := range selectedDisks {
-		fmt.Printf(" Using %q on %q for local storage pool\n", path, target)
+		fmt.Println(tui.SummarizeResult("Using %s on %s for local storage pool", path, target))
 	}
 
 	if len(selectedDisks) > 0 {
@@ -642,19 +650,19 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if availableDiskCount == 0 {
-			fmt.Println("No disks available for distributed storage. Skipping configuration")
+			fmt.Println(tui.WarningColor("Warning: No disks available for distributed storage. Skipping configuration", false))
 
 			return nil
 		}
 
-		wantsDisks, err := c.asker.AskBool("Would you like to set up distributed storage? (yes/no) [default=yes]: ", "yes")
+		wantsDisks, err := c.asker.AskBool("Would you like to set up distributed storage?", true)
 		if err != nil {
 			return err
 		}
 
 		// Ask if the user is okay with fully remote ceph on some systems.
 		if len(askSystemsRemote) != availableDiskCount && wantsDisks {
-			wantsDisks, err = c.asker.AskBool("Unable to find disks on some systems. Continue anyway? (yes/no) [default=yes]: ", "yes")
+			wantsDisks, err = c.asker.AskBoolWarn("Unable to find disks on some systems. Continue anyway?", true)
 			if err != nil {
 				return err
 			}
@@ -693,41 +701,32 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 
 			sort.Sort(cli.SortColumnsNaturally(data))
-			table := NewSelectableTable(header, data)
-
-			if len(table.rows) == 0 {
-				return nil
-			}
-
-			fmt.Println("Select from the available unpartitioned disks:")
-			err := table.Render(table.rows)
+			var toWipe []map[string]string
+			table := tui.NewSelectableTable(header, data)
+			selected, err := table.Render(context.Background(), c.asker, "Select from the available unpartitioned disks:")
 			if err != nil {
 				return err
 			}
 
-			selected, err := table.GetSelections()
-			if err != nil {
-				return fmt.Errorf("Invalid disk configuration: %w", err)
-			}
-
-			var toWipe []string
 			if len(selected) > 0 {
-				fmt.Println("Select which disks to wipe:")
-				err := table.Render(selected)
-				if err != nil {
-					return err
+				newRows := make([][]string, len(selected))
+				for row := range selected {
+					newRows[row] = make([]string, len(header))
+					for j, h := range header {
+						newRows[row][j] = selected[row][h]
+					}
 				}
 
-				toWipe, err = table.GetSelections()
+				toWipe, err = table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
 				if err != nil {
-					return fmt.Errorf("Invalid disk configuration: %w", err)
+					return err
 				}
 			}
 
 			targetDisks := map[string][]string{}
 			for _, entry := range selected {
-				target := table.SelectionValue(entry, "LOCATION")
-				path := table.SelectionValue(entry, "PATH")
+				target := entry["LOCATION"]
+				path := entry["PATH"]
 				if targetDisks[target] == nil {
 					targetDisks[target] = []string{}
 				}
@@ -737,8 +736,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			wipeDisks = map[string]map[string]bool{}
 			for _, entry := range toWipe {
-				target := table.SelectionValue(entry, "LOCATION")
-				path := table.SelectionValue(entry, "PATH")
+				target := entry["LOCATION"]
+				path := entry["PATH"]
 				if wipeDisks[target] == nil {
 					wipeDisks[target] = map[string]bool{}
 				}
@@ -768,14 +767,11 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		if len(selectedDisks) == 0 {
 			return nil
 		} else {
-			// If we had to warn about insufficient disks, the table spacing will be overwritten so add a new-line.
-			if insufficientDisks {
-				fmt.Println()
-			}
+			fmt.Println()
 
 			for target, disks := range selectedDisks {
 				if len(disks) > 0 {
-					fmt.Printf(" Using %d disk(s) on %q for remote storage pool\n", len(disks), target)
+					fmt.Println(tui.SummarizeResult("Using %d disk(s) on %s for remote storage pool", len(disks), target))
 				}
 			}
 
@@ -786,7 +782,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	encryptDisks := false
 	if len(selectedDisks) > 0 {
 		var err error
-		encryptDisks, err = c.asker.AskBool("Do you want to encrypt the selected disks? (yes/no) [default=no]: ", "no")
+		encryptDisks, err = c.asker.AskBool("Do you want to encrypt the selected disks?", false)
 		if err != nil {
 			return err
 		}
@@ -803,7 +799,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if hasCephFS {
-			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage? (yes/no) [default=yes]: ", "yes")
+			setupCephFS, err = c.asker.AskBool("Would you like to set up CephFS remote storage?", true)
 			if err != nil {
 				return err
 			}
@@ -938,7 +934,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(askSystems) == 0 || !allSystemsEligible {
-		wantsContinue, err := c.asker.AskBool("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway? (yes/no) [default=yes]: ", "yes")
+		wantsContinue, err := c.asker.AskBoolWarn("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway?", true)
 		if err != nil {
 			return err
 		}
@@ -951,7 +947,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	// Ask the user if they want OVN.
-	wantsOVN, err := c.asker.AskBool("Configure distributed networking? (yes/no) [default=yes]: ", "yes")
+	wantsOVN, err := c.asker.AskBool("Configure distributed networking?", true)
 	if err != nil {
 		return err
 	}
@@ -962,7 +958,6 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 	// Uplink selection table.
 	header := []string{"LOCATION", "IFACE", "TYPE"}
-	fmt.Println("Select an available interface per system to provide external connectivity for distributed network(s):")
 	data := [][]string{}
 	for peer, state := range c.state {
 		if !askSystems[peer] {
@@ -974,24 +969,18 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	table := NewSelectableTable(header, data)
 	var selectedIfaces map[string]string
 	err = c.askRetry("Retry selecting uplink interfaces?", func() error {
-		err := table.Render(table.rows)
-		if err != nil {
-			return err
-		}
-
-		answers, err := table.GetSelections()
+		table := tui.NewSelectableTable(header, data)
+		answers, err := table.Render(context.Background(), c.asker, "Select an available interface per system to provide external connectivity for distributed network(s):")
 		if err != nil {
 			return err
 		}
 
 		selected := map[string]string{}
 		for _, answer := range answers {
-			target := table.SelectionValue(answer, "LOCATION")
-			iface := table.SelectionValue(answer, "IFACE")
-
+			target := answer["LOCATION"]
+			iface := answer["IFACE"]
 			if selected[target] != "" {
 				return fmt.Errorf("Failed to add OVN uplink network: Selected more than one interface for target %q", target)
 			}
@@ -1011,8 +1000,13 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		return err
 	}
 
+	if len(selectedIfaces) >= 0 {
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+	}
+
 	for peer, iface := range selectedIfaces {
-		fmt.Printf(" Using %q on %q for OVN uplink\n", iface, peer)
+		fmt.Println(tui.SummarizeResult("Using %s on %s for OVN uplink", iface, peer))
 	}
 
 	// If we didn't select anything, then abort network setup.
@@ -1049,7 +1043,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 				return nil
 			}
 
-			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s): ", ip, ip)
+			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s)", ip, ip)
 			gateway, err := c.asker.AskString(msg, "", validator)
 			if err != nil {
 				return err
@@ -1057,12 +1051,12 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 			if gateway != "" {
 				if ip == "IPv4" {
-					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use on the uplink network: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
+					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use on the uplink network", ip), "", validate.Required(validate.IsNetworkAddressV4))
 					if err != nil {
 						return err
 					}
 
-					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use on the uplink network: ", ip), "", validate.Required(validate.IsNetworkAddressV4))
+					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use on the uplink network", ip), "", validate.Required(validate.IsNetworkAddressV4))
 					if err != nil {
 						return err
 					}
@@ -1086,7 +1080,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 			}
 
 			gatewayAddrs := strings.Join(gateways, ",")
-			dnsAddresses, err = c.asker.AskString(fmt.Sprintf("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: %s): ", gatewayAddrs), gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
+			dnsAddresses, err = c.asker.AskString("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network", gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
 			if err != nil {
 				return err
 			}
@@ -1132,7 +1126,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	canOVNUnderlay := true
 	for peer, system := range c.systems {
 		if len(c.state[system.ServerInfo.Name].AvailableOVNInterfaces) == 0 {
-			fmt.Printf("Not enough interfaces available on %s to create an underlay network, skipping\n", peer)
+			fmt.Println(tui.WarningColor(fmt.Sprintf("Not enough interfaces available on %s to create an underlay network, skipping", peer), false))
 			canOVNUnderlay = false
 			break
 		}
@@ -1157,33 +1151,25 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(ovnUnderlayData) != 0 && canOVNUnderlay {
-		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated OVN underlay networking? (yes/no) [default=no]: ", "no")
+		wantsDedicatedUnderlay, err := c.asker.AskBool("Configure dedicated OVN underlay networking?", false)
 		if err != nil {
 			return err
 		}
 
 		if wantsDedicatedUnderlay {
 			header = []string{"LOCATION", "IFACE", "TYPE", "IP ADDRESS (CIDR)"}
-			fmt.Println("Select exactly one network interface from each cluster member:")
-
-			table = NewSelectableTable(header, ovnUnderlayData)
 			ovnUnderlaySelectedIPs = map[string]string{}
 			err = c.askRetry("Retry selecting underlay network interfaces?", func() error {
-				err = table.Render(table.rows)
-				if err != nil {
-					return err
-				}
-
-				answers, err := table.GetSelections()
+				table := tui.NewSelectableTable(header, ovnUnderlayData)
+				answers, err := table.Render(context.Background(), c.asker, "Select exactly one network interface from each cluster member:")
 				if err != nil {
 					return err
 				}
 
 				ovnUnderlaySelectedIPs = map[string]string{}
 				for _, answer := range answers {
-					target := table.SelectionValue(answer, "LOCATION")
-					ipAddr := table.SelectionValue(answer, "IP ADDRESS (CIDR)")
-
+					target := answer["LOCATION"]
+					ipAddr := answer["IP ADDRESS (CIDR)"]
 					if ovnUnderlaySelectedIPs[target] != "" {
 						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
 					}
@@ -1284,7 +1270,7 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 		}
 
 		if !supportsFAN {
-			proceedWithNoOverlayNetworking, err := c.asker.AskBool("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster? (yes/no) [default=no]: ", "no")
+			proceedWithNoOverlayNetworking, err := c.asker.AskBoolWarn("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster?", false)
 			if err != nil {
 				return err
 			}
@@ -1333,7 +1319,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	availableCephNetworkInterfaces := map[string]map[string]service.DedicatedInterface{}
 	for name, state := range c.state {
 		if len(state.AvailableCephInterfaces) == 0 {
-			fmt.Printf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup\n", name)
+			fmt.Println(tui.WarningColor(fmt.Sprintf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup", name), false))
 
 			return nil
 		}
@@ -1401,7 +1387,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	microCloudInternalNetworkAddr := c.lookupSubnet.IP.Mask(c.lookupSubnet.Mask)
 	ones, _ := c.lookupSubnet.Mask.Size()
 	microCloudInternalNetworkAddrCIDR := fmt.Sprintf("%s/%d", microCloudInternalNetworkAddr.String(), ones)
-	internalCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: %s] ", microCloudInternalNetworkAddrCIDR), microCloudInternalNetworkAddrCIDR, validate.IsNetwork)
+	internalCephSubnet, err := c.asker.AskString("What subnet (IPv4/IPv6 CIDR) would you like your Ceph internal traffic on?", microCloudInternalNetworkAddrCIDR, validate.IsNetwork)
 	if err != nil {
 		return err
 	}
@@ -1417,7 +1403,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		c.systems[sh.Name] = bootstrapSystem
 	}
 
-	publicCephSubnet, err := c.asker.AskString(fmt.Sprintf("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: %s] ", internalCephSubnet), internalCephSubnet, validate.IsNetwork)
+	publicCephSubnet, err := c.asker.AskString("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on?", internalCephSubnet, validate.IsNetwork)
 	if err != nil {
 		return err
 	}
@@ -1472,7 +1458,7 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types
 					return nil
 				}
 
-				addOrSkip, err := c.asker.AskString(question, "add", validator)
+				addOrSkip, err := c.asker.AskStringWarn(question, "add", validator)
 				if err != nil {
 					return err
 				}
@@ -1498,17 +1484,24 @@ func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 }
 
 func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
+	format := func(password string) (string, error) {
+		trimmed := strings.TrimSpace(password)
+		passwordSplit := strings.SplitN(trimmed, " ", 5)
+
+		if len(passwordSplit) != 4 {
+			return "", fmt.Errorf("Passphrase has to contain exactly four elements")
+		}
+
+		return trimmed, nil
+	}
+
 	validator := func(password string) error {
 		if password == "" {
 			return fmt.Errorf("Passphrase cannot be empty")
 		}
 
-		passwordSplit := strings.Split(password, " ")
-		if len(passwordSplit) != 4 {
-			return fmt.Errorf("Passphrase has to contain exactly four elements")
-		}
-
-		return nil
+		_, err := format(password)
+		return err
 	}
 
 	cloud := s.Services[types.MicroCloud].(*service.CloudService)
@@ -1522,22 +1515,21 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 		return "", fmt.Errorf("Failed to shorten fingerprint: %w", err)
 	}
 
-	fmt.Printf("Verify the fingerprint %q is displayed on the other system.\n", fingerprint)
-
-	msg := "Specify the passphrase for joining the system: "
+	fmt.Println(tui.Printf(tui.Fmt{Arg: "Verify the fingerprint %s is displayed on the other system."}, tui.Fmt{Arg: fingerprint, Color: tui.Green, Bold: true}))
+	msg := "Specify the passphrase for joining the system"
 	password, err := c.asker.AskString(msg, "", validator)
 	if err != nil {
 		return "", err
 	}
 
-	return password, nil
+	return format(password)
 }
 
 func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSystems []string) ([]types.SessionJoinPost, error) {
 	header := []string{"NAME", "ADDRESS", "FINGERPRINT"}
-	var table *SelectableTable
+	rows := [][]string{}
+	table := tui.NewSelectableTable(header, rows)
 
-	rendered := make(chan error)
 	joinIntents := make(map[string]types.SessionJoinPost)
 
 	renderCtx, renderCancel := context.WithCancel(gw.Context())
@@ -1566,17 +1558,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 					logger.Error("Failed to shorten fingerprint", logger.Ctx{"err": err})
 				}
 
-				if table == nil {
-					table = NewSelectableTable(header, [][]string{{session.Intent.Name, session.Intent.Address, fingerprint}})
-					err := table.Render(table.rows)
-					if err != nil {
-						logger.Error("Failed to render table", logger.Ctx{"err": err})
-					}
-
-					rendered <- nil
-				} else {
-					table.Update([]string{session.Intent.Name, session.Intent.Address, fingerprint})
-				}
+				table.SendUpdate(tui.InsertMsg{session.Intent.Name, session.Intent.Address, fingerprint})
 
 			case <-renderCtx.Done():
 				return
@@ -1614,36 +1596,12 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 	var systems []types.SessionJoinPost
 	if !c.autoSetup {
 		go renderIntentsInteractive()
-
-		// Wait until the table got rendered.
-		// This is important otherwise the table might not be selectable
-		// as it's being built in a go routine.
-		select {
-		case <-rendered:
-		case <-gw.Context().Done():
-			return nil, fmt.Errorf("Failed to render join intents: %w", context.Cause(gw.Context()))
-		}
-
-		var answers []string
-		retry := false
+		var answers []map[string]string
 		err := c.askRetry("Retry selecting systems?", func() error {
-			defer func() {
-				retry = true
-			}()
-
-			fmt.Println("Select the systems that should join the cluster:")
-
-			if retry {
-				err := table.Render(table.rows)
-				if err != nil {
-					return fmt.Errorf("Failed to render table: %w", err)
-				}
-			}
-
 			var err error
-			answers, err = table.GetSelections()
+			answers, err = table.Render(gw.Context(), c.asker, "Systems will appear in the table as they are detected. Select those that should join the cluster:")
 			if err != nil {
-				return fmt.Errorf("Failed to get join intent selections: %w", err)
+				return fmt.Errorf("Failed to render table: %w", err)
 			}
 
 			if len(answers) == 0 {
@@ -1657,7 +1615,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 		}
 
 		for _, answer := range answers {
-			name := table.SelectionValue(answer, "NAME")
+			name := answer["NAME"]
 			for intentName, intent := range joinIntents {
 				if intentName == name {
 					systems = append(systems, intent)
@@ -1695,9 +1653,11 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 	}
 
 	if !c.autoSetup {
-		fmt.Printf("\n Received confirmation from system %q\n\n", session.Intent.Name)
-		fmt.Println("Do not exit out to keep the session alive.")
-		fmt.Printf("Complete the remaining configuration on %q ...\n", session.Intent.Name)
+		fmt.Println("")
+		fmt.Println(tui.SummarizeResult("Received confirmation from system %s", session.Intent.Name))
+		fmt.Println("")
+		fmt.Println(tui.Note(tui.Yellow, tui.WarningSymbol()+tui.SetColor(tui.Bright, " Do not exit out to keep the session alive", true)) + "\n")
+		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on %s ..."}, tui.Fmt{Arg: session.Intent.Name, Color: tui.Yellow, Bold: true}))
 	}
 
 	err = gw.ReceiveWithContext(gw.Context(), &session)
@@ -1709,7 +1669,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 		return fmt.Errorf("Failed to join system: %s", session.Error)
 	}
 
-	fmt.Println("Successfully joined the MicroCloud cluster and closing the session.")
+	fmt.Println(tui.SuccessColor("Successfully joined the MicroCloud cluster and closing the session.", true))
 
 	newServices := make(map[types.ServiceType]string, len(services)-1)
 	for serviceType, version := range services {
@@ -1726,7 +1686,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 			servicesStr = append(servicesStr, string(service))
 		}
 
-		fmt.Printf("Commencing cluster join of the remaining services (%s)\n", strings.Join(servicesStr, ", "))
+		fmt.Println(tui.Printf(tui.Fmt{Arg: "Commencing cluster join of the remaining services (%s)"}, tui.Fmt{Arg: strings.Join(servicesStr, ","), Bold: true}))
 	}
 
 	return nil
