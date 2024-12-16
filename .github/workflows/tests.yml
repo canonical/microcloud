@@ -1,42 +1,228 @@
 name: Tests
 on:
-  - push
-  - pull_request
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday at 00:00 UTC
+  push:
+    branches:
+      - v1-edge
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CGO_CFLAGS: -I/home/runner/go/deps/dqlite/include/
+  CGO_LDFLAGS: -L/home/runner/go/deps/dqlite/.libs/
+  LD_LIBRARY_PATH: /home/runner/go/deps/dqlite/.libs/
+  CGO_LDFLAGS_ALLOW: (-Wl,-wrap,pthread_create)|(-Wl,-z,now)
+  GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/runner/work/microcloud/microcloud/cover' || '' }}
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    # Make sure bash is always invoked with `-eo pipefail`
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+    shell: bash
+
 jobs:
-  code-tests:
-    name: Code tests
+  changes:
+    name: Changes
     runs-on: ubuntu-22.04
+    outputs:
+      except_docs: ${{ steps.filter.outputs.except_docs }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            except_docs:
+              # Match all changes except 'doc/**'.
+              # If no files outside of 'doc/**' are changed except_docs is set to 'false'.
+              - '!(doc/**)'
+
+  code-tests:
+    name: Code
+    runs-on: ubuntu-22.04
+    needs: [changes]
+    if: ${{ needs.changes.outputs.except_docs == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # A non-shallow clone is needed for the Differential ShellCheck
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+
+      - name: Check compatibility with min Go version
+        working-directory: './microcloud'
+        run: |
+          set -eux
+          GOMIN="$(sed -n 's/^GOMIN=\([0-9.]\+\)$/\1/p' Makefile)"
+          go mod tidy -go="${GOMIN}"
+
       - name: Dependency Review
-        uses: actions/dependency-review-action@v3
+        uses: actions/dependency-review-action@v4
         if: github.event_name == 'pull_request'
 
       - id: ShellCheck
         name: Differential ShellCheck
-        uses: redhat-plumbers-in-action/differential-shellcheck@v4
+        uses: redhat-plumbers-in-action/differential-shellcheck@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          strict-check-on-push: true
         if: github.event_name == 'pull_request'
 
       - name: Upload artifact with ShellCheck defects in SARIF format
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Differential ShellCheck SARIF
           path: ${{ steps.ShellCheck.outputs.sarif }}
         if: github.event_name == 'pull_request'
 
-      - name: Install Go
-        uses: actions/setup-go@v4
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:dqlite/dev -y --no-update
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y pkg-config autoconf automake libtool make libuv1-dev libsqlite3-dev liblz4-dev libdqlite-dev
+
+      - name: Build
+        working-directory: './microcloud'
+        run: make
+
+      - name: Run static analysis
+        working-directory: './microcloud'
+        run: make check-static
+
+      - name: Make GOCOVERDIR
+        run: mkdir -p "${GOCOVERDIR}"
+        if: env.GOCOVERDIR != ''
+
+      - name: Unit tests
+        working-directory: './microcloud'
+        run: |
+          set -eux
+          make check-unit
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
         with:
-          go-version: 1.20.x
+          name: coverage-unit
+          path: ${{env.GOCOVERDIR}}
+        if: env.GOCOVERDIR != ''
+
+      - name: Upload system test dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-test-deps
+          path: |
+            /home/runner/go/bin/microcloud
+            /home/runner/go/bin/microcloudd
+          retention-days: 1
+
+  system-tests:
+    env:
+      DEBUG: "1"
+      SKIP_VM_LAUNCH: "1"
+      SNAPSHOT_RESTORE: "1"
+    name: System
+    runs-on: ubuntu-22.04
+    needs: code-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test suites that will be combined with the set versions.
+        # Define this first in the matrix so that it's readable
+        # after GitHub as formed the name for the respective check.
+        suite:
+          - "add"
+          - "instances"
+          - "basic"
+          - "interactive"
+          - "mismatch"
+          - "preseed"
+        # Set of versions to use for the matrix tests.
+        os: ["24.04"]
+        go: ["1.22.x"]
+        microceph: ["reef/candidate"]
+        microovn: ["22.03/edge"]
+        lxd: ["5.21/edge"]
+        # Continue using latest/edge as the default branch because 1/edge does not yet support debug binaries.
+        microcloud: ["latest/edge"]
+    steps:
+      - name: Performance tuning
+        run: |
+          set -eux
+          # optimize ext4 FSes for performance, not reliability
+          for fs in $(findmnt --noheading --type ext4 --list --uniq | awk '{print $1}'); do
+            # nombcache and data=writeback cannot be changed on remount
+            sudo mount -o remount,noatime,barrier=0,commit=6000 "${fs}" || true
+          done
+
+          # disable dpkg from calling sync()
+          echo "force-unsafe-io" | sudo tee /etc/dpkg/dpkg.cfg.d/force-unsafe-io
+
+      - name: Reclaim some space
+        run: |
+          set -eux
+
+          sudo snap remove lxd --purge
+          # Purge older snap revisions that are disabled/superseded by newer revisions of the same snap
+          snap list --all | while read -r name _ rev _ _ notes _; do
+            [[ "${notes}" =~ disabled$ ]] && sudo snap remove "${name}" --revision "${rev}" --purge
+          done || true
+
+          # This was inspired from https://github.com/easimon/maximize-build-space
+          df -h /
+          # dotnet
+          sudo rm -rf /usr/share/dotnet
+          # android
+          sudo rm -rf /usr/local/lib/android
+          # haskell
+          sudo rm -rf /opt/ghc
+          df -h /
+
+      - name: Reclaim some memory
+        run: |
+          set -eux
+
+          free -mt
+          sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer phpsessionclean.timer update-notifier-download.timer update-notifier-motd.timer
+          sudo systemctl stop iscsid.socket multipathd.socket
+          sudo systemctl stop cron.service irqbalance.service mono-xsp4.service multipathd.service networkd-dispatcher.service php8.1-fpm.service
+          free -mt
+
+      - name: Remove docker
+        run: |
+          set -eux
+          sudo apt-get autopurge -y containerd.io moby-containerd docker docker-ce podman uidmap
+          sudo ip link delete docker0
+          sudo nft flush ruleset
+
+      - name: "Disable br_netfilter"
+        run: |
+          # When br_netfilter is enabled, the multicast traffic that passes the native LXD bridge
+          # will get masqueraded too which breaks the multicast discovery.
+          sudo rmmod br_netfilter
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go (${{ matrix.go }})
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
 
       - name: Install dependencies
         run: |
@@ -44,24 +230,182 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
 
-      - name: Run static analysis
-        working-directory: microcloud
-        run: make check-static
+      - name: Download system test dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: system-test-deps
+          merge-multiple: true
+          path: /home/runner/go/bin
 
-      - name: Unit tests
-        working-directory: microcloud
-        run: make check-unit
+      - name: Make GOCOVERDIR
+        run: mkdir -p "${GOCOVERDIR}"
+        if: env.GOCOVERDIR != ''
 
-  documentation-checks:
+      - name: Sideload debug binaries
+        run: |
+          set -eux
+
+          # Binaries to sideload
+          export MICROCLOUD_DEBUG_PATH=~/go/bin/microcloud
+          export MICROCLOUDD_DEBUG_PATH=~/go/bin/microcloudd
+
+          # strip debug binaries
+          strip -s "${MICROCLOUD_DEBUG_PATH}" "${MICROCLOUDD_DEBUG_PATH}"
+
+          echo "MICROCLOUD_DEBUG_PATH=${MICROCLOUD_DEBUG_PATH}"   >> "${GITHUB_ENV}"
+          echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
+
+      - name: "Free up the ephemeral disk"
+        run: |
+          set -eux
+
+          if ! mountpoint --quiet /mnt; then
+            echo "INFO: no ephemeral disk mounted on /mnt"
+            mount
+            exit 0
+          fi
+
+          # If the rootfs and the ephemeral part are on the same physical disk, giving the whole
+          # disk to microceph would wipe our rootfs. Since it is pretty rare for GitHub Action
+          # runners to have a single disk, we immediately bail rather than trying to gracefully
+          # handle it. Once snapd releases with https://github.com/snapcore/snapd/pull/13150,
+          # we will be able to stop worrying about that special case.
+          if [ "$(stat -c '%d' /)" = "$(stat -c '%d' /mnt)" ]; then
+            echo "FAIL: rootfs and ephemeral part on the same disk, aborting"
+            lsblk
+            blkid
+            sudo fdisk -l
+            exit 1
+          fi
+
+          # Free-up the ephemeral disk to use it as storage device for LXD.
+          sudo swapoff /mnt/swapfile
+          ephemeral_disk="$(findmnt --noheadings --output SOURCE --target /mnt | sed 's/[0-9]\+$//')"
+          sudo umount /mnt
+          sudo wipefs -a "${ephemeral_disk}"
+          export TEST_STORAGE_SOURCE="${ephemeral_disk}"
+
+          echo "TEST_STORAGE_SOURCE=${TEST_STORAGE_SOURCE}" >> "${GITHUB_ENV}"
+
+      - name: "Setup host LXD"
+        run: |
+          set -eux
+          sudo snap install lxd --channel 5.21/edge || sudo snap refresh lxd --channel 5.21/edge
+          sudo lxd init --auto
+
+      - name: "Prepare for system tests"
+        working-directory: './microcloud'
+        run: |
+          set -eux
+          chmod +x ~
+
+          export BASE_OS="${{ matrix.os }}"
+          export LXD_SNAP_CHANNEL="${{ matrix.lxd }}"
+          export MICROCEPH_SNAP_CHANNEL="${{ matrix.microceph }}"
+          export MICROOVN_SNAP_CHANNEL="${{ matrix.microovn }}"
+          export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
+
+          cd test
+          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
+
+          echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
+          echo "BASE_OS=${BASE_OS}" >> "${GITHUB_ENV}"
+          echo "LXD_SNAP_CHANNEL=${LXD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+          echo "MICROCEPH_SNAP_CHANNEL=${MICROCEPH_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+          echo "MICROOVN_SNAP_CHANNEL=${MICROOVN_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+          echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+
+      - name: "Run system tests (${{ matrix.suite }})"
+        working-directory: './microcloud'
+        run: |
+          set -eux
+          chmod +x ~
+          cd test
+          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
+          echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.go }}-${{ matrix.suite }}-${{ env.TIMESTAMP }}
+          path: ${{ env.GOCOVERDIR }}
+        if: env.GOCOVERDIR != ''
+
+  tics:
+    name: Tiobe TICS
+    runs-on: ubuntu-22.04
+    needs: system-tests
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: ${{env.GOCOVERDIR}}
+          merge-multiple: true
+
+      - name: Extract coverage data
+        run: |
+          find ${{ env.GOCOVERDIR }}/micro*/cover/ -type f -exec mv {} ${{ env.GOCOVERDIR }} \;
+          rm -rf ${{ env.GOCOVERDIR }}/micro*
+          ls -la ${{ env.GOCOVERDIR }}
+
+      - name: Download system test dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: system-test-deps
+          merge-multiple: true
+          path: /home/runner/go/bin
+
+      - name: Install dependencies
+        working-directory: './microcloud'
+        run: |
+          go install github.com/axw/gocov/gocov@latest
+          go install github.com/AlekSi/gocov-xml@latest
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Convert coverage files
+        working-directory: './microcloud'
+        run: |
+          go tool covdata textfmt -i="${GOCOVERDIR}" -o "${GOCOVERDIR}"/coverage.out
+          gocov convert "${GOCOVERDIR}"/coverage.out > "${GOCOVERDIR}"/coverage.json
+          gocov-xml < "${GOCOVERDIR}"/coverage.json > "${GOCOVERDIR}"/coverage-go.xml
+          go tool covdata percent -i="${GOCOVERDIR}"
+
+      - name: Run TICS
+        uses: tiobe/tics-github-action@v3
+        with:
+          mode: qserver
+          project: microcloud
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+          branchdir: ${{ github.workspace }}
+          ticsAuthToken: ${{ secrets.TICS_AUTH_TOKEN }}
+          installTics: true
+          calc: ALL
+          tmpdir: /tmp/tics
+
+  doc-tests:
+    name: Documentation
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
     with:
       working-directory: './doc'
+      makefile: 'Makefile'
 
   snap:
     name: Trigger snap edge build
     runs-on: ubuntu-22.04
-    needs: [code-tests, documentation-checks]
-    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push'}}
+    needs: [code-tests, system-tests, doc-tests]
+    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,18 +415,20 @@ jobs:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
           LAUNCHPAD_LXD_BOT_KEY: ${{ secrets.LAUNCHPAD_LXD_BOT_KEY }}
         run: |
+          set -eux
+          mkdir -m 0700 -p ~/.ssh/
           ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
           ssh-add - <<< "${{ secrets.LAUNCHPAD_LXD_BOT_KEY }}"
-          mkdir -m 0700 -p ~/.ssh/
+          ssh-add -L > ~/.ssh/id_ed25519.pub
           # In ephemeral environments like GitHub Action runners, relying on TOFU isn't providing any security
           # so require the key obtained by `ssh-keyscan` to match the expected hash from https://help.launchpad.net/SSHFingerprints
           ssh-keyscan git.launchpad.net >> ~/.ssh/known_hosts
           ssh-keygen -qlF git.launchpad.net | grep -xF 'git.launchpad.net RSA SHA256:UNOzlP66WpDuEo34Wgs8mewypV0UzqHLsIFoqwe8dYo'
 
-      - name: Install Go
-        uses: actions/setup-go@v4
+      - name: Install Go (${{ matrix.go }})
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.20.x
+          go-version: 1.22.x
 
       - name: Trigger Launchpad snap build
         env:
@@ -90,15 +436,19 @@ jobs:
           TARGET: >-
             ${{ fromJson('{
               "main": "latest-edge",
-              "stable-5.0": "5.0-edge",
+              "v1-edge": "v1-edge",
             }')[github.ref_name] }}
         run: |
-          set -x
+          set -eux
+          git config --global transfer.fsckobjects true
           git config --global user.name "Canonical LXD Bot"
           git config --global user.email "lxd@lists.canonical.com"
-          localRev=$(git rev-parse HEAD)
+          git config --global commit.gpgsign true
+          git config --global gpg.format "ssh"
+          git config --global user.signingkey ~/.ssh/id_ed25519.pub
+          localRev="$(git rev-parse HEAD)"
           GOPROXY=direct go install github.com/canonical/lxd-ci/lxd-snapcraft@latest
-          git clone -b "${TARGET}" git+ssh://lxdbot@git.launchpad.net/~canonical-lxd/microcloud ~/microcloud-pkg-snap-lp
+          git clone -b "${TARGET}" git+ssh://lxdbot@git.launchpad.net/~microcloud-snap/microcloud ~/microcloud-pkg-snap-lp
           cd ~/microcloud-pkg-snap-lp
           lxd-snapcraft -package microcloud -set-version "git-${localRev:0:7}" -set-source-commit "${localRev}"
           git add --all
