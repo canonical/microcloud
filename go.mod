@@ -9,7 +9,7 @@ require (
 	github.com/canonical/microovn/microovn v0.0.0-20241101125123-0d5d663f6575
 	github.com/charmbracelet/bubbletea v1.2.3
 	github.com/charmbracelet/lipgloss v1.0.0
-	github.com/charmbracelet/x/ansi v0.4.5
+	github.com/charmbracelet/x/ansi v0.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.8.1
