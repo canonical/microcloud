@@ -59,6 +59,8 @@ cleanup() {
 	fi
 
 	echo "::group::debug-failure"
+	free -mt
+	df -h
 	lxc list --all-projects || true
 	lxc exec micro01 -- lxc list || true
 
