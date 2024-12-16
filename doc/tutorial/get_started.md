@@ -12,7 +12,7 @@ This tutorial guides you through installing and initialising MicroCloud in a con
 It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial. 
 
 ```{tip}
-   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments.
+   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualization enabled. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
    
    We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
 ```
@@ -23,8 +23,6 @@ It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you do
    You can skip this step if you already have a LXD server installed and initialised on your host machine.
    However, you should make sure that you have a storage pool set up that is big enough to store four VMs. We recommend a minimum storage pool size of 40 GiB.
 ```
-
-Verify that your host machine [supports nested-virtualization](https://ubuntu.com/server/docs/how-to-enable-nested-virtualization#check-if-nested-virtualization-is-enabled)
 
 MicroCloud requires LXD version 5.21:
 
