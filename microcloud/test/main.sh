@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/bash
+set -eu
 [ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
 
 # Don't translate lxc output for parsing in it in tests.
@@ -42,6 +43,9 @@ cleanup() {
 	lxc project switch microcloud-test
 	set +e
 
+	if [ "${TEST_CURRENT}" = "setup" ] && [ "${TEST_RESULT}" = "success" ]; then
+		return
+	fi
 
 	# Allow for inspection
 	if [ -n "${CLOUD_INSPECT:-}" ]; then
@@ -54,12 +58,45 @@ cleanup() {
 		read -r _
 	fi
 
+	echo "::group::debug-failure"
+	lxc list --all-projects || true
+	lxc exec micro01 -- lxc list || true
+
+	for name in $(lxc list -c n -f csv micro); do
+		echo "Check LXD resources on ${name} for disk ordering"
+		lxc exec "${name}" -- lxc query "/1.0/resources" | jq -r '.storage.disks[] | {id, device_id, device_path}'
+		lxc exec "${name}" -- lsblk
+	done
+
+	for name in $(lxc list -c n -f csv micro); do
+		echo -n "${name} out file:"
+        if ! lxc exec "${name}" -- test -e out; then
+            echo " was not found"
+            continue
+        elif ! lxc exec "${name}" -- test -s out; then
+            echo " was empty"
+            continue
+        fi
+        echo
+		lxc exec "${name}" -- cat out
+	done
+	echo "::endgroup::"
+
+	# LXD daemon logs
+	echo "::group::lxd logs"
+	journalctl --quiet --no-hostname --no-pager --boot=0 --lines=100 --unit=snap.lxd.daemon.service
+	echo "::endgroup::"
+
+	# dmesg may contain oops, IO errors, crashes, etc
+	echo "::group::dmesg logs"
+	journalctl --quiet --no-hostname --no-pager --boot=0 --lines=100 --dmesg
+	echo "::endgroup::"
+
 	if [ -n "${GITHUB_ACTIONS:-}" ]; then
 		echo "==> Skipping cleanup (GitHub Action runner detected)"
 	else
 		echo "==> Cleaning up"
-
-    cleanup_systems
+		cleanup_systems
 	fi
 
 	echo ""
@@ -68,6 +105,11 @@ cleanup() {
 		echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION}"
 	fi
 	echo "==> Test result: ${TEST_RESULT}"
+
+    if [ "${CONCURRENT_SETUP}" = 1 ]; then
+        # kill our whole process group
+        kill -- -$$
+    fi
 }
 
 # Must be set before cleanup()
@@ -81,24 +123,67 @@ trap cleanup EXIT HUP INT TERM
 # Import all the testsuites
 import_subdir_files suites
 
+LXD_SNAP_CHANNEL="${LXD_SNAP_CHANNEL:-5.21/edge}"
+export LXD_SNAP_CHANNEL
+
+MICROCEPH_SNAP_CHANNEL="${MICROCEPH_SNAP_CHANNEL:-reef/candidate}"
+export MICROCEPH_SNAP_CHANNEL
+
+MICROCLOUD_SNAP_CHANNEL="${MICROCLOUD_SNAP_CHANNEL:-latest/edge}"
+export MICROCLOUD_SNAP_CHANNEL
+
+MICROOVN_SNAP_CHANNEL="${MICROOVN_SNAP_CHANNEL:-22.03/edge}"
+export MICROOVN_SNAP_CHANNEL
+
+MICROOVN_SNAP_PATH="${MICROOVN_SNAP_PATH:-}"
+export MICROOVN_SNAP_PATH
+
+MICROCEPH_SNAP_PATH="${MICROCEPH_SNAP_PATH:-}"
+export MICROCEPH_SNAP_PATH
+
 CONCURRENT_SETUP=${CONCURRENT_SETUP:-0}
 export CONCURRENT_SETUP
 
 SKIP_SETUP_LOG=${SKIP_SETUP_LOG:-0}
 export SKIP_SETUP_LOG
 
+SKIP_VM_LAUNCH=${SKIP_VM_LAUNCH:-0}
+export SKIP_VM_LAUNCH
+
 SNAPSHOT_RESTORE=${SNAPSHOT_RESTORE:-0}
 export SNAPSHOT_RESTORE
 
+TESTBED_READY=${TESTBED_READY:-0}
+export TESTBED_READY
+
+set +u
 if [ -z "${MICROCLOUD_SNAP_PATH}" ] || ! [ -e "${MICROCLOUD_SNAP_PATH}" ]; then
-  # TODO: Setup snap build
-  echo "Undefined or missing MICROCLOUD_SNAP_PATH" >&2
-  exit 1
+  MICROCLOUD_SNAP_PATH=""
 fi
+
+if [ -z "${MICROCLOUD_DEBUG_PATH}" ] || ! [ -e "${MICROCLOUD_DEBUG_PATH}" ]; then
+  MICROCLOUD_DEBUG_PATH=""
+fi
+
+if [ -z "${MICROCLOUDD_DEBUG_PATH}" ] || ! [ -e "${MICROCLOUDD_DEBUG_PATH}" ]; then
+  MICROCLOUDD_DEBUG_PATH=""
+fi
+
+if [ -z "${LXD_DEBUG_PATH}" ] || ! [ -e "${LXD_DEBUG_PATH}" ]; then
+  LXD_DEBUG_PATH=""
+fi
+set -u
 
 export MICROCLOUD_SNAP_PATH
 
+echo "===> Checking that all snap channels are set to latest/edge"
+check_snap_channels
+
 run_test() {
+    if [ "${TESTBED_READY}" = 0 ]; then
+        testbed_setup
+    fi
+
 	TEST_CURRENT="${1}"
 	TEST_CURRENT_DESCRIPTION="${2:-${1}}"
 
@@ -107,31 +192,92 @@ run_test() {
 	${TEST_CURRENT}
 	END_TIME="$(date +%s)"
 
-	echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
-}
+	collect_go_cover_files
 
-# allow for running a specific set of tests
-if [ "$#" -gt 0 ] && [ "$1" != "all" ] && [ "$1" != "cluster" ] && [ "$1" != "standalone" ]; then
-	run_test "test_${1}"
-	# shellcheck disable=SC2034
-	TEST_RESULT=success
-	exit
-fi
+	echo "::notice::==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"
+}
 
 # Create 4 nodes with 3 disks and 3 extra interfaces.
 # These nodes should be used across most tests and reset with the `reset_systems` function.
-new_systems 4 3 3
+testbed_setup() {
+  echo "==> SETUP STARTED"
+  START_TIME="$(date +%s)"
 
-if [ "${1:-"all"}" != "cluster" ]; then
-  run_test test_instances "instances"
+  new_systems 4 3 5
+  TESTBED_READY=1
+
+  END_TIME="$(date +%s)"
+  echo "::notice::==> SETUP DONE ($((END_TIME - START_TIME))s)"
+}
+
+collect_go_cover_files() {
+	if [ -n "${GOCOVERDIR}" ]; then
+		echo "==> Collecting Go coverage files"
+		lxc list -c n -f csv | xargs --no-run-if-empty -I {} sh -c "
+		container_name=\"{}\"
+		timestamp=\$(date +%Y%m%d_%H%M%S_%N)
+		destination=\"${GOCOVERDIR}/\${container_name}_\${timestamp}\"
+		lxc file pull -r \"\${container_name}/var/snap/microcloud/common/data/cover\" \"\${destination}\" || true
+		"
+	fi
+}
+
+# test groups
+run_add_tests() {
+  run_test test_add_interactive "add interactive"
+}
+
+run_instances_tests() {
+  run_test test_instances_config "instances config"
+  run_test test_instances_launch "instances launch"
+}
+
+run_basic_tests() {
+  run_test test_auto "auto"
+}
+
+run_recover_tests() {
+  run_test test_recover "recover"
+}
+
+run_interactive_tests() {
   run_test test_interactive "interactive"
+  run_test test_interactive_combinations "interactive combinations"
+}
+
+run_mismatch_tests() {
   run_test test_service_mismatch "service mismatch"
   run_test test_disk_mismatch "disk mismatch"
-  run_test test_interactive_combinations "interactive combinations"
-  run_test test_auto "auto"
-  run_test test_add_interactive "add interactive"
-  run_test test_add_auto "add auto"
+}
+
+run_preseed_tests() {
   run_test test_preseed "preseed"
+}
+
+# allow for running a specific set of tests
+if [ "${1:-"all"}" = "all" ]; then
+  run_add_tests
+  run_instances_tests
+  run_basic_tests
+  run_interactive_tests
+  run_mismatch_tests
+  run_preseed_tests
+elif [ "${1}" = "add" ]; then
+  run_add_tests
+elif [ "${1}" = "instances" ]; then
+  run_instances_tests
+elif [ "${1}" = "basic" ]; then
+  run_basic_tests
+elif [ "${1}" = "interactive" ]; then
+  run_interactive_tests
+elif [ "${1}" = "mismatch" ]; then
+  run_mismatch_tests
+elif [ "${1}" = "preseed" ]; then
+  run_preseed_tests
+elif [ "${1}" = "setup" ]; then
+  testbed_setup
+else
+  run_test "test_${1}"
 fi
 
 # shellcheck disable=SC2034

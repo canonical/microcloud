@@ -1,102 +1,4 @@
-test_add_auto() {
-  reset_systems 4 0 0
-
-  # Test with just LXD and MicroCloud, and no disks.
-  for m in micro01 micro02 micro03 ; do
-    lxc exec "${m}" -- snap disable microovn || true
-    lxc exec "${m}" -- snap disable microceph || true
-  done
-
-  # Disable extra nodes so we don't add them yet.
-  for m in micro03 micro04 ; do
-    lxc exec "${m}" -- snap disable microcloud
-  done
-
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-
-  # Re-enable the nodes.
-  for m in micro03 micro04 ; do
-    lxc exec "${m}" -- snap enable microcloud
-    lxc exec "${m}" -- snap start microcloud
-  done
-
-  # Add the nodes.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto > out"
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-
-  for m in micro01 micro02 micro03 micro04 ; do
-    validate_system_lxd "${m}" 4
-
-    # Supress the first message from LXD.
-    lxc exec "${m}" -- lxc list > /dev/null 2>&1 || true
-
-    # Ensure we created no storage devices.
-    lxc exec "${m}" -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
-  done
-
-  # Test with all systems.
-  reset_systems 4 0 0
-
-  # Disable extra nodes so we don't add them yet.
-  for m in micro03 micro04 ; do
-    lxc exec "${m}" -- snap disable microcloud
-  done
-
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-
-  # Re-enable the nodes.
-  for m in micro03 micro04 ; do
-    lxc exec "${m}" -- snap enable microcloud
-    lxc exec "${m}" -- snap start microcloud
-  done
-
-  # Add the nodes.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto > out"
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-
-  for m in micro01 micro02 micro03 micro04 ; do
-    validate_system_lxd "${m}" 4
-    validate_system_microceph "${m}"
-    validate_system_microovn "${m}"
-
-    # Supress the first message from LXD.
-    lxc exec "${m}" -- sh -c "lxc ls >> /dev/null 2>&1" || true
-
-    # Ensure we created no storage devices.
-    lxc exec "${m}" -- sh -ceu "lxc storage ls -f csv | wc -l | grep -q 0"
-  done
-
-  # Test with ZFS and Ceph disks.
-  reset_systems 4 2 0
-
-  # Disable extra nodes so we don't add them yet.
-  # shellcheck disable=SC2043
-  for m in micro04 ; do
-    lxc exec "${m}" -- sh -c "snap disable microcloud"
-  done
-
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud init --auto > out"
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-
-  # Re-enable the nodes.
-  # shellcheck disable=SC2043
-  for m in micro04 ; do
-    lxc exec "${m}" -- sh -c "snap enable microcloud"
-    lxc exec "${m}" -- sh -c "snap start microcloud"
-  done
-
-  # Add the nodes.
-  lxc exec micro01 -- sh -c "TEST_CONSOLE=0 microcloud add --auto > out"
-  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
-
-  for m in micro01 micro02 micro03 micro04 ; do
-    validate_system_lxd "${m}" 4 disk1 1
-    validate_system_microceph "${m}" disk2
-    validate_system_microovn "${m}"
-  done
-}
+#!/bin/bash
 
 test_add_interactive() {
   reset_systems 4 2 1
@@ -104,7 +6,7 @@ test_add_interactive() {
   # Disable extra nodes so we don't add them yet.
   # shellcheck disable=SC2043
   for m in micro04 ; do
-    lxc exec "${m}" -- sh -c "snap disable microcloud"
+    lxc exec "${m}" -- snap disable microcloud
   done
 
   echo "Test growing a MicroCloud with all services and devices set up"
@@ -151,7 +53,6 @@ test_add_interactive() {
     validate_system_microceph "${m}" disk2
     validate_system_microovn "${m}"
   done
-
 
   reset_systems 4 2 1
   echo "Test growing a MicroCloud with missing services"
