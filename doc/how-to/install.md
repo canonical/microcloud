@@ -4,8 +4,8 @@
 (pre-deployment-requirements)=
 ## Pre-deployment requirements
 
-````{tabs}
-```{group-tab} General
+`````{tabs}
+````{group-tab} General
 
 The requirements in this section apply to all MicroCloud deployments.
 
@@ -32,9 +32,13 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
     ```
     sudo modinfo dm-crypt
     ```
-```
+````
 
-```{group-tab} Testing or development environments
+````{group-tab} Testing or development environments
+
+```{important}
+These requirements are in addition to those listed in the General tab.
+```
 
 - Physical or virtual machines can be used
 - Minimum cluster size:
@@ -46,9 +50,13 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
     - a minimum of 3 cluster members
     - a minimum of 3 separate disks located across 3 different members
   - Otherwise, local storage is sufficient
-```
+````
 
-```{group-tab} Production environments
+````{group-tab} Production environments
+
+```{important}
+These requirements are in addition to those listed in the General tab.
+```
 
 - Physical machines only (no VMs)
 - Minimum cluster size:
@@ -65,8 +73,8 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
     - 1 for OS
     - 1 for local storage
     - 1 for distributed storage
-```
 ````
+`````
 
 For detailed information, see: {ref}`reference-requirements`.
 
