@@ -18,10 +18,11 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
 
 - Networking:
   - Fixed IP addresses (DHCP not supported)
-  - Two network interfaces per cluster member, one for intra-cluster communication and one for external connectivity to the uplink network
+  - At least two network interfaces per cluster member: one for intra-cluster communication and one for external connectivity to the uplink network
     - Partially or fully disaggregated networking setups require more interfaces; see: {ref}`howto-ceph-networking`
+    - To use a {ref}`dedicated underlay network for OVN traffic <microcloud-networking-underlay>`, an additional interface per cluster member is required
   - Uplink network must support both broadcast and multicast
-  - Intra-cluster interface must have IPs assigned; external connectivity interface must not have any IPs assigned
+  - Intra-cluster interface must have IPs assigned; external connectivity interface (to uplink) must not have any IPs assigned
 
 - Storage:
   - Disks should be free of existing partitions or file systems
