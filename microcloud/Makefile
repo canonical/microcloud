@@ -38,8 +38,26 @@ endif
 # Update targets.
 .PHONY: update-gomod
 update-gomod:
-	go get -u ./...
-	go mod tidy
+	go get -t -v -u ./...
+
+	# Static pins
+	go get github.com/canonical/lxd@stable-5.21 # Stay on v2 dqlite and LXD LTS client
+
+	# Grab MicroOVN from the corresponding support branch.
+	go get github.com/canonical/microovn/microovn@branch-22.03
+
+	# There is a reef branch, but its microcluster dependency has breaking changes.
+	# Also, the quincy branch has an outdated client for the MicroCeph API offered with reef/stable.
+	#
+	# As such, we have to grab the latest commit which uses a compatible microcluster,
+	# but recent enough to also account for reef's breaking API changes.
+	go get github.com/canonical/microceph/microceph@v0.0.0-20240610102219-bc3fe1e7b68f
+
+	# Branches named `vN` where N is a number are reserved by go for module versions,
+	# So we are forced to grab the corresponding commit hash for the `v1` branch instead.
+	go get github.com/canonical/microcluster@v0.0.0-20241212191815-dba2a1b44d4d
+
+	go mod tidy -go=$(GOMIN)
 
 # Update lxd-generate generated database helpers.
 .PHONY: update-schema

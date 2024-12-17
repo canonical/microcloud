@@ -16,5 +16,5 @@ type Service interface {
 	Type() types.ServiceType
 	Name() string
 	Address() string
-	Port() int
+	Port() int64
 }

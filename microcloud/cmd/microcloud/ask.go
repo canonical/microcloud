@@ -282,7 +282,13 @@ func askLocalPool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks bo
 			return nil
 		}
 
-		for _, disk := range system.AvailableDisks {
+		sortedDisks := make([]api.ResourcesStorageDisk, 0, len(system.AvailableDisks))
+		sortedDisks = append(sortedDisks, system.AvailableDisks...)
+		sort.Slice(sortedDisks, func(i, j int) bool {
+			return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+		})
+
+		for _, disk := range sortedDisks {
 			devicePath := parseDiskPath(disk)
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 
@@ -404,7 +410,13 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 	header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 	data := [][]string{}
 	for peer, system := range systems {
-		for _, disk := range system.AvailableDisks {
+		sortedDisks := make([]api.ResourcesStorageDisk, 0, len(system.AvailableDisks))
+		sortedDisks = append(sortedDisks, system.AvailableDisks...)
+		sort.Slice(sortedDisks, func(i, j int) bool {
+			return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+		})
+
+		for _, disk := range sortedDisks {
 			// Skip any disks that have been reserved for the local storage pool.
 			devicePath := parseDiskPath(disk)
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
@@ -473,7 +485,7 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 			system.MicroCephDisks = []cephTypes.DisksPost{}
 		}
 
-		system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: path, Wipe: wipeMap[entry]})
+		system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: []string{path}, Wipe: wipeMap[entry]})
 
 		systems[target] = system
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,7 +24,7 @@ type CephService struct {
 
 	name    string
 	address string
-	port    int
+	port    int64
 }
 
 // NewCephService creates a new MicroCeph service with a client attached.
@@ -121,9 +122,15 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	}
 
 	for _, disk := range joinConfig.CephConfig {
-		err := cephClient.AddDisk(ctx, c, &disk)
+		resp, err := cephClient.AddDisk(ctx, c, &disk)
 		if err != nil {
 			return err
+		}
+
+		for _, r := range resp.Reports {
+			if r.Error != "" {
+				return errors.New(r.Error)
+			}
 		}
 	}
 
@@ -166,6 +173,6 @@ func (s CephService) Address() string {
 }
 
 // Port returns the port of this Service instance.
-func (s CephService) Port() int {
+func (s CephService) Port() int64 {
 	return s.port
 }

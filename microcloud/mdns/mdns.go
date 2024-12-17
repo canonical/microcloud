@@ -17,13 +17,13 @@ const ServiceSize = 10
 const clusterSize = 1000
 
 // NewBroadcast returns a running mdns.Server which broadcasts the service at the given name and address.
-func NewBroadcast(name string, addr string, port int, service string, txt []byte) (*mdns.Server, error) {
+func NewBroadcast(name string, addr string, port int64, service string, txt []byte) (*mdns.Server, error) {
 	var sendTXT []string
 	if txt != nil {
 		sendTXT = dnsTXTSlice(txt)
 	}
 
-	config, err := mdns.NewMDNSService(name, service, "", "", port, []net.IP{net.ParseIP(addr)}, sendTXT)
+	config, err := mdns.NewMDNSService(name, service, "", "", int(port), []net.IP{net.ParseIP(addr)}, sendTXT)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create configuration for broadcast: %w", err)
 	}

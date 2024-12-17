@@ -22,7 +22,7 @@ type OVNService struct {
 
 	name    string
 	address string
-	port    int
+	port    int64
 }
 
 // NewOVNService creates a new MicroOVN service with a client attached.
@@ -127,6 +127,6 @@ func (s OVNService) Address() string {
 }
 
 // Port returns the port of this Service instance.
-func (s OVNService) Port() int {
+func (s OVNService) Port() int64 {
 	return s.port
 }

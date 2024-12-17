@@ -1,0 +1,121 @@
+name: Vulnerability Scanning with Trivy
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Test Trivy daily at midnight
+
+permissions:
+  contents: read
+  security-events: write # for uploading SARIF results to the security tab
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  trivy-repo:
+    name: Trivy - Repository
+    runs-on: ubuntu-22.04
+    if: ${{ github.ref_name == 'main' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        with:
+          ref: main
+
+      - name: Install Trivy
+        uses: canonical/lxd/.github/actions/install-trivy@main
+
+      - name: Download Trivy DB
+        id: db_download
+        run: trivy fs --download-db-only --cache-dir /home/runner/vuln-cache
+        continue-on-error: true
+
+      - name: Use previous downloaded database
+        if: ${{ steps.db_download.outcome == 'failure' }}
+        uses: actions/cache/restore@3624ceb22c1c5a301c8db4169662070a689d9ea8 # v4.1.1
+        with:
+          path: /home/runner/vuln-cache
+          key: trivy-latest-cache
+
+      - name: Run Trivy vulnerability scanner
+        run: |
+          trivy fs --skip-db-update \
+          --scanners vuln,secret,misconfig \
+          --format sarif \
+          --cache-dir /home/runner/vuln-cache \
+          --severity LOW,MEDIUM,HIGH,CRITICAL \
+          --output trivy-microcloud-repo-scan-results.sarif .
+
+      - name: Cache Trivy vulnerability database
+        if: ${{ steps.db_download.outcome == 'success' }}
+        uses: actions/cache/save@3624ceb22c1c5a301c8db4169662070a689d9ea8 # v4.1.1
+        with:
+          path: /home/runner/vuln-cache
+          key: trivy-latest-cache
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-microcloud-repo-scan-results.sarif"
+          sha: ${{ github.sha }}
+          ref: refs/heads/main
+
+  trivy-snap:
+    name: Trivy - Snap
+    runs-on: ubuntu-22.04
+    if: ${{ github.ref_name == 'main' }}
+    needs: trivy-repo
+    strategy:
+      matrix:
+        include:
+          - channel: "3/edge"
+            branch: "main"
+          - channel: "2/candidate"
+            branch: "v2-edge"
+          - channel: "1/edge"
+            branch: "v1-edge"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Install Trivy
+        uses: canonical/lxd/.github/actions/install-trivy@main
+
+      - name: Restore cached Trivy vulnerability database
+        uses: actions/cache/restore@3624ceb22c1c5a301c8db4169662070a689d9ea8 # v4.1.1
+        with:
+          path: /home/runner/vuln-cache
+          key: trivy-latest-cache
+
+      - name: Download snap for scan
+        run: |
+          snap download microcloud --channel=${{ matrix.channel }}
+          unsquashfs ./microcloud*.snap
+
+      - name: Run Trivy vulnerability scanner
+        run: |
+          trivy rootfs --skip-db-update \
+          --scanners vuln,secret,misconfig \
+          --format sarif \
+          --cache-dir /home/runner/vuln-cache \
+          --severity LOW,MEDIUM,HIGH,CRITICAL \
+          --output snap-scan-results.sarif squashfs-root
+
+      - name: Flag snap scanning alerts
+        run: |
+          jq '.runs[].tool.driver.rules[] |= (.shortDescription.text |= "Snap scan - " + .)' snap-scan-results.sarif > tmp.json
+          mv tmp.json snap-scan-results.sarif
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@f779452ac5af1c261dce0346a8f964149f49322b # v3.26.13
+        with:
+          sarif_file: "snap-scan-results.sarif"
+          sha: ${{ github.sha }}
+          ref: refs/heads/${{ matrix.branch }}
