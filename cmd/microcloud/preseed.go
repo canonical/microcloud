@@ -913,13 +913,21 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		return nil, fmt.Errorf("Local disk filter cannot be used. All systems have explicitly specified a disk")
 	}
 
-	allResources := map[string]*lxdAPI.Resources{}
+	allResourcesZFS := map[string]*lxdAPI.Resources{}
+	allResourcesCeph := map[string]*lxdAPI.Resources{}
 	for peer, system := range c.systems {
 		cert := system.ServerInfo.Certificate
 
 		// Fetch system resources from LXD to find disks if we haven't directly set up disks.
-		if checkFilterZFS[peer] || checkFilterCeph[peer] {
-			allResources[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
+		if checkFilterZFS[peer] {
+			allResourcesZFS[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
+			}
+		}
+
+		if checkFilterCeph[peer] {
+			allResourcesCeph[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
 			}
@@ -927,10 +935,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	}
 
 	cephMatches := map[string]int{}
-	zfsMatches := map[string]int{}
 	cephMachines := map[string]bool{}
-	zfsMachines := map[string]bool{}
-	for peer, r := range allResources {
+	for peer, r := range allResourcesCeph {
 		system := c.systems[peer]
 
 		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
@@ -956,6 +962,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 						Encrypt: filter.Encrypt,
 					},
 				)
+
 				// There should only be one ceph pool per system.
 				if !addedCephPool {
 					if c.bootstrap {
@@ -993,6 +1000,21 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				}
 
 				disks = newDisks
+			}
+		}
+
+		c.systems[peer] = system
+	}
+
+	zfsMatches := map[string]int{}
+	zfsMachines := map[string]bool{}
+	for peer, r := range allResourcesZFS {
+		system := c.systems[peer]
+
+		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
+		for _, disk := range r.Storage.Disks {
+			if len(disk.Partitions) == 0 {
+				disks = append(disks, disk)
 			}
 		}
 
