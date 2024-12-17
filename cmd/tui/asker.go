@@ -122,9 +122,9 @@ func (a *asker) Init() tea.Cmd {
 // Instead, by appending it to the front of the string, the cursor will reset the previously rendered line only.
 func (a *asker) Write(b []byte) (int, error) {
 	str := string(b)
-	str, ok := strings.CutSuffix(str, ansi.CursorLeft(a.windowWidth))
+	str, ok := strings.CutSuffix(str, ansi.CursorBackward(a.windowWidth))
 	if ok {
-		str = ansi.CursorLeft(a.windowWidth) + str
+		str = ansi.CursorBackward(a.windowWidth) + str
 	}
 
 	return a.File.Write([]byte(str))
