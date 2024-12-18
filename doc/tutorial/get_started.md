@@ -12,7 +12,7 @@ This tutorial guides you through installing and initialising MicroCloud in a con
 It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial.
 
 ```{tip}
-   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualization enabled. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
+   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualisation enabled. See the [Ubuntu Server documentation on how to check if nested virtualisation is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
 
    We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
 ```
@@ -212,7 +212,7 @@ In addition, you must configure the network interfaces so they can be used by Mi
 Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micro4`):
 
    ```{tip}
-   Open four terminals, one on each micro vm, to run the commands in parallel on each VM. (tmux panel multiplexing can help here ;))
+   You can run the following commands in parallel on each VM. We recommend that you open three additional terminals, so that you have a terminal for each VM.
    ```
 
 1. Access the shell in each VM.
