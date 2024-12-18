@@ -121,7 +121,6 @@ MicroCloud's documentation is built with `Sphinx`_ and hosted on `Read the Docs`
 
 It is written in `reStructuredText`_.
 For syntax help and guidelines, see our `reStructuredText style guide`_.
-The repository also contains a `documentation cheat sheet`_, which can be helpful as a quick reference.
 
 For structuring, the documentation uses the `Diátaxis`_ approach.
 
