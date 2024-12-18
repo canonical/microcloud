@@ -78,7 +78,7 @@ jobs:
             branch: "main"
           - channel: "2/stable"
             branch: "v2-edge"
-          - channel: "1/stable"
+          - channel: "1/edge"
             branch: "v1-edge"
     steps:
       - name: Checkout
