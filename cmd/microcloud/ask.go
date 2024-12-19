@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -1485,14 +1486,17 @@ func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 
 func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 	format := func(password string) (string, error) {
-		trimmed := strings.TrimSpace(password)
-		passwordSplit := strings.SplitN(trimmed, " ", 5)
+		passwordSplit := strings.Split(password, " ")
 
-		if len(passwordSplit) != 4 {
+		passwordClean := slices.DeleteFunc(passwordSplit, func(element string) bool {
+			return element == ""
+		})
+
+		if len(passwordClean) != 4 {
 			return "", fmt.Errorf("Passphrase has to contain exactly four elements")
 		}
 
-		return trimmed, nil
+		return strings.Join(passwordClean, " "), nil
 	}
 
 	validator := func(password string) error {
