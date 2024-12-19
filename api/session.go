@@ -165,17 +165,17 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 		}
 	}()
 
+	err = sh.Session.MulticastDiscovery(state.Name(), session.Address, session.Interface)
+	if err != nil {
+		return fmt.Errorf("Failed to start multicast discovery: %w", err)
+	}
+
 	sessionPassphrase := sh.Session.Passphrase()
 	err = gw.Write(types.Session{
 		Passphrase: sessionPassphrase,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to send session details: %w", err)
-	}
-
-	err = sh.Session.MulticastDiscovery(state.Name(), session.Address, session.Interface)
-	if err != nil {
-		return fmt.Errorf("Failed to start multicast discovery: %w", err)
 	}
 
 	confirmedIntents, err := confirmedIntents(sh, gw)
