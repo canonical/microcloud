@@ -106,6 +106,11 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 				continue
 			}
 
+			// Exclude cdrom drives as viable storage disk.
+			if disk.Type == "cdrom" {
+				continue
+			}
+
 			s.AvailableDisks[disk.ID] = disk
 		}
 	}
