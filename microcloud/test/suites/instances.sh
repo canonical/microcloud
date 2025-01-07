@@ -58,8 +58,7 @@ test_instances_config() {
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+  preseed="
 lookup_subnet: ${addr}/24
 systems:
 - name: micro01
@@ -77,10 +76,9 @@ systems:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
 
   # Init a container and VM with ZFS storage & FAN network.
   lxc exec micro01 -- lxc init --empty v1 --vm
@@ -96,8 +94,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+  preseed="
 lookup_subnet: ${addr}/24
 systems:
 - name: micro01
@@ -125,10 +122,9 @@ ovn:
   ipv4_gateway: 10.1.123.1/24
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
 
   # Delete any instances left behind.
   lxc exec micro01 -- sh -c "
@@ -153,8 +149,7 @@ test_instances_launch() {
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+  preseed="
 lookup_subnet: ${addr}/24
 systems:
 - name: micro01
@@ -175,10 +170,9 @@ systems:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
 
   # Delete any instances left behind.
   lxc exec micro01 -- sh -c "
@@ -235,8 +229,7 @@ EOF
 
   # Create a MicroCloud with ceph and ovn setup.
   addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
-  lxc exec micro01 -- sh -c "
-  cat << EOF > /var/snap/microcloud/common/preseed.yaml
+  preseed="
 lookup_subnet: ${addr}/24
 systems:
 - name: micro01
@@ -264,10 +257,9 @@ ovn:
   ipv4_gateway: 10.1.123.1/24
   ipv4_range: 10.1.123.100-10.1.123.254
   ipv6_gateway: fd42:1:1234:1234::1/64
-EOF
 "
 
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed /var/snap/microcloud/common/preseed.yaml
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "${preseed}"
 
   # Delete any instances left behind.
   lxc exec micro01 -- sh -c "
