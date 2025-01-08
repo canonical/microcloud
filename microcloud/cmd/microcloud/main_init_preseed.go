@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -23,10 +24,11 @@ import (
 
 // Preseed represents the structure of the supported preseed yaml.
 type Preseed struct {
-	LookupSubnet string        `yaml:"lookup_subnet"`
-	Systems      []System      `yaml:"systems"`
-	OVN          InitNetwork   `yaml:"ovn"`
-	Storage      StorageFilter `yaml:"storage"`
+	LookupSubnet    string        `yaml:"lookup_subnet"`
+	LookupInterface string        `yaml:"lookup_interface"`
+	Systems         []System      `yaml:"systems"`
+	OVN             InitNetwork   `yaml:"ovn"`
+	Storage         StorageFilter `yaml:"storage"`
 }
 
 // System represents the structure of the systems we expect to find in the preseed yaml.
@@ -87,14 +89,14 @@ func DiskOperatorSet() filter.OperatorSet {
 }
 
 // RunPreseed initializes MicroCloud from a preseed yaml filepath input.
-func (c *CmdControl) RunPreseed(cmd *cobra.Command, preseed string, init bool) error {
-	fileBytes, err := os.ReadFile(preseed)
+func (c *CmdControl) RunPreseed(cmd *cobra.Command, init bool) error {
+	bytes, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return fmt.Errorf("Failed to read preseed file %q: %w", preseed, err)
+		return fmt.Errorf("Failed to read from stdin: %w", err)
 	}
 
 	config := Preseed{}
-	err = yaml.Unmarshal(fileBytes, &config)
+	err = yaml.Unmarshal(bytes, &config)
 	if err != nil {
 		return fmt.Errorf("Failed to parse the preseed yaml: %w", err)
 	}
@@ -361,7 +363,19 @@ func (p *Preseed) Parse(s *service.Handler, bootstrap bool) (map[string]InitSyst
 		return nil, err
 	}
 
-	err = lookupPeers(s, true, lookupSubnet, expectedSystems, systems)
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
+	}
+
+	var lookupIface *net.Interface
+	for _, iface := range ifaces {
+		if iface.Name == p.LookupInterface {
+			lookupIface = &iface
+		}
+	}
+
+	err = lookupPeers(s, true, lookupIface, lookupSubnet, expectedSystems, systems)
 	if err != nil {
 		return nil, err
 	}

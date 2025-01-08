@@ -110,7 +110,13 @@ func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.Sto
 // DefaultZFSStoragePool returns the default local storage configuration when
 // creating the finalized pool.
 func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{Name: "local", Driver: "zfs"}
+	return api.StoragePoolsPost{
+		Name:   "local",
+		Driver: "zfs",
+		StoragePoolPut: api.StoragePoolPut{
+			Description: "Local storage on ZFS",
+		},
+	}
 }
 
 // DefaultZFSStoragePoolJoinConfig returns the default local storage configuration when

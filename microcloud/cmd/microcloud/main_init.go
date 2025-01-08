@@ -48,7 +48,7 @@ type cmdInit struct {
 	flagAutoSetup    bool
 	flagWipeAllDisks bool
 	flagAddress      string
-	flagPreseed      string
+	flagPreseed      bool
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -62,7 +62,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	cmd.Flags().BoolVar(&c.flagAutoSetup, "auto", false, "Automatic setup with default configuration")
 	cmd.Flags().BoolVar(&c.flagWipeAllDisks, "wipe", false, "Wipe disks to add to MicroCeph")
 	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Address to use for MicroCloud")
-	cmd.Flags().StringVar(&c.flagPreseed, "preseed", "", "Preseed YAML for configuring MicroCloud")
+	cmd.Flags().BoolVar(&c.flagPreseed, "preseed", false, "Expect Preseed YAML for configuring MicroCloud in stdin")
 
 	return cmd
 }
@@ -72,8 +72,8 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	if c.flagPreseed != "" {
-		return c.common.RunPreseed(cmd, c.flagPreseed, true)
+	if c.flagPreseed {
+		return c.common.RunPreseed(cmd, true)
 	}
 
 	return c.RunInteractive(cmd, args)
@@ -94,7 +94,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	systems := map[string]InitSystem{}
 
-	addr, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
+	addr, iface, subnet, err := c.common.askAddress(c.flagAutoSetup, c.flagAddress)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = lookupPeers(s, c.flagAutoSetup, subnet, nil, systems)
+	err = lookupPeers(s, c.flagAutoSetup, iface, subnet, nil, systems)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (c *cmdInit) RunInteractive(cmd *cobra.Command, args []string) error {
 // - If `autoSetup` is true, all systems found in the first 5s will be recorded, and no other input is required.
 // - `expectedSystems` is a list of expected hostnames. If given, the behaviour is similar to `autoSetup`,
 // except it will wait up to a minute for exclusively these systems to be recorded.
-func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
+func lookupPeers(s *service.Handler, autoSetup bool, iface *net.Interface, subnet *net.IPNet, expectedSystems []string, systems map[string]InitSystem) error {
 	header := []string{"NAME", "IFACE", "ADDR"}
 	var table *SelectableTable
 	var answers []string
@@ -215,7 +215,7 @@ func lookupPeers(s *service.Handler, autoSetup bool, subnet *net.IPNet, expected
 				break
 			}
 
-			peers, err := mdns.LookupPeers(context.Background(), mdns.Version, s.Name)
+			peers, err := mdns.LookupPeers(context.Background(), iface, mdns.Version, s.Name)
 			if err != nil {
 				return err
 			}
