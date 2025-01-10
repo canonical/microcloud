@@ -374,3 +374,18 @@ func (s *CloudService) StartSession(ctx context.Context, role string, sessionTim
 
 	return client.StartSession(ctx, c, role, sessionTimeout)
 }
+
+// RemoteClient returns a client targeting a remote MicroCloud.
+func (s *CloudService) RemoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
+	c, err := s.remoteClient(cert, address)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err = cloudClient.UseAuthProxy(c, types.MicroCloud, cloudClient.AuthConfig{})
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
