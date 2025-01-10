@@ -485,7 +485,7 @@ func askRemotePool(systems map[string]InitSystem, autoSetup bool, wipeAllDisks b
 			system.MicroCephDisks = []cephTypes.DisksPost{}
 		}
 
-		system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: []string{path}, Wipe: wipeMap[entry]})
+		system.MicroCephDisks = append(system.MicroCephDisks, cephTypes.DisksPost{Path: path, Wipe: wipeMap[entry]})
 
 		systems[target] = system
 	}

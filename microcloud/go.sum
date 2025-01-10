@@ -12,8 +12,8 @@ github.com/canonical/go-dqlite/v2 v2.0.0 h1:RNFcFVhHMh70muKKErbW35rSzqmAFswheHdA
 github.com/canonical/go-dqlite/v2 v2.0.0/go.mod h1:IaIC8u4Z1UmPjuAqPzA2r83YMaMHRLoKZdHKI5uHCJI=
 github.com/canonical/lxd v0.0.0-20241209143752-5a8ba0bdd60b h1:xrdihzBO8sC+dARb+g6qryKoWzrPA13qB37nSmA1xBo=
 github.com/canonical/lxd v0.0.0-20241209143752-5a8ba0bdd60b/go.mod h1:2pcjouGIaU1Qv4q6gYzs+x3WCRqB8T2aTpRKHOK2RZo=
-github.com/canonical/microceph/microceph v0.0.0-20240610102219-bc3fe1e7b68f h1:MYdE0HCKBclQPhkfvVhhNPOK5ofJ8WOzKBWdhyPtQrQ=
-github.com/canonical/microceph/microceph v0.0.0-20240610102219-bc3fe1e7b68f/go.mod h1:rDBLUPhZuzxKnMVUmiucGsNz0mo9Tvg0QYL6ClJCln8=
+github.com/canonical/microceph/microceph v0.0.0-20231201205217-287ee689aa80 h1:gqmSBYiCP1JKzviIq0dnJ1wm8vsupu7dvYWTAGQHlAE=
+github.com/canonical/microceph/microceph v0.0.0-20231201205217-287ee689aa80/go.mod h1:tF7FxOcZrF7z9ZZ02oGOthRlZrvuSyDCFCCENm3aOMQ=
 github.com/canonical/microcluster v0.0.0-20241212191815-dba2a1b44d4d h1:vHo2iYyK097ttggmtxWfx9glHMsPhTLqSfGXwoYz+Qg=
 github.com/canonical/microcluster v0.0.0-20241212191815-dba2a1b44d4d/go.mod h1:1LFvUQ7h/6MQzDDmqbSTuYMHSbTAZtbvKSEIE3hADm8=
 github.com/canonical/microovn/microovn v0.0.0-20241022125142-cad8ee9dc5e7 h1:b6qzw7P6lbVn8kP5v2buFQAfmNCdHhFSVdErhIJCaMw=

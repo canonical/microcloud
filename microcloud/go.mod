@@ -6,7 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/canonical/lxd v0.0.0-20241209143752-5a8ba0bdd60b
-	github.com/canonical/microceph/microceph v0.0.0-20240610102219-bc3fe1e7b68f
+	github.com/canonical/microceph/microceph v0.0.0-20231201205217-287ee689aa80
 	github.com/canonical/microcluster v0.0.0-20241212191815-dba2a1b44d4d
 	github.com/canonical/microovn/microovn v0.0.0-20241022125142-cad8ee9dc5e7
 	github.com/creack/pty v1.1.24

@@ -46,12 +46,8 @@ update-gomod:
 	# Grab MicroOVN from the corresponding support branch.
 	go get github.com/canonical/microovn/microovn@branch-22.03
 
-	# There is a reef branch, but its microcluster dependency has breaking changes.
-	# Also, the quincy branch has an outdated client for the MicroCeph API offered with reef/stable.
-	#
-	# As such, we have to grab the latest commit which uses a compatible microcluster,
-	# but recent enough to also account for reef's breaking API changes.
-	go get github.com/canonical/microceph/microceph@v0.0.0-20240610102219-bc3fe1e7b68f
+	# There is a reef branch, but its microcluster dependency has breaking changes, so use quincy instead.
+	go get github.com/canonical/microceph/microceph@quincy
 
 	# Branches named `vN` where N is a number are reserved by go for module versions,
 	# So we are forced to grab the corresponding commit hash for the `v1` branch instead.

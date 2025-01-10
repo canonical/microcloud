@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -446,15 +445,9 @@ func setupCluster(s *service.Handler, systems map[string]InitSystem) error {
 			}
 
 			logger.Debug("Adding disk to MicroCeph", logger.Ctx{"peer": s.Name, "disk": disk.Path})
-			resp, err := cephClient.AddDisk(context.Background(), c, &disk)
+			err := cephClient.AddDisk(context.Background(), c, &disk)
 			if err != nil {
 				return err
-			}
-
-			for _, r := range resp.Reports {
-				if r.Error != "" {
-					return errors.New(r.Error)
-				}
 			}
 		}
 	}
