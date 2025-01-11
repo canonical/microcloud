@@ -14,26 +14,7 @@ runs:
       uses: canonical/lxd/.github/actions/reclaim-disk-space@main
 
     - name: Reclaim some memory
-      shell: bash
-      run: |
-        set -eux
-
-        free -mt
-        sudo systemctl stop dpkg-db-backup.timer e2scrub_all.timer fstrim.timer logrotate.timer man-db.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
-        sudo systemctl stop iscsid.socket multipathd.socket
-        sudo systemctl stop cron.service irqbalance.service multipathd.service networkd-dispatcher.service
-        free -mt
-
-    - name: Reclaim some memory (GitHub runners)
-      if: inputs.github_runner == 'true'
-      shell: bash
-      run : |
-        set -eux
-
-        free -mt
-        sudo systemctl stop phpsessionclean.timer
-        sudo systemctl stop mono-xsp4.service php8.1-fpm.service
-        free -mt
+      uses: canonical/lxd/.github/actions/reclaim-memory@main
 
     - name: Disable Docker (GitHub runners)
       if: inputs.github_runner == 'true'
