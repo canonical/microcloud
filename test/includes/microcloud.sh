@@ -589,7 +589,7 @@ validate_system_lxd() {
 
     # Check core config options
     lxd_address="$(lxc config get core.https_address)"
-    if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/stable" ]; then
+    if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/candidate" ]; then
       # There was a bug in MicroCloud 1 that set different addresses.
       # See https://github.com/canonical/microcloud/issues/214
       system_address="$(lxc ls local:"${name}" -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')"
