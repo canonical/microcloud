@@ -7,7 +7,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Performance tuning
+    - name: Tune disk performance
       uses: canonical/lxd/.github/actions/tune-disk-performance@main
 
     - name: Reclaim some space
