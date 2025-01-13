@@ -723,6 +723,30 @@ services_validator() {
   done
 }
 
+# bootstrap_microceph: Wrapper for bootstrapping MicroCeph on the given system.
+bootstrap_microceph() {
+  lxc exec "${1}" -- microceph cluster bootstrap
+
+  # Wait until the services are deployed.
+  # This is to ensure the test suite doesn't try to access the MicroCeph's socket too quickly after
+  # bootstrapping to prevent running into timeouts.
+  # See https://github.com/canonical/microceph/issues/473.
+  retries=0
+  while true; do
+    if [ "${retries}" -gt 60 ]; then
+      echo "Retries exceeded whilst waiting for MicroCeph on ${1} to become available"
+      exit 1
+    fi
+
+    if lxc exec "${1}" -- microceph status | grep -q "Services: mds, mgr, mon"; then
+      break
+    fi
+
+    sleep 1
+    retries="$((retries+1))"
+  done;
+}
+
 test_reuse_cluster() {
   unset_interactive_vars
 
@@ -751,13 +775,13 @@ test_reuse_cluster() {
   echo "Create a MicroCloud that re-uses an existing service"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service on the local node"
-  lxc exec micro01 -- microceph cluster bootstrap
+  bootstrap_microceph micro01
   join_session init micro01 micro02 micro03
   services_validator
 
@@ -765,14 +789,14 @@ test_reuse_cluster() {
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN"
   export REUSE_EXISTING_COUNT=2
   export REUSE_EXISTING="add"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   lxc exec micro02 -- microovn cluster bootstrap
   join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN on different nodes"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   lxc exec micro03 -- microovn cluster bootstrap
   join_session init micro01 micro02 micro03
   services_validator
@@ -781,7 +805,7 @@ test_reuse_cluster() {
   echo "Create a MicroCloud that re-uses an existing service with multiple nodes from this cluster"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
   join_session init micro01 micro02 micro03
@@ -789,7 +813,7 @@ test_reuse_cluster() {
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing existing service with all nodes from this cluster"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
   token="$(lxc exec micro02 -- microceph cluster add micro03)"
@@ -800,7 +824,7 @@ test_reuse_cluster() {
   reset_systems 4 3 3
   echo "Create a MicroCloud that re-uses an existing existing service with foreign cluster members"
   lxc exec micro04 -- snap disable microcloud
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro04)"
   lxc exec micro04 -- microceph cluster join "${token}"
   join_session init micro01 micro02 micro03
@@ -809,8 +833,8 @@ test_reuse_cluster() {
 
   reset_systems 3 3 3
   echo "Fail to create a MicroCloud due to conflicting existing services"
-  lxc exec micro02 -- microceph cluster bootstrap
-  lxc exec micro03 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
+  bootstrap_microceph micro03
   ! join_session init micro01 micro02 micro03 || false
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
 }
@@ -1093,7 +1117,7 @@ test_add_services() {
 
   echo Reuse a MicroCeph that was set up on one node of the MicroCloud
   lxc exec micro01 -- snap disable microceph
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SETUP_CEPH

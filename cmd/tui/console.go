@@ -109,13 +109,13 @@ func (c *testConsole) parseInput(handler *InputHandler) error {
 	var action string
 	switch input {
 	case "table:down":
-		action = ansi.CursorDown1
+		action = ansi.CUD1
 	case "table:up":
-		action = ansi.CursorUp1
+		action = ansi.CUU1
 	case "table:select-none":
-		action = ansi.CursorLeft1
+		action = ansi.CUB1
 	case "table:select-all":
-		action = ansi.CursorRight1
+		action = ansi.CUF1
 	case "table:select":
 		action = " "
 	case "table:done":

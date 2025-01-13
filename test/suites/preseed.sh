@@ -282,4 +282,82 @@ EOF
       validate_system_microceph ${m} 1 1 disk1 disk1
     fi
   done
+
+  reset_systems 2 2 2
+  echo "Fail to create a MicroCloud if all systems have defined disks and a filter for Ceph"
+
+  preseed="$(cat << EOF
+initiator: micro01
+lookup_subnet: 10.0.0.0/8
+session_passphrase: abcd
+systems:
+  - name: micro01
+    storage:
+      ceph:
+        - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+          wipe: true
+  - name: micro02
+    storage:
+      ceph:
+        - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+          wipe: true
+storage:
+  cephfs: true
+  ceph:
+    - find: device_id == *lxd_disk2
+      find_min: 1
+      wipe: true
+EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  ! lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed 2>err > out' <<< "$preseed" || false
+
+  lxc exec micro01 -- cat err | grep -q "Ceph disk filter cannot be used. All systems have explicitly specified disks"
+
+  child_processes="$(jobs -pr)"
+  if [ -n "${child_processes}" ]; then
+    for p in ${child_processes}; do
+      kill -9 "${p}"
+    done
+  fi
+
+  reset_systems 2 2 2
+  echo "Fail to create a MicroCloud if all systems have defined disks and a filter for ZFS"
+
+  preseed="$(cat << EOF
+initiator: micro01
+lookup_subnet: 10.0.0.0/8
+session_passphrase: abcd
+systems:
+  - name: micro01
+    storage:
+      local:
+        path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+        wipe: true
+  - name: micro02
+    storage:
+      local:
+        path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+        wipe: true
+storage:
+  cephfs: true
+  local:
+    - find: device_id == *lxd_disk2
+      find_min: 1
+      wipe: true
+EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  ! lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed 2>err > out' <<< "$preseed" || false
+
+  lxc exec micro01 -- cat err | grep -q "Local disk filter cannot be used. All systems have explicitly specified a disk"
+
+  child_processes="$(jobs -pr)"
+  if [ -n "${child_processes}" ]; then
+    for p in ${child_processes}; do
+      kill -9 "${p}"
+    done
+  fi
 }
