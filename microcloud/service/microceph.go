@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -122,15 +121,9 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 	}
 
 	for _, disk := range joinConfig.CephConfig {
-		resp, err := cephClient.AddDisk(ctx, c, &disk)
+		err := cephClient.AddDisk(ctx, c, &disk)
 		if err != nil {
 			return err
-		}
-
-		for _, r := range resp.Reports {
-			if r.Error != "" {
-				return errors.New(r.Error)
-			}
 		}
 	}
 
