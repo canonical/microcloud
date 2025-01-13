@@ -93,6 +93,7 @@ func (c *cmdClusterMembersList) Command() *cobra.Command {
 
 func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	if len(args) > 1 {
+		fmt.Println("")
 		return cmd.Help()
 	}
 
