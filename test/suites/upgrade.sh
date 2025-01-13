@@ -21,10 +21,11 @@ test_upgrade() {
 
   # Perform upgrade test from MicroCloud 1 to 2.
   if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/candidate" ]; then
-    microceph_target="squid/stable"
-    microovn_target="24.03/stable"
-    lxd_target="5.21/stable"
-    microcloud_target="2/edge"
+    # Use the candidate channels to catch issues early in the release process.
+    microceph_target="squid/candidate"
+    microovn_target="24.03/candidate"
+    lxd_target="5.21/candidate"
+    microcloud_target="2/candidate"
 
     # The lookup subnet has to contain the netmask and the address has to be the one used by MicroCloud not the gateway.
     lookup_subnet="$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address + "/" + .netmask')"
