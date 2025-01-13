@@ -308,3 +308,37 @@ func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfig
 		Value:  DefaultCephFSOSDPool,
 	}
 }
+
+// FindInterfaceForSubnet takes a subnet in CIDR notation (e.g., "192.168.1.0/24")
+// and returns the network interface that has an IP address in that subnet.
+func (s LXDService) FindInterfaceForSubnet(cidrSubnet string) (*net.Interface, error) {
+	_, targetNet, err := net.ParseCIDR(cidrSubnet)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid subnet notation: %v", err)
+	}
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to list interfaces: %v", err)
+	}
+
+	for _, iface := range interfaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				return nil, fmt.Errorf("Failed to parse IP address %q: %w", addr.String(), err)
+			}
+
+			if targetNet.Contains(ip) {
+				return &iface, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("No interface found for CIDR subnet %q", cidrSubnet)
+}
