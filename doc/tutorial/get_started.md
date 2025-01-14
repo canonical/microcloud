@@ -12,7 +12,7 @@ This tutorial guides you through installing and initialising MicroCloud in a con
 It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial.
 
 ```{tip}
-   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments.
+   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualisation enabled. See the [Ubuntu Server documentation on how to check if nested virtualisation is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
 
    We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
 ```
@@ -92,7 +92,8 @@ MicroCloud supports both local and remote storage.
 For local storage, you need one disk per cluster member.
 For remote storage with high availability (HA), you need at least three disks that are located across three different cluster members.
 
-In this tutorial, we'll set up four cluster members with both local and remote storage (with HA). This means that we need a minimum of seven disks: four for local storage, and three for remote storage.
+In this tutorial, we will set up each of the four cluster members with local storage. We will also set up three of the cluster members with remote storage. In total, we will set up seven disks.
+It's possible to add remote storage on the fourth cluster member, if desired. However, it is not required for HA.
 
 Complete the following steps to create the required disks in a LXD storage pool:
 
@@ -154,7 +155,7 @@ Complete the following steps to set up this network:
 
        lxc network create microbr0
 
-(tutorial-note-ips)=
+      (tutorial-note-ips)=
 1. Enter the following commands to find out the assigned IPv4 and IPv6 addresses for the network, and note them down:
 
        lxc network get microbr0 ipv4.address
@@ -210,7 +211,11 @@ In addition, you must configure the network interfaces so they can be used by Mi
 
 Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micro4`):
 
-1. Access the shell in the VM.
+   ```{tip}
+   You can run the following commands in parallel on each VM. We recommend that you open three additional terminals, so that you have a terminal for each VM.
+   ```
+
+1. Access the shell in each VM.
    For example, for `micro1`:
 
        lxc exec micro1 -- bash
@@ -284,10 +289,6 @@ Complete the following steps:
 1. Head to the other VMs (`micro2`, `micro3`, and `micro4`) and start the join process on each:
 
        lxc exec micro2 microcloud join
-
-   ```{tip}
-   Open three additional terminals to run the commands concurrently.
-   ```
 
    In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
 
