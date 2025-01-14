@@ -382,6 +382,48 @@ test_interactive() {
   for m in micro01 micro02 ; do
     validate_system_microovn "${m}" "${ovn_underlay_subnet_prefix}"
   done
+
+  # Initiate a MicroCloud cluster (with no uplink interface on the nodes)
+  # but abort the setup from the initiator and check that the joiners stop as well.
+  reset_systems 3 3 0
+  unset_interactive_vars
+
+  echo "Initiate a MicroCloud cluster but abort the setup from the initiator and check that the joiners stop as well"
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="no"
+  export OVN_WARNING="no"
+
+  ! join_session init micro01 micro02 micro03 || false
+  lxc exec micro01 -- tail -1 out | grep "User aborted" -q
+  lxc exec micro02 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
+  lxc exec micro03 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
+
+  echo "Initiate a MicroCloud cluster, grow it with a new node, and abort the setup from the initiator and check that the joiners stop as well"
+  reset_systems 4 0 0
+
+  unset_interactive_vars
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export OVN_WARNING="yes"
+
+  join_session init micro01 micro02 micro03
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  unset_interactive_vars
+  export EXPECT_PEERS=1
+  export LOOKUP_IFACE="enp5s0"
+  export OVN_WARNING="no"
+  ! join_session add micro01 micro04 || false
+  lxc exec micro01 -- tail -1 out | grep "User aborted" -q
+  lxc exec micro04 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
 }
 
 _test_case() {
