@@ -636,9 +636,12 @@ validate_system_lxd() {
        lxc profile device get default eth0 network | grep -q "lxdfan0"
     fi
 
-    # Only check these if MicroCloud is at least at v2.
-    if lxc exec local:"${name}" -- snap list microcloud | awk '{print $2}' | cut -c1 | grep -qE '^[2-9]'; then
-      lxc config get "user.microcloud" | grep -q "$(lxc exec local:"${name}" --env TEST_CONSOLE=0 -- microcloud --version | cut -d' ' -f1)"
+    # Only check these if MicroCloud is at least > 2.1.0.
+    # We cannot just check for the 2 track as the change which sets user.microcloud might be in the 2/edge (latest/edge) but not yet 2/candidate channel.
+    # The sort command exits with 1 in case the versions are equal and exits with 0 in case the version of MicroCloud is bigger than 2.1.0.
+    microcloud_version="$(lxc exec local:"${name}" --env TEST_CONSOLE=0 -- microcloud --version | cut -d' ' -f1)"
+    if ! printf "%s\n2.1.0" "${microcloud_version}" | sort -C -V || [ "${MICROCLOUD_SNAP_CHANNEL}" = "latest/edge" ]; then
+      lxc config get "user.microcloud" | grep -q "${microcloud_version}"
     fi
 
     lxc remote switch local
