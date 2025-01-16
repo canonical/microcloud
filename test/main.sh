@@ -94,6 +94,12 @@ cleanup() {
           lxc exec "${name}" -- cat -v debug | sed -e 's/\^M$//g' -e 's/.*\^M//g' -e 's/\^\[\[D//' -e 's/^\^\[.*//g' -e '/^$/d'
         fi
     echo
+
+    lxc exec "${name}" --env TEST_CONSOLE=0 microcloud status || true
+    for service in microcloud microceph microovn lxd ; do
+      lxc exec "${name}" --env TEST_CONSOLE=0 "${service}" cluster list || true
+      lxc exec "${name}" -- snap logs "${service}" || true
+    done
 	done
 
   if [ ${enable_xtrace} = 1 ]; then
