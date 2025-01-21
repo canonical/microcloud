@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/revert"
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
@@ -108,6 +111,35 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	reverter := revert.New()
+	defer reverter.Fail()
+
+	reverter.Add(func() {
+		// Stop each joiner member session.
+		cloud := s.Services[types.MicroCloud].(*service.CloudService)
+		for peer, system := range cfg.systems {
+			if system.ServerInfo.Name == "" || system.ServerInfo.Name == cfg.name {
+				continue
+			}
+
+			if system.ServerInfo.Address == "" {
+				logger.Error("No joiner address provided to stop the session")
+				continue
+			}
+
+			remoteClient, err := cloud.RemoteClient(system.ServerInfo.Certificate, util.CanonicalNetworkAddress(system.ServerInfo.Address, service.CloudPort))
+			if err != nil {
+				logger.Error("Failed to create remote client", logger.Ctx{"address": system.ServerInfo.Address, "error": err})
+				continue
+			}
+
+			err = cloudClient.StopSession(context.Background(), remoteClient, "Initiator aborted the setup")
+			if err != nil {
+				logger.Error("Failed to stop joiner session", logger.Ctx{"joiner": peer, "error": err})
+			}
+		}
+	})
+
 	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
 	if err != nil {
 		return err
@@ -194,5 +226,11 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return cfg.setupCluster(s)
+	err = cfg.setupCluster(s)
+	if err != nil {
+		return err
+	}
+
+	reverter.Success()
+	return nil
 }

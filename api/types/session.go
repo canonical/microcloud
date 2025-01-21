@@ -40,3 +40,8 @@ type SessionJoinPost struct {
 	Certificate string                 `json:"certificate" yaml:"certificate"`
 	Services    map[ServiceType]string `json:"services" yaml:"services"`
 }
+
+// SessionStopPut represents a request made to stop an active session.
+type SessionStopPut struct {
+	Reason string `json:"reason"`
+}

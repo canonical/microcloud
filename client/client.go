@@ -44,6 +44,20 @@ func StartSession(ctx context.Context, c *client.Client, role string, sessionTim
 	return conn, nil
 }
 
+// StopSession is called from the initiator to stop a joiner session.
+func StopSession(ctx context.Context, c *client.Client, stopMsg string) error {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	data := types.SessionStopPut{Reason: stopMsg}
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("session", "stop"), data, nil)
+	if err != nil {
+		return fmt.Errorf("Failed to stop joiner session: %w", err)
+	}
+
+	return nil
+}
+
 // JoinServices sends join information to initiate the cluster join process.
 func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut) error {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
