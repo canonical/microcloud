@@ -71,30 +71,30 @@ cleanup() {
     set +x
   fi
 
-	for name in $(lxc list -c n -f csv micro); do
-		echo -n "${name} CLI stdout:"
-        if ! lxc exec "${name}" -- test -e out; then
-            echo " was not found"
-        elif ! lxc exec "${name}" -- test -s out; then
-            echo " was empty"
-        else
-          echo
-		      lxc exec "${name}" -- cat out
-        fi
+  for name in $(lxc list -c n -f csv micro); do
+    echo -n "${name} CLI stdout:"
+    if ! lxc exec "${name}" -- test -e out; then
+        echo " was not found"
+    elif ! lxc exec "${name}" -- test -s out; then
+        echo " was empty"
+    else
+      echo
+      lxc exec "${name}" -- cat out
+    fi
+    echo
 
-    echo
     echo -n "${name} Debug output:"
-        if ! lxc exec "${name}" -- test -e debug; then
-            echo " was not found"
-        elif ! lxc exec "${name}" -- test -s debug; then
-            echo " was empty"
-        else
-          echo
-          # The github console can't interpret the escape sequences baked into the output, so omit them manually.
-          lxc exec "${name}" -- cat -v debug | sed -e 's/\^M$//g' -e 's/.*\^M//g' -e 's/\^\[\[D//' -e 's/^\^\[.*//g' -e '/^$/d'
-        fi
+    if ! lxc exec "${name}" -- test -e debug; then
+        echo " was not found"
+    elif ! lxc exec "${name}" -- test -s debug; then
+        echo " was empty"
+    else
+      echo
+      # The github console can't interpret the escape sequences baked into the output, so omit them manually.
+      lxc exec "${name}" -- cat -v debug | sed -e 's/\^M$//g' -e 's/.*\^M//g' -e 's/\^\[\[D//' -e 's/^\^\[.*//g' -e '/^$/d'
+    fi
     echo
-	done
+  done
 
   if [ ${enable_xtrace} = 1 ]; then
     set -x
