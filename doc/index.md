@@ -8,17 +8,17 @@ relatedlinks: https://snapcraft.io/microcloud
 
 Deploy a scalable, low-touch cloud platform in minutes with MicroCloud.
 
+MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualisation, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
+
+With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from high availability, automatic security updates, and the advanced features of its components such as self-healing clusters and fine-grained access control. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance.
+
+MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
+
 ```{figure} /images/microcloud_basic_architecture.svg
 :alt: A diagram of basic MicroCloud setup architecture
 :align: center
 :width: 75%
 ```
-
-MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualisation, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable remote deployments.
-
-With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from the advanced features of its components, such as high availability, self-healing clusters, automatic security updates, and fine-grained access control for multi-tenancy. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance.
-
-MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
 
 ---
 

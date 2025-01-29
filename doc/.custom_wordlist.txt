@@ -36,6 +36,7 @@ pre
 preseed
 rollout
 roadmap
+scalable
 snapd
 subnet
 uplink
