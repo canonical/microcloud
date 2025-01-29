@@ -94,6 +94,9 @@ cleanup() {
       lxc exec "${name}" -- cat -v debug | sed -e 's/\^M$//g' -e 's/.*\^M//g' -e 's/\^\[\[D//' -e 's/^\^\[.*//g' -e '/^$/d'
     fi
     echo
+
+    echo -n "${name} MicroCloud daemon log:"
+    lxc exec "${name}" -- snap logs microcloud -n 200
   done
 
   if [ ${enable_xtrace} = 1 ]; then
