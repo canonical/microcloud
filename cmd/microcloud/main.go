@@ -2,12 +2,10 @@
 package main
 
 import (
-	"bufio"
+	"context"
 	"fmt"
 	"os"
 
-	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/cmd/tui"
@@ -24,7 +22,7 @@ type CmdControl struct {
 	FlagMicroCloudDir string
 	FlagNoColor       bool
 
-	asker cli.Asker
+	asker *tui.InputHandler
 }
 
 func main() {
@@ -34,37 +32,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// common flags.
-	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin), logger.Log)}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	noColor := os.Getenv("NO_COLOR")
-	if noColor != "" {
-		tui.DisableColors()
+	asker, err := setupAsker(ctx)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 
-	useTestConsole := os.Getenv("TEST_CONSOLE")
-	if useTestConsole == "1" {
-		fmt.Fprintf(os.Stderr, "%s\n\n", `
-  Detected 'TEST_CONSOLE=1', MicroCloud CLI is in testing mode. Terminal interactivity is disabled.
-
-  Interactive microcloud commands will read text instructions by line:
-
-cat << EOF | microcloud init
-select                # selects an element in the table
-select-all            # selects all elements in the table
-select-none           # de-selects all elements in the table
-up                    # move up in the table
-down                  # move down in the table
-wait <time.Duration>  # waits before the next instruction
-expect <count>        # waits until exactly <count> peers are available, and errors out if more are found
----                   # confirms the table selection and exits the table
-clear                 # clears the last line
-anything else         # will be treated as a raw string. This is useful for filtering a table and text entry
-EOF`)
-
-		commonCmd.asker = prepareTestAsker(os.Stdin)
-	}
-
+	commonCmd := CmdControl{asker: asker}
 	app := &cobra.Command{
 		Use:               "microcloud",
 		Short:             "Command for managing the MicroCloud daemon",
@@ -125,7 +102,7 @@ EOF`)
 
 	app.SetErr(&tui.ColorErr{})
 
-	err := app.Execute()
+	err = app.Execute()
 	if err != nil {
 		os.Exit(1)
 	}

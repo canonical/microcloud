@@ -14,7 +14,7 @@ test_interactive() {
   export SETUP_OVN="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
@@ -44,7 +44,7 @@ test_interactive() {
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   unset SETUP_CEPH SETUP_OVN
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
@@ -67,7 +67,7 @@ test_interactive() {
   unset LOOKUP_IFACE
 
   echo "Creating a MicroCloud with ZFS storage and no IPv6 support"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
@@ -95,7 +95,7 @@ test_interactive() {
   export PROCEED_WITH_NO_OVERLAY_NETWORKING="no"
 
   echo "Creating a MicroCloud with ZFS storage and no IPv4 support"
-  microcloud_interactive init micro01
+  ! join_session init micro01 || false
 
   # Ensure we error out due to a lack of usable overlay networking.
   lxc exec micro01 -- cat out | grep "Cluster bootstrapping aborted due to lack of usable networking" -q
@@ -125,7 +125,7 @@ test_interactive() {
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -156,7 +156,7 @@ test_interactive() {
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -178,7 +178,7 @@ test_interactive() {
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -192,7 +192,7 @@ test_interactive() {
 
   echo "Creating a MicroCloud with ZFS and Ceph storage, and OVN network with Ceph encryption"
   export CEPH_ENCRYPT="yes"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -229,7 +229,7 @@ test_interactive() {
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -269,7 +269,7 @@ test_interactive() {
   export IPV4_START="10.1.123.100"
   export IPV4_END="10.1.123.254"
   export OVN_UNDERLAY_NETWORK="no"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -305,7 +305,7 @@ test_interactive() {
   export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   export OVN_UNDERLAY_NETWORK="yes"
   export OVN_UNDERLAY_FILTER="${ovn_underlay_subnet_prefix}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -343,7 +343,7 @@ test_interactive() {
   export SETUP_OVN="no"
 
   # Run a 2 nodes MicroCloud without MicroOVN first.
-  microcloud_interactive init micro01 | capture_and_join micro02
+  join_session init micro01 micro02
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 ; do
@@ -373,8 +373,7 @@ test_interactive() {
   export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
   export IPV6_SUBNET="fd42:1:1234:1234::1/64"
   export REPLACE_PROFILE="yes"
-  microcloud_interactive add micro01 |
-    LOOKUP_IFACE="enp5s0" capture_and_join micro03
+  join_session add micro01 micro03
 
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd "${m}" 3 disk1 0 0 "${OVN_FILTER}" "${IPV4_SUBNET}" "${IPV4_START}"-"${IPV4_END}" "${IPV6_SUBNET}"
@@ -383,6 +382,48 @@ test_interactive() {
   for m in micro01 micro02 ; do
     validate_system_microovn "${m}" "${ovn_underlay_subnet_prefix}"
   done
+
+  # Initiate a MicroCloud cluster (with no uplink interface on the nodes)
+  # but abort the setup from the initiator and check that the joiners stop as well.
+  reset_systems 3 3 0
+  unset_interactive_vars
+
+  echo "Initiate a MicroCloud cluster but abort the setup from the initiator and check that the joiners stop as well"
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="no"
+  export OVN_WARNING="no"
+
+  ! join_session init micro01 micro02 micro03 || false
+  lxc exec micro01 -- tail -1 out | grep "User aborted" -q
+  lxc exec micro02 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
+  lxc exec micro03 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
+
+  echo "Initiate a MicroCloud cluster, grow it with a new node, and abort the setup from the initiator and check that the joiners stop as well"
+  reset_systems 4 0 0
+
+  unset_interactive_vars
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export OVN_WARNING="yes"
+
+  join_session init micro01 micro02 micro03
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  unset_interactive_vars
+  export EXPECT_PEERS=1
+  export LOOKUP_IFACE="enp5s0"
+  export OVN_WARNING="no"
+  ! join_session add micro01 micro04 || false
+  lxc exec micro01 -- tail -1 out | grep "User aborted" -q
+  lxc exec micro04 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
 }
 
 _test_case() {
@@ -503,7 +544,7 @@ _test_case() {
     done
 
     # shellcheck disable=SC2086
-    microcloud_interactive init micro01 | capture_and_join $join_systems
+    join_session init micro01 $join_systems
     lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
     for i in $(seq -f "%02g" 1 "${num_systems}") ; do
       name="micro${i}"
@@ -616,7 +657,7 @@ test_service_mismatch() {
   # Init should fail to find the other systems as they don't have the same services.
   # The error is reported on the joining side.
   echo "Peers with missing services cannot join"
-  ! microcloud_interactive init micro01 | capture_and_join micro02 micro03 || false
+  ! join_session init micro01 micro02 micro03 || false
 
   # Ensure the joiners exited due to missing services.
   # The initiator exits automatically after the session timeout.
@@ -631,7 +672,7 @@ test_service_mismatch() {
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -645,7 +686,7 @@ test_service_mismatch() {
   lxc exec micro01 -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp5s0/disable_ipv6"
   lxc exec micro01 -- snap refresh microceph --channel reef/stable
 
-  microcloud_interactive init micro01
+  ! join_session init micro01 || false
   lxc exec micro01 -- tail -1 out | grep -q "The installed version of MicroCeph is not supported"
 
   lxc exec micro01 -- rm -rf out
@@ -664,7 +705,7 @@ test_service_mismatch() {
   unset SETUP_CEPH SETUP_OVN
   # Init from the minimal system should work, but not set up any services it doesn't have.
   echo "Creating a MicroCloud without setting up MicroOVN and MicroCeph on peers"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 ; do
@@ -701,7 +742,7 @@ test_disk_mismatch() {
   export SETUP_OVN="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03 micro04
+  join_session init micro01 micro02 micro03 micro04
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 micro03 micro04 ; do
     validate_system_lxd "${m}" 4 disk1 6 1
@@ -722,6 +763,30 @@ services_validator() {
     validate_system_microceph ${m} 1 disk2
     validate_system_microovn ${m}
   done
+}
+
+# bootstrap_microceph: Wrapper for bootstrapping MicroCeph on the given system.
+bootstrap_microceph() {
+  lxc exec "${1}" -- microceph cluster bootstrap
+
+  # Wait until the services are deployed.
+  # This is to ensure the test suite doesn't try to access the MicroCeph's socket too quickly after
+  # bootstrapping to prevent running into timeouts.
+  # See https://github.com/canonical/microceph/issues/473.
+  retries=0
+  while true; do
+    if [ "${retries}" -gt 60 ]; then
+      echo "Retries exceeded whilst waiting for MicroCeph on ${1} to become available"
+      exit 1
+    fi
+
+    if lxc exec "${1}" -- microceph status | grep -q "Services: mds, mgr, mon"; then
+      break
+    fi
+
+    sleep 1
+    retries="$((retries+1))"
+  done;
 }
 
 test_reuse_cluster() {
@@ -752,67 +817,67 @@ test_reuse_cluster() {
   echo "Create a MicroCloud that re-uses an existing service"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
-  lxc exec micro02 -- microceph cluster bootstrap
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  bootstrap_microceph micro02
+  join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service on the local node"
-  lxc exec micro01 -- microceph cluster bootstrap
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  bootstrap_microceph micro01
+  join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN"
   export REUSE_EXISTING_COUNT=2
   export REUSE_EXISTING="add"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   lxc exec micro02 -- microovn cluster bootstrap
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN on different nodes"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   lxc exec micro03 -- microovn cluster bootstrap
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service with multiple nodes from this cluster"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing existing service with all nodes from this cluster"
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
   token="$(lxc exec micro02 -- microceph cluster add micro03)"
   lxc exec micro03 -- microceph cluster join "${token}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   services_validator
 
   reset_systems 4 3 3
   echo "Create a MicroCloud that re-uses an existing existing service with foreign cluster members"
   lxc exec micro04 -- snap disable microcloud
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro04)"
   lxc exec micro04 -- microceph cluster join "${token}"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   services_validator
   validate_system_microceph micro04 1
 
   reset_systems 3 3 3
   echo "Fail to create a MicroCloud due to conflicting existing services"
-  lxc exec micro02 -- microceph cluster bootstrap
-  lxc exec micro03 -- microceph cluster bootstrap
-  ! microcloud_interactive init micro01 | capture_and_join micro02 micro03 || false
+  bootstrap_microceph micro02
+  bootstrap_microceph micro03
+  ! join_session init micro01 micro02 micro03 || false
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
 }
 
@@ -846,7 +911,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   echo "Fail to remove member from MicroCeph and LXD until OSDs are removed"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   # Wait for roles to refresh from the next heartbeat.
   for i in $(seq 1 40) ; do
@@ -904,7 +969,7 @@ test_remove_cluster_member() {
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
   echo "Create a MicroCloud and remove a node from all services"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   # Wait for roles to refresh from the next heartbeat.
   for i in $(seq 1 40) ; do
@@ -926,7 +991,7 @@ test_remove_cluster_member() {
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
   echo "Create a MicroCloud and remove a node from all services, but manually remove it from the MicroCloud daemon first"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   # Wait for roles to refresh from the next heartbeat.
   for i in $(seq 1 40) ; do
@@ -957,7 +1022,7 @@ test_remove_cluster_member() {
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
   echo "Create a MicroCloud and fail to remove a non-existent member"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
 
   for i in $(seq 1 40) ; do
     if lxc exec micro01 --env "TEST_CONSOLE=0" -- microcloud cluster list | grep -q PENDING ; then
@@ -1013,7 +1078,7 @@ test_add_services() {
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
   export SKIP_SERVICE="yes"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
@@ -1036,7 +1101,7 @@ test_add_services() {
   export SKIP_SERVICE="yes"
   export SETUP_ZFS="yes"
   export SETUP_OVN="yes"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
@@ -1056,7 +1121,7 @@ test_add_services() {
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
   export SETUP_OVN="yes"
   export SKIP_LOOKUP=1
@@ -1077,7 +1142,7 @@ test_add_services() {
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
   unset SETUP_OVN
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
   lxc exec micro01 -- snap enable microceph
   export SETUP_OVN="yes"
@@ -1094,12 +1159,12 @@ test_add_services() {
 
   echo Reuse a MicroCeph that was set up on one node of the MicroCloud
   lxc exec micro01 -- snap disable microceph
-  lxc exec micro02 -- microceph cluster bootstrap
+  bootstrap_microceph micro02
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SETUP_CEPH
   unset SKIP_LOOKUP
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
@@ -1127,7 +1192,7 @@ test_add_services() {
   unset SKIP_SERVICE
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
-  microcloud_interactive init micro01 | capture_and_join micro02 micro03
+  join_session init micro01 micro02 micro03
   export SKIP_LOOKUP=1
   unset MULTI_NODE
   ! microcloud_interactive "service add" micro01 || true
@@ -1160,7 +1225,7 @@ test_non_ha() {
 
   reset_systems 2 1 3
   echo "Creating a MicroCloud with 2 systems and only Ceph storage"
-  microcloud_interactive init micro01 | capture_and_join micro02
+  join_session init micro01 micro02
   for m in micro01 micro02 ; do
     validate_system_lxd ${m} 2 "" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
     validate_system_microceph ${m} 1 disk1
@@ -1173,7 +1238,7 @@ test_non_ha() {
   unset SETUP_CEPH
   reset_systems 2 1 3
   echo "Creating a MicroCloud with 2 systems and only ZFS storage"
-  microcloud_interactive init micro01 | capture_and_join micro02
+  join_session init micro01 micro02
   for m in micro01 micro02 ; do
     validate_system_lxd ${m} 2 "disk1" 0 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
     validate_system_microceph ${m}
@@ -1184,7 +1249,7 @@ test_non_ha() {
   export CEPH_FILTER="lxd_disk2"
   reset_systems 2 2 3
   echo "Creating a MicroCloud with 2 systems and all storage & networks"
-  microcloud_interactive init micro01 | capture_and_join micro02
+  join_session init micro01 micro02
   for m in micro01 micro02 ; do
     validate_system_lxd ${m} 2 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
     validate_system_microceph ${m} 1 "disk2"
@@ -1199,7 +1264,7 @@ test_non_ha() {
   export MULTI_NODE="no"
   export SKIP_LOOKUP=1
   echo "Creating a MicroCloud with 1 system, and grow it to 3 with all storage & networks"
-  microcloud_interactive init micro01
+  join_session init micro01
   validate_system_lxd "micro01" 1 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
   validate_system_microceph "micro01" 1 "disk2"
   validate_system_microovn "micro01"
@@ -1217,7 +1282,7 @@ test_non_ha() {
   unset IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
   unset SETUP_CEPHFS
   export EXPECT_PEERS=2
-  microcloud_interactive add micro01 | capture_and_join micro02 micro03
+  join_session add micro01 micro02 micro03
   for m in micro1 micro2 micro3 ; do
     validate_system_lxd "micro01" 3 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
     validate_system_microceph "micro01" 1 "disk2"

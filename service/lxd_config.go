@@ -70,6 +70,9 @@ func FanNetworkUsable() (available bool, ifaceName string, err error) {
 		}
 
 		fields := strings.Fields(string(line))
+		if len(fields) < 8 {
+			break
+		}
 
 		if fields[1] == "00000000" && fields[7] == "00000000" {
 			ifaceName = fields[0]

@@ -47,9 +47,8 @@ func generatePassphrase() (string, error) {
 			return "", fmt.Errorf("Failed to get random number: %w", err)
 		}
 
-		splitLine := strings.Split(splitWordlist[randomNumber.Int64()], "\t")
-		splitLineLength := len(splitLine)
-		if splitLineLength != 2 {
+		splitLine := strings.SplitN(splitWordlist[randomNumber.Int64()], "\t", 3)
+		if len(splitLine) != 2 {
 			return "", fmt.Errorf("Invalid wordlist line: %q", splitWordlist[randomNumber.Int64()])
 		}
 

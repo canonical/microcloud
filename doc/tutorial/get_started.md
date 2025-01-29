@@ -8,24 +8,20 @@ relatedlinks: https://documentation.ubuntu.com/lxd/
 MicroCloud is quick to set up.
 Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
-This tutorial guides you through installing MicroCloud in a confined environment and then starting some instances to see what you can do with MicroCloud.
-It uses virtual machines in LXD, so you don't need any extra hardware to follow the tutorial.
+This tutorial guides you through installing and initialising MicroCloud in a confined environment, then starting some instances to see what you can do with MicroCloud.
+It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial.
 
 ```{tip}
-   In this tutorial, we use four virtual machines in LXD for the MicroCloud cluster members.
-   You can use a different number of machines if you want, but the minimum number of required machines is three.
+   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualisation enabled. See the [Ubuntu Server documentation on how to check if nested virtualisation is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
 
-   We limit each virtual machine to 2 GiB of RAM, which is less than the recommended hardware requirements.
-   In the context of the tutorial, this amount of RAM is sufficient.
-   However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
+   We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
 ```
 
 ## 1. Install and initialise LXD
 
 ```{note}
-   You can skip this step if you already have a LXD server installed and initialised.
-   However, you should make sure that you have a storage pool set up that is big enough to store four virtual machines.
-   We recommend a storage pool size of at least 40 GiB for that.
+   You can skip this step if you already have a LXD server installed and initialised on your host machine.
+   However, you should make sure that you have a storage pool set up that is big enough to store four VMs. We recommend a minimum storage pool size of 40 GiB.
 ```
 
 MicroCloud requires LXD version 5.21:
@@ -68,18 +64,36 @@ MicroCloud requires LXD version 5.21:
 
    - `Size in GiB of the new loop device (1GiB minimum)`
 
-     Enter `40GiB`.
+     Enter `40`.
+
+   - `What IPv4 address should be used? (CIDR subnet notation, “auto” or “none”)`
+
+     Enter `10.1.123.1/24`.
+
+   - `What IPv6 address should be used? (CIDR subnet notation, “auto” or “none”)`
+
+     Enter `fd42:1:1234:1234::1/64`.
+
    - `Would you like the LXD server to be available over the network? (yes/no)`
 
      Enter `yes`.
+
+1. Modify the default network so we can later define specific IPv6 addresses for the VMs:
+
+       lxc network set lxdbr0 ipv6.dhcp.stateful true
+
+```{note}
+In the steps above, we ask you to specify the IP addresses to be used instead of accepting the defaults. While this is not strictly required for this setup, it causes the example IPs displayed in this tutorial to match what you see on your system, which improves clarity.
+```
 
 ## 2. Provide storage disks
 
 MicroCloud supports both local and remote storage.
 For local storage, you need one disk per cluster member.
-For remote storage, you need at least three disks that are located on different cluster members.
+For remote storage with high availability (HA), you need at least three disks that are located across three different cluster members.
 
-In this tutorial, we'll set up four cluster members, which means that we need a minimum of seven disks (four for local storage and three for remote storage).
+In this tutorial, we will set up each of the four cluster members with local storage. We will also set up three of the cluster members with remote storage. In total, we will set up seven disks.
+It's possible to add remote storage on the fourth cluster member, if desired. However, it is not required for HA.
 
 Complete the following steps to create the required disks in a LXD storage pool:
 
@@ -141,7 +155,8 @@ Complete the following steps to set up this network:
 
        lxc network create microbr0
 
-1. Enter the following commands to find out the assigned IPv4 and IPv6 addresses for the network and note them down:
+      (tutorial-note-ips)=
+1. Enter the following commands to find out the assigned IPv4 and IPv6 addresses for the network, and note them down:
 
        lxc network get microbr0 ipv4.address
        lxc network get microbr0 ipv6.address
@@ -154,17 +169,15 @@ Complete the following steps:
 
 1. Create the VMs, but don't start them yet:
 
-       lxc init ubuntu:22.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB
-       lxc init ubuntu:22.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB
-       lxc init ubuntu:22.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB
-       lxc init ubuntu:22.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB
+       lxc init ubuntu:22.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.10 -d eth0,ipv6.address=fd42:1:1234:1234::10
+       lxc init ubuntu:22.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.20 -d eth0,ipv6.address=fd42:1:1234:1234::20
+       lxc init ubuntu:22.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.30 -d eth0,ipv6.address=fd42:1:1234:1234::30
+       lxc init ubuntu:22.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.40 -d eth0,ipv6.address=fd42:1:1234:1234::40
 
    ```{tip}
-      LXD downloads the image the first time you use it to initialise a VM.
-      Therefore, the {command}`init` command will take longer to complete on the first run.
-      For subsequent runs, LXD uses the cached image.
+      Run these commands in sequence, not in parallel.
 
-      Therefore, you shouldn't run these commands in parallel.
+      LXD downloads the image the first time you use it to initialise a VM. For subsequent runs, LXD uses the cached image. Therefore, the {command}`init` command will take longer to complete on the first run.
    ```
 
 1. Attach the disks to the VMs:
@@ -198,7 +211,11 @@ In addition, you must configure the network interfaces so they can be used by Mi
 
 Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micro4`):
 
-1. Access the shell in the VM.
+   ```{tip}
+   You can run the following commands in parallel on each VM. We recommend that you open three additional terminals, so that you have a terminal for each VM.
+   ```
+
+1. Access the shell in each VM.
    For example, for `micro1`:
 
        lxc exec micro1 -- bash
@@ -208,7 +225,7 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
    Wait a while and then try again.
    If the error persists, try restarting the VM (`lxc restart micro1`).
    ```
-1. Configure the network interface connected to `microbr0` to not accept any IP addresses (because MicroCloud requires a network interface that doesn't have an IP address assigned):
+1. MicroCloud requires a network interface that doesn't have an IP address assigned. Thus, configure the network interface connected to `microbr0` to refuse any IP addresses:
 
        cat << EOF > /etc/netplan/99-microcloud.yaml
        # MicroCloud requires a network interface that doesn't have an IP address
@@ -246,10 +263,11 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
        snap refresh lxd --channel=5.21/stable --cohort="+"
 
+1. Repeat these steps on all VMs.
+
 ## 6. Initialise MicroCloud
 
-After installing all snaps on all VMs, you can initialise MicroCloud.
-We use `micro1`, but you can choose another machine.
+We use the `micro1` VM to initialise MicroCloud in the instructions below, but you can use any of the four VMs.
 
 Complete the following steps:
 
@@ -267,48 +285,46 @@ Complete the following steps:
    1. Select `yes` to select more than one cluster member.
    1. As the address for MicroCloud's internal traffic, select the listed IPv4 address.
    1. Copy the session passphrase.
-   1. Head to the other servers (`micro02`, `micro03`, and `micro04`) and start the join process:
 
-          lxc exec micro02 microcloud join
+1. Head to the other VMs (`micro2`, `micro3`, and `micro4`) and start the join process on each:
 
-         ```{tip}
+       lxc exec micro2 microcloud join
 
-         Open up three additional terminals to run the commands concurrently.
-         ```
+   In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
 
-         In each terminal select an address for MicroCloud's internal traffic.
-         When prompted enter the passphrase in each terminal and return to `micro01`.
+   When prompted, enter the session passphrase for each joining  member.
 
-   1. Select all listed servers (these should be `micro2`, `micro3`, and `micro4`).
+1. Return to `micro1` to continue the initialisation process:
+
+   1. Select all listed systems to join the cluster. These should be `micro2`, `micro3`, and `micro4`.
    1. Select `yes` to set up local storage.
-   1. Select the listed local disks (`local1`, `local2`, `local3`, and `local4`).
+   1. Select the listed local disks. These should be `local1`, `local2`, `local3`, and `local4`.
 
       ```{tip}
-
       Type `local` to display only the local disks.
       The table is filtered by the characters that you type.
       ```
 
-   1. You don't need to wipe any disks (because we just created them).
+   1. You don't need to wipe any local disks, because we just created them. Press {kbd}`Enter` without selecting any disks to wipe.
    1. Select `yes` to set up distributed storage.
    1. Select `yes` to confirm that there are fewer disks available than machines.
    1. Select all listed disks (these should be `remote1`, `remote2`, and `remote3`).
-   1. You don't need to wipe any disks (because we just created them).
+   1. You don't need to wipe any remote disks, because we just created them. Press {kbd}`Enter` without selecting any disks to wipe.
    1. You don't need to encrypt any disks to get started.
    1. Select `yes` to optionally configure the CephFS distributed file system.
-   1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
-   1. Leave the question empty for the IPv4 or IPv6 CIDR subnet address used for the Ceph public network.
+   1. Press {kbd}`Enter` to accept the default option for the IPv4 or IPv6 CIDR subnet address used for the Ceph internal network.
+   1. Press {kbd}`Enter` to accept the default option for the IPv4 or IPv6 CIDR subnet address used for the Ceph public network.
    1. Select `yes` to configure distributed networking.
-   1. Select all listed network interfaces (these should be `enp6s0` on the four different VMs).
-   1. Specify the IPv4 address that you noted down for your `microbr0` network as the IPv4 gateway.
+   1. Select all listed network interfaces. These should be `enp6s0` on all four cluster members.
+   1. Specify the IPv4 address that {ref}`you noted down<tutorial-note-ips>` for your `microbr0` network's IPv4 gateway.
    1. Specify an IPv4 address in the address range as the first IPv4 address.
       For example, if your IPv4 gateway is `192.0.2.1/24`, the first address could be `192.0.2.100`.
    1. Specify a higher IPv4 address in the range as the last IPv4 address.
       As we're setting up four machines only, the range must contain a minimum of four addresses, but setting up a bigger range is more fail-safe.
       For example, if your IPv4 gateway is `192.0.2.1/24`, the last address could be `192.0.2.254`.
-   1. Specify the IPv6 address that you noted down for your `microbr0` network as the IPv6 gateway.
-   1. Leave the question empty for the DNS addresses for the distributed network.
-   1. Leave the question empty for configuring an underlay network for OVN.
+   1. Specify the IPv6 address that {ref}`you noted down<tutorial-note-ips>` for your `microbr0` network as the IPv6 gateway.
+   1. Press {kbd}`Enter` to accept the default option for the DNS addresses for the distributed network.
+   1. Press {kbd}`Enter` to accept the default option for configuring an underlay network for OVN.
 
 MicroCloud will now initialise the cluster.
 See {ref}`explanation-initialisation` for more information.
@@ -330,11 +346,11 @@ Up/down to move; right to select all; left to select none.
        +----------------------+--------+
        |       ADDRESS        | IFACE  |
        +----------------------+--------+
-> [X]  | 203.0.113.169        | enp5s0 |
-  [ ]  | 2001:db8:d:100::169  | enp5s0 |
+> [X]  | 10.1.123.10          | enp5s0 |
+  [ ]  | fd42:1:1234:1234::10 | enp5s0 |
        +----------------------+--------+
 
- Using address "203.0.113.169" for MicroCloud
+ Using address "10.1.123.10" for MicroCloud
 
 Use the following command on systems that you want to join the cluster:
 
@@ -346,21 +362,21 @@ When requested enter the passphrase:
 
 Verify the fingerprint "5d0808de679d" is displayed on joining systems.
 Waiting to detect systems ...
-Select the systems that should join the cluster:
+Systems will appear in the table as they are detected. Select those that should join the cluster:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
-       +---------+---------------+--------------+
-       |  NAME   |    ADDRESS    | FINGERPRINT  |
-       +---------+---------------+--------------+
-> [x]  | micro3  | 203.0.113.171 | 4e80954d6a64 |
-  [x]  | micro2  | 203.0.113.170 | 84e0b50e13b3 |
-  [x]  | micro4  | 203.0.113.172 | 98667a808a99 |
-       +---------+---------------+--------------+
+       +---------+-------------+--------------+
+       |  NAME   |   ADDRESS   | FINGERPRINT  |
+       +---------+-------------+--------------+
+> [x]  | micro3  | 10.1.123.30 | 4e80954d6a64 |
+  [x]  | micro2  | 10.1.123.20 | 84e0b50e13b3 |
+  [x]  | micro4  | 10.1.123.40 | 98667a808a99 |
+       +---------+-------------+--------------+
 
- Selected "micro1" at "203.0.113.169"
- Selected "micro3" at "203.0.113.171"
- Selected "micro2" at "203.0.113.170"
- Selected "micro4" at "203.0.113.172"
+ Selected "micro1" at "10.1.123.10"
+ Selected "micro3" at "10.1.123.30"
+ Selected "micro2" at "10.1.123.20"
+ Selected "micro4" at "10.1.123.40"
 
 Would you like to set up local storage? (yes/no) [default=yes]: yes
 Select exactly one disk from each cluster member:
@@ -425,8 +441,8 @@ Up/down to move; right to select all; left to select none.
 
 Do you want to encrypt the selected disks? (yes/no) [default=no]: no
 Would you like to set up CephFS remote storage? (yes/no) [default=yes]:  yes
-What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: 203.0.113.0/24]:
-What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: 203.0.113.0/24]:
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph internal traffic on? [default: 10.1.123.0/24]:
+What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default: 10.1.123.0/24]:
 Configure distributed networking? (yes/no) [default=yes]:  yes
 Select an available interface per system to provide external connectivity for distributed network(s):
 Space to select; enter to confirm; type to filter results.
@@ -452,7 +468,7 @@ Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001
 Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: 192.0.2.1,2001:db8:d:200::1):
 Configure dedicated underlay networking? (yes/no) [default=no]:
 
-Initializing a new cluster
+Initializing new services
  Local MicroCloud is ready
  Local LXD is ready
  Local MicroOVN is ready
@@ -461,35 +477,44 @@ Awaiting cluster formation ...
  Peer "micro2" has joined the cluster
  Peer "micro3" has joined the cluster
  Peer "micro4" has joined the cluster
-Cluster initialization is complete
+Configuring cluster-wide devices ...
 MicroCloud is ready
 ```
 
-See the full process here for one of the joining sides (`micro02`):
+See the full process here for one of the joining sides (`micro2`):
 
 ```{terminal}
-:input: microcloud init
+:input: microcloud join
 :user: root
 :host: micro1
 :scroll:
 
 Select an address for MicroCloud's internal traffic:
+Space to select; enter to confirm; type to filter results.
+Up/down to move; right to select all; left to select none.
+       +----------------------+--------+
+       |        ADDRESS       | IFACE  |
+       +----------------------+--------+
+> [ ]  | 10.1.123.20          | enp5s0 |
+  [ ]  | fd42:1:1234:1234::20 | enp5s0 |
+       +----------------------+--------+
 
- Using address "203.0.113.170" for MicroCloud
+Using address "10.1.123.20" for MicroCloud
 
 Verify the fingerprint "84e0b50e13b3" is displayed on the other system.
 Specify the passphrase for joining the system: koala absorbing update dorsal
 Searching for an eligible system ...
 
- Found system "micro01" at "203.0.113.169" using fingerprint "5d0808de679d"
+ Found system "micro1" at "10.1.123.10" using fingerprint "5d0808de679d"
 
-Select "micro02" on "micro01" to let it join the cluster
+Select "micro2" on "micro1" to let it join the cluster
 
- Received confirmation from system "micro01"
+ Received confirmation from system "micro1"
 
 Do not exit out to keep the session alive.
-Complete the remaining configuration on "micro01" ...
-Successfully joined the cluster
+Complete the remaining configuration on "micro1" ...
+Successfully joined the MicroCloud cluster and closing the session.
+Commencing cluster join of the remaining services (LXD, MicroCeph, MicroOVN)
 ```
 
 ## 7. Inspect your MicroCloud setup
@@ -498,7 +523,7 @@ You can now inspect your cluster setup.
 
 ```{tip}
 You can run these commands on any of the cluster members.
-We continue using `micro1`, but you will see the same results on the other VMs.
+We continue using `micro1`, but you will see the same results on the others.
 ```
 1. Inspect the cluster setup:
 
@@ -508,54 +533,54 @@ We continue using `micro1`, but you will see the same results on the other VMs.
    :host: micro1
    :scroll:
 
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   |  NAME  |             URL            |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro1 | https://203.0.113.169:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
-   |        |                            | database         |              |                |             |        |                   |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro2 | https://203.0.113.170:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro3 | https://203.0.113.171:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro4 | https://203.0.113.172:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   |  NAME  |            URL           |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro1 | https://10.1.123.10:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
+   |        |                          | database         |              |                |             |        |                   |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro2 | https://10.1.123.20:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro3 | https://10.1.123.30:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro4 | https://10.1.123.40:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    :input: microcloud cluster list
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   |  NAME  |       ADDRESS      | ROLE     |                           FINGERPRINT                            | STATUS |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro1 | 203.0.113.169:9443 | voter    | 47a74cb2ed8b844544ce71f45e96acb2c8021d4c1ffc2f1f449cdbf2f6898fd8 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro2 | 203.0.113.170:9443 | voter    | 56bee3adbd5e1de2186dd22788baffd5e1358e408ec3d9b713ed930741a339f2 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro3 | 203.0.113.171:9443 | voter    | aabdd5f64d4c2796a50d6ce9d91939f248bfeb27195426158dff05d660f93f86 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro4 | 203.0.113.172:9443 | stand-by | 649ec21815135104f1faa5fca099daddf995f554119c6e34706a2b31681ad1d7 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro1 | 10.1.123.10:9443 | voter    | 47a74cb2ed8b844544ce71f45e96acb2c8021d4c1ffc2f1f449cdbf2f6898fd8 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro2 | 10.1.123.20:9443 | voter    | 56bee3adbd5e1de2186dd22788baffd5e1358e408ec3d9b713ed930741a339f2 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro3 | 10.1.123.30:9443 | voter    | aabdd5f64d4c2796a50d6ce9d91939f248bfeb27195426158dff05d660f93f86 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro4 | 10.1.123.40:9443 | stand-by | 649ec21815135104f1faa5fca099daddf995f554119c6e34706a2b31681ad1d7 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
    :input: microceph cluster list
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   |  NAME  |       ADDRESS      | ROLE     |                           FINGERPRINT                            | STATUS |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro1 | 203.0.113.169:7443 | voter    | a2b370cce1deb02437b583aa73be5e5c519aed75f02f4b98f6df150fd62c648a | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro2 | 203.0.113.170:7443 | voter    | e37ea1acd14b984152cac4cb861cbe35ac438151233b9d0ee606c44c2e27d759 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro3 | 203.0.113.171:7443 | voter    | 152ccf372ecc93faffa8a6801cedd5eca49d977eea72e3f2239245cc22965399 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro4 | 203.0.113.172:7443 | stand-by | 9b75b396f6d59481b8c14221942d775cff4d27c5621b0b541eb5ba3245618093 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro1 | 10.1.123.10:7443 | voter    | a2b370cce1deb02437b583aa73be5e5c519aed75f02f4b98f6df150fd62c648a | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro2 | 10.1.123.20:7443 | voter    | e37ea1acd14b984152cac4cb861cbe35ac438151233b9d0ee606c44c2e27d759 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro3 | 10.1.123.30:7443 | voter    | 152ccf372ecc93faffa8a6801cedd5eca49d977eea72e3f2239245cc22965399 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro4 | 10.1.123.40:7443 | stand-by | 9b75b396f6d59481b8c14221942d775cff4d27c5621b0b541eb5ba3245618093 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
    :input: microovn cluster list
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   |  NAME  |       ADDRESS      | ROLE     |                           FINGERPRINT                            | STATUS |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro1 | 203.0.113.169:6443 | voter    | a552d316c159a50a4e11253c36a1cd25a3902bee50e24ed1e073ee7728be0410 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro2 | 203.0.113.170:6443 | voter    | 2c779eb10409576a33fa01a29cede39abea61f7cd6a07837c369858b515ed02a | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro3 | 203.0.113.171:6443 | voter    | 7f76cddfdbbe3d768c343b1a5f402842565c25d0e4e3ebbc8514263fc14ea28b | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
-   | micro4 | 203.0.113.172:6443 | stand-by | 5d62b2a63dec514c45c07b24ff93e2bd83ad8b9af4ab774aad3d2ac51ee102d5 | ONLINE |
-   +--------+--------------------+----------+------------------------------------------------------------------+--------+
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro1 | 10.1.123.10:6443 | voter    | a552d316c159a50a4e11253c36a1cd25a3902bee50e24ed1e073ee7728be0410 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro2 | 10.1.123.20:6443 | voter    | 2c779eb10409576a33fa01a29cede39abea61f7cd6a07837c369858b515ed02a | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro3 | 10.1.123.30:6443 | voter    | 7f76cddfdbbe3d768c343b1a5f402842565c25d0e4e3ebbc8514263fc14ea28b | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
+   | micro4 | 10.1.123.40:6443 | stand-by | 5d62b2a63dec514c45c07b24ff93e2bd83ad8b9af4ab774aad3d2ac51ee102d5 | ONLINE |
+   +--------+------------------+----------+------------------------------------------------------------------+--------+
    ```
 
 1. Inspect the storage setup:
@@ -660,8 +685,10 @@ We continue using `micro1`, but you will see the same results on the other VMs.
    ```
 
 1. Make sure that you can ping the virtual router within OVN.
-   You can find the IPv4 and IPv6 addresses of the virtual router under `volatile.network.ipv4.address` and `volatile.network.ipv6.address`, respectively, in the output of `lxc network show default`.
 
+   1. Within the output of the previous command (`lxc network show default`), find the value for `volatile.network.ipv4.address`. This is the virtual router's IPv4 address.
+
+   1. Ping that IPv4 address.
    ```{terminal}
    :input: ping 192.0.2.100
    :user: root
@@ -718,7 +745,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
 
        lxc launch ubuntu:22.04 u1
 
-1. Launch another Ubuntu container, but use the local storage instead of the remote storage that is the default:
+1. Launch another Ubuntu container, but use local storage instead of the default remote storage:
 
        lxc launch ubuntu:22.04 u2 --storage local
 
@@ -727,7 +754,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
        lxc launch ubuntu:22.04 u3 --vm
 
 1. Check the list of instances.
-   You will see that the instances are running on different cluster members.
+   Note that the instances are running on different cluster members.
 
    ```{terminal}
    :input: lxc list
@@ -747,7 +774,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
    ```
 
 1. Check the storage.
-   You will see that the instance volumes are located on the specified storage pools.
+   Note that the instance volumes are located on the specified storage pools.
 
    ```{terminal}
    :input: lxc storage volume list remote
@@ -797,7 +824,7 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
 The instances that you have launched are all on the same subnet.
 You can, however, create a different network to isolate some instances from others.
 
-1. Check the list of instances that are running:
+1. Check the list of running instances:
 
    ```{terminal}
    :input: lxc list
@@ -812,7 +839,7 @@ You can, however, create a different network to isolate some instances from othe
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
    | u2   | RUNNING | 198.51.100.3 (eth0) | 2001:db8:d960:91cf:216:3eff:fe79:6765 (eth0) | CONTAINER       | 0         | micro3   |
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
-   | u3 | RUNNING | 198.51.100.4 (eth0) | 2001:db8:d960:91cf:216:3eff:fe66:f24b (eth0) | VIRTUAL-MACHINE | 0 | micro2 |
+   | u3   | RUNNING | 198.51.100.4 (eth0) | 2001:db8:d960:91cf:216:3eff:fe66:f24b (eth0) | VIRTUAL-MACHINE | 0         | micro2   |
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
    ```
 
@@ -882,7 +909,7 @@ You can, however, create a different network to isolate some instances from othe
 
        lxc network create isolated --type=ovn
 
-   There is only one `UPLINK` network, so the new network will use this one as its parent.
+   There is only one `UPLINK` network, so the new network uses this one as its parent.
 
 1. Show information about the new network:
 
@@ -972,7 +999,7 @@ You can, however, create a different network to isolate some instances from othe
    14 packets transmitted, 0 received, 100% packet loss, time 13301ms
    ```
 
-   You will see that `u2` is not reachable, because it is on a different OVN subnet.
+   The ping fails; `u2` is not reachable because it is on a different OVN subnet.
 
 ## 10. Access the UI
 
@@ -987,22 +1014,22 @@ See {ref}`lxd:access-ui` for more information.
    :host: micro1
    :scroll:
 
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   |  NAME  |             URL            |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro1 | https://203.0.113.169:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
-   |        |                            | database         |              |                |             |        |                   |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro2 | https://203.0.113.170:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro3 | https://203.0.113.171:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   | micro4 | https://203.0.113.172:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
-   +--------+----------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   |  NAME  |            URL           |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro1 | https://10.1.123.10:8443 | database-leader  | x86_64       | default        |             | ONLINE | Fully operational |
+   |        |                          | database         |              |                |             |        |                   |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro2 | https://10.1.123.20:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro3 | https://10.1.123.30:8443 | database         | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
+   | micro4 | https://10.1.123.40:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
+   +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    ```
 
-1. In your web browser, navigate to the URL of one of the machines.
-   For example, for `micro1`, navigate to `https://203.0.113.169:8443`.
+1. In your web browser, navigate to the URL of one of the cluster members.
+   For example, for `micro1`, navigate to `https://10.1.123.10:8443`.
 
 1. By default, MicroCloud uses a self-signed certificate, which will cause a security warning in your browser.
    Use your browser’s mechanism to continue despite the security warning.
@@ -1024,8 +1051,8 @@ See {ref}`lxd:access-ui` for more information.
    ```{note}
    Since LXD 5.21, the LXD UI is enabled by default.
 
-   If you don't see the certificate screen, you might have an older version of LXD (run `snap info lxd` to check).
-   In this case, run the following commands on the machine that you're trying to access (for example, `micro1`) to enable the UI:
+   If you don't see the certificate screen, you might have an earlier version of LXD. Run `snap info lxd` to check.
+   If you have an earlier version, run the following commands on the cluster member that you're trying to access (for example, `micro1`) to enable the UI:
 
        snap set lxd ui.enable=true
        systemctl reload snap.lxd.daemon

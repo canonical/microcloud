@@ -17,6 +17,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -91,7 +92,7 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 		autoSetup: true,
 		bootstrap: false,
 		common:    c.common,
-		asker:     &c.common.asker,
+		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
 		state:     map[string]service.SystemInformation{},
 	}
@@ -183,10 +184,7 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 			fmt.Printf("%s: Not initialized\n", serviceType)
 		} else {
 			fmt.Printf("%s:\n", serviceType)
-			err = cli.RenderTable(cli.TableFormatTable, header, data, nil)
-			if err != nil {
-				return err
-			}
+			fmt.Println(tui.NewTable(header, data))
 		}
 	}
 
@@ -223,7 +221,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		bootstrap: true,
 		setupMany: true,
 		common:    c.common,
-		asker:     &c.common.asker,
+		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
 		state:     map[string]service.SystemInformation{},
 	}
@@ -338,19 +336,17 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Go through the normal setup for disks and networks if necessary.
-	for service := range askClusteredServices {
-		switch service {
-		case types.MicroCeph:
-			err := cfg.askDisks(s)
-			if err != nil {
-				return err
-			}
+	if askClusteredServices[types.MicroCeph] != "" {
+		err := cfg.askDisks(s)
+		if err != nil {
+			return err
+		}
+	}
 
-		case types.MicroOVN:
-			err := cfg.askNetwork(s)
-			if err != nil {
-				return err
-			}
+	if askClusteredServices[types.MicroOVN] != "" {
+		err := cfg.askNetwork(s)
+		if err != nil {
+			return err
 		}
 	}
 

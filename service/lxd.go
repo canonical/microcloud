@@ -19,6 +19,8 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
+	"github.com/canonical/microcloud/microcloud/version"
 )
 
 // LXDService is a LXD service.
@@ -121,6 +123,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	newServer := currentServer.Writable()
 	newServer.Config["core.https_address"] = "[::]:8443"
 	newServer.Config["cluster.https_address"] = addr
+	newServer.Config["user.microcloud"] = version.RawVersion
 	if client.HasExtension("instances_migration_stateful") {
 		newServer.Config["instances.migration.stateful"] = "true"
 	}
@@ -492,47 +495,34 @@ func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, 
 	return server.Writable().Config, nil, nil
 }
 
-// defaultNetworkInterfacesFilter filters a network based on default rules and return whether it should be skipped and the addresses on the interface.
-func defaultNetworkInterfacesFilter(client lxd.InstanceServer, network api.Network) (bool, []string) {
+// defaultNetworkInterfacesFilter filters a network based on default rules and returns whether it should be skipped.
+func defaultNetworkInterfacesFilter(network api.Network, state *api.NetworkState) bool {
 	// Skip managed networks.
 	if network.Managed {
-		return true, []string{}
-	}
-
-	// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
-	if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
-		return true, []string{}
-	}
-
-	state, err := client.GetNetworkState(network.Name)
-	if err != nil {
-		return true, []string{}
-	}
-
-	// OpenVswitch only works with full L2 devices.
-	if state.Type != "broadcast" {
-		return true, []string{}
+		return false
 	}
 
 	// Can't use interfaces that aren't up.
 	if state.State != "up" {
-		return true, []string{}
+		return false
 	}
 
-	// Make sure the interface isn't in use by ensuring there's no global addresses on it.
-	addresses := []string{}
+	return true
+}
 
-	if network.Type != "bridge" {
-		for _, address := range state.Addresses {
-			if address.Scope != "global" {
-				continue
-			}
-
-			addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
-		}
+// ovnNetworkInterfacesFilter filters a network based on OVN specific rules and returns whether it should be skipped.
+func ovnNetworkInterfacesFilter(network api.Network, state *api.NetworkState) bool {
+	// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
+	if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
+		return false
 	}
 
-	return false, addresses
+	// OpenVswitch only works with full L2 devices.
+	if state.Type != "broadcast" {
+		return false
+	}
+
+	return true
 }
 
 // DedicatedInterface represents a dedicated interface for OVN.
@@ -568,18 +558,45 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 	uplinkInterfaces := map[string]api.Network{}
 	dedicatedInterfaces := map[string]DedicatedInterface{}
 	for _, network := range networks {
-		filtered, addresses := defaultNetworkInterfacesFilter(client, network)
-		if filtered {
+		state, err := client.GetNetworkState(network.Name)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		// Apply default filter rules and ignore invalid interfaces.
+		filtered := defaultNetworkInterfacesFilter(network, state)
+		if !filtered {
 			continue
 		}
 
-		if len(addresses) == 0 {
-			uplinkInterfaces[network.Name] = network
-		} else {
+		// Get a list of addresses configured on this interface.
+		addresses := []string{}
+		for _, address := range state.Addresses {
+			if address.Scope != "global" {
+				continue
+			}
+
+			addresses = append(addresses, fmt.Sprintf("%s/%s", address.Address, address.Netmask))
+		}
+
+		// Apply OVN specific filter rules.
+		ovnFiltered := ovnNetworkInterfacesFilter(network, state)
+
+		if len(addresses) > 0 {
 			dedicatedInterfaces[network.Name] = DedicatedInterface{
 				Type:      network.Type,
 				Network:   network,
 				Addresses: addresses,
+			}
+
+			// Special case as LXD can plug into the bridge using a veth pair.
+			if ovnFiltered && network.Type == "bridge" {
+				uplinkInterfaces[network.Name] = network
+			}
+		} else {
+			// Accept all filtered interfaces without address as uplink.
+			if ovnFiltered {
+				uplinkInterfaces[network.Name] = network
 			}
 		}
 	}
@@ -626,7 +643,7 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 	}
 
 	if len(data) == 0 {
-		fmt.Println("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup")
+		fmt.Println(tui.WarningColor("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup", false))
 	}
 
 	return data, nil
