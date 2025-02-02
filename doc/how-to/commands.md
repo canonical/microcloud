@@ -285,4 +285,6 @@ See {ref}`lxd:cluster-manage-instance` and {ref}`lxd:cluster-evacuate`.
    - {command}`lxc cluster evacuate <member>`
  * - Restore a cluster member
    - {command}`lxc cluster restore <member>`
+ * - Shut down a cluster member
+   - See: {ref}`howto-shutdown`.
 ```
