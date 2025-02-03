@@ -7,7 +7,7 @@ You run the initialisation on one of the machines, and it configures the require
 ## Pre-initialisation requirements
 
 - Complete the steps in {ref}`howto-install` before initialisation.
-- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`. 
+- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`.
   - Follow only the instructions in the Prerequisites section on that page. Skip its Usage section; the MicroCloud initialisation process handles the disk encryption.
 
 (howto-initialise-interactive)=
@@ -174,6 +174,9 @@ In this case `micro01` takes over the role of the initiator.
 Multicast discovery is used to find the other machines on the network.
 
 On each of the machines `eth1` is used as uplink for the OVN network.
+The uplink network `192.0.2.0/24` is configured with `192.0.2.1` as the gateway.
+The range `192.0.2.100-192.0.2.254` is used for the assignment of NAT addresses to the OVN overlay networks.
+
 For local storage the disk `/dev/sdb` is occupied.
 In case of remote storage `/dev/sdc` will be used by MicroCeph:
 
@@ -203,4 +206,7 @@ systems:
       path: /dev/sdb
     ceph:
       - path: /dev/sdc
+ovn:
+  ipv4_gateway: 192.0.2.1/24
+  ipv4_range: 192.0.2.100-192.0.2.254
 ```
