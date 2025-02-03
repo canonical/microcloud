@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -53,19 +54,24 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
-	MicroCephPublicNetworkSubnet string
-	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	MicroCephInternalNetworkSubnet string
+	// MicroCephPublicNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network and
+	// the network interface name to use for the Ceph public network and its IP address within the subnet.
+	MicroCephPublicNetwork *Network
+	// MicroCephInternalNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network and
+	// the network interface name to use for the Ceph cluster network and its IP address within the subnet.
+	MicroCephInternalNetwork *Network
+	// MicroCloudInternalNetwork contains the network configuration for the MicroCloud internal network.
+	MicroCloudInternalNetwork *Network
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
 	// TargetStoragePools contains the storage pool configuration for the target system.
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
-	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// OVNGeneveNetwork contains an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
 	// If left empty, the system will choose to route the Geneve traffic through the management network.
-	OVNGeneveAddr string
+	// It also contains the network interface name to use for the OVN Geneve tunnel and the network subnet.
+	OVNGeneveNetwork *Network
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -213,6 +219,20 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 		services[s.Type()] = version
 	}
+
+	// Also register the MicroCloud internal network in the bootstrap system information.
+	lxd := s.Services[types.LXD].(*service.LXDService)
+	microCloudInternalNetworkAddr := c.lookupSubnet.IP.Mask(c.lookupSubnet.Mask)
+	ones, _ := c.lookupSubnet.Mask.Size()
+	microCloudInternalNetworkAddrCIDR := fmt.Sprintf("%s/%d", microCloudInternalNetworkAddr.String(), ones)
+	microcloudNetworkInterface, err := lxd.FindInterfaceForSubnet(microCloudInternalNetworkAddrCIDR)
+	if err != nil {
+		return fmt.Errorf("Failed to find interface for subnet %q: %w", microCloudInternalNetworkAddrCIDR, err)
+	}
+
+	bootstrapSystem := c.systems[c.name]
+	bootstrapSystem.MicroCloudInternalNetwork = &Network{Interface: *microcloudNetworkInterface, Subnet: c.lookupSubnet, IP: microCloudInternalNetworkAddr}
+	c.systems[c.name] = bootstrapSystem
 
 	var reverter *revert.Reverter
 	if c.setupMany {
@@ -388,9 +408,9 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			CephConfig: info.MicroCephDisks,
 		}
 
-		if info.OVNGeneveAddr != "" {
+		if info.OVNGeneveNetwork != nil {
 			p := joinConfig[peer]
-			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveNetwork.IP.String()}
 			joinConfig[peer] = p
 		}
 	}
@@ -545,26 +565,126 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 	return ovnIPRanges, nil
 }
 
+// detectCollisions checks for network collisions across systems.
+// This tracks subnet usage across all systems using a global map and ensure collisions are
+// detected when different systems use the same subnet for different network types.
+// This also flag interface collisions within each individual system.
+func detectCollisions(systems map[string]InitSystem) []string {
+	// subnetsCollisionMap maps a subnet CIDR notation to a map of subnet type to peer names.
+	//
+	// Example:
+	// {
+	//   "10.0.1.0/24": {
+	//       "OVN underlay": ["system1", "system2"],
+	//       "Ceph cluster network": ["system3"]
+	//    },
+	//   "10.0.2.0/24": {
+	//        "Ceph public network": ["system1", "system2", "system3"],
+	//    }
+	// }
+	//
+	// In this example, we have a collision for the subnet "10.0.1.0/24":
+	//  - system1 and system2 are using it for the OVN underlay, whereas system3 is using it for the Ceph cluster network.
+	// Everything is fine for the subnet "10.0.2.0/24" as all systems are using it for the Ceph public network.
+	subnetsCollisionMap := make(map[string]map[string]struct{})
+	interfaceCollisionMap := make(map[string]map[string]struct{})
+	subnetToGlobalTypes := make(map[string]map[string]struct{})
+
+	sortedKeys := func(set map[string]struct{}) []string {
+		keys := make([]string, 0, len(set))
+		for k := range set {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+		return keys
+	}
+
+	for _, sys := range systems {
+		netTypeToNet := map[string]*Network{
+			"Ceph cluster network":        sys.MicroCephInternalNetwork,
+			"OVN underlay":                sys.OVNGeneveNetwork,
+			"MicroCloud internal network": sys.MicroCloudInternalNetwork,
+		}
+
+		if sys.MicroCephPublicNetwork != nil {
+			netTypeToNet["Ceph public network"] = sys.MicroCephPublicNetwork
+		}
+
+		// Track interface collisions (local to each system)
+		interfaceToTypes := make(map[string][]string)
+		for netType, net := range netTypeToNet {
+			if net == nil {
+				continue
+			}
+
+			interfaceToTypes[net.Interface.Name] = append(interfaceToTypes[net.Interface.Name], netType)
+		}
+
+		for iface, types := range interfaceToTypes {
+			if len(types) > 1 {
+				_, ok := interfaceCollisionMap[iface]
+				if !ok {
+					interfaceCollisionMap[iface] = make(map[string]struct{})
+				}
+
+				for _, t := range types {
+					interfaceCollisionMap[iface][t] = struct{}{}
+				}
+			}
+		}
+
+		// Track subnets globally across systems
+		for netType, net := range netTypeToNet {
+			if net == nil {
+				continue
+			}
+
+			if net.Subnet == nil {
+				continue
+			}
+
+			ones, _ := net.Subnet.Mask.Size()
+			subnetStr := fmt.Sprintf("%s/%d", net.IP.Mask(net.Subnet.Mask), ones)
+			_, exists := subnetToGlobalTypes[subnetStr]
+			if !exists {
+				subnetToGlobalTypes[subnetStr] = make(map[string]struct{})
+			}
+
+			subnetToGlobalTypes[subnetStr][netType] = struct{}{}
+		}
+	}
+
+	// Build subnet collisions from global subnets
+	for subnet, types := range subnetToGlobalTypes {
+		if len(types) > 1 {
+			subnetsCollisionMap[subnet] = types
+		}
+	}
+
+	warnings := make([]string, 0)
+
+	// Format interface collisions
+	for iface, typesSet := range interfaceCollisionMap {
+		types := sortedKeys(typesSet)
+		warnings = append(warnings, fmt.Sprintf("- %s sharing network interface %q", strings.Join(types, ", "), iface))
+	}
+
+	// Format subnet collisions
+	for subnet, typesSet := range subnetsCollisionMap {
+		types := sortedKeys(typesSet)
+		warnings = append(warnings, fmt.Sprintf("- %s sharing subnet %q", strings.Join(types, ", "), subnet))
+	}
+
+	return warnings
+}
+
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
-	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
-			continue
-		}
-
-		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
-		if err != nil {
-			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
-		}
-
-		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
-		if underlayIP == nil {
-			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
-		}
-
-		if subnet.Contains(underlayIP) {
-			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String()))
-
-			break
+	warnings := detectCollisions(c.systems)
+	if len(warnings) > 0 {
+		fmt.Println("! Network collision:")
+		for _, warning := range warnings {
+			fmt.Println(warning)
 		}
 	}
 
@@ -694,12 +814,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroCeph {
 			microCephBootstrapConf := make(map[string]string)
-			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
-				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			if bootstrapSystem.MicroCephInternalNetwork != nil {
+				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetwork.Subnet.String()
 			}
 
-			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
-				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
+			if bootstrapSystem.MicroCephPublicNetwork != nil {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetwork.Subnet.String()
 			}
 
 			if len(microCephBootstrapConf) > 0 {
@@ -709,8 +829,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroOVN {
 			microOvnBootstrapConf := make(map[string]string)
-			if bootstrapSystem.OVNGeneveAddr != "" {
-				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveAddr
+			if bootstrapSystem.OVNGeneveNetwork != nil {
+				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveNetwork.IP.String()
 			}
 
 			if len(microOvnBootstrapConf) > 0 {
