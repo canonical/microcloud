@@ -1685,6 +1685,8 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 	}
 
 	if len(servicesStr) > 0 {
+		slices.Sort(servicesStr)
+
 		fmt.Println(tui.Printf(tui.Fmt{Arg: "Commencing cluster join of the remaining services (%s)"}, tui.Fmt{Arg: strings.Join(servicesStr, ","), Bold: true}))
 	}
 
