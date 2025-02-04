@@ -1675,20 +1675,17 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 
 	fmt.Println(tui.SuccessColor("Successfully joined the MicroCloud cluster and closing the session.", true))
 
-	newServices := make(map[types.ServiceType]string, len(services)-1)
-	for serviceType, version := range services {
+	var servicesStr []string
+	for serviceType := range services {
 		if serviceType == types.MicroCloud {
 			continue
 		}
 
-		newServices[serviceType] = version
+		servicesStr = append(servicesStr, string(serviceType))
 	}
 
-	if len(newServices) > 0 {
-		var servicesStr []string
-		for service := range newServices {
-			servicesStr = append(servicesStr, string(service))
-		}
+	if len(servicesStr) > 0 {
+		slices.Sort(servicesStr)
 
 		fmt.Println(tui.Printf(tui.Fmt{Arg: "Commencing cluster join of the remaining services (%s)"}, tui.Fmt{Arg: strings.Join(servicesStr, ","), Bold: true}))
 	}
