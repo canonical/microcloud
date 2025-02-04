@@ -14,34 +14,29 @@ check_instance_connectivity() {
     return 0
   fi
 
-
   # Ensure we can reach the launched instances.
   for m in "${instance_1}" "${instance_2}" ; do
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 100); do
-      if lxc list -f csv -c s ${m} | grep -qxF READY; then
-         lxc exec ${m} -- stat /cephfs
+    for round in \$(seq 60); do
+      if [ \$(lxc list -f csv -c s ${m}) = 'READY' ]; then
+         lxc exec ${m} -- test -d /cephfs
          echo \" ${m} booted successfully\"
 
          return 0
       fi
       echo -n .
-      sleep 3
+      sleep 5
     done
     echo FAIL
     return 1
     "
   done
 
+  echo "Test connectivity to lxdbr0"
+  IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
+  IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
   for m in "${instance_1}" "${instance_2}" ; do
-    lxc exec micro01 -- lxc exec "${m}" -- apt-get update
-    lxc exec micro01 -- lxc exec "${m}" -- apt-get install -y --no-install-recommends iputils-ping
-
-    echo "Test connectivity to lxdbr0"
-    IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
-    IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
-
     lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -4 "${IPV4_GW}"
     lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -6 "${IPV6_GW}"
   done
@@ -216,6 +211,8 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
+    packages:
+    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -240,15 +237,15 @@ EOF
 
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
-    for round in \$(seq 100); do
-      if lxc list -f csv -c s ${m} | grep -qxF READY; then
+    for round in \$(seq 60); do
+      if [ \$(lxc list -f csv -c s ${m}) = 'READY' ]; then
          echo \" ${m} booted successfully\"
 
          lxc rm ${m} -f
          return 0
       fi
       echo -n .
-      sleep 3
+      sleep 5
     done
     echo FAIL
     return 1
@@ -313,6 +310,8 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
+    packages:
+    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -664,10 +663,28 @@ EOF
 
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro04
+
+  # Let cloud-init finish its job of installing required packages (i.e: iputils-ping).
+  for m in c3 c4; do
+    echo -n "Waiting up to 5 mins for ${m} to start "
+    lxc exec micro01 -- sh -ceu "
+    for round in \$(seq 60); do
+      if [ \$(lxc list -f csv -c s ${m}) = 'READY' ]; then
+         echo \" ${m} booted successfully\"
+
+         return 0
+      fi
+      echo -n .
+      sleep 5
+    done
+    echo FAIL
+    return 1
+    "
+  done
+
   lxc exec micro01 -- lxc stop c3
   lxc exec micro01 -- lxc move c3 --target micro04
   lxc exec micro01 -- lxc start c3
-
 
   check_instance_connectivity "c1" "c3" "0"
   check_instance_connectivity "c1" "c4" "0"

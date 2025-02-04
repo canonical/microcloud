@@ -23,7 +23,7 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
 
@@ -35,12 +35,20 @@ jobs:
         run: trivy fs --download-db-only --cache-dir /home/runner/vuln-cache
         continue-on-error: true
 
-      - name: Use previous downloaded database
+      - name: Cache Trivy vulnerability database
+        if: ${{ steps.db_download.outcome == 'success' }}
+        uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: /home/runner/vuln-cache
+          key: trivy-cache-${{ github.run_id }}
+
+      - name: Use previously downloaded database instead
         if: ${{ steps.db_download.outcome == 'failure' }}
         uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: /home/runner/vuln-cache
-          key: trivy-latest-cache
+          key: download-failed # Use a non existing key to fallback to restore-keys
+          restore-keys: trivy-cache-
 
       - name: Run Trivy vulnerability scanner
         run: |
@@ -51,15 +59,8 @@ jobs:
           --severity LOW,MEDIUM,HIGH,CRITICAL \
           --output trivy-microcloud-repo-scan-results.sarif .
 
-      - name: Cache Trivy vulnerability database
-        if: ${{ steps.db_download.outcome == 'success' }}
-        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: /home/runner/vuln-cache
-          key: trivy-latest-cache
-
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@4f3212b61783c3c68e8309a0f18a699764811cda # v3.27.1
         with:
           sarif_file: "trivy-microcloud-repo-scan-results.sarif"
           sha: ${{ github.sha }}
@@ -75,11 +76,13 @@ jobs:
         include:
           - channel: "3/edge"
             branch: "main"
-          - channel: "2/candidate"
+          - channel: "2/stable"
             branch: "v2-edge"
+          - channel: "1/stable"
+            branch: "v1-edge"
     steps:
       - name: Checkout
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ matrix.branch }}
 
@@ -90,7 +93,8 @@ jobs:
         uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: /home/runner/vuln-cache
-          key: trivy-latest-cache
+          key: download-failed # Use a non existing key to fallback to restore-keys
+          restore-keys: trivy-cache-
 
       - name: Download snap for scan
         run: |
@@ -112,7 +116,7 @@ jobs:
           mv tmp.json snap-scan-results.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@f779452ac5af1c261dce0346a8f964149f49322b # v3.26.13
+        uses: github/codeql-action/upload-sarif@4f3212b61783c3c68e8309a0f18a699764811cda # v3.27.1
         with:
           sarif_file: "snap-scan-results.sarif"
           sha: ${{ github.sha }}

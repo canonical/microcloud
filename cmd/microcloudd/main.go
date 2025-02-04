@@ -130,6 +130,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		api.SessionJoinCmd(s),
 		api.SessionInitiatingCmd(s),
 		api.SessionJoiningCmd(s),
+		api.SessionStopCmd(s),
 		api.LXDProxy(s),
 		api.CephProxy(s),
 		api.OVNProxy(s),
@@ -174,15 +175,61 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 			OnStart: func(ctx context.Context, state state.State) error {
 				// If we are already initialized, there's nothing to do.
 				err := state.Database().IsOpen(ctx)
-
 				// If we encounter a non-503 error, that means the database failed for some reason.
 				if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
 					return nil
 				}
 
-				// With a 503 error or no error, we can be sure there is an address trying to connect to dqlite, so we can proceed with the handler address update.
+				databaseReady := err == nil
 
-				return setHandlerAddress(state.Address().URL.Host)
+				// With a 503 error or no error, we can be sure there is an address trying to connect to dqlite, so we can proceed with the handler address update.
+				err = setHandlerAddress(state.Address().URL.Host)
+				if err != nil {
+					return err
+				}
+
+				if !databaseReady {
+					return nil
+				}
+
+				initialized, err := s.Services[types.LXD].IsInitialized(context.Background())
+				if err != nil {
+					return err
+				}
+
+				if !initialized {
+					return nil
+				}
+
+				// If the MicroCloud database is online, and LXD is initialized, try to set user.microcloud.
+				c, err := s.Services[types.LXD].(*service.LXDService).Client(context.Background())
+				if err != nil {
+					return err
+				}
+
+				// Don't error out in case there's an issue with LXD and we need to manage it with MicroCloud.
+				currentServer, etag, err := c.GetServer()
+				if err != nil {
+					logger.Error("Failed to retrieve LXD configuration on start", logger.Ctx{"error": err})
+
+					return nil
+				}
+
+				newServer := currentServer.Writable()
+				val, ok := newServer.Config["user.microcloud"]
+				if ok && val == version.RawVersion {
+					return nil
+				}
+
+				newServer.Config["user.microcloud"] = version.RawVersion
+
+				// Don't error out in case there's an issue with LXD and we need to manage it with MicroCloud.
+				err = c.UpdateServer(newServer, etag)
+				if err != nil {
+					logger.Error("Failed to update LXD configuration on start", logger.Ctx{"error": err})
+				}
+
+				return nil
 			},
 		},
 
