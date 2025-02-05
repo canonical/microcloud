@@ -14,6 +14,21 @@ See the following backup guides for each of the snaps:
 
 In case of error, see {ref}`howto-recover` for troubleshooting details.
 
+(howto-update-upgrade-running-instances)=
+## Keep instances running during an update or upgrade
+
+You can update or upgrade MicroCloud and its dependency snaps on a cluster member while it is hosting running instances. However, when updating or upgrading the MicroCeph or MicroOVN snaps, storage and network services on that member might be briefly affected. For example, the instances might experience temporary packet loss.
+
+To ensure that the update or upgrade does not affect workloads on running instances at all, use the following live-migration approach:
+
+- Use virtual machines (VMs) instead of system containers for crucial workloads; in general, containers cannot be live-migrated.
+- Each VM must be pre-configured for live migration. See: {ref}`lxd:live-migration-vms` for information on the required configurations.
+- Before you update or upgrade a cluster member, use the {ref}`cluster evacuate <lxd:cluster-evacuate>` operation to migrate all instances on the host to other members in the same cluster.
+- Once the update or upgrade is complete, use the {ref}`cluster restore <lxd:cluster-restore>` operation to migrate all evacuated instances back to the original host.
+- The evacuate and restore operations can live-migrate any VMs that are configured to allow it. If any instances on the cluster member are ineligible for live migration (such as a container, or a VM that is not configured for live migration), then during both evacuation and restoration, those instances are stopped, migrated, and restarted.
+
+For more information on the cluster evacuate and restore operations, see: {ref}`lxd:cluster-evacuate-restore`.
+
 (howto-update-upgrade-update)=
 ## Update MicroCloud
 
@@ -116,7 +131,7 @@ Again, enter the following command on the first machine:
 
     sudo snap refresh microovn --channel "24.03/stable" --cohort="+"
 
-Run the same command on the remaining machines, one after another, unless an error is encountered, 
+Run the same command on the remaining machines, one after another, unless an error is encountered.
 
 Next, update LXD. The installer will block until each of the LXD cluster members is upgraded, so make sure to perform the following
 command on all machines in parallel:
