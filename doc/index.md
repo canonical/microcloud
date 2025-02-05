@@ -6,48 +6,18 @@ relatedlinks: https://snapcraft.io/microcloud
 (home)=
 # MicroCloud
 
-MicroCloud is a collection of services that allows you to deploy your own fully functional cloud in minutes.
-The MicroCloud snap automatically configures the different components across a set of servers, making it possible to set up a complete cluster by running a single command on one of the machines.
+Deploy a scalable, low-touch cloud platform in minutes with MicroCloud.
 
-Once installed, MicroCloud uses LXD for virtualisation, Ceph for distributed storage, and OVN for networking.
+MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualisation, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
 
-This way, MicroCloud creates a small footprint cluster of compute nodes with distributed storage and secure networking, optimised for repeatable, reliable remote deployments.
+With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from high availability, automatic security updates, and the advanced features of its components such as self-healing clusters and fine-grained access control. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance.
 
-MicroCloud is aimed at edge computing, and anyone in need of a small-scale private cloud.
+MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
 
----
-
-## How to use this documentation
-
-Since MicroCloud is a collection of services, this documentation consists of four different documentation sets.
-````{only} integrated
-You can navigate between these documentation sets by using the links in the top bar.
-````
-
-{doc}`index`
-: The MicroCloud documentation contains information for getting started with MicroCloud, in addition to conceptual and architectural documentation.
-  This documentation describes how the different components are used within a MicroCloud setup.
-
-{doc}`lxd:index`
-: LXD is the system container and virtual machine manager used for virtualisation in MicroCloud.
-  This means that after you install MicroCloud, you will manage your instances through LXD and the LXD UI.
-
-{doc}`microceph:index`
-: MicroCeph provides a lightweight way of deploying and managing a [Ceph](https://ceph.io/en/) cluster.
-  MicroCloud uses MicroCeph to set up distributed Ceph storage.
-
-{doc}`microovn:index`
-: MicroOVN is a snap-based distribution of [OVN](https://www.ovn.org/).
-  MicroCloud uses MicroOVN to set up OVN networking.
-
-```{note}
-The MicroCloud documentation set is targeted specifically at users of MicroCloud.
-
-The other three documentation set describe the full functionality of each component.
-This functionality is available as part of your MicroCloud setup, but not all of it is relevant.
-For example, all documentation sets contain installation information, but the components are already installed as part of MicroCloud.
-Also, while each component documents how to remove cluster members, you should not remove machines from only one component.
-Use MicroCloud to remove cluster members (see {ref}`howto-remove`).
+```{figure} /images/microcloud_basic_architecture.svg
+:alt: A diagram of basic MicroCloud setup architecture
+:align: center
+:width: 75%
 ```
 
 ---
@@ -58,12 +28,12 @@ Use MicroCloud to remove cluster members (see {ref}`howto-remove`).
 
 ```{grid-item} [Tutorial](/tutorial/get_started)
 
-**Start here**: a hands-on introduction to MicroCloud for new users
+**Start here**: a hands-on [introduction to MicroCloud](/tutorial/get_started) for new users
 ```
 
 ```{grid-item} [How-to guides](/how-to/index)
 
-**Step-by-step guides** covering key operations and common tasks
+**Step-by-step guides** covering key operations and common tasks such as [installing MicroCloud](/how-to/install/) and [adding](/how-to/add_machine) and [removing](/how-to/remove_machine) machines
 ```
 
 ````
@@ -73,15 +43,29 @@ Use MicroCloud to remove cluster members (see {ref}`howto-remove`).
 
 ```{grid-item} [Reference](/reference/index)
 
-**Technical information** - specifications, APIs, architecture
+**Technical information** - Detailed [requirements](/reference/index)
 ```
 
 ```{grid-item} [Explanation](/explanation/index)
 
-**Discussion and clarification** of key topics
+**Discussion and clarification** of key topics such as {ref}`networking <explanation-networking>` and the [initialisation process](/explanation/initialisation/)
 ```
 
 ````
+
+---
+
+## About the integrated documentation sets
+
+The three components of MicroCloud ({doc}`lxd:index`, {doc}`microceph:index`, and {doc}`microovn:index`) each offer their own documentation sets, available at their respective standalone documentation sites. 
+
+For convenience, this site provides not only MicroCloud's documentation but also an integrated view of all four documentation sets. You can easily switch between sets using the links in the site header, allowing you to explore all the related documentation without leaving this site.
+
+```{note}
+The components' documentation sets are written for a general audience that might not be using MicroCloud. Thus, not all the information in these sets are relevant to MicroCloud users. For example, since MicroCloud automates the installation of its components, you can ignore the manual installation instructions in the components' documentation.
+
+Also, while each component's documentation includes instructions for removing cluster members, you should not remove members from only one component. Use MicroCloud instead to remove cluster members (see {ref}`howto-remove`).
+```
 
 ---
 
