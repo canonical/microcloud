@@ -18,8 +18,8 @@ github.com/canonical/microcluster/v2 v2.1.0 h1:jEycvk2vu8XH5SaT4GatqymCOmY7Bhj/m
 github.com/canonical/microcluster/v2 v2.1.0/go.mod h1:Aofp11LCtIpIm8OdkQRpl7RWXYtLMTE+B+SOE0gcyAE=
 github.com/canonical/microovn/microovn v0.0.0-20241101125123-0d5d663f6575 h1:Y84EdfB1XZK+8fuudN8BDek33NT6qiBAmvbnZrmJj8w=
 github.com/canonical/microovn/microovn v0.0.0-20241101125123-0d5d663f6575/go.mod h1:wHUYbp+d6W6yb968vSU/yt0YzKw6vm65EfG4YCy+FkA=
-github.com/charmbracelet/bubbletea v1.2.4 h1:KN8aCViA0eps9SCOThb2/XPIlea3ANJLUkv3KnQRNCE=
-github.com/charmbracelet/bubbletea v1.2.4/go.mod h1:Qr6fVQw+wX7JkWWkVyXYk/ZUQ92a6XNekLXa3rR18MM=
+github.com/charmbracelet/bubbletea v1.3.0 h1:fPMyirm0u3Fou+flch7hlJN9krlnVURrkUVDwqXjoAc=
+github.com/charmbracelet/bubbletea v1.3.0/go.mod h1:eTaHfqbIwvBhFQM/nlT1NsGc4kp8jhF8LfUK67XiTDM=
 github.com/charmbracelet/lipgloss v1.0.0 h1:O7VkGDvqEdGi93X+DeqsQ7PKHDgtQfF8j8/O2qFMQNg=
 github.com/charmbracelet/lipgloss v1.0.0/go.mod h1:U5fy9Z+C38obMs+T+tJqst9VGzlOYGj4ri9reL3qUlo=
 github.com/charmbracelet/x/ansi v0.8.0 h1:9GTq3xq9caJW8ZrBTe0LIe2fvfLR/bYXKTx2llXn7xE=
