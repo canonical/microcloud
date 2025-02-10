@@ -317,7 +317,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.validateSystems(s)
+	err = c.validateSystems(s, false)
 	if err != nil {
 		return err
 	}
@@ -717,26 +717,15 @@ func detectSharedNetworks(systems map[string]InitSystem) []string {
 	return warnings
 }
 
-func (c *initConfig) validateSystems(s *service.Handler) (err error) {
-	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
-			continue
-		}
-
-		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
-		if err != nil {
-			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
-		}
-
-		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
-		if underlayIP == nil {
-			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
-		}
-
-		if subnet.Contains(underlayIP) {
-			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String()))
-
-			break
+func (c *initConfig) validateSystems(s *service.Handler, preseed bool) (err error) {
+	sharedNetworkNotifications := detectSharedNetworks(c.systems)
+	// Only show potential shared network notifications if we use an interactive setup.
+	if !preseed {
+		fmt.Println("Checking network configuration ...")
+		if len(sharedNetworkNotifications) > 0 {
+			for _, notification := range sharedNetworkNotifications {
+				fmt.Println(tui.SummarizeResult(notification))
+			}
 		}
 	}
 

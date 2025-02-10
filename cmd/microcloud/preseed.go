@@ -278,7 +278,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		}
 	}
 
-	err = c.validateSystems(s)
+	err = c.validateSystems(s, true)
 	if err != nil {
 		return err
 	}
