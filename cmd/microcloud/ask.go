@@ -988,6 +988,18 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	return nil
 }
 
+// NetworkInterfaceInfo stores a network's interface name, IP address, and its subnet.
+type NetworkInterfaceInfo struct {
+	// Name of the network interface.
+	Interface net.Interface
+
+	// IP address of the network.
+	IP net.IP
+
+	// Subnet of the network.
+	Subnet *net.IPNet
+}
+
 func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	if sh.Services[types.MicroOVN] == nil {
 		return nil
