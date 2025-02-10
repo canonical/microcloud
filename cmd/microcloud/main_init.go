@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -589,6 +590,131 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 	}
 
 	return ovnIPRanges, nil
+}
+
+// detectSharedNetworks checks for shared networks across systems.
+// This tracks subnet usage across all systems using a global map and ensure shared networks are
+// detected when different systems use the same subnet for different network types.
+// This also flag shared interfaces within each individual system.
+func detectSharedNetworks(systems map[string]InitSystem) []string {
+	// sharedSubnetsMap maps a subnet CIDR notation to a map of subnet type to peer names.
+	//
+	// Example:
+	// {
+	//   "10.0.1.0/24": {
+	//       "OVN underlay": ["system1", "system2"],
+	//       "Ceph cluster network": ["system3"]
+	//    },
+	//   "10.0.2.0/24": {
+	//        "Ceph public network": ["system1", "system2", "system3"],
+	//    }
+	// }
+	//
+	// In this example, the subnet "10.0.1.0/24" is shared for different service types:
+	//  - system1 and system2 are using it for the OVN underlay, whereas system3 is using it for the Ceph cluster network.
+	// Everything is fine for the subnet "10.0.2.0/24" as all systems are using it for the Ceph public network.
+	sharedSubnetsMap := make(map[string]map[string]struct{})
+	sharedInterfacesMap := make(map[string]map[string]map[string]struct{})
+	subnetToGlobalTypes := make(map[string]map[string]struct{})
+
+	sortedKeys := func(set map[string]struct{}) []string {
+		keys := make([]string, 0, len(set))
+		for k := range set {
+			keys = append(keys, k)
+		}
+
+		sort.Strings(keys)
+		return keys
+	}
+
+	for sysName, sys := range systems {
+		netTypeToNet := map[string]*Network{
+			"Ceph cluster network":        sys.MicroCephInternalNetwork,
+			"OVN underlay network":        sys.OVNGeneveNetwork,
+			"MicroCloud internal network": sys.MicroCloudInternalNetwork,
+		}
+
+		sharedInterfacesMap[sysName] = make(map[string]map[string]struct{})
+		if sys.MicroCephPublicNetwork != nil {
+			netTypeToNet["Ceph public network"] = sys.MicroCephPublicNetwork
+		}
+
+		// Track shared interfaces (local to each system)
+		interfaceToTypes := make(map[string][]string)
+		for netType, net := range netTypeToNet {
+			if net == nil {
+				continue
+			}
+
+			interfaceToTypes[net.Interface.Name] = append(interfaceToTypes[net.Interface.Name], netType)
+		}
+
+		for iface, types := range interfaceToTypes {
+			if len(types) > 1 {
+				_, ok := sharedInterfacesMap[sysName][iface]
+				if !ok {
+					sharedInterfacesMap[sysName][iface] = make(map[string]struct{})
+				}
+
+				for _, t := range types {
+					sharedInterfacesMap[sysName][iface][t] = struct{}{}
+				}
+			}
+		}
+
+		// Track subnets globally across systems
+		for netType, net := range netTypeToNet {
+			if net == nil {
+				continue
+			}
+
+			if net.Subnet == nil {
+				continue
+			}
+
+			subnetStr := net.Subnet.String()
+			_, exists := subnetToGlobalTypes[subnetStr]
+			if !exists {
+				subnetToGlobalTypes[subnetStr] = make(map[string]struct{})
+			}
+
+			subnetToGlobalTypes[subnetStr][netType] = struct{}{}
+		}
+	}
+
+	// Build shared subnets from global subnets
+	for subnet, types := range subnetToGlobalTypes {
+		if len(types) > 1 {
+			sharedSubnetsMap[subnet] = types
+		}
+	}
+
+	warnings := make([]string, 0)
+
+	// Format shared interfaces
+	for sysName, ifaceTotypesSet := range sharedInterfacesMap {
+		for iface, typesSet := range ifaceTotypesSet {
+			types := sortedKeys(typesSet)
+			warnings = append(warnings, tui.Printf(
+				tui.Fmt{Arg: "%s sharing network interface %s on %s"},
+				tui.Fmt{Arg: strings.Join(types, ", ")},
+				tui.Fmt{Arg: iface, Color: tui.Yellow, Bold: true},
+				tui.Fmt{Arg: sysName, Color: tui.Yellow, Bold: true},
+			))
+		}
+	}
+
+	// Format shared subnets
+	for subnet, typesSet := range sharedSubnetsMap {
+		types := sortedKeys(typesSet)
+		warnings = append(warnings, tui.Printf(
+			tui.Fmt{Arg: "%s sharing subnet %s"},
+			tui.Fmt{Arg: strings.Join(types, ", ")},
+			tui.Fmt{Arg: subnet, Color: tui.Yellow, Bold: true},
+		))
+	}
+
+	return warnings
 }
 
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
