@@ -911,6 +911,22 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	return nil
 }
 
+// Network is a helper struct to store an IP address, its subnet and
+// its corresponding network interface name.
+type Network struct {
+	// Interface is the name of the network interface. An example
+	// of why this is useful in MicroCloud is when we want to check that different network types (OVN, Ceph, etc)
+	// are on different network interfaces.
+	Interface net.Interface
+	// IP is the IP address of the network. An example of why this is useful in MicroCloud is when we want to store
+	// a member OVN underlay network IP address.
+	IP net.IP
+	// Subnet is the subnet of the network. An example of why this is useful in MicroCloud is when we want to check
+	// that we don't have subnet collisions between different network types (OVN, Ceph, etc) in a cluster.
+	// For example, we don't want a member using 'subnet A' for OVN and an other member using 'subnet A' for Ceph.
+	Subnet *net.IPNet
+}
+
 func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	if sh.Services[types.MicroOVN] == nil {
 		return nil
