@@ -53,19 +53,24 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
-	MicroCephPublicNetworkSubnet string
-	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	MicroCephInternalNetworkSubnet string
+	// MicroCephPublicNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network and
+	// the network interface name to use for the Ceph public network and its IP address within the subnet.
+	MicroCephPublicNetwork *Network
+	// MicroCephInternalNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network and
+	// the network interface name to use for the Ceph cluster network and its IP address within the subnet.
+	MicroCephInternalNetwork *Network
+	// MicroCloudInternalNetwork contains the network configuration for the MicroCloud internal network.
+	MicroCloudInternalNetwork *Network
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
 	// TargetStoragePools contains the storage pool configuration for the target system.
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
-	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// OVNGeneveNetwork contains an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
 	// If left empty, the system will choose to route the Geneve traffic through the management network.
-	OVNGeneveAddr string
+	// It also contains the network interface name to use for the OVN Geneve tunnel and the network subnet.
+	OVNGeneveNetwork *Network
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -173,11 +178,6 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.askAddress("")
-	if err != nil {
-		return err
-	}
-
 	c.name, err = os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
@@ -188,6 +188,11 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 			Name:    c.name,
 			Address: c.address,
 		},
+	}
+
+	err = c.askAddress("")
+	if err != nil {
+		return err
 	}
 
 	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
@@ -263,7 +268,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	c.state[c.name] = *state
 	fmt.Println("Gathering system information ...")
-	for _, system := range c.systems {
+	for peer, system := range c.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
 			continue
 		}
@@ -274,6 +279,12 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		}
 
 		c.state[system.ServerInfo.Name] = *state
+
+		// Initialize MicroCloud network for other peers.
+		err = populateMicroCloudNetworkFromState(state, peer, &system, c.lookupSubnet)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Ensure LXD is not already clustered if we are running `microcloud init`.
@@ -317,6 +328,38 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	if c.setupMany {
 		reverter.Success()
+	}
+
+	return nil
+}
+
+func populateMicroCloudNetworkFromState(state *service.SystemInformation, peer string, system *InitSystem, lookupSubnet *net.IPNet) error {
+	isLookupSubnetV4 := lookupSubnet.IP.To4() != nil
+microCloudPeerIfaceFound:
+	for iface, network := range state.AvailableMicroCloudInterfaces {
+		for _, addr := range network.Addresses {
+			ip, _, err := net.ParseCIDR(addr)
+			if err != nil {
+				return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", addr, err)
+			}
+
+			isAddrV4 := ip.To4() != nil
+			// check if ip is in the same subnet as the lookupSubnet
+			// and that they both are ipv4 or both ipv6
+			if (isLookupSubnetV4 == isAddrV4 || !isLookupSubnetV4 == !isAddrV4) && lookupSubnet.Contains(ip) {
+				system.MicroCloudInternalNetwork = &Network{
+					Interface: net.Interface{Name: iface},
+					Subnet:    lookupSubnet,
+					IP:        ip,
+				}
+
+				break microCloudPeerIfaceFound
+			}
+		}
+	}
+
+	if system.MicroCloudInternalNetwork == nil {
+		return fmt.Errorf("Failed to initialize a suitable network interface for MicroCloud on %q", peer)
 	}
 
 	return nil
@@ -391,9 +434,9 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			CephConfig: info.MicroCephDisks,
 		}
 
-		if info.OVNGeneveAddr != "" {
+		if info.OVNGeneveNetwork != nil {
 			p := joinConfig[peer]
-			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveNetwork.IP.String()}
 			joinConfig[peer] = p
 		}
 	}
@@ -697,12 +740,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroCeph {
 			microCephBootstrapConf := make(map[string]string)
-			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
-				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			if bootstrapSystem.MicroCephInternalNetwork != nil {
+				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetwork.Subnet.String()
 			}
 
-			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
-				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
+			if bootstrapSystem.MicroCephPublicNetwork != nil {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetwork.Subnet.String()
 			}
 
 			if len(microCephBootstrapConf) > 0 {
@@ -712,8 +755,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroOVN {
 			microOvnBootstrapConf := make(map[string]string)
-			if bootstrapSystem.OVNGeneveAddr != "" {
-				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveAddr
+			if bootstrapSystem.OVNGeneveNetwork != nil {
+				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveNetwork.IP.String()
 			}
 
 			if len(microOvnBootstrapConf) > 0 {

@@ -67,14 +67,14 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
 	}
 
-	err = cfg.askAddress(c.flagInitiatorAddress)
-	if err != nil {
-		return err
-	}
-
 	cfg.name, err = os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
+	}
+
+	err = cfg.askAddress(c.flagInitiatorAddress)
+	if err != nil {
+		return err
 	}
 
 	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}

@@ -264,12 +264,18 @@ func (c *initConfig) askAddress(filterAddress string) error {
 	}
 
 	if subnet == nil {
-		return fmt.Errorf("Cloud not find valid subnet for address %q", listenAddr)
+		return fmt.Errorf("Could not find valid subnet for address %q", listenAddr)
 	}
 
 	c.address = listenAddr
 	c.lookupIface = iface
 	c.lookupSubnet = subnet
+
+	bootstrapSystem, ok := c.systems[c.name]
+	if ok {
+		bootstrapSystem.MicroCloudInternalNetwork = &Network{Interface: *iface, Subnet: c.lookupSubnet, IP: net.IP(listenAddr)}
+		c.systems[c.name] = bootstrapSystem
+	}
 
 	return nil
 }
@@ -523,10 +529,10 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	return nil
 }
 
-func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
+func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) (map[string][][]string, error) {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// List the detected network interfaces
@@ -542,11 +548,11 @@ func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDServ
 	// we check that all the machines have at least one interface to sustain the Ceph network
 	for systemName := range c.systems {
 		if len(validatedCephInterfacesData[systemName]) == 0 {
-			return fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
+			return nil, fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
 		}
 	}
 
-	return nil
+	return validatedCephInterfacesData, nil
 }
 
 // getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
@@ -1149,7 +1155,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	var ovnUnderlaySelectedIPs map[string]string
+	var ovnUnderlaySelectedNets map[string]*Network
 	ovnUnderlayData := [][]string{}
 	for peer, system := range c.systems {
 		// skip any systems that have already been clustered, but are available for other configuration.
@@ -1175,7 +1181,6 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 		if wantsDedicatedUnderlay {
 			header = []string{"LOCATION", "IFACE", "TYPE", "IP ADDRESS (CIDR)"}
-			ovnUnderlaySelectedIPs = map[string]string{}
 			err = c.askRetry("Retry selecting underlay network interfaces?", func() error {
 				table := tui.NewSelectableTable(header, ovnUnderlayData)
 				answers, err := table.Render(context.Background(), c.asker, "Select exactly one network interface from each cluster member:")
@@ -1183,20 +1188,22 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 					return err
 				}
 
-				ovnUnderlaySelectedIPs = map[string]string{}
+				ovnUnderlaySelectedNets = make(map[string]*Network)
 				for _, answer := range answers {
 					target := answer["LOCATION"]
 					ipAddr := answer["IP ADDRESS (CIDR)"]
-					if ovnUnderlaySelectedIPs[target] != "" {
+					ifaceName := answer["IFACE"]
+
+					if ovnUnderlaySelectedNets[target] != nil {
 						return fmt.Errorf("Failed to configure OVN underlay traffic: Selected more than one interface for target %q", target)
 					}
 
-					ip, _, err := net.ParseCIDR(ipAddr)
+					ip, ipNet, err := net.ParseCIDR(ipAddr)
 					if err != nil {
 						return err
 					}
 
-					ovnUnderlaySelectedIPs[target] = ip.String()
+					ovnUnderlaySelectedNets[target] = &Network{Interface: net.Interface{Name: ifaceName}, IP: ip, Subnet: ipNet}
 				}
 
 				return nil
@@ -1207,11 +1214,11 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	if len(ovnUnderlaySelectedIPs) > 0 {
+	if len(ovnUnderlaySelectedNets) > 0 {
 		for peer := range askSystems {
-			underlayIP, ok := ovnUnderlaySelectedIPs[peer]
+			underlayNetwork, ok := ovnUnderlaySelectedNets[peer]
 			if ok {
-				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayIP, peer)
+				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayNetwork.IP.String(), peer)
 			}
 		}
 
@@ -1248,10 +1255,10 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 			system.Networks = append(system.Networks, finalConfigs...)
 		}
 
-		if ovnUnderlaySelectedIPs != nil {
-			ovnUnderlayIpAddr, ok := ovnUnderlaySelectedIPs[peer]
+		if ovnUnderlaySelectedNets != nil {
+			ovnUnderlayNet, ok := ovnUnderlaySelectedNets[peer]
 			if ok {
-				system.OVNGeneveAddr = ovnUnderlayIpAddr
+				system.OVNGeneveNetwork = ovnUnderlayNet
 			}
 		}
 
@@ -1337,7 +1344,6 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	for name, state := range c.state {
 		if len(state.AvailableCephInterfaces) == 0 {
 			fmt.Println(tui.WarningColor(fmt.Sprintf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup", name), false))
-
 			return nil
 		}
 
@@ -1380,7 +1386,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 	if internalCephNetwork != nil {
 		if internalCephNetwork.String() != "" && internalCephNetwork.String() != c.lookupSubnet.String() {
-			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephNetwork.String())
+			_, err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1391,7 +1397,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 
 	if publicCephNetwork != nil {
 		if publicCephNetwork.String() != "" && publicCephNetwork.String() != c.lookupSubnet.String() {
-			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephNetwork.String())
+			_, err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephNetwork.String())
 			if err != nil {
 				return err
 			}
@@ -1409,15 +1415,51 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		return err
 	}
 
+	var internalCephNetworkValidatedInterfaces map[string][][]string
 	if internalCephSubnet != microCloudInternalNetworkAddrCIDR {
-		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephSubnet)
+		internalCephNetworkValidatedInterfaces, err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephSubnet)
 		if err != nil {
 			return err
 		}
 
+		_, internalCephNet, err := net.ParseCIDR(internalCephSubnet)
+		if err != nil {
+			return fmt.Errorf("Failed to parse the internal Ceph network: %w", err)
+		}
+
+		// Update systems with their internal Ceph network representation.
+		for peer, system := range c.systems {
+			peerCephValidatedInterfaces := internalCephNetworkValidatedInterfaces[peer]
+			if len(peerCephValidatedInterfaces) == 0 {
+				continue
+			}
+
+			// We assume that the first interface is the one that the user wants to use.
+			if len(peerCephValidatedInterfaces[0]) < 3 {
+				return fmt.Errorf("Ceph peer IP address for could not be found for address %q", peerCephValidatedInterfaces[0])
+			}
+
+			cephPeerIP := net.ParseIP(peerCephValidatedInterfaces[0][2])
+			if cephPeerIP == nil {
+				// Attempt to parse the IP address as a CIDR.
+				cephPeerIP, _, err = net.ParseCIDR(peerCephValidatedInterfaces[0][2])
+				if err != nil {
+					return fmt.Errorf("Could not parse either Ceph peer IP nor Ceph peer CIDR notation for address %q: %v", peerCephValidatedInterfaces[0][2], err)
+				}
+			}
+
+			system.MicroCephInternalNetwork = &Network{Interface: net.Interface{Name: peerCephValidatedInterfaces[0][1]}, Subnet: internalCephNet, IP: cephPeerIP}
+			c.systems[peer] = system
+		}
+	} else {
+		// This is to avoid the situation where the internal network for Ceph has been skipped, but the public network has been set.
+		// Ceph will automatically set the internal network to the public Ceph network if the internal network is not set, which is not what we want.
+		// Instead, we still want to keep the internal Ceph network to use the MicroCloud internal network as a default.
 		bootstrapSystem := c.systems[sh.Name]
-		bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephSubnet
-		c.systems[sh.Name] = bootstrapSystem
+		for peer, system := range c.systems {
+			system.MicroCephInternalNetwork = &Network{Interface: bootstrapSystem.MicroCloudInternalNetwork.Interface, Subnet: bootstrapSystem.MicroCloudInternalNetwork.Subnet, IP: bootstrapSystem.MicroCloudInternalNetwork.IP}
+			c.systems[peer] = system
+		}
 	}
 
 	publicCephSubnet, err := c.asker.AskString("What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on?", internalCephSubnet, validate.IsNetwork)
@@ -1425,24 +1467,51 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		return err
 	}
 
-	if publicCephSubnet != internalCephSubnet {
-		err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephSubnet)
+	var publicCephNetworkValidatedInterfaces map[string][][]string
+	if publicCephSubnet != internalCephSubnet && publicCephSubnet != microCloudInternalNetworkAddrCIDR {
+		publicCephNetworkValidatedInterfaces, err = c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, publicCephSubnet)
 		if err != nil {
 			return err
 		}
+	} else if publicCephSubnet == internalCephSubnet {
+		publicCephNetworkValidatedInterfaces = internalCephNetworkValidatedInterfaces
 	}
 
 	if publicCephSubnet != microCloudInternalNetworkAddrCIDR {
-		bootstrapSystem := c.systems[sh.Name]
-		bootstrapSystem.MicroCephPublicNetworkSubnet = publicCephSubnet
-		c.systems[sh.Name] = bootstrapSystem
+		_, publicCephNet, err := net.ParseCIDR(publicCephSubnet)
+		if err != nil {
+			return fmt.Errorf("Failed to parse the public Ceph network: %w", err)
+		}
 
-		// This is to avoid the situation where the internal network for Ceph has been skipped, but the public network has been set.
-		// Ceph will automatically set the internal network to the public Ceph network if the internal network is not set, which is not what we want.
-		// Instead, we still want to keep the internal Ceph network to use the MicroCloud internal network as a default.
-		if internalCephSubnet == microCloudInternalNetworkAddrCIDR {
-			bootstrapSystem.MicroCephInternalNetworkSubnet = microCloudInternalNetworkAddrCIDR
-			c.systems[sh.Name] = bootstrapSystem
+		// Update systems with their public Ceph network representation.
+		for peer, system := range c.systems {
+			peerCephValidatedInterfaces := publicCephNetworkValidatedInterfaces[peer]
+			if len(peerCephValidatedInterfaces) == 0 {
+				continue
+			}
+
+			// We assume that the first interface is the one that the user wants to use.
+			if len(peerCephValidatedInterfaces[0]) < 3 {
+				return fmt.Errorf("Ceph peer IP address for could not be found for address %q", peerCephValidatedInterfaces[0])
+			}
+
+			cephPeerIP := net.ParseIP(peerCephValidatedInterfaces[0][2])
+			if cephPeerIP == nil {
+				// Attempt to parse the IP address as a CIDR.
+				cephPeerIP, _, err = net.ParseCIDR(peerCephValidatedInterfaces[0][2])
+				if err != nil {
+					return fmt.Errorf("Could not parse either Ceph public IP nor Ceph peer CIDR notation for address %q: %v", peerCephValidatedInterfaces[0][2], err)
+				}
+			}
+
+			system.MicroCephPublicNetwork = &Network{Interface: net.Interface{Name: peerCephValidatedInterfaces[0][1]}, Subnet: publicCephNet, IP: cephPeerIP}
+			c.systems[peer] = system
+		}
+	} else {
+		bootstrapSystem := c.systems[sh.Name]
+		for peer, system := range c.systems {
+			system.MicroCephPublicNetwork = &Network{Interface: bootstrapSystem.MicroCloudInternalNetwork.Interface, Subnet: bootstrapSystem.MicroCloudInternalNetwork.Subnet, IP: bootstrapSystem.MicroCloudInternalNetwork.IP}
+			c.systems[peer] = system
 		}
 	}
 
