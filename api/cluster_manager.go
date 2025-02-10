@@ -1,0 +1,263 @@
+package api
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+
+	"github.com/canonical/lxd/lxd/response"
+	"github.com/canonical/lxd/shared"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/database"
+	"github.com/canonical/microcloud/microcloud/service"
+)
+
+const updateIntervalDefaultValue = "60"
+
+// ClusterManagersJoinCmd represents the /1.0/cluster-managers API on MicroCloud.
+var ClusterManagersJoinCmd = func(sh *service.Handler) rest.Endpoint {
+	return rest.Endpoint{
+		Path: "cluster-managers",
+
+		Post: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPost(sh))},
+	}
+}
+
+// ClusterManagersCmd represents the /1.0/cluster-managers/default API on MicroCloud.
+// We hardcode default as the name, this can be weakened later to support multiple cluster managers.
+var ClusterManagersCmd = func(sh *service.Handler) rest.Endpoint {
+	return rest.Endpoint{
+		Path: "cluster-managers/default",
+
+		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerDelete(sh))},
+		Get:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerGet)},
+		Put:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPut)},
+	}
+}
+
+// clusterManagerGet returns the cluster manager configuration.
+func clusterManagerGet(state state.State, r *http.Request) response.Response {
+	clusterManager, updateIntervalConfig, err := database.LoadClusterManagerConfig(state, r.Context())
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	if clusterManager.Addresses == "" {
+		return response.SyncResponse(true, types.ClusterManagerGet{})
+	}
+
+	var updateInterval string
+	if len(updateIntervalConfig) > 0 {
+		updateInterval = updateIntervalConfig[0].Value
+	}
+
+	resp := types.ClusterManagerGet{
+		Addresses:               []string{clusterManager.Addresses},
+		CertificateFingerprint:  clusterManager.CertificateFingerprint,
+		StatusLastSuccessTime:   clusterManager.StatusLastSuccessTime,
+		StatusLastErrorTime:     clusterManager.StatusLastErrorTime,
+		StatusLastErrorResponse: clusterManager.StatusLastErrorResponse,
+		UpdateInterval:          updateInterval,
+	}
+
+	return response.SyncResponse(true, resp)
+}
+
+// clusterManagerPost creates a new cluster manager configuration from a token.
+func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
+	return func(state state.State, r *http.Request) response.Response {
+		args := types.ClusterManagersPost{}
+		err := json.NewDecoder(r.Body).Decode(&args)
+		if err != nil {
+			return response.BadRequest(err)
+		}
+
+		if args.Token == "" {
+			return response.BadRequest(errors.New("No token provided"))
+		}
+
+		if args.Name != database.ClusterManagerDefaultName {
+			return response.BadRequest(errors.New("Invalid cluster manager name, only " + database.ClusterManagerDefaultName + " is allowed."))
+		}
+
+		joinToken, err := shared.JoinTokenDecode(args.Token)
+		if err != nil {
+			return response.BadRequest(err)
+		}
+
+		// ensure cluster manager is not already configured
+		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			isConfigured, err := database.ClusterManagerIsConfigured(state, ctx)
+			if err != nil {
+				return err
+			}
+
+			if isConfigured {
+				return errors.New("Cluster manager already configured.")
+			}
+
+			return nil
+		})
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		clusterManager := database.ClusterManager{
+			Name:                   args.Name,
+			Addresses:              strings.Join(joinToken.Addresses, ","),
+			CertificateFingerprint: joinToken.Fingerprint,
+		}
+
+		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		clusterCert, err := cloud.ClusterCert()
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		// register in remote cluster manager (also ensures the token is valid)
+		clusterManagerClient := client.NewClusterManagerClient(&clusterManager)
+		err = clusterManagerClient.PostJoin(clusterCert, joinToken.ServerName, args.Token)
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		updateIntervalConfig := database.ClusterManagerConfig{
+			Key:   database.UpdateIntervalKey,
+			Value: updateIntervalDefaultValue,
+		}
+
+		// store cluster manager configuration in local database
+		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			clusterManagerId, err := database.CreateClusterManager(ctx, tx, clusterManager)
+			if err != nil {
+				return err
+			}
+
+			updateIntervalConfig.ClusterManagerID = clusterManagerId
+
+			_, err = database.CreateClusterManagerConfig(ctx, tx, updateIntervalConfig)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		return response.SyncResponse(true, nil)
+	}
+}
+
+// clusterManagerPut updates the cluster manager configuration.
+func clusterManagerPut(state state.State, r *http.Request) response.Response {
+	args := types.ClusterManagerPut{}
+	err := json.NewDecoder(r.Body).Decode(&args)
+	if err != nil {
+		return response.BadRequest(err)
+	}
+
+	clusterManager, updateIntervalConfig, err := database.LoadClusterManagerConfig(state, r.Context())
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	hasChangedAddress := len(args.Addresses) > 0
+	if hasChangedAddress {
+		clusterManager.Addresses = strings.Join(args.Addresses, ",")
+	}
+
+	hasChangedFingerprint := args.CertificateFingerprint != nil
+	if hasChangedFingerprint {
+		clusterManager.CertificateFingerprint = *args.CertificateFingerprint
+	}
+
+	err = state.Database().Transaction(r.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if hasChangedAddress || hasChangedFingerprint {
+			err = database.UpdateClusterManager(ctx, tx, clusterManager.ID, *clusterManager)
+			if err != nil {
+				return err
+			}
+		}
+
+		if args.UpdateInterval == nil {
+			return nil
+		}
+
+		if *args.UpdateInterval == "" && len(updateIntervalConfig) > 0 {
+			// clear update interval
+			err = database.DeleteClusterManagerConfig(ctx, tx, updateIntervalConfig[0].ID)
+			if err != nil {
+				return err
+			}
+		} else if *args.UpdateInterval != "" && len(updateIntervalConfig) == 0 {
+			// create update interval
+			_, err = database.CreateClusterManagerConfig(ctx, tx, database.ClusterManagerConfig{
+				ClusterManagerID: clusterManager.ID,
+				Key:              database.UpdateIntervalKey,
+				Value:            *args.UpdateInterval,
+			})
+			if err != nil {
+				return err
+			}
+		} else if *args.UpdateInterval != "" && len(updateIntervalConfig) > 0 {
+			// update update interval
+			updateIntervalConfig[0].Value = *args.UpdateInterval
+			err = database.UpdateClusterManagerConfig(ctx, tx, updateIntervalConfig[0].ID, updateIntervalConfig[0])
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return response.SmartError(err)
+	}
+
+	return response.SyncResponse(true, nil)
+}
+
+// clusterManagerDelete clears the cluster manager configuration.
+func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
+	return func(state state.State, r *http.Request) response.Response {
+		clusterManager, _, err := database.LoadClusterManagerConfig(state, r.Context())
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err = database.DeleteClusterManager(ctx, tx, clusterManager.ID)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		clusterCert, err := cloud.ClusterCert()
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		clusterManagerClient := client.NewClusterManagerClient(clusterManager)
+		err = clusterManagerClient.Delete(clusterCert)
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		return response.SyncResponse(true, nil)
+	}
+}

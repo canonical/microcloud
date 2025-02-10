@@ -98,6 +98,12 @@ func main() {
 	var cmdWaitready = cmdWaitready{common: &commonCmd}
 	app.AddCommand(cmdWaitready.Command())
 
+	hasClusterManager := os.Getenv("FEATURE_CLUSTER_MANAGER")
+	if hasClusterManager == "true" {
+		var cmdClusterManager = cmdClusterManager{common: &commonCmd}
+		app.AddCommand(cmdClusterManager.Command())
+	}
+
 	app.InitDefaultHelpCmd()
 
 	app.SetErr(&tui.ColorErr{})
