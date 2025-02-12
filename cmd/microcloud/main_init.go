@@ -123,6 +123,7 @@ type cmdInit struct {
 	flagSessionTimeout int64
 }
 
+// Command returns the subcommand for initializing a MicroCloud.
 func (c *cmdInit) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
@@ -136,6 +137,7 @@ func (c *cmdInit) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for initializing a MicroCloud.
 func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
@@ -158,6 +160,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	return cfg.RunInteractive(cmd, args)
 }
 
+// RunInteractive runs the interactive subcommand for initializing a MicroCloud.
 func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	fmt.Println("Waiting for services to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
