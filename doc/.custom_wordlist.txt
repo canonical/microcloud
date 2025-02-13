@@ -33,6 +33,7 @@ MicroOVN
 multicast
 NAT
 NIC
+NICs
 NVMe
 OVN
 OVS
