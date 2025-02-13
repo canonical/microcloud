@@ -11,7 +11,7 @@ The reference material in this section provides technical descriptions of MicroC
 
 MicroCloud supports up to 50 machines as members of the same cluster.
 
-- For testing and development, a single machine (physical or virtual) can be used to create a cluster. 
+- For testing and development, a single machine (physical or virtual) can be used to create a cluster.
 
 - For production environments, a minimum of 3 physical machines is required as cluster members. We do not recommend using virtual machines as cluster members in production.
 
@@ -21,7 +21,7 @@ MicroCloud supports up to 50 machines as members of the same cluster.
 If you want to add further members to a cluster after initialisation, use the {command}`microcloud add` command.
 ```
 
-You can mix different processor architectures within the same MicroCloud cluster. 
+You can mix different processor architectures within the same MicroCloud cluster.
 
 Each cluster member must have at least 8 GiB of RAM (more depending on the connected disks). We recommend at least 32 GiB of RAM for production environments.
 
@@ -52,7 +52,7 @@ For production environments, we recommend at least 3 NVMe disks per cluster memb
 
 If you intend to use full disk encryption on any cluster member, the `dm-crypt` kernel module must be available, and the snap `dm-crypt` plug must be connected to MicroCeph. The `dm-crypt` module is available by default in Ubuntu 24.04 and higher.
 
-For further information, see the Prerequisites section of this page: {doc}`microceph:explanation/full-disk-encryption`. Note that the command shown on that page to connect the snap `dm-crypt` plug can only be performed once MicroCeph is installed. The MicroCloud installation steps include installing MicroCeph; thus, {ref}`install MicroCloud first<howto-install>`, then connect the plug. 
+For further information, see the Prerequisites section of this page: {doc}`microceph:explanation/full-disk-encryption`. Note that the command shown on that page to connect the snap `dm-crypt` plug can only be performed once MicroCeph is installed. The MicroCloud installation steps include installing MicroCeph; thus, {ref}`install MicroCloud first<howto-install>`, then connect the plug.
 
 (network-requirements)=
 ### Networking requirements
@@ -83,10 +83,12 @@ Network interface to connect to the uplink network
 
 #### Optional network interfaces
 
-Additional network interfaces are required to implement either of the following optional setups:
+MicroCloud needs additional network interfaces to implement either of the following optional setups:
 
 - Dedicated networks for Ceph: see {ref}`howto-ceph-networking`
 - Dedicated underlay network for OVN traffic: see {ref}`howto-ovn-underlay`
+
+These interfaces can be physical {abbr}`NICs (Network Interface Cards)`, or VLAN interfaces on top of one or more physical bonded NICs.
 
 #### Uplink network
 
@@ -100,7 +102,7 @@ The IP addresses of the cluster members must not change after installation, so t
 
 MicroCloud requires snapd version 2.59 or newer.
 
-We recommend an LTS version of Ubuntu 22.04 or newer. Production deployments subscribed to Ubuntu Pro are required to use an LTS version. 
+We recommend an LTS version of Ubuntu 22.04 or newer. Production deployments subscribed to Ubuntu Pro are required to use an LTS version.
 
 If you intend to use ZFS storage, use a non-HWE (Hardware Enabled) variant of Ubuntu 22.04.
 
