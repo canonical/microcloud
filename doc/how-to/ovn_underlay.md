@@ -1,14 +1,15 @@
 (howto-ovn-underlay)=
 # How to configure an OVN underlay network
 
-When running {command}`microcloud init`, if you decided to setup distributed networking and if you have enough at least one unused network interface per cluster member with an IP address, you are asked if you want to configure an underlay network for OVN.
-Here is the question you will be asked:
+For an explanation of the benefits of using an OVN underlay network, see {ref}`exp-networking-ovn-underlay`. 
+
+When running {command}`microcloud init`, if you chose to set up distributed networking and if you have enough at least one unused network interface per cluster member with an IP address, MicroCloud asks if you want to configure an underlay network for OVN:
 
 `Configure dedicated underlay networking? (yes/no) [default=no]: <answer>`
 
-You can choose to skip this question (just hit `Enter`). This will then use the internal MicroCloud network as an OVN 'underlay', which is the same as the OVN management network ('overlay' network).
+You can choose to skip this question (just hit `Enter`). MicroCloud then uses its internal network as an OVN 'underlay', which is the same as the OVN management network ('overlay' network).
 
-You could also choose to configure a dedicated underlay network for OVN with typing `yes`. A list of available network interfaces with an IP address will be displayed.
+You could also choose to configure a dedicated underlay network for OVN by typing `yes`. A list of available network interfaces with an IP address will be displayed.
 You can then select one network interface per cluster member to be used as the interfaces for the underlay network of OVN.
 
 The following instructions build on the {ref}`get-started` tutorial and show how you can test setting up a MicroCloud with an OVN underlay network.
