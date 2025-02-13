@@ -14,6 +14,7 @@ type cmdSQL struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand for sql queries.
 func (c *cmdSQL) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sql <query>",
@@ -24,6 +25,7 @@ func (c *cmdSQL) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for sql queries.
 func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		err := cmd.Help()

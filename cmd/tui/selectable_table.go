@@ -15,8 +15,8 @@ import (
 // RemoveMsg is a table notification that returns a row index of the table to remove.
 type RemoveMsg int
 
-// TODO: Use DisableMsg to inform the initiator when a joiner's websocket has closed.
 // DisableMsg is a table notification that returns a row index of the table to disable.
+// TODO: Use DisableMsg to inform the initiator when a joiner's websocket has closed.
 type DisableMsg int
 
 // EnableMsg is a table notification that returns a row index of the table to enable, if it was disabled.
