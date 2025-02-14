@@ -109,11 +109,11 @@ Complete the following steps to initialise MicroCloud:
       You must select one network interface per machine.
    1. If you want to use IPv4, specify the IPv4 gateway on the uplink network (in CIDR notation) and the first and last IPv4 address in the range that you want to use with LXD.
    1. If you want to use IPv6, specify the IPv6 gateway on the uplink network (in CIDR notation).
-   1. If you chose to set up distributed networking, you can choose to setup an underlay network for the distributed networking:
+   1. If you chose to set up distributed networking, you can optionally set up an underlay network for the distributed networking (for an explanation of the benefits, see {ref}`exp-networking-ovn-underlay`):
 
       If you choose ``yes``, configure the underlay network:
 
-      1. Select the network interfaces that you want to use (see {ref}`microcloud-networking-underlay`).
+      1. Select the network interfaces that you want to use.
 
          You must select one network interface with an IP address per machine.
 1. MicroCloud now starts to bootstrap the cluster.
