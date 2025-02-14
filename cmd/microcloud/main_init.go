@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -53,19 +54,24 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
-	MicroCephPublicNetworkSubnet string
-	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	MicroCephInternalNetworkSubnet string
+	// MicroCephPublicNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network and
+	// the network interface name to use for the Ceph public network and its IP address within the subnet.
+	MicroCephPublicNetwork *Network
+	// MicroCephInternalNetwork contains an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network and
+	// the network interface name to use for the Ceph cluster network and its IP address within the subnet.
+	MicroCephInternalNetwork *Network
+	// MicroCloudInternalNetwork contains the network configuration for the MicroCloud internal network.
+	MicroCloudInternalNetwork *Network
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
 	// TargetStoragePools contains the storage pool configuration for the target system.
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
-	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
+	// OVNGeneveNetwork contains an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
 	// If left empty, the system will choose to route the Geneve traffic through the management network.
-	OVNGeneveAddr string
+	// It also contains the network interface name to use for the OVN Geneve tunnel and the network subnet.
+	OVNGeneveNetwork *Network
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -173,11 +179,6 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.askAddress("")
-	if err != nil {
-		return err
-	}
-
 	c.name, err = os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
@@ -188,6 +189,11 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 			Name:    c.name,
 			Address: c.address,
 		},
+	}
+
+	err = c.askAddress("")
+	if err != nil {
+		return err
 	}
 
 	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
@@ -263,7 +269,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	c.state[c.name] = *state
 	fmt.Println("Gathering system information ...")
-	for _, system := range c.systems {
+	for peer, system := range c.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
 			continue
 		}
@@ -274,6 +280,12 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		}
 
 		c.state[system.ServerInfo.Name] = *state
+
+		// Initialize MicroCloud network for other peers.
+		err = populateMicroCloudNetworkFromState(state, peer, &system, c.lookupSubnet)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Ensure LXD is not already clustered if we are running `microcloud init`.
@@ -305,7 +317,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = c.validateSystems(s)
+	err = c.validateSystems(s, false)
 	if err != nil {
 		return err
 	}
@@ -317,6 +329,38 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	if c.setupMany {
 		reverter.Success()
+	}
+
+	return nil
+}
+
+func populateMicroCloudNetworkFromState(state *service.SystemInformation, peer string, system *InitSystem, lookupSubnet *net.IPNet) error {
+	isLookupSubnetV4 := lookupSubnet.IP.To4() != nil
+microCloudPeerIfaceFound:
+	for iface, network := range state.AvailableMicroCloudInterfaces {
+		for _, addr := range network.Addresses {
+			ip, _, err := net.ParseCIDR(addr)
+			if err != nil {
+				return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", addr, err)
+			}
+
+			isAddrV4 := ip.To4() != nil
+			// check if ip is in the same subnet as the lookupSubnet
+			// and that they both are ipv4 or both ipv6
+			if (isLookupSubnetV4 == isAddrV4 || !isLookupSubnetV4 == !isAddrV4) && lookupSubnet.Contains(ip) {
+				system.MicroCloudInternalNetwork = &Network{
+					Interface: net.Interface{Name: iface},
+					Subnet:    lookupSubnet,
+					IP:        ip,
+				}
+
+				break microCloudPeerIfaceFound
+			}
+		}
+	}
+
+	if system.MicroCloudInternalNetwork == nil {
+		return fmt.Errorf("Failed to initialize a suitable network interface for MicroCloud on %q", peer)
 	}
 
 	return nil
@@ -391,9 +435,9 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			CephConfig: info.MicroCephDisks,
 		}
 
-		if info.OVNGeneveAddr != "" {
+		if info.OVNGeneveNetwork != nil {
 			p := joinConfig[peer]
-			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveNetwork.IP.String()}
 			joinConfig[peer] = p
 		}
 	}
@@ -548,26 +592,140 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 	return ovnIPRanges, nil
 }
 
-func (c *initConfig) validateSystems(s *service.Handler) (err error) {
-	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
-			continue
+// detectSharedNetworks checks for shared networks across systems.
+// This tracks subnet usage across all systems using a global map and ensure shared networks are
+// detected when different systems use the same subnet for different network types.
+// This also flag shared interfaces within each individual system.
+func detectSharedNetworks(systems map[string]InitSystem) []string {
+	// sharedSubnetsMap maps a subnet CIDR notation to a map of subnet type to peer names.
+	//
+	// Example:
+	// {
+	//   "10.0.1.0/24": {
+	//       "OVN underlay": ["system1", "system2"],
+	//       "Ceph cluster network": ["system3"]
+	//    },
+	//   "10.0.2.0/24": {
+	//        "Ceph public network": ["system1", "system2", "system3"],
+	//    }
+	// }
+	//
+	// In this example, the subnet "10.0.1.0/24" is shared for different service types:
+	//  - system1 and system2 are using it for the OVN underlay, whereas system3 is using it for the Ceph cluster network.
+	// Everything is fine for the subnet "10.0.2.0/24" as all systems are using it for the Ceph public network.
+	sharedSubnetsMap := make(map[string]map[string]struct{})
+	sharedInterfacesMap := make(map[string]map[string]map[string]struct{})
+	subnetToGlobalTypes := make(map[string]map[string]struct{})
+
+	sortedKeys := func(set map[string]struct{}) []string {
+		keys := make([]string, 0, len(set))
+		for k := range set {
+			keys = append(keys, k)
 		}
 
-		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
-		if err != nil {
-			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
+		sort.Strings(keys)
+		return keys
+	}
+
+	for sysName, sys := range systems {
+		netTypeToNet := map[string]*Network{
+			"Ceph cluster network":        sys.MicroCephInternalNetwork,
+			"OVN underlay network":        sys.OVNGeneveNetwork,
+			"MicroCloud internal network": sys.MicroCloudInternalNetwork,
 		}
 
-		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
-		if underlayIP == nil {
-			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
+		sharedInterfacesMap[sysName] = make(map[string]map[string]struct{})
+		if sys.MicroCephPublicNetwork != nil {
+			netTypeToNet["Ceph public network"] = sys.MicroCephPublicNetwork
 		}
 
-		if subnet.Contains(underlayIP) {
-			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String()))
+		// Track shared interfaces (local to each system)
+		interfaceToTypes := make(map[string][]string)
+		for netType, net := range netTypeToNet {
+			if net == nil {
+				continue
+			}
 
-			break
+			interfaceToTypes[net.Interface.Name] = append(interfaceToTypes[net.Interface.Name], netType)
+		}
+
+		for iface, types := range interfaceToTypes {
+			if len(types) > 1 {
+				_, ok := sharedInterfacesMap[sysName][iface]
+				if !ok {
+					sharedInterfacesMap[sysName][iface] = make(map[string]struct{})
+				}
+
+				for _, t := range types {
+					sharedInterfacesMap[sysName][iface][t] = struct{}{}
+				}
+			}
+		}
+
+		// Track subnets globally across systems
+		for netType, net := range netTypeToNet {
+			if net == nil {
+				continue
+			}
+
+			if net.Subnet == nil {
+				continue
+			}
+
+			subnetStr := net.Subnet.String()
+			_, exists := subnetToGlobalTypes[subnetStr]
+			if !exists {
+				subnetToGlobalTypes[subnetStr] = make(map[string]struct{})
+			}
+
+			subnetToGlobalTypes[subnetStr][netType] = struct{}{}
+		}
+	}
+
+	// Build shared subnets from global subnets
+	for subnet, types := range subnetToGlobalTypes {
+		if len(types) > 1 {
+			sharedSubnetsMap[subnet] = types
+		}
+	}
+
+	warnings := make([]string, 0)
+
+	// Format shared interfaces
+	for sysName, ifaceTotypesSet := range sharedInterfacesMap {
+		for iface, typesSet := range ifaceTotypesSet {
+			types := sortedKeys(typesSet)
+			warnings = append(warnings, tui.Printf(
+				tui.Fmt{Arg: "%s sharing network interface %s on %s"},
+				tui.Fmt{Arg: strings.Join(types, ", ")},
+				tui.Fmt{Arg: iface, Color: tui.Yellow, Bold: true},
+				tui.Fmt{Arg: sysName, Color: tui.Yellow, Bold: true},
+			))
+		}
+	}
+
+	// Format shared subnets
+	for subnet, typesSet := range sharedSubnetsMap {
+		types := sortedKeys(typesSet)
+		warnings = append(warnings, tui.Printf(
+			tui.Fmt{Arg: "%s sharing subnet %s"},
+			tui.Fmt{Arg: strings.Join(types, ", ")},
+			tui.Fmt{Arg: subnet, Color: tui.Yellow, Bold: true},
+		))
+	}
+
+	return warnings
+}
+
+func (c *initConfig) validateSystems(s *service.Handler, preseed bool) (err error) {
+	sharedNetworkNotifications := detectSharedNetworks(c.systems)
+	// Only show potential shared network notifications if we use an interactive setup.
+	if !preseed {
+		fmt.Println("Checking network configuration ...")
+		if len(sharedNetworkNotifications) > 0 {
+			for _, notification := range sharedNetworkNotifications {
+				fmt.Println(tui.SummarizeResult(notification))
+			}
 		}
 	}
 
@@ -697,12 +855,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroCeph {
 			microCephBootstrapConf := make(map[string]string)
-			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
-				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			if bootstrapSystem.MicroCephInternalNetwork != nil {
+				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetwork.Subnet.String()
 			}
 
-			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
-				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
+			if bootstrapSystem.MicroCephPublicNetwork != nil {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetwork.Subnet.String()
 			}
 
 			if len(microCephBootstrapConf) > 0 {
@@ -712,8 +870,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroOVN {
 			microOvnBootstrapConf := make(map[string]string)
-			if bootstrapSystem.OVNGeneveAddr != "" {
-				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveAddr
+			if bootstrapSystem.OVNGeneveNetwork != nil {
+				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveNetwork.IP.String()
 			}
 
 			if len(microOvnBootstrapConf) > 0 {

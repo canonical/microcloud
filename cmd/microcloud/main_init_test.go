@@ -1,9 +1,11 @@
 package main
 
 import (
+	"net"
 	"testing"
 
 	lxdAPI "github.com/canonical/lxd/shared/api"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
@@ -53,7 +55,7 @@ func ensureValidateSystemsPasses(handler *service.Handler, testSystems map[strin
 		systems := newTestSystemsMap(system)
 		cfg := initConfig{systems: systems, bootstrap: true}
 
-		err := cfg.validateSystems(handler)
+		err := cfg.validateSystems(handler, false)
 		if err != nil {
 			t.Fatalf("Valid system %q failed validate: %s", testName, err)
 		}
@@ -65,7 +67,7 @@ func ensureValidateSystemsFails(handler *service.Handler, testSystems map[string
 		systems := newTestSystemsMap(system)
 		cfg := initConfig{systems: systems, bootstrap: true}
 
-		err := cfg.validateSystems(handler)
+		err := cfg.validateSystems(handler, false)
 		if err == nil {
 			t.Fatalf("Invalid system %q passed validation", testName)
 		}
@@ -200,7 +202,7 @@ func TestValidateSystemsMultiSystem(t *testing.T) {
 	systems := newTestSystemsMap(sys1, sys2)
 	cfg := initConfig{systems: systems, bootstrap: true}
 
-	err := cfg.validateSystems(handler)
+	err := cfg.validateSystems(handler, false)
 	if err == nil {
 		t.Fatalf("sys2 with conflicting management IP and ipv4.ovn.ranges passed validation")
 	}
@@ -221,8 +223,141 @@ func TestValidateSystemsMultiSystem(t *testing.T) {
 	systems = newTestSystemsMap(sys3, sys4)
 	cfg = initConfig{systems: systems, bootstrap: true}
 
-	err = cfg.validateSystems(handler)
+	err = cfg.validateSystems(handler, false)
 	if err == nil {
 		t.Fatalf("sys4 with conflicting management IP and ipv6.ovn.ranges passed validation")
+	}
+}
+
+func newNetwork(ifaceName, ipStr string) *Network {
+	ip, subnet, _ := net.ParseCIDR(ipStr)
+	return &Network{
+		Interface: net.Interface{Name: ifaceName},
+		IP:        ip,
+		Subnet:    subnet,
+	}
+}
+
+func TestValidateSystemsNetworkCollision(t *testing.T) {
+	tests := []struct {
+		name             string
+		systems          map[string]InitSystem
+		expectedWarnings []string
+	}{
+		{
+			name: "no collisions",
+			systems: map[string]InitSystem{
+				"system1": {
+					MicroCephPublicNetwork:    newNetwork("eth0", "10.0.1.0/24"),
+					MicroCephInternalNetwork:  newNetwork("eth1", "10.0.2.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth2", "10.0.3.0/24"),
+					OVNGeneveNetwork:          newNetwork("eth3", "10.0.4.0/24"),
+				},
+				"system2": {
+					MicroCephPublicNetwork:    newNetwork("eth0", "10.1.1.0/24"),
+					MicroCephInternalNetwork:  newNetwork("eth1", "10.1.2.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth2", "10.1.3.0/24"),
+					OVNGeneveNetwork:          newNetwork("eth3", "10.1.4.0/24"),
+				},
+			},
+			expectedWarnings: nil,
+		},
+		{
+			name: "single system interface collision",
+			systems: map[string]InitSystem{
+				"system1": {
+					MicroCephInternalNetwork:  newNetwork("eth0", "10.0.1.0/24"),
+					OVNGeneveNetwork:          newNetwork("eth0", "10.0.2.0/24"), // Same interface
+					MicroCloudInternalNetwork: newNetwork("eth1", "10.0.3.0/24"),
+				},
+			},
+			expectedWarnings: []string{
+				"Ceph cluster network, OVN underlay network sharing network interface eth0 on system1",
+			},
+		},
+		{
+			name: "single system with multiple interface collisions",
+			systems: map[string]InitSystem{
+				"system1": {
+					MicroCephPublicNetwork:    newNetwork("eth0", "10.0.1.0/24"),
+					MicroCephInternalNetwork:  newNetwork("eth0", "10.0.2.0/24"),
+					OVNGeneveNetwork:          newNetwork("eth0", "10.0.3.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth0", "10.0.4.0/24"),
+				},
+			},
+			expectedWarnings: []string{
+				"Ceph cluster network, Ceph public network, MicroCloud internal network, OVN underlay network sharing network interface eth0 on system1",
+			},
+		},
+		{
+			name: "cross-system subnet collision",
+			systems: map[string]InitSystem{
+				"system1": {
+					MicroCephInternalNetwork:  newNetwork("eth0", "10.0.1.0/24"), // Same subnet
+					OVNGeneveNetwork:          newNetwork("eth1", "10.0.2.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth2", "10.0.3.0/24"),
+				},
+				"system2": {
+					OVNGeneveNetwork:          newNetwork("eth1", "10.0.1.0/24"), // Same subnet for different network type
+					MicroCloudInternalNetwork: newNetwork("eth2", "10.0.4.0/24"),
+				},
+			},
+			expectedWarnings: []string{
+				"Ceph cluster network, OVN underlay network sharing subnet 10.0.1.0/24",
+			},
+		},
+		{
+			name: "mixed interface and cross-subnet collision",
+			systems: map[string]InitSystem{
+				"system1": {
+					MicroCephInternalNetwork:  newNetwork("eth0", "10.0.1.0/24"), // Interface and subnet collision
+					OVNGeneveNetwork:          newNetwork("eth0", "10.0.1.0/24"), // Same interface and subnet
+					MicroCloudInternalNetwork: newNetwork("eth1", "10.0.2.0/24"),
+				},
+				"system2": {
+					OVNGeneveNetwork: newNetwork("eth2", "10.0.1.0/24"), // Same subnet globally
+				},
+			},
+			expectedWarnings: []string{
+				"Ceph cluster network, OVN underlay network sharing network interface eth0 on system1",
+				"Ceph cluster network, OVN underlay network sharing subnet 10.0.1.0/24",
+			},
+		},
+		{
+			name: "cross-system interface collision",
+			systems: map[string]InitSystem{
+				"system1": {
+					MicroCephInternalNetwork:  newNetwork("eth0", "10.0.1.0/24"),
+					OVNGeneveNetwork:          newNetwork("eth0", "10.0.2.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth1", "10.0.3.0/24"),
+				},
+				"system2": {
+					MicroCephInternalNetwork:  newNetwork("eth0", "10.0.1.0/24"),
+					OVNGeneveNetwork:          newNetwork("eth1", "10.0.2.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth1", "10.0.3.0/24"),
+				},
+			},
+			expectedWarnings: []string{
+				"Ceph cluster network, OVN underlay network sharing network interface eth0 on system1",
+				"MicroCloud internal network, OVN underlay network sharing network interface eth1 on system2",
+			},
+		},
+		{
+			name: "ignore systems with missing networks",
+			systems: map[string]InitSystem{
+				"system1": { // Incomplete networks (skipped in checks)
+					OVNGeneveNetwork:          newNetwork("eth0", "10.0.1.0/24"),
+					MicroCloudInternalNetwork: newNetwork("eth1", "10.0.2.0/24"),
+				},
+			},
+			expectedWarnings: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warnings := detectSharedNetworks(tt.systems)
+			assert.ElementsMatch(t, tt.expectedWarnings, warnings)
+		})
 	}
 }
