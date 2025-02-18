@@ -8,5 +8,5 @@ The explanatory guides in this section introduce you to the concepts used in Mic
 
 /explanation/microcloud
 /explanation/networking
-Initialisation process </explanation/initialisation>
+Initialization process </explanation/initialization>
 ```

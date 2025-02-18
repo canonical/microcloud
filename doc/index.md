@@ -8,7 +8,7 @@ relatedlinks: https://snapcraft.io/microcloud
 
 Deploy a scalable, low-touch cloud platform in minutes with MicroCloud.
 
-MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualisation, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
+MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
 
 With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from high availability, automatic security updates, and the advanced features of its components such as self-healing clusters and fine-grained access control. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance.
 
@@ -48,7 +48,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ```{grid-item} [Explanation](/explanation/index)
 
-**Discussion and clarification** of key topics such as {ref}`networking <explanation-networking>` and the [initialisation process](/explanation/initialisation/)
+**Discussion and clarification** of key topics such as {ref}`networking <explanation-networking>` and the [initialization process](/explanation/initialization/)
 ```
 
 ````

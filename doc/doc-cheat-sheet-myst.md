@@ -107,7 +107,7 @@ Term 2
 | Cell 1<br>Second paragraph         | Cell 2   |
 | Cell 3                             | Cell 4   |
 
-Centred:
+Centered:
 
 | Header 1                           | Header 2 |
 |:----------------------------------:|:--------:|
@@ -129,7 +129,7 @@ Centred:
   - Cell 4
 ```
 
-Centred:
+Centered:
 
 ```{list-table}
    :header-rows: 1
