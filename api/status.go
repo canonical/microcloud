@@ -18,7 +18,6 @@ import (
 	microTypes "github.com/canonical/microcluster/v2/rest/types"
 	"github.com/canonical/microcluster/v2/state"
 	ovnTypes "github.com/canonical/microovn/microovn/api/types"
-	ovnClient "github.com/canonical/microovn/microovn/client"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
@@ -195,7 +194,9 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 }
 
 func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, ovnServices []ovnTypes.Service, err error) {
-	microClient, err := s.(*service.OVNService).Client()
+	serviceOVN := s.(*service.OVNService)
+
+	microClient, err := serviceOVN.Client()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -205,7 +206,7 @@ func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTy
 		return nil, nil, err
 	}
 
-	services, err := ovnClient.GetServices(ctx, microClient)
+	services, err := serviceOVN.GetServices(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

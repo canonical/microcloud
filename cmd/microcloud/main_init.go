@@ -17,7 +17,6 @@ import (
 	"github.com/canonical/lxd/shared/revert"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -841,13 +840,9 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
-		ovn := s.Services[types.MicroOVN].(*service.OVNService)
-		client, err := ovn.Client()
-		if err != nil {
-			return err
-		}
+		serviceOVN := s.Services[types.MicroOVN].(*service.OVNService)
 
-		services, err := ovnClient.GetServices(context.Background(), client)
+		services, err := serviceOVN.GetServices(context.Background())
 		if err != nil {
 			return err
 		}
