@@ -2,10 +2,10 @@
 relatedlinks: https://en.wikipedia.org/wiki/Multicast_DNS
 ---
 
-(explanation-initialisation)=
-# About the initialisation process
+(explanation-initialization)=
+# About the initialization process
 
-See {ref}`howto-initialise` for instructions on how to set up MicroCloud.
+See {ref}`howto-initialize` for instructions on how to set up MicroCloud.
 
 (trust-establishment-session)=
 ## Trust establishment session
@@ -30,21 +30,21 @@ The scan is limited to the local subnet of the network interface you select when
 (bootstrapping-process)=
 ## Bootstrapping process
 
-After you provide the required information to {ref}`initialise MicroCloud <howto-initialise>`, MicroCloud starts bootstrapping the cluster.
+After you provide the required information to {ref}`initialize MicroCloud <howto-initialize>`, MicroCloud starts bootstrapping the cluster.
 
 The bootstrapping process consists of the following steps:
 
-1. MicroCloud initialises the first server (the one where you run the {command}`microcloud init` command) and creates the MicroCloud cluster.
+1. MicroCloud initializes the first server (the one where you run the {command}`microcloud init` command) and creates the MicroCloud cluster.
 1. MicroCloud creates the LXD cluster, the OVN cluster, and the Ceph cluster.
 1. MicroCloud issues join tokens for the other servers that are to be added to the cluster.
 1. MicroCloud sends the join tokens over the network to the other servers.
-1. The other servers initialise their services and join the MicroCloud cluster, the OVN cluster, and the Ceph cluster.
+1. The other servers initialize their services and join the MicroCloud cluster, the OVN cluster, and the Ceph cluster.
 
-   This step of forming the cluster can take several minutes, mainly because of the initialisation of MicroCeph and adding disks to the Ceph cluster.
+   This step of forming the cluster can take several minutes, mainly because of the initialization of MicroCeph and adding disks to the Ceph cluster.
 1. When the cluster is formed, MicroCloud configures LXD.
    It sets up networking and storage pools and configures the default profile to use the created OVN network and the distributed storage (if available).
 
-After the initialisation is complete, you can look at the LXD configuration to confirm the setup.
+After the initialization is complete, you can look at the LXD configuration to confirm the setup.
 
 ```{terminal}
 :input: lxc cluster list

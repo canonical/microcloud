@@ -44,7 +44,7 @@ The following instructions build on the {ref}`get-started` tutorial and show how
            # `X` should be a number between 2 and 254, different for each VM
            ip addr add 10.0.1.X/24 dev enp7s0
 
-1. Now, you can start the MicroCloud initialisation process and provide the subnets you noted down when asked for the OVN underlay.
+1. Now, you can start the MicroCloud initialization process and provide the subnets you noted down when asked for the OVN underlay.
 1. We will use `ovnbr0` for the OVN underlay traffic. In a production setup, you'd choose the fast subnet for this traffic:
 
            Configure dedicated underlay networking? (yes/no) [default=no]: yes
@@ -62,7 +62,7 @@ The following instructions build on the {ref}`get-started` tutorial and show how
              [ ]  | micro2   | enp7s0 | physical | fd42:5782:5902:5b9e:216:3eff:fedb:f04e/64 |
                   +----------+--------+----------+-------------------------------------------+
 
-1. The MicroCloud initialisation process will now continue as usual and the OVN cluster will be configured with the underlay network you provided.
+1. The MicroCloud initialization process will now continue as usual and the OVN cluster will be configured with the underlay network you provided.
 1. You can now inspect the OVN underlay setup:
 
    1. Inspect the OVN southbound encapsulation parameters:
