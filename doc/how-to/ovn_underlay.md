@@ -3,7 +3,7 @@
 
 For an explanation of the benefits of using an OVN underlay network, see {ref}`exp-networking-ovn-underlay`. 
 
-When running {command}`microcloud init`, if you chose to set up distributed networking and if you have enough at least one unused network interface per cluster member with an IP address, MicroCloud asks if you want to configure an underlay network for OVN:
+When running {command}`microcloud init`, if you chose to set up distributed networking and you have at least one network interface per cluster member with an IP address, MicroCloud asks if you want to configure an underlay network for OVN:
 
 `Configure dedicated underlay networking? (yes/no) [default=no]: <answer>`
 
