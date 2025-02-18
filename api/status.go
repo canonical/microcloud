@@ -13,7 +13,6 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	cephClient "github.com/canonical/microceph/microceph/client"
 	microClient "github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/rest"
 	microTypes "github.com/canonical/microcluster/v2/rest/types"
@@ -150,7 +149,9 @@ func statusGet(sh *service.Handler) endpointHandler {
 }
 
 func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, osds []cephTypes.Disk, cephServices []cephTypes.Service, err error) {
-	microClient, err := s.(*service.CephService).Client("")
+	cephService := s.(*service.CephService)
+
+	microClient, err := cephService.Client("")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -160,7 +161,7 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 		return nil, nil, nil, err
 	}
 
-	disks, err := cephClient.GetDisks(ctx, microClient)
+	disks, err := cephService.GetDisks(ctx, "")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -175,7 +176,7 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 		}
 	}
 
-	services, err := cephClient.GetServices(ctx, microClient)
+	services, err := cephService.GetServices(ctx, "")
 	if err != nil {
 		return nil, nil, nil, err
 	}
