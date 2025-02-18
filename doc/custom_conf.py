@@ -135,7 +135,10 @@ slug = ""
 # NOTE: If this variable is not defined, set to None, or the dictionary is empty,
 # the sphinx_reredirects extension will be disabled.
 redirects = {
-    'tutorial/index': 'get_started/'}
+    'tutorial/index': 'get_started/',
+    'explanation/initialisation': '../initialization',
+    'how-to/initialise': '../initialize'
+}
 
 ############################################################
 ### Link checker
