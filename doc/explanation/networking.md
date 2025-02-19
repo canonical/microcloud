@@ -12,7 +12,7 @@ This page describes a high-level overview of MicroCloud's networking approach, p
 
 OVN is an open source software-defined networking (SDN) solution built on [Open vSwitch (OVS)](https://www.openvswitch.org/). 
 
-MicroCloud's implementation of OVN minimises manual configuration, reducing a normally complex setup process to mere minutes. During {ref}`initialisation <howto-initialise>`, MicroCloud defaults to configuring distributed networking with {doc}`microovn:index`, which is a minimal wrapper around OVN. 
+MicroCloud's implementation of OVN minimizes manual configuration, reducing a normally complex setup process to mere minutes. During {ref}`initialization <howto-initialize>`, MicroCloud defaults to configuring distributed networking with {doc}`microovn:index`, which is a minimal wrapper around OVN. 
 
 Along with enabling communication between MicroCloud cluster members, OVN also manages key network components such as overlays, virtual routers and switches, NAT, and more. 
 
@@ -21,7 +21,7 @@ Along with enabling communication between MicroCloud cluster members, OVN also m
 
 - **Logical networks**: OVN networks are logical networks implemented in software, which means they operate independently of physical network infrastructure and allow for segmentation within the same cluster. For example, you can use separate networks for frontend and backend services.
 
-- **Distributed virtual routers and logical switches**: Data plane operations are distributed across cluster members rather than run by a centralised controller, allowing network traffic to be processed at the edge, closer to where workloads run.
+- **Distributed virtual routers and logical switches**: Data plane operations are distributed across cluster members rather than run by a centralized controller, allowing network traffic to be processed at the edge, closer to where workloads run.
 
 - **Consistent networking across locations**: Since OVN logical networks are software-defined, the same configurations can be consistently deployed across multiple clusters.
 
@@ -65,13 +65,13 @@ See the {ref}`LXD documentation on OVN networks <lxd:network-ovn>` for more info
 (exp-networking-ovn-underlay)=
 ### Dedicated underlay network
 
-During {ref}`MicroCloud initialisation <howto-initialise>`, you can choose to {ref}`configure a dedicated underlay network for OVN traffic <howto-ovn-underlay>`. This requires an additional network interface on each cluster member.
+During {ref}`MicroCloud initialization <howto-initialize>`, you can choose to {ref}`configure a dedicated underlay network for OVN traffic <howto-ovn-underlay>`. This requires an additional network interface on each cluster member.
 
 A dedicated underlay network serves as the physical infrastructure over which the virtual (overlay) network is constructed. While optional, it offers several potential benefits:
 
 - **Traffic isolation**: Keeps overlay traffic separate from management and other traffic.
-- **Reduced congestion**: Dedicating physical resources minimises network bottlenecks.
-- **Optimised performance**: Enables predictable latency and bandwidth for sensitive applications.
+- **Reduced congestion**: Dedicating physical resources minimizes network bottlenecks.
+- **Optimized performance**: Enables predictable latency and bandwidth for sensitive applications.
 - **Scalable design**: Allows the overlay network to scale independently of other networks.
 
 ### Alternatives

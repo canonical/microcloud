@@ -10,12 +10,12 @@ Check the following guidelines before contributing to the project.
 When contributing, you must adhere to the Code of Conduct.
 MicroCloud follows the [Ubuntu Code of Conduct](https://ubuntu.com/community/ethos/code-of-conduct).
 
-## Licence and copyright
+## License and copyright
 
-By default, any contribution to this project is made under the AGPLv3 licence.
-See the [licence](https://github.com/canonical/microcloud/blob/main/COPYING) in the MicroCloud GitHub repository for detailed information.
+By default, any contribution to this project is made under the AGPLv3 license.
+See the [license](https://github.com/canonical/microcloud/blob/main/COPYING) in the MicroCloud GitHub repository for detailed information.
 
-All contributors must sign the [Canonical contributor licence agreement](https://ubuntu.com/legal/contributors), which gives Canonical permission to use the contributions.
+All contributors must sign the [Canonical contributor license agreement](https://ubuntu.com/legal/contributors), which gives Canonical permission to use the contributions.
 The author of a change remains the copyright holder of their code (no copyright assignment).
 
 ## Pull requests
@@ -80,7 +80,7 @@ An example of a valid sign-off line is:
 
     Signed-off-by: Random J Developer <random@developer.org>
 
-Use a known identity and a valid e-mail address, and make sure that you have signed the [Canonical contributor licence agreement](https://ubuntu.com/legal/contributors).
+Use a known identity and a valid e-mail address, and make sure that you have signed the [Canonical contributor license agreement](https://ubuntu.com/legal/contributors).
 Sorry, no anonymous contributions are allowed.
 
 We also require each commit be individually signed-off by their author, even when part of a larger set.

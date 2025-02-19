@@ -42,7 +42,7 @@ Depending on which snap gets updated, some services of this snap (such as API en
 During an update, the snaps channel won't be modified, so the snaps are updated to the last available version inside the current channel.
 This does not introduce breaking changes and can be used on a regular basis to update a MicroCloud deployment.
 
-As MicroCloud consumes the services offered by the dependant snaps (MicroCeph, MicroOVN, and LXD), the update procedure starts by updating the list of dependencies first.
+As MicroCloud consumes the services offered by the dependent snaps (MicroCeph, MicroOVN, and LXD), the update procedure starts by updating the list of dependencies first.
 
 (howto-update-upgrade-deps)=
 ### Update the dependency snaps
@@ -104,7 +104,7 @@ During an upgrade, the snaps channel will be switched to another track.
 This might introduce breaking changes for MicroCloud and its dependencies and should be done with care.
 See {ref}`howto-update-upgrade-update` for regular non-breaking updates.
 
-As MicroCloud consumes the services offered by the dependant snaps (MicroCeph, MicroOVN and LXD), the update procedure starts by updating the list of dependencies first.
+As MicroCloud consumes the services offered by the dependent snaps (MicroCeph, MicroOVN and LXD), the update procedure starts by updating the list of dependencies first.
 
 ### Upgrade the dependency snaps
 

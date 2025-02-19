@@ -18,7 +18,7 @@ MicroCloud supports up to 50 machines as members of the same cluster.
 - For critical deployments, we recommend a minimum of 4 cluster members. While 3 members are sufficient for high availability, an extra member provides redundancy for running critical applications.
 
 ```{tip}
-If you want to add further members to a cluster after initialisation, use the {command}`microcloud add` command.
+If you want to add further members to a cluster after initialization, use the {command}`microcloud add` command.
 ```
 
 You can mix different processor architectures within the same MicroCloud cluster.
@@ -68,7 +68,7 @@ Network interface for intra-cluster traffic
 :  MicroCloud requires one network interface that is pre-configured with an IP address that is within the same subnet as the IPs of the other cluster members.
    The network that it is connected to must support multicast.
 
-   This network interface can be, for example, a dedicated physical network interface, a VLAN, or a virtual function on an {abbr}`SR-IOV (Single root I/O virtualisation)`-capable network interface.
+   This network interface can be, for example, a dedicated physical network interface, a VLAN, or a virtual function on an {abbr}`SR-IOV (Single root I/O virtualization)`-capable network interface.
    It serves as the dedicated network interface for MicroCloud and is used for multicast discovery (during setup) and all internal traffic between the MicroCloud, OVN, and Ceph members.
 
 (microcloud-networking-uplink)=
@@ -79,7 +79,7 @@ Network interface to connect to the uplink network
    MicroCloud configures this interface as an uplink interface that provides external connectivity to the MicroCloud cluster.
 
    You can specify a different interface to be used as the uplink interface for each cluster member.
-   MicroCloud requires that all uplink interfaces are connected to the uplink network, using the gateway and IP address range information that you provide during the MicroCloud initialisation process.
+   MicroCloud requires that all uplink interfaces are connected to the uplink network, using the gateway and IP address range information that you provide during the MicroCloud initialization process.
 
 #### Optional network interfaces
 

@@ -7,7 +7,7 @@
 
 Deploy a scalable, low-touch cloud platform in minutes with **MicroCloud**.
 
-MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualisation, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
+MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
 
 With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from high availability, automatic security updates, and the advanced features of its components such as self-healing clusters and fine-grained access control. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance.
 
@@ -50,13 +50,13 @@ Following the CLI prompts, a working MicroCloud will be ready within minutes.
 
 The MicroCloud snap drives three other snaps ([LXD](https://canonical-microcloud.readthedocs-hosted.com/en/latest/lxd/), [MicroCeph](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microceph/), and [MicroOVN](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microovn/)), enabling automated deployment of a highly available LXD cluster for compute, with Ceph as the storage driver and OVN as the managed network.
 
-During initialisation, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
+During initialization, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
 
 At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
 <!-- include end about -->
 
-For more information, see the MicroCloud documentation for [installation](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/install/) and [initialisation](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/initialise/). You can also [follow a tutorial](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/tutorial/get_started/) that demonstrates the basics of MicroCloud.
+For more information, see the MicroCloud documentation for [installation](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/install/) and [initialization](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/initialize/). You can also [follow a tutorial](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/tutorial/get_started/) that demonstrates the basics of MicroCloud.
 
 ## **What about networking?**
 

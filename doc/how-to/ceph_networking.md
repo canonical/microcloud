@@ -37,7 +37,7 @@ You could also decide to put both types of traffic on the same high throughput a
 :width: 100%
 ```
 
-To use a fully or partially disaggregated Ceph networking setup with your MicroCloud, specify the corresponding subnets during the MicroCloud initialisation process.
+To use a fully or partially disaggregated Ceph networking setup with your MicroCloud, specify the corresponding subnets during the MicroCloud initialization process.
 
 The following instructions build on the {ref}`get-started` tutorial and show how you can test setting up a MicroCloud with disaggregated Ceph networking inside a LXD setup.
 
@@ -89,7 +89,7 @@ The following instructions build on the {ref}`get-started` tutorial and show how
           # `X` should be a number between 2 and 254, different for each VM
           ip addr add 10.0.2.X/24 dev enp8s0
 
-1. Now, you can start the MicroCloud initialisation process and provide the subnets you noted down in step 1.c when asked for the Ceph networking subnets.
+1. Now, you can start the MicroCloud initialization process and provide the subnets you noted down in step 1.c when asked for the Ceph networking subnets.
 
 1. We will use `cephbr0` for the Ceph internal traffic and `cephbr1` for the Ceph public traffic. In a production setup, you'd choose the fast subnet for the internal Ceph traffic:
 
@@ -105,7 +105,7 @@ The following instructions build on the {ref}`get-started` tutorial and show how
        Interface "enp7s0" ("10.0.2.4") detected on cluster member "micro3"
        Interface "enp7s0" ("10.0.2.2") detected on cluster member "micro1"
 
-1. The MicroCloud initialisation process will now continue as usual and the Ceph cluster will be configured with the networking setup you provided.
+1. The MicroCloud initialization process will now continue as usual and the Ceph cluster will be configured with the networking setup you provided.
 1. You can now inspect the Ceph network setup:
 
    1. Inspect the Ceph configuration file:
