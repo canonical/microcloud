@@ -1192,10 +1192,13 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(ovnUnderlaySelectedIPs) > 0 {
+		// Add a space between the CLI and the response.
+		fmt.Println("")
+
 		for peer := range askSystems {
 			underlayIP, ok := ovnUnderlaySelectedIPs[peer]
 			if ok {
-				fmt.Printf(" Using %q for OVN underlay traffic on %q\n", underlayIP, peer)
+				fmt.Println(tui.SummarizeResult("Using %s on %s for OVN underlay traffic", underlayIP, peer))
 			}
 		}
 
