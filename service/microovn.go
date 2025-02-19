@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/microcluster"
+	ovnTypes "github.com/canonical/microovn/microovn/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -248,4 +249,21 @@ func (s *OVNService) SupportsFeature(ctx context.Context, feature string) (bool,
 	}
 
 	return server.Extensions.HasExtension(feature), nil
+}
+
+// GetServices returns the list of configured OVN services.
+func (s *OVNService) GetServices(ctx context.Context) (ovnTypes.Services, error) {
+	client, err := s.Client()
+	if err != nil {
+		return nil, err
+	}
+
+	services := ovnTypes.Services{}
+
+	err = client.Query(ctx, "GET", types.APIVersion, api.NewURL().Path("services"), nil, &services)
+	if err != nil {
+		return nil, fmt.Errorf("Failed listing services: %w", err)
+	}
+
+	return services, nil
 }

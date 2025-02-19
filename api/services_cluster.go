@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	cephClient "github.com/canonical/microceph/microceph/client"
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/gorilla/mux"
@@ -72,12 +71,9 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		// We can't remove nodes from a 2 node MicroCeph cluster if that node is still in the monmap,
 		// because MicroCeph does not clean it up properly, thus leaving the cluster broken as it tries to reach the removed node.
 		if err == nil && len(cluster) == 2 && cluster[name] != "" {
-			c, err := ceph.(*service.CephService).Client("")
-			if err != nil {
-				return response.SmartError(err)
-			}
+			cephService := ceph.(*service.CephService)
 
-			cephServices, err := cephClient.GetServices(r.Context(), c)
+			cephServices, err := cephService.GetServices(r.Context(), "")
 			if err != nil {
 				return response.SmartError(err)
 			}
@@ -118,12 +114,9 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		}
 
 		if s.Type() == types.MicroCeph {
-			c, err := ceph.(*service.CephService).Client("")
-			if err != nil {
-				return err
-			}
+			cephService := ceph.(*service.CephService)
 
-			disks, err := cephClient.GetDisks(r.Context(), c)
+			disks, err := cephService.GetDisks(r.Context(), "")
 			if err != nil {
 				return err
 			}
@@ -135,7 +128,7 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 				}
 			}
 
-			pools, err := cephClient.GetPools(r.Context(), c)
+			pools, err := cephService.GetPools(r.Context(), "")
 			if err != nil {
 				return err
 			}
@@ -152,7 +145,7 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 				poolsToUpdate = []string{""}
 			}
 
-			err = cephClient.PoolSetReplicationFactor(r.Context(), c, &cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(diskCount)})
+			err = cephService.PoolSetReplicationFactor(r.Context(), cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(diskCount)}, "")
 			if err != nil {
 				return err
 			}
