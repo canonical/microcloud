@@ -23,8 +23,8 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // Preseed represents the structure of the supported preseed yaml.
@@ -134,7 +134,7 @@ func (c *cmdPreseed) Run(cmd *cobra.Command, args []string) error {
 	cfg := initConfig{
 		common:  c.common,
 		systems: map[string]InitSystem{},
-		state:   map[string]service.SystemInformation{},
+		state:   map[string]component.SystemInformation{},
 	}
 
 	return cfg.RunPreseed(cmd)
@@ -192,7 +192,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	initiator := config.isInitiator(c.name, c.address)
 	c.bootstrap = config.isBootstrap()
 
-	fmt.Println("Waiting for services to start ...")
+	fmt.Println("Waiting for components to start ...")
 	err = checkInitialized(c.common.FlagMicroCloudDir, initiator && !c.bootstrap, true)
 	if err != nil {
 		return err
@@ -213,31 +213,31 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
-	// Build the service handler.
-	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	// Build the component handler.
+	installedComponents := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	installedServices, err = c.askMissingServices(installedServices, optionalServices)
+	installedComponents, err = c.askMissingComponents(installedComponents, optionalComponents)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedServices...)
+	s, err := component.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedComponents...)
 	if err != nil {
 		return err
 	}
 
-	services := make(map[types.ServiceType]string, len(installedServices))
-	for _, s := range s.Services {
+	components := make(map[types.ComponentType]string, len(installedComponents))
+	for _, s := range s.Components {
 		version, err := s.GetVersion(context.Background())
 		if err != nil {
 			return err
 		}
 
-		services[s.Type()] = version
+		components[s.Type()] = version
 	}
 
 	if !status.Ready && !c.bootstrap && initiator {
@@ -248,7 +248,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("MicroCloud is already initialized and can only be the initiator")
 	}
 
-	systems, err := config.Parse(s, c, services)
+	systems, err := config.Parse(s, c, components)
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	}
 
 	if !c.bootstrap {
-		peers, err := s.Services[types.MicroCloud].ClusterMembers(context.Background())
+		peers, err := s.Components[types.MicroCloud].ClusterMembers(context.Background())
 		if err != nil {
 			return err
 		}
@@ -294,16 +294,16 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 			if !ok {
 				c.systems[name] = InitSystem{
 					ServerInfo: multicast.ServerInfo{
-						Name:     name,
-						Address:  address,
-						Services: services,
+						Name:       name,
+						Address:    address,
+						Components: components,
 					},
 				}
 			}
 
 			state, ok := c.state[name]
 			if !ok {
-				state.ExistingServices = existingClusters
+				state.ExistingComponents = existingClusters
 				c.state[name] = state
 			}
 		}
@@ -609,7 +609,7 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 }
 
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
-func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map[types.ServiceType]string) (map[string]InitSystem, error) {
+func (p *Preseed) Parse(s *component.Handler, c *initConfig, installedComponents map[types.ComponentType]string) (map[string]InitSystem, error) {
 	c.systems = make(map[string]InitSystem, len(p.Systems))
 	if c.bootstrap {
 		c.systems[s.Name] = InitSystem{ServerInfo: multicast.ServerInfo{Name: s.Name}}
@@ -659,7 +659,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 	if !initiator {
 		err = c.runSession(context.Background(), s, types.SessionJoining, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.joiningSession(gw, s, installedServices, p.InitiatorAddress, p.SessionPassphrase)
+			return c.joiningSession(gw, s, installedComponents, p.InitiatorAddress, p.SessionPassphrase)
 		})
 		return nil, err
 	}
@@ -679,7 +679,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.initiatingSession(gw, s, installedServices, p.SessionPassphrase, expectedSystems)
+			return c.initiatingSession(gw, s, installedComponents, p.SessionPassphrase, expectedSystems)
 		})
 		if err != nil {
 			return nil, err
@@ -692,16 +692,16 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			return nil, err
 		}
 
-		for serviceType, cluster := range existingClusters {
+		for componentType, cluster := range existingClusters {
 			if len(cluster) > 0 {
-				fmt.Printf("Existing %s cluster is incompatible with MicroCloud, skipping %s setup\n", serviceType, serviceType)
+				fmt.Printf("Existing %s cluster is incompatible with MicroCloud, skipping %s setup\n", componentType, componentType)
 
-				delete(s.Services, serviceType)
+				delete(s.Components, componentType)
 			}
 		}
 
 		state := c.state[peer]
-		state.ExistingServices = existingClusters
+		state.ExistingComponents = existingClusters
 		c.state[peer] = state
 	}
 
@@ -714,7 +714,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		c.systems[name] = system
 	}
 
-	lxd := s.Services[types.LXD].(*service.LXDService)
+	lxd := s.Components[types.LXD].(*component.LXDComponent)
 	ifaceByPeer := map[string]string{}
 	ovnUnderlayNeeded := false
 	for _, cfg := range p.Systems {
@@ -735,7 +735,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	// If an uplink interface was explicitly chosen, we will try to set up an OVN network.
 	explicitOVN := len(ifaceByPeer) > 0
 
-	addressedInterfaces := map[string]map[string]service.DedicatedInterface{}
+	addressedInterfaces := map[string]map[string]component.DedicatedInterface{}
 	for _, system := range c.systems {
 		cert := system.ServerInfo.Certificate
 		uplinkIfaces, dedicatedIfaces, _, err := lxd.GetNetworkInterfaces(context.Background(), system.ServerInfo.Name, system.ServerInfo.Address, cert)
@@ -755,7 +755,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 		for ifaceName, iface := range dedicatedIfaces {
 			if addressedInterfaces[system.ServerInfo.Name] == nil {
-				addressedInterfaces[system.ServerInfo.Name] = map[string]service.DedicatedInterface{}
+				addressedInterfaces[system.ServerInfo.Name] = map[string]component.DedicatedInterface{}
 			}
 
 			addressedInterfaces[system.ServerInfo.Name][ifaceName] = iface
@@ -781,7 +781,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			c.systems[peer] = system
 		}
 
-		// TODO: call `s.Services[types.MicroOVN].(*service.OVNService).SupportsFeature(context.Background(), "custom_encapsulation_ip")`
+		// TODO: call `s.Components[types.MicroOVN].(*component.OVNComponent).SupportsFeature(context.Background(), "custom_encapsulation_ip")`
 		// when MicroCloud will be updated with microcluster/v2
 		// Check the preseed underlay network configuration against the available ifaces.
 		if ovnUnderlayNeeded {
@@ -821,7 +821,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 	} else {
 		// Check if FAN networking is usable.
-		fanUsable, _, err := service.FanNetworkUsable()
+		fanUsable, _, err := component.FanNetworkUsable()
 		if err != nil {
 			return nil, err
 		}
@@ -922,14 +922,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 		// Fetch system resources from LXD to find disks if we haven't directly set up disks.
 		if checkFilterZFS[peer] {
-			allResourcesZFS[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
+			allResourcesZFS[peer], err = s.Components[types.LXD].(*component.LXDComponent).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
 			}
 		}
 
 		if checkFilterCeph[peer] {
-			allResourcesCeph[peer], err = s.Services[types.LXD].(*service.LXDService).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
+			allResourcesCeph[peer], err = s.Components[types.LXD].(*component.LXDComponent).GetResources(context.Background(), peer, system.ServerInfo.Address, cert)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", peer, err)
 			}
@@ -1066,7 +1066,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	if c.bootstrap {
 		var initializedMicroCephSystem *InitSystem
 		for peer, system := range c.systems {
-			if c.state[peer].ExistingServices[types.MicroCeph][peer] != "" {
+			if c.state[peer].ExistingComponents[types.MicroCeph][peer] != "" {
 				initializedMicroCephSystem = &system
 				break
 			}
@@ -1177,7 +1177,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		for name, system := range c.systems {
 			found := false
 			for _, pool := range system.TargetStoragePools {
-				if pool.Name == service.DefaultCephPool {
+				if pool.Name == component.DefaultCephPool {
 					found = true
 				}
 			}
@@ -1188,7 +1188,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 			found = false
 			for _, pool := range system.StoragePools {
-				if pool.Name == service.DefaultCephPool {
+				if pool.Name == component.DefaultCephPool {
 					found = true
 				}
 			}
@@ -1199,7 +1199,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 			found = false
 			for _, config := range system.JoinConfig {
-				if config.Name == service.DefaultCephPool {
+				if config.Name == component.DefaultCephPool {
 					found = true
 				}
 			}

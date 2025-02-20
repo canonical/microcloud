@@ -18,48 +18,48 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/cmd/tui"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
-type cmdServices struct {
+type cmdComponents struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to manage MicroCloud services.
-func (c *cmdServices) Command() *cobra.Command {
+// Command returns the subcommand to manage MicroCloud components.
+func (c *cmdComponents) Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "service",
-		Short: "Manage MicroCloud services",
+		Use:   "component",
+		Short: "Manage MicroCloud components",
 		RunE:  func(cmd *cobra.Command, args []string) error { return cmd.Help() },
 	}
 
-	var cmdServiceList = cmdServiceList{common: c.common}
-	cmd.AddCommand(cmdServiceList.Command())
+	var cmdComponentList = cmdComponentList{common: c.common}
+	cmd.AddCommand(cmdComponentList.Command())
 
-	var cmdServiceAdd = cmdServiceAdd{common: c.common}
-	cmd.AddCommand(cmdServiceAdd.Command())
+	var cmdComponentAdd = cmdComponentAdd{common: c.common}
+	cmd.AddCommand(cmdComponentAdd.Command())
 
 	return cmd
 }
 
-type cmdServiceList struct {
+type cmdComponentList struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to list MicroCloud services.
-func (c *cmdServiceList) Command() *cobra.Command {
+// Command returns the subcommand to list MicroCloud components.
+func (c *cmdComponentList) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List MicroCloud services and their cluster members",
+		Short: "List MicroCloud components and their cluster members",
 		RunE:  c.Run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand to list MicroCloud services.
-func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
+// Run runs the subcommand to list MicroCloud components.
+func (c *cmdComponentList) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -85,8 +85,8 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	components := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
@@ -97,40 +97,40 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 		common:    c.common,
 		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
-		state:     map[string]service.SystemInformation{},
+		state:     map[string]component.SystemInformation{},
 	}
 
 	cfg.name = status.Name
 	cfg.address = status.Address.Addr().String()
 
-	services, err = cfg.askMissingServices(services, optionalServices)
+	components, err = cfg.askMissingComponents(components, optionalComponents)
 	if err != nil {
 		return err
 	}
 
-	// Instantiate a handler for the services.
-	s, err := service.NewHandler(status.Name, status.Address.Addr().String(), c.common.FlagMicroCloudDir, services...)
+	// Instantiate a handler for the components.
+	s, err := component.NewHandler(status.Name, status.Address.Addr().String(), c.common.FlagMicroCloudDir, components...)
 	if err != nil {
 		return err
 	}
 
 	mu := sync.Mutex{}
 	header := []string{"NAME", "ADDRESS", "ROLE", "STATUS"}
-	allClusters := map[types.ServiceType][][]string{}
-	err = s.RunConcurrent("", "", func(s service.Service) error {
+	allClusters := map[types.ComponentType][][]string{}
+	err = s.RunConcurrent("", "", func(s component.Component) error {
 		var err error
 		var data [][]string
 		var microClient *client.Client
 		var lxd lxd.InstanceServer
 		switch s.Type() {
 		case types.LXD:
-			lxd, err = s.(*service.LXDService).Client(context.Background())
+			lxd, err = s.(*component.LXDComponent).Client(context.Background())
 		case types.MicroCeph:
-			microClient, err = s.(*service.CephService).Client("")
+			microClient, err = s.(*component.CephComponent).Client("")
 		case types.MicroOVN:
-			microClient, err = s.(*service.OVNService).Client()
+			microClient, err = s.(*component.OVNComponent).Client()
 		case types.MicroCloud:
-			microClient, err = s.(*service.CloudService).Client()
+			microClient, err = s.(*component.CloudComponent).Client()
 		}
 
 		if err != nil {
@@ -182,11 +182,11 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for serviceType, data := range allClusters {
+	for componentType, data := range allClusters {
 		if len(data) == 0 {
-			fmt.Printf("%s: Not initialized\n", serviceType)
+			fmt.Printf("%s: Not initialized\n", componentType)
 		} else {
-			fmt.Printf("%s:\n", serviceType)
+			fmt.Printf("%s:\n", componentType)
 			fmt.Println(tui.NewTable(header, data))
 		}
 	}
@@ -194,41 +194,41 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-type cmdServiceAdd struct {
+type cmdComponentAdd struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to add services to MicroCloud.
-func (c *cmdServiceAdd) Command() *cobra.Command {
+// Command returns the subcommand to add components to MicroCloud.
+func (c *cmdComponentAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Add new services to the existing MicroCloud",
+		Short: "Add new components to the existing MicroCloud",
 		RunE:  c.Run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand to add services to MicroCloud.
-func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
+// Run runs the subcommand to add components to MicroCloud.
+func (c *cmdComponentAdd) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
 
-	fmt.Println("Waiting for services to start ...")
+	fmt.Println("Waiting for components to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, true, false)
 	if err != nil {
 		return err
 	}
 
 	cfg := initConfig{
-		// Set bootstrap to true because we are setting up a new cluster for new services.
+		// Set bootstrap to true because we are setting up a new cluster for new components.
 		bootstrap: true,
 		setupMany: true,
 		common:    c.common,
 		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
-		state:     map[string]service.SystemInformation{},
+		state:     map[string]component.SystemInformation{},
 	}
 
 	// Get a microcluster client so we can get state information.
@@ -253,48 +253,48 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg.autoSetup = false
-	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	installedComponents := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	// Set the auto flag to true so that we automatically omit any services that aren't installed.
-	installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
+	// Set the auto flag to true so that we automatically omit any components that aren't installed.
+	installedComponents, err = cfg.askMissingComponents(installedComponents, optionalComponents)
 	if err != nil {
 		return err
 	}
 
-	// Instantiate a handler for the services.
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedServices...)
+	// Instantiate a handler for the components.
+	s, err := component.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedComponents...)
 	if err != nil {
 		return err
 	}
 
-	services := make(map[types.ServiceType]string, len(installedServices))
-	for _, s := range s.Services {
+	components := make(map[types.ComponentType]string, len(installedComponents))
+	for _, s := range s.Components {
 		version, err := s.GetVersion(context.Background())
 		if err != nil {
 			return err
 		}
 
-		services[s.Type()] = version
+		components[s.Type()] = version
 	}
 
-	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
+	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Components: components})
 	if err != nil {
 		return err
 	}
 
 	cfg.state[cfg.name] = *state
 	// Create an InitSystem map to carry through the interactive setup.
-	clusters := cfg.state[cfg.name].ExistingServices
+	clusters := cfg.state[cfg.name].ExistingComponents
 	for name, address := range clusters[types.MicroCloud] {
 		cfg.systems[name] = InitSystem{
 			ServerInfo: multicast.ServerInfo{
-				Name:     name,
-				Address:  address,
-				Services: services,
+				Name:       name,
+				Address:    address,
+				Components: components,
 			},
 		}
 	}
@@ -312,43 +312,43 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 		cfg.state[system.ServerInfo.Name] = *state
 	}
 
-	askClusteredServices := map[types.ServiceType]string{}
-	serviceMap := map[types.ServiceType]bool{}
+	askClusteredComponents := map[types.ComponentType]string{}
+	componentMap := map[types.ComponentType]bool{}
 	for _, state := range cfg.state {
 		localState := cfg.state[s.Name]
-		if len(state.ExistingServices[types.LXD]) != len(localState.ExistingServices[types.LXD]) || len(state.ExistingServices[types.LXD]) <= 0 {
-			return fmt.Errorf("Unable to add services. Some systems are not part of the LXD cluster")
+		if len(state.ExistingComponents[types.LXD]) != len(localState.ExistingComponents[types.LXD]) || len(state.ExistingComponents[types.LXD]) <= 0 {
+			return fmt.Errorf("Unable to add components. Some systems are not part of the LXD cluster")
 		}
 
-		if len(state.ExistingServices[types.MicroCeph]) <= 0 && !serviceMap[types.MicroCeph] {
-			askClusteredServices[types.MicroCeph] = services[types.MicroCeph]
-			serviceMap[types.MicroCeph] = true
+		if len(state.ExistingComponents[types.MicroCeph]) <= 0 && !componentMap[types.MicroCeph] {
+			askClusteredComponents[types.MicroCeph] = components[types.MicroCeph]
+			componentMap[types.MicroCeph] = true
 		}
 
-		if len(state.ExistingServices[types.MicroOVN]) <= 0 && !serviceMap[types.MicroOVN] {
-			askClusteredServices[types.MicroOVN] = services[types.MicroOVN]
-			serviceMap[types.MicroOVN] = true
+		if len(state.ExistingComponents[types.MicroOVN]) <= 0 && !componentMap[types.MicroOVN] {
+			askClusteredComponents[types.MicroOVN] = components[types.MicroOVN]
+			componentMap[types.MicroOVN] = true
 		}
 	}
 
-	if len(askClusteredServices) == 0 {
-		return fmt.Errorf("All services have already been set up")
+	if len(askClusteredComponents) == 0 {
+		return fmt.Errorf("All components have already been set up")
 	}
 
-	err = cfg.askClustered(s, askClusteredServices)
+	err = cfg.askClustered(s, askClusteredComponents)
 	if err != nil {
 		return err
 	}
 
 	// Go through the normal setup for disks and networks if necessary.
-	if askClusteredServices[types.MicroCeph] != "" {
+	if askClusteredComponents[types.MicroCeph] != "" {
 		err := cfg.askDisks(s)
 		if err != nil {
 			return err
 		}
 	}
 
-	if askClusteredServices[types.MicroOVN] != "" {
+	if askClusteredComponents[types.MicroOVN] != "" {
 		err := cfg.askNetwork(s)
 		if err != nil {
 			return err

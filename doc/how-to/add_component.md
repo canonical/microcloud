@@ -1,11 +1,11 @@
-(howto-add-service)=
-# How to add a service
+(howto-add-component)=
+# How to add a component
 
-If you set up the MicroCloud without MicroOVN or MicroCeph initially, you can add those services with the {command}`microcloud service add` command:
+If you set up the MicroCloud without MicroOVN or MicroCeph initially, you can add those components with the {command}`microcloud component add` command:
 
-    sudo microcloud service add
+    sudo microcloud component add
 
-If MicroCloud detects a service is installed but not set up, it will ask to configure the service.
+If MicroCloud detects a component is installed but not set up, it will ask to configure the component.
 
 To add MicroCeph:
 
@@ -39,7 +39,7 @@ To add MicroOVN:
 
    1. If you want to use IPv6, specify the IPv6 gateway on the uplink network (in CIDR notation).
 
-MicroCloud now starts to bootstrap the cluster for only the new services.
+MicroCloud now starts to bootstrap the cluster for only the new components.
 
 Monitor the output to see whether all steps complete successfully.
 

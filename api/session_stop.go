@@ -11,11 +11,11 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 // SessionStopCmd represents the /1.0/session/stop API on MicroCloud.
-var SessionStopCmd = func(sh *service.Handler) rest.Endpoint {
+var SessionStopCmd = func(sh *component.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/stop",
@@ -26,7 +26,7 @@ var SessionStopCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // sessionStopPut stops the current session.
-func sessionStopPut(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
+func sessionStopPut(sh *component.Handler) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
 		req := types.SessionStopPut{}
 
@@ -35,7 +35,7 @@ func sessionStopPut(sh *service.Handler) func(state state.State, r *http.Request
 			return response.BadRequest(err)
 		}
 
-		err = sh.SessionTransaction(true, func(session *service.Session) error {
+		err = sh.SessionTransaction(true, func(session *component.Session) error {
 			err := session.Stop(errors.New(req.Reason))
 			if err != nil {
 				return api.StatusErrorf(http.StatusBadRequest, "Failed to stop session: %w", err)

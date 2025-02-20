@@ -23,11 +23,11 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 // StatusCmd represents the /1.0/status API on MicroCloud.
-var StatusCmd = func(sh *service.Handler) rest.Endpoint {
+var StatusCmd = func(sh *component.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		Name: "status",
 		Path: "status",
@@ -36,8 +36,8 @@ var StatusCmd = func(sh *service.Handler) rest.Endpoint {
 	}
 }
 
-func statusGet(sh *service.Handler) endpointHandler {
-	// statusMu is used to synchronize map writes to the returned status information, as we populate cluster members for each service concurrently.
+func statusGet(sh *component.Handler) endpointHandler {
+	// statusMu is used to synchronize map writes to the returned status information, as we populate cluster members for each component concurrently.
 	var statusMu sync.Mutex
 
 	return func(s state.State, r *http.Request) response.Response {
@@ -79,57 +79,57 @@ func statusGet(sh *service.Handler) endpointHandler {
 		}
 
 		status := &types.Status{
-			Name:         s.Name(),
-			Address:      address,
-			Clusters:     make(map[types.ServiceType][]microTypes.ClusterMember, len(sh.Services)),
-			OSDs:         []cephTypes.Disk{},
-			CephServices: []cephTypes.Service{},
-			OVNServices:  []ovnTypes.Service{},
+			Name:           s.Name(),
+			Address:        address,
+			Clusters:       make(map[types.ComponentType][]microTypes.ClusterMember, len(sh.Components)),
+			OSDs:           []cephTypes.Disk{},
+			CephComponents: []cephTypes.Service{},
+			OVNComponents:  []ovnTypes.Service{},
 		}
 
-		err = sh.RunConcurrent("", "", func(s service.Service) error {
+		err = sh.RunConcurrent("", "", func(s component.Component) error {
 			switch s.Type() {
 			case types.LXD:
 				clusterMembers, err := lxdStatus(r.Context(), s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get component status", logger.Ctx{"type": s.Type(), "name": sh.Name})
 				}
 
 				statusMu.Lock()
 				status.Clusters[s.Type()] = clusterMembers
 				statusMu.Unlock()
 			case types.MicroCeph:
-				clusterMembers, osds, cephServices, err := cephStatus(r.Context(), s)
+				clusterMembers, osds, cephComponents, err := cephStatus(r.Context(), s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get component status", logger.Ctx{"type": s.Type(), "name": sh.Name})
 				}
 
 				status.OSDs = osds
-				status.CephServices = cephServices
+				status.CephComponents = cephComponents
 
 				statusMu.Lock()
 				status.Clusters[s.Type()] = clusterMembers
 				statusMu.Unlock()
 			case types.MicroOVN:
-				clusterMembers, ovnServices, err := ovnStatus(r.Context(), s)
+				clusterMembers, ovnComponents, err := ovnStatus(r.Context(), s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get component status", logger.Ctx{"type": s.Type(), "name": sh.Name})
 				}
 
-				status.OVNServices = ovnServices
+				status.OVNComponents = ovnComponents
 
 				statusMu.Lock()
 				status.Clusters[s.Type()] = clusterMembers
 				statusMu.Unlock()
 			case types.MicroCloud:
-				microClient, err := s.(*service.CloudService).Client()
+				microClient, err := s.(*component.CloudComponent).Client()
 				if err != nil {
 					return err
 				}
 
 				clusterMembers, err := microStatus(r.Context(), microClient, s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get component status", logger.Ctx{"type": s.Type(), "name": sh.Name})
 				}
 
 				statusMu.Lock()
@@ -149,8 +149,8 @@ func statusGet(sh *service.Handler) endpointHandler {
 	}
 }
 
-func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, osds []cephTypes.Disk, cephServices []cephTypes.Service, err error) {
-	microClient, err := s.(*service.CephService).Client("")
+func cephStatus(ctx context.Context, s component.Component) (clusterMembers []microTypes.ClusterMember, osds []cephTypes.Disk, cephComponents []cephTypes.Service, err error) {
+	microClient, err := s.(*component.CephComponent).Client("")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -175,26 +175,26 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 		}
 	}
 
-	services, err := cephClient.GetServices(ctx, microClient)
+	components, err := cephClient.GetServices(ctx, microClient)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	for _, service := range services {
-		if service.Location == s.Name() {
-			if cephServices == nil {
-				cephServices = []cephTypes.Service{}
+	for _, component := range components {
+		if component.Location == s.Name() {
+			if cephComponents == nil {
+				cephComponents = []cephTypes.Service{}
 			}
 
-			cephServices = append(cephServices, service)
+			cephComponents = append(cephComponents, component)
 		}
 	}
 
-	return clusterMembers, osds, cephServices, nil
+	return clusterMembers, osds, cephComponents, nil
 }
 
-func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, ovnServices []ovnTypes.Service, err error) {
-	microClient, err := s.(*service.OVNService).Client()
+func ovnStatus(ctx context.Context, s component.Component) (clusterMembers []microTypes.ClusterMember, ovnComponents []ovnTypes.Service, err error) {
+	microClient, err := s.(*component.OVNComponent).Client()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,25 +204,25 @@ func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTy
 		return nil, nil, err
 	}
 
-	services, err := ovnClient.GetServices(ctx, microClient)
+	components, err := ovnClient.GetServices(ctx, microClient)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	for _, service := range services {
-		if service.Location == s.Name() {
-			if ovnServices == nil {
-				ovnServices = []ovnTypes.Service{}
+	for _, component := range components {
+		if component.Location == s.Name() {
+			if ovnComponents == nil {
+				ovnComponents = []ovnTypes.Service{}
 			}
 
-			ovnServices = append(ovnServices, service)
+			ovnComponents = append(ovnComponents, component)
 		}
 	}
 
-	return clusterMembers, ovnServices, nil
+	return clusterMembers, ovnComponents, nil
 }
 
-func microStatus(ctx context.Context, microClient *microClient.Client, s service.Service) ([]microTypes.ClusterMember, error) {
+func microStatus(ctx context.Context, microClient *microClient.Client, s component.Component) ([]microTypes.ClusterMember, error) {
 	clusterMembers, err := microClient.GetClusterMembers(context.Background())
 	if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
 		return nil, err
@@ -231,8 +231,8 @@ func microStatus(ctx context.Context, microClient *microClient.Client, s service
 	return clusterMembers, nil
 }
 
-func lxdStatus(ctx context.Context, s service.Service) ([]microTypes.ClusterMember, error) {
-	lxdClient, err := s.(*service.LXDService).Client(ctx)
+func lxdStatus(ctx context.Context, s component.Component) ([]microTypes.ClusterMember, error) {
+	lxdClient, err := s.(*component.LXDComponent).Client(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func lxdStatus(ctx context.Context, s service.Service) ([]microTypes.ClusterMemb
 				return nil, err
 			}
 
-			addrPort, err := microTypes.ParseAddrPort(util.CanonicalNetworkAddress(url.Host, service.LXDPort))
+			addrPort, err := microTypes.ParseAddrPort(util.CanonicalNetworkAddress(url.Host, component.LXDPort))
 			if err != nil {
 				return nil, err
 			}

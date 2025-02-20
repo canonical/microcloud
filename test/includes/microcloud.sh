@@ -2,7 +2,7 @@
 
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
-  unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
+  unset SKIP_LOOKUP LOOKUP_IFACE SKIP_COMPONENT EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
@@ -26,10 +26,10 @@ microcloud_interactive() {
   MULTI_NODE=${MULTI_NODE:-}                     # (yes/no) whether to set up multiple nodes
   SKIP_LOOKUP=${SKIP_LOOKUP:-}                   # whether or not to skip the whole lookup block in the interactive command list.
   LOOKUP_IFACE=${LOOKUP_IFACE:-}                 # filter string for the lookup interface table.
-  SKIP_SERVICE=${SKIP_SERVICE:-}                 # (yes/no) input to skip any missing services. Should be unset if all services are installed.
+  SKIP_COMPONENT=${SKIP_COMPONENT:-}             # (yes/no) input to skip any missing components. Should be unset if all services are installed.
   EXPECT_PEERS=${EXPECT_PEERS:-}                 # wait for this number of systems to be available to join the cluster.
   PEERS_FILTER=${PEERS_FILTER:-}                 # filter string for the particular peer to init/add
-  REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered service.
+  REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered component.
   REUSE_EXISTING_COUNT=${REUSE_EXISTING_COUNT:-0} # (number) number of existing clusters to incorporate.
   SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
   ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
@@ -69,7 +69,7 @@ $(true)
 
   if ! [ "${SKIP_LOOKUP}" = 1 ]; then
     setup="${setup}
-$([ "${SKIP_SERVICE}" = "yes" ] && printf "%s" "${SKIP_SERVICE}")  # skip MicroOVN/MicroCeph (yes/no)
+$([ "${SKIP_COMPONENT}" = "yes" ] && printf "%s" "${SKIP_COMPONENT}")  # skip MicroOVN/MicroCeph (yes/no)
 table:expect ${EXPECT_PEERS}                                      # wait until the systems show up
 $([ -n "${PEERS_FILTER}" ] && printf "table:filter %s" "${PEERS_FILTER}")          # filter discovered peers
 table:select-all                                                  # select all the systems
@@ -1206,7 +1206,7 @@ setup_system() {
       exec > /dev/null
     fi
 
-    # Disable unneeded services/timers/sockets/mounts (source of noise/slowdown)
+    # Disable unneeded components/timers/sockets/mounts (source of noise/slowdown)
     lxc exec "${name}" -- systemctl mask --now apport.service cron.service e2scrub_reap.service esm-cache.service grub-common.service grub-initrd-fallback.service networkd-dispatcher.service polkit.service secureboot-db.service serial-getty@ttyS0.service ssh.service systemd-journal-flush.service unattended-upgrades.service
     lxc exec "${name}" -- systemctl mask --now apt-daily-upgrade.timer apt-daily.timer dpkg-db-backup.timer e2scrub_all.timer fstrim.timer motd-news.timer update-notifier-download.timer update-notifier-motd.timer
     lxc exec "${name}" -- systemctl mask --now iscsid.socket

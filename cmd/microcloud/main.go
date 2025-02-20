@@ -77,8 +77,8 @@ func main() {
 	var cmdRemove = cmdRemove{common: &commonCmd}
 	app.AddCommand(cmdRemove.Command())
 
-	var cmdService = cmdServices{common: &commonCmd}
-	app.AddCommand(cmdService.Command())
+	var cmdComponent = cmdComponents{common: &commonCmd}
+	app.AddCommand(cmdComponent.Command())
 
 	var cmdStatus = cmdStatus{common: &commonCmd}
 	app.AddCommand(cmdStatus.Command())

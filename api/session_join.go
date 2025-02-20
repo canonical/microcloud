@@ -15,11 +15,11 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 // SessionJoinCmd represents the /1.0/session/join API on MicroCloud.
-var SessionJoinCmd = func(sh *service.Handler) rest.Endpoint {
+var SessionJoinCmd = func(sh *component.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/join",
@@ -30,7 +30,7 @@ var SessionJoinCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // sessionJoinPost receives join intent requests from new potential members.
-func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
+func sessionJoinPost(sh *component.Handler) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
 		// Apply delay right at the beginning before doing any validation.
 		// This limits the number of join attempts that can be made by an attacker.
@@ -48,9 +48,9 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 			return response.BadRequest(err)
 		}
 
-		err = sh.SessionTransaction(true, func(session *service.Session) error {
-			// Only validate the intent (services) on the initiator.
-			// The joiner has to accept the services from the initiator.
+		err = sh.SessionTransaction(true, func(session *component.Session) error {
+			// Only validate the intent (components) on the initiator.
+			// The joiner has to accept the components from the initiator.
 			if session.Role() == types.SessionInitiating {
 				err = validateIntent(r.Context(), sh, req)
 				if err != nil {
@@ -90,23 +90,23 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 }
 
 // validateIntent validates the given join intent.
-// It checks whether or not the peer is missing any of our services and returns an error if one is missing.
-// Also compares each service's daemon version between the joiner and initiator.
-func validateIntent(ctx context.Context, sh *service.Handler, intent types.SessionJoinPost) error {
-	// Reject any peers that are missing our services.
-	for _, service := range sh.Services {
-		intentVersion, ok := intent.Services[service.Type()]
+// It checks whether or not the peer is missing any of our components and returns an error if one is missing.
+// Also compares each component's daemon version between the joiner and initiator.
+func validateIntent(ctx context.Context, sh *component.Handler, intent types.SessionJoinPost) error {
+	// Reject any peers that are missing our components.
+	for _, component := range sh.Components {
+		intentVersion, ok := intent.Components[component.Type()]
 		if !ok {
-			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(service.Type()))
+			return fmt.Errorf("Rejecting peer %q due to missing components (%s)", intent.Name, string(component.Type()))
 		}
 
-		version, err := service.GetVersion(ctx)
+		version, err := component.GetVersion(ctx)
 		if err != nil {
-			return fmt.Errorf("Unable to determine initiator's %s version: %w", service.Type(), err)
+			return fmt.Errorf("Unable to determine initiator's %s version: %w", component.Type(), err)
 		}
 
 		if intentVersion != version {
-			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, service.Type(), version, intentVersion)
+			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, component.Type(), version, intentVersion)
 		}
 	}
 

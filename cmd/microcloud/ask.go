@@ -25,37 +25,37 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/cmd/tui"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 func checkInitialized(stateDir string, expectInitialized bool, preseed bool) error {
 	cfg := initConfig{autoSetup: true}
 
-	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
+	installedComponents := []types.ComponentType{types.MicroCloud, types.LXD}
 
-	// MicroCloud will automatically set up previously-uninitialized services,
-	// and incorporate already-initialized services in interactive setup,
-	// so we can ignore optional services unless using preseed.
+	// MicroCloud will automatically set up previously-uninitialized components,
+	// and incorporate already-initialized components in interactive setup,
+	// so we can ignore optional components unless using preseed.
 	if preseed {
-		optionalServices := map[types.ServiceType]string{
+		optionalComponents := map[types.ComponentType]string{
 			types.MicroCeph: cloudAPI.MicroCephDir,
 			types.MicroOVN:  cloudAPI.MicroOVNDir,
 		}
 
 		var err error
-		installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
+		installedComponents, err = cfg.askMissingComponents(installedComponents, optionalComponents)
 		if err != nil {
 			return err
 		}
 	}
 
-	s, err := service.NewHandler("", "", stateDir, installedServices...)
+	s, err := component.NewHandler("", "", stateDir, installedComponents...)
 	if err != nil {
 		return err
 	}
 
-	return s.RunConcurrent("", "", func(s service.Service) error {
+	return s.RunConcurrent("", "", func(s component.Component) error {
 		initialized, err := s.IsInitialized(context.Background())
 		if err != nil {
 			return err
@@ -167,22 +167,22 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 	}
 }
 
-func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs map[types.ServiceType]string) ([]types.ServiceType, error) {
-	missingServices := []string{}
-	for serviceType, stateDir := range stateDirs {
-		if service.Exists(serviceType, stateDir) {
-			services = append(services, serviceType)
+func (c *initConfig) askMissingComponents(components []types.ComponentType, stateDirs map[types.ComponentType]string) ([]types.ComponentType, error) {
+	missingComponents := []string{}
+	for componentType, stateDir := range stateDirs {
+		if component.Exists(componentType, stateDir) {
+			components = append(components, componentType)
 		} else {
-			missingServices = append(missingServices, string(serviceType))
+			missingComponents = append(missingComponents, string(componentType))
 		}
 	}
 
-	if len(missingServices) > 0 {
-		serviceStr := strings.Join(missingServices, ", ")
+	if len(missingComponents) > 0 {
+		componentStr := strings.Join(missingComponents, ", ")
 
-		// Ignore missing services in case of preseed.
+		// Ignore missing components in case of preseed.
 		if !c.autoSetup {
-			confirm, err := c.asker.AskBoolWarn(fmt.Sprintf("%s not found. Continue anyway?", serviceStr), true)
+			confirm, err := c.asker.AskBoolWarn(fmt.Sprintf("%s not found. Continue anyway?", componentStr), true)
 			if err != nil {
 				return nil, err
 			}
@@ -191,13 +191,13 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 				return nil, fmt.Errorf("User aborted")
 			}
 
-			return services, nil
+			return components, nil
 		}
 
-		logger.Infof("Skipping %s (could not detect service state directory)", serviceStr)
+		logger.Infof("Skipping %s (could not detect component state directory)", componentStr)
 	}
 
-	return services, nil
+	return components, nil
 }
 
 func (c *initConfig) askAddress(filterAddress string) error {
@@ -274,7 +274,7 @@ func (c *initConfig) askAddress(filterAddress string) error {
 	return nil
 }
 
-func (c *initConfig) askDisks(sh *service.Handler) error {
+func (c *initConfig) askDisks(sh *component.Handler) error {
 	err := c.askLocalPool(sh)
 	if err != nil {
 		return err
@@ -299,7 +299,7 @@ func parseDiskPath(disk api.ResourcesStorageDisk) string {
 	return devicePath
 }
 
-func (c *initConfig) askLocalPool(sh *service.Handler) error {
+func (c *initConfig) askLocalPool(sh *component.Handler) error {
 	useJoinConfig := false
 	askSystems := map[string]bool{}
 	for _, info := range c.state {
@@ -364,7 +364,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		return nil
 	}
 
-	lxd := sh.Services[types.LXD].(*service.LXDService)
+	lxd := sh.Components[types.LXD].(*component.LXDComponent)
 	toWipe := map[string]string{}
 	wipeable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "storage_pool_source_wipe")
 	if err != nil {
@@ -523,8 +523,8 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	return nil
 }
 
-func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
-	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
+func (c *initConfig) validateCephInterfacesForSubnet(lxdComponent *component.LXDComponent, availableCephNetworkInterfaces map[string]map[string]component.DedicatedInterface, askedCephSubnet string) error {
+	validatedCephInterfacesData, err := lxdComponent.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
 		return err
 	}
@@ -551,10 +551,10 @@ func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDServ
 
 // getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
 // If the system passed as an argument is nil, we will fetch the local Ceph network configuration.
-func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwork *net.IPNet, internalCephNetwork *net.IPNet, err error) {
-	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
-	if microCephService == nil {
-		return nil, nil, fmt.Errorf("Failed to get MicroCeph service")
+func getTargetCephNetworks(sh *component.Handler, s *InitSystem) (publicCephNetwork *net.IPNet, internalCephNetwork *net.IPNet, err error) {
+	microCephComponent := sh.Components[types.MicroCeph].(*component.CephComponent)
+	if microCephComponent == nil {
+		return nil, nil, fmt.Errorf("Failed to get MicroCeph component")
 	}
 
 	var cephAddr string
@@ -564,7 +564,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwor
 		cephCert = s.ServerInfo.Certificate
 	}
 
-	remoteCephConfigs, err := microCephService.ClusterConfig(context.Background(), cephAddr, cephCert)
+	remoteCephConfigs, err := microCephComponent.ClusterConfig(context.Background(), cephAddr, cephCert)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -594,9 +594,9 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwor
 	return publicCephNetwork, internalCephNetwork, nil
 }
 
-func (c *initConfig) askRemotePool(sh *service.Handler) error {
+func (c *initConfig) askRemotePool(sh *component.Handler) error {
 	// If MicroCeph is not installed, skip this block entirely.
-	if sh.Services[types.MicroCeph] == nil {
+	if sh.Components[types.MicroCeph] == nil {
 		return nil
 	}
 
@@ -792,7 +792,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	// If a cephfs pool has already been set up, we will extend it automatically, so no need to ask the question.
 	setupCephFS := useJoinConfigRemoteFS
 	if !useJoinConfigRemoteFS {
-		lxd := sh.Services[types.LXD].(*service.LXDService)
+		lxd := sh.Components[types.LXD].(*component.LXDComponent)
 		ext := "storage_cephfs_create_missing"
 		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, ext)
 		if err != nil {
@@ -827,7 +827,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	joinConfigs := map[string][]api.ClusterMemberConfigKey{}
 	finalConfigs := []api.StoragePoolsPost{}
 	targetConfigs := map[string][]api.StoragePoolsPost{}
-	lxd := sh.Services[types.LXD].(*service.LXDService)
+	lxd := sh.Components[types.LXD].(*component.LXDComponent)
 	if useJoinConfigRemote {
 		for target := range askSystemsRemote {
 			if joinConfigs[target] == nil {
@@ -911,8 +911,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	return nil
 }
 
-func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
-	if sh.Services[types.MicroOVN] == nil {
+func (c *initConfig) askOVNNetwork(sh *component.Handler) error {
+	if sh.Components[types.MicroOVN] == nil {
 		return nil
 	}
 
@@ -1088,7 +1088,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	lxd := sh.Services[types.LXD].(*service.LXDService)
+	lxd := sh.Components[types.LXD].(*component.LXDComponent)
 	joinConfigs := map[string]api.ClusterMemberConfigKey{}
 	targetConfigs := map[string]api.NetworksPost{}
 	finalConfigs := []api.NetworksPost{}
@@ -1139,7 +1139,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		// skip any systems that have already been clustered, but are available for other configuration.
 		state, ok := c.state[c.name]
 		if ok {
-			if state.ExistingServices[types.MicroOVN][peer] != "" {
+			if state.ExistingComponents[types.MicroOVN][peer] != "" {
 				continue
 			}
 		}
@@ -1248,7 +1248,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	return nil
 }
 
-func (c *initConfig) askNetwork(sh *service.Handler) error {
+func (c *initConfig) askNetwork(sh *component.Handler) error {
 	err := c.askOVNNetwork(sh)
 	if err != nil {
 		return err
@@ -1260,7 +1260,7 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 		}
 
 		for _, cfg := range system.JoinConfig {
-			if cfg.Name == service.DefaultOVNNetwork || cfg.Name == service.DefaultUplinkNetwork {
+			if cfg.Name == component.DefaultOVNNetwork || cfg.Name == component.DefaultUplinkNetwork {
 				return nil
 			}
 		}
@@ -1290,7 +1290,7 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 	}
 
 	if !useFANJoinConfig {
-		lxd := sh.Services[types.LXD].(*service.LXDService)
+		lxd := sh.Components[types.LXD].(*component.LXDComponent)
 		fan, err := lxd.DefaultFanNetwork()
 		if err != nil {
 			return err
@@ -1319,8 +1319,8 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 	return nil
 }
 
-func (c *initConfig) askCephNetwork(sh *service.Handler) error {
-	availableCephNetworkInterfaces := map[string]map[string]service.DedicatedInterface{}
+func (c *initConfig) askCephNetwork(sh *component.Handler) error {
+	availableCephNetworkInterfaces := map[string]map[string]component.DedicatedInterface{}
 	for name, state := range c.state {
 		if len(state.AvailableCephInterfaces) == 0 {
 			fmt.Println(tui.WarningColor(fmt.Sprintf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup", name), false))
@@ -1328,7 +1328,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 			return nil
 		}
 
-		ifaces := make(map[string]service.DedicatedInterface, len(state.AvailableCephInterfaces))
+		ifaces := make(map[string]component.DedicatedInterface, len(state.AvailableCephInterfaces))
 		for name, iface := range state.AvailableCephInterfaces {
 			ifaces[name] = iface
 		}
@@ -1364,7 +1364,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 		}
 	}
 
-	lxd := sh.Services[types.LXD].(*service.LXDService)
+	lxd := sh.Components[types.LXD].(*component.LXDComponent)
 	if internalCephNetwork != nil {
 		if internalCephNetwork.String() != "" && internalCephNetwork.String() != c.lookupSubnet.String() {
 			err := c.validateCephInterfacesForSubnet(lxd, availableCephNetworkInterfaces, internalCephNetwork.String())
@@ -1436,24 +1436,24 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	return nil
 }
 
-// askClustered checks whether any of the selected systems have already initialized any expected services.
-// If a service is already initialized on some systems, we will offer to add the remaining systems, or skip that service.
-// In auto setup, we will expect no initialized services so that we can be opinionated about how we configure the cluster without user input.
-// This works by deleting the record for the service from the `service.Handler`, thus ignoring it for the remainder of the setup.
-func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types.ServiceType]string) error {
+// askClustered checks whether any of the selected systems have already initialized any expected components.
+// If a component is already initialized on some systems, we will offer to add the remaining systems, or skip that component.
+// In auto setup, we will expect no initialized components so that we can be opinionated about how we configure the cluster without user input.
+// This works by deleting the record for the component from the `component.Handler`, thus ignoring it for the remainder of the setup.
+func (c *initConfig) askClustered(s *component.Handler, expectedComponents map[types.ComponentType]string) error {
 	if !c.setupMany {
 		return nil
 	}
 
-	for serviceType := range expectedServices {
+	for componentType := range expectedComponents {
 		for name, info := range c.state {
 			_, newSystem := c.systems[name]
 			if !newSystem {
 				continue
 			}
 
-			if info.ServiceClustered(serviceType) {
-				question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", info.ClusterName, serviceType)
+			if info.ComponentClustered(componentType) {
+				question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", info.ClusterName, componentType)
 				validator := func(s string) error {
 					if !shared.ValueInSlice(s, []string{"add", "skip"}) {
 						return fmt.Errorf("Invalid input, expected one of (add,skip) but got %q", s)
@@ -1468,7 +1468,7 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types
 				}
 
 				if addOrSkip != "add" {
-					delete(s.Services, serviceType)
+					delete(s.Components, componentType)
 				}
 
 				break
@@ -1487,7 +1487,7 @@ func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 	return fingerprint[0:12], nil
 }
 
-func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
+func (c *initConfig) askPassphrase(s *component.Handler) (string, error) {
 	format := func(password string) (string, error) {
 		passwordSplit := strings.Split(password, " ")
 
@@ -1511,7 +1511,7 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 		return err
 	}
 
-	cloud := s.Services[types.MicroCloud].(*service.CloudService)
+	cloud := s.Components[types.MicroCloud].(*component.CloudComponent)
 	cert, err := cloud.ServerCert()
 	if err != nil {
 		return "", err
@@ -1652,7 +1652,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 	return systems, nil
 }
 
-func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, services map[types.ServiceType]string) error {
+func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, components map[types.ComponentType]string) error {
 	session := types.Session{}
 	err := gw.ReceiveWithContext(gw.Context(), &session)
 	if err != nil {
@@ -1678,19 +1678,19 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 
 	fmt.Println(tui.SuccessColor("Successfully joined the MicroCloud cluster and closing the session.", true))
 
-	var servicesStr []string
-	for serviceType := range services {
-		if serviceType == types.MicroCloud {
+	var componentStr []string
+	for componentType := range components {
+		if componentType == types.MicroCloud {
 			continue
 		}
 
-		servicesStr = append(servicesStr, string(serviceType))
+		componentStr = append(componentStr, string(componentType))
 	}
 
-	if len(servicesStr) > 0 {
-		slices.Sort(servicesStr)
+	if len(componentStr) > 0 {
+		slices.Sort(componentStr)
 
-		fmt.Println(tui.Printf(tui.Fmt{Arg: "Commencing cluster join of the remaining services (%s)"}, tui.Fmt{Arg: strings.Join(servicesStr, ","), Bold: true}))
+		fmt.Println(tui.Printf(tui.Fmt{Arg: "Commencing cluster join of the remaining components (%s)"}, tui.Fmt{Arg: strings.Join(componentStr, ","), Bold: true}))
 	}
 
 	return nil

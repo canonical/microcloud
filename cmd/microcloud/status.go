@@ -15,7 +15,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/cmd/tui"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 // Warning represents a warning message with a severity level.
@@ -133,30 +133,30 @@ func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
 		common:    c.common,
 		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
-		state:     map[string]service.SystemInformation{},
+		state:     map[string]component.SystemInformation{},
 	}
 
 	cfg.name = status.Name
 	cfg.address = status.Address.Addr().String()
 
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	components := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	services, err = cfg.askMissingServices(services, optionalServices)
+	components, err = cfg.askMissingComponents(components, optionalComponents)
 	if err != nil {
 		return err
 	}
 
-	// Instantiate a handler for the services.
-	sh, err := service.NewHandler(status.Name, status.Address.Addr().String(), c.common.FlagMicroCloudDir, services...)
+	// Instantiate a handler for the components.
+	sh, err := component.NewHandler(status.Name, status.Address.Addr().String(), c.common.FlagMicroCloudDir, components...)
 	if err != nil {
 		return err
 	}
 
-	cloudClient, err := sh.Services[types.MicroCloud].(*service.CloudService).Client()
+	cloudClient, err := sh.Components[types.MicroCloud].(*component.CloudComponent).Client()
 	if err != nil {
 		return err
 	}
@@ -229,18 +229,18 @@ func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
 // compileWarnings returns a set of warnings based on the given set of statuses. The name supplied should be the local cluster name.
 func compileWarnings(name string, statuses []types.Status) Warnings {
 	// Systems that exist in other clusters but not in MicroCloud.
-	unmanagedSystems := map[types.ServiceType]map[string]bool{}
+	unmanagedSystems := map[types.ComponentType]map[string]bool{}
 
 	// Systems that exist in MicroCloud, but not other clusters.
-	orphanedSystems := map[types.ServiceType]map[string]bool{}
+	orphanedSystems := map[types.ComponentType]map[string]bool{}
 
-	// Services that are uninitialized on a system.
-	uninstalledServices := map[types.ServiceType][]string{}
+	// Components that are uninitialized on a system.
+	uninstalledComponents := map[types.ComponentType][]string{}
 
-	// Services undergoing schema/API upgrades.
-	upgradingServices := map[types.ServiceType]bool{}
+	// Components undergoing schema/API upgrades.
+	upgradingComponents := map[types.ComponentType]bool{}
 
-	// Systems that are offline on at least one service.
+	// Systems that are offline on at least one component.
 	offlineSystems := map[string][]string{}
 
 	osdsConfigured := false
@@ -250,65 +250,65 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 	for _, s := range statuses {
 		if s.Name == name {
 			clusterSize = len(s.Clusters[types.MicroCloud])
-			for service, clusterMembers := range s.Clusters {
+			for component, clusterMembers := range s.Clusters {
 				for _, member := range clusterMembers {
 					if member.Status == microTypes.MemberNeedsUpgrade || member.Status == microTypes.MemberUpgrading {
-						upgradingServices[service] = true
+						upgradingComponents[component] = true
 					} else if member.Status != microTypes.MemberOnline {
 						if offlineSystems[member.Name] == nil {
 							offlineSystems[member.Name] = []string{}
 						}
 
-						offlineSystems[member.Name] = append(offlineSystems[member.Name], string(service))
+						offlineSystems[member.Name] = append(offlineSystems[member.Name], string(component))
 					}
 				}
 			}
 		}
 
 		osdCount = osdCount + len(s.OSDs)
-		allServices := []types.ServiceType{types.LXD, types.MicroCeph, types.MicroOVN, types.MicroCloud}
+		allComponents := []types.ComponentType{types.LXD, types.MicroCeph, types.MicroOVN, types.MicroCloud}
 		cloudMembers := make(map[string]bool, len(s.Clusters[types.MicroCloud]))
 		for _, member := range s.Clusters[types.MicroCloud] {
 			cloudMembers[member.Name] = true
 		}
 
-		for _, service := range allServices {
-			members, ok := s.Clusters[service]
+		for _, component := range allComponents {
+			members, ok := s.Clusters[component]
 			if !ok || len(members) == 0 {
-				if uninstalledServices[service] == nil {
-					uninstalledServices[service] = []string{}
+				if uninstalledComponents[component] == nil {
+					uninstalledComponents[component] = []string{}
 				}
 
-				uninstalledServices[service] = append(uninstalledServices[service], s.Name)
+				uninstalledComponents[component] = append(uninstalledComponents[component], s.Name)
 			}
 
-			if service == types.MicroCloud || s.Name != name {
+			if component == types.MicroCloud || s.Name != name {
 				continue
 			}
 
-			for _, member := range s.Clusters[service] {
+			for _, member := range s.Clusters[component] {
 				if !cloudMembers[member.Name] {
-					if unmanagedSystems[service] == nil {
-						unmanagedSystems[service] = map[string]bool{}
+					if unmanagedSystems[component] == nil {
+						unmanagedSystems[component] = map[string]bool{}
 					}
 
-					unmanagedSystems[service][member.Name] = true
+					unmanagedSystems[component][member.Name] = true
 				}
 			}
 
-			if len(s.Clusters[service]) > 0 {
-				clusterMap := make(map[string]bool, len(s.Clusters[service]))
-				for _, member := range s.Clusters[service] {
+			if len(s.Clusters[component]) > 0 {
+				clusterMap := make(map[string]bool, len(s.Clusters[component]))
+				for _, member := range s.Clusters[component] {
 					clusterMap[member.Name] = true
 				}
 
 				for name := range cloudMembers {
 					if !clusterMap[name] {
-						if orphanedSystems[service] == nil {
-							orphanedSystems[service] = map[string]bool{}
+						if orphanedSystems[component] == nil {
+							orphanedSystems[component] = map[string]bool{}
 						}
 
-						orphanedSystems[service][name] = true
+						orphanedSystems[component][name] = true
 					}
 				}
 			}
@@ -342,13 +342,13 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 		warnings = append(warnings, Warning{Level: Warn, Message: msg})
 	}
 
-	if len(uninstalledServices[types.LXD]) > 0 {
+	if len(uninstalledComponents[types.LXD]) > 0 {
 		tmpl := tui.Fmt{Arg: "LXD is not found on %s"}
-		msg := tui.Printf(tmpl, tui.Fmt{Color: tui.Bright, Arg: strings.Join(uninstalledServices[types.LXD], ", "), Bold: true})
+		msg := tui.Printf(tmpl, tui.Fmt{Color: tui.Bright, Arg: strings.Join(uninstalledComponents[types.LXD], ", "), Bold: true})
 		warnings = append(warnings, Warning{Level: Error, Message: msg})
 	}
 
-	for service, systems := range orphanedSystems {
+	for component, systems := range orphanedSystems {
 		list := make([]string, 0, len(systems))
 		for name := range systems {
 			list = append(list, name)
@@ -356,40 +356,40 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 
 		tmpl := tui.Fmt{Arg: "MicroCloud members not found in %s: %s"}
 		msg := tui.Printf(tmpl,
-			tui.Fmt{Color: tui.Bright, Arg: service, Bold: true},
+			tui.Fmt{Color: tui.Bright, Arg: component, Bold: true},
 			tui.Fmt{Color: tui.Bright, Bold: true, Arg: strings.Join(list, ", ")})
 		warnings = append(warnings, Warning{Level: Error, Message: msg})
 	}
 
-	if !osdsConfigured && len(uninstalledServices[types.MicroCeph]) < clusterSize {
+	if !osdsConfigured && len(uninstalledComponents[types.MicroCeph]) < clusterSize {
 		warnings = append(warnings, Warning{Level: Warn, Message: "No MicroCeph OSDs configured"})
 	}
 
-	for name, services := range offlineSystems {
+	for name, components := range offlineSystems {
 		tmpl := tui.Fmt{Arg: "%s is not available on %s"}
-		msg := tui.Printf(tmpl, tui.Fmt{Color: tui.Bright, Bold: true, Arg: strings.Join(services, ", ")}, tui.Fmt{Color: tui.Bright, Bold: true, Arg: name})
+		msg := tui.Printf(tmpl, tui.Fmt{Color: tui.Bright, Bold: true, Arg: strings.Join(components, ", ")}, tui.Fmt{Color: tui.Bright, Bold: true, Arg: name})
 		warnings = append(warnings, Warning{Level: Error, Message: msg})
 	}
 
-	for service := range upgradingServices {
+	for component := range upgradingComponents {
 		tmpl := tui.Fmt{Arg: "%s upgrade in progress"}
-		msg := tui.Printf(tmpl, tui.Fmt{Color: tui.Bright, Bold: true, Arg: service})
+		msg := tui.Printf(tmpl, tui.Fmt{Color: tui.Bright, Bold: true, Arg: component})
 		warnings = append(warnings, Warning{Level: Warn, Message: msg})
 	}
 
-	for service, names := range uninstalledServices {
-		if service == types.LXD || service == types.MicroCloud {
+	for component, names := range uninstalledComponents {
+		if component == types.LXD || component == types.MicroCloud {
 			continue
 		}
 
 		tmpl := tui.Fmt{Arg: "%s is not found on %s"}
 		msg := tui.Printf(tmpl,
-			tui.Fmt{Color: tui.Bright, Bold: true, Arg: service},
+			tui.Fmt{Color: tui.Bright, Bold: true, Arg: component},
 			tui.Fmt{Color: tui.Bright, Bold: true, Arg: strings.Join(names, ", ")})
 		warnings = append(warnings, Warning{Level: Warn, Message: msg})
 	}
 
-	for service, systems := range unmanagedSystems {
+	for component, systems := range unmanagedSystems {
 		list := make([]string, 0, len(systems))
 		for name := range systems {
 			list = append(list, name)
@@ -397,7 +397,7 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 
 		tmpl := tui.Fmt{Arg: "Found %s systems not managed by MicroCloud: %s"}
 		msg := tui.Printf(tmpl,
-			tui.Fmt{Color: tui.Bright, Bold: true, Arg: service},
+			tui.Fmt{Color: tui.Bright, Bold: true, Arg: component},
 			tui.Fmt{Color: tui.Bright, Bold: true, Arg: strings.Join(list, ",")})
 		warnings = append(warnings, Warning{Level: Warn, Message: msg})
 	}
@@ -413,33 +413,33 @@ func formatStatusRow(localStatus types.Status, s types.Status) []string {
 		osds = strconv.Itoa(len(s.OSDs))
 	}
 
-	cephServices := tui.WarningColor("-", false)
+	cephComponents := tui.WarningColor("-", false)
 
-	if len(s.CephServices) > 0 {
-		services := make([]string, 0, len(s.CephServices))
-		for _, service := range s.CephServices {
-			services = append(services, service.Service)
+	if len(s.CephComponents) > 0 {
+		components := make([]string, 0, len(s.CephComponents))
+		for _, component := range s.CephComponents {
+			components = append(components, component.Service)
 		}
 
-		cephServices = strings.Join(services, ",")
+		cephComponents = strings.Join(components, ",")
 	}
 
-	ovnServices := tui.WarningColor("-", false)
-	if len(s.OVNServices) > 0 {
-		services := make([]string, 0, len(s.OVNServices))
-		for _, service := range s.OVNServices {
-			services = append(services, service.Service)
+	ovnComponents := tui.WarningColor("-", false)
+	if len(s.OVNComponents) > 0 {
+		components := make([]string, 0, len(s.OVNComponents))
+		for _, component := range s.OVNComponents {
+			components = append(components, component.Service)
 		}
 
-		ovnServices = strings.Join(services, ",")
+		ovnComponents = strings.Join(components, ",")
 	}
 
 	if len(s.Clusters[types.MicroOVN]) == 0 {
-		ovnServices = tui.ErrorColor("-", false)
+		ovnComponents = tui.ErrorColor("-", false)
 	}
 
 	if len(s.Clusters[types.MicroCeph]) == 0 {
-		cephServices = tui.ErrorColor("-", false)
+		cephComponents = tui.ErrorColor("-", false)
 		osds = tui.ErrorColor("-", false)
 	}
 
@@ -450,7 +450,7 @@ func formatStatusRow(localStatus types.Status, s types.Status) []string {
 				continue
 			}
 
-			// Only set the service status to upgrading if no other member has a more urgent status.
+			// Only set the component status to upgrading if no other member has a more urgent status.
 			if member.Status == microTypes.MemberUpgrading || member.Status == microTypes.MemberNeedsUpgrade {
 				if status == tui.SuccessColor(string(microTypes.MemberOnline), false) {
 					status = tui.WarningColor(string(member.Status), false)
@@ -461,5 +461,5 @@ func formatStatusRow(localStatus types.Status, s types.Status) []string {
 		}
 	}
 
-	return []string{s.Name, s.Address, osds, cephServices, ovnServices, status}
+	return []string{s.Name, s.Address, osds, cephComponents, ovnComponents, status}
 }

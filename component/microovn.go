@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -20,8 +20,8 @@ import (
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
-// OVNService is a MicroOVN service.
-type OVNService struct {
+// OVNComponent is a MicroOVN component.
+type OVNComponent struct {
 	m *microcluster.MicroCluster
 
 	name    string
@@ -30,11 +30,11 @@ type OVNService struct {
 	config  map[string]string
 }
 
-// NewOVNService creates a new MicroOVN service with a client attached.
-func NewOVNService(name string, addr string, cloudDir string) (*OVNService, error) {
+// NewOVNComponent creates a new MicroOVN component with a client attached.
+func NewOVNComponent(name string, addr string, cloudDir string) (*OVNComponent, error) {
 	proxy := func(r *http.Request) (*url.URL, error) {
-		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microovn") {
-			r.URL.Path = "/1.0/services/microovn" + r.URL.Path
+		if !strings.HasPrefix(r.URL.Path, "/1.0/components/microovn") {
+			r.URL.Path = "/1.0/components/microovn" + r.URL.Path
 		}
 
 		return shared.ProxyFromEnvironment(r)
@@ -45,7 +45,7 @@ func NewOVNService(name string, addr string, cloudDir string) (*OVNService, erro
 		return nil, err
 	}
 
-	return &OVNService{
+	return &OVNComponent{
 		m:       client,
 		name:    name,
 		address: addr,
@@ -55,12 +55,12 @@ func NewOVNService(name string, addr string, cloudDir string) (*OVNService, erro
 }
 
 // Client returns a client to the OVN unix socket.
-func (s OVNService) Client() (*client.Client, error) {
+func (s OVNComponent) Client() (*client.Client, error) {
 	return s.m.LocalClient()
 }
 
 // Bootstrap bootstraps the MicroOVN daemon on the default port.
-func (s OVNService) Bootstrap(ctx context.Context) error {
+func (s OVNComponent) Bootstrap(ctx context.Context) error {
 	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config)
 	if err != nil {
 		return err
@@ -88,12 +88,12 @@ func (s OVNService) Bootstrap(ctx context.Context) error {
 }
 
 // IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
-func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error) {
+func (s OVNComponent) IssueToken(ctx context.Context, peer string) (string, error) {
 	return s.m.NewJoinToken(ctx, peer, 5*time.Minute)
 }
 
 // DeleteToken deletes a token by its name.
-func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address string) error {
+func (s OVNComponent) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c *client.Client
 	var err error
 	if address != "" {
@@ -115,13 +115,13 @@ func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address s
 }
 
 // Join joins a cluster with the given token.
-func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
+func (s OVNComponent) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, joinConfig.OVNConfig)
 }
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
 // Provide the certificate of the remote server for mTLS.
-func (s OVNService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+func (s OVNComponent) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
 	var err error
 	var client *client.Client
 
@@ -147,7 +147,7 @@ func (s OVNService) RemoteClusterMembers(ctx context.Context, cert *x509.Certifi
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, error) {
+func (s OVNComponent) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client()
 	if err != nil {
 		return nil, err
@@ -156,8 +156,8 @@ func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, erro
 	return clusterMembers(ctx, client)
 }
 
-// DeleteClusterMember removes the given cluster member from the service.
-func (s OVNService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+// DeleteClusterMember removes the given cluster member from the component.
+func (s OVNComponent) DeleteClusterMember(ctx context.Context, name string, force bool) error {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return err
@@ -166,28 +166,28 @@ func (s OVNService) DeleteClusterMember(ctx context.Context, name string, force 
 	return c.DeleteClusterMember(ctx, name, force)
 }
 
-// Type returns the type of Service.
-func (s OVNService) Type() types.ServiceType {
+// Type returns the type of Component.
+func (s OVNComponent) Type() types.ComponentType {
 	return types.MicroOVN
 }
 
-// Name returns the name of this Service instance.
-func (s OVNService) Name() string {
+// Name returns the name of this Component instance.
+func (s OVNComponent) Name() string {
 	return s.name
 }
 
-// Address returns the address of this Service instance.
-func (s OVNService) Address() string {
+// Address returns the address of this Component instance.
+func (s OVNComponent) Address() string {
 	return s.address
 }
 
-// Port returns the port of this Service instance.
-func (s OVNService) Port() int64 {
+// Port returns the port of this Component instance.
+func (s OVNComponent) Port() int64 {
 	return s.port
 }
 
-// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
-func (s OVNService) GetVersion(ctx context.Context) (string, error) {
+// GetVersion gets the installed daemon version of the component, and returns an error if the version is not supported.
+func (s OVNComponent) GetVersion(ctx context.Context) (string, error) {
 	status, err := s.m.Status(ctx)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return "", fmt.Errorf("The installed version of %s is not supported", s.Type())
@@ -205,8 +205,8 @@ func (s OVNService) GetVersion(ctx context.Context) (string, error) {
 	return status.Version, nil
 }
 
-// IsInitialized returns whether the service is initialized.
-func (s OVNService) IsInitialized(ctx context.Context) (bool, error) {
+// IsInitialized returns whether the component is initialized.
+func (s OVNComponent) IsInitialized(ctx context.Context) (bool, error) {
 	err := s.m.Ready(ctx)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
@@ -224,8 +224,8 @@ func (s OVNService) IsInitialized(ctx context.Context) (bool, error) {
 	return status.Ready, nil
 }
 
-// SetConfig sets the config of this Service instance.
-func (s *OVNService) SetConfig(config map[string]string) {
+// SetConfig sets the config of this Component instance.
+func (s *OVNComponent) SetConfig(config map[string]string) {
 	if s.config == nil {
 		s.config = make(map[string]string)
 	}
@@ -235,8 +235,8 @@ func (s *OVNService) SetConfig(config map[string]string) {
 	}
 }
 
-// SupportsFeature checks if the specified API feature of this Service instance if supported.
-func (s *OVNService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+// SupportsFeature checks if the specified API feature of this Component instance if supported.
+func (s *OVNComponent) SupportsFeature(ctx context.Context, feature string) (bool, error) {
 	server, err := s.m.Status(ctx)
 	if err != nil {
 		return false, fmt.Errorf("Failed to get MicroOVN server status while checking for features: %v", err)

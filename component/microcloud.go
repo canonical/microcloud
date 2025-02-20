@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -21,8 +21,8 @@ import (
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
-// CloudService is a MicroCloud service.
-type CloudService struct {
+// CloudComponent is a MicroCloud component.
+type CloudComponent struct {
 	client *microcluster.MicroCluster
 
 	name    string
@@ -45,14 +45,14 @@ type Status struct {
 	Name string `json:"name"    yaml:"name"`
 }
 
-// NewCloudService creates a new MicroCloud service with a client attached.
-func NewCloudService(name string, addr string, dir string) (*CloudService, error) {
+// NewCloudComponent creates a new MicroCloud component with a client attached.
+func NewCloudComponent(name string, addr string, dir string) (*CloudComponent, error) {
 	client, err := microcluster.App(microcluster.Args{StateDir: dir})
 	if err != nil {
 		return nil, err
 	}
 
-	return &CloudService{
+	return &CloudComponent{
 		client:  client,
 		name:    name,
 		address: addr,
@@ -62,17 +62,17 @@ func NewCloudService(name string, addr string, dir string) (*CloudService, error
 }
 
 // StartCloud launches the MicroCloud daemon with the appropriate hooks.
-func (s *CloudService) StartCloud(ctx context.Context, args microcluster.DaemonArgs) error {
+func (s *CloudComponent) StartCloud(ctx context.Context, args microcluster.DaemonArgs) error {
 	return s.client.Start(ctx, args)
 }
 
 // Client returns a client to the MicroCloud unix socket.
-func (s CloudService) Client() (*microClient.Client, error) {
+func (s CloudComponent) Client() (*microClient.Client, error) {
 	return s.client.LocalClient()
 }
 
 // Bootstrap bootstraps the MicroCloud daemon on the default port.
-func (s CloudService) Bootstrap(ctx context.Context) error {
+func (s CloudComponent) Bootstrap(ctx context.Context) error {
 	err := s.client.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), nil)
 	if err != nil {
 		return err
@@ -100,12 +100,12 @@ func (s CloudService) Bootstrap(ctx context.Context) error {
 }
 
 // IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
-func (s CloudService) IssueToken(ctx context.Context, peer string) (string, error) {
+func (s CloudComponent) IssueToken(ctx context.Context, peer string) (string, error) {
 	return s.client.NewJoinToken(ctx, peer, 5*time.Minute)
 }
 
 // DeleteToken deletes a token by its name.
-func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address string) error {
+func (s CloudComponent) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c *microClient.Client
 	var err error
 	if address != "" {
@@ -127,7 +127,7 @@ func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address
 }
 
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized using mTLS.
-func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress string, peer string, serviceType types.ServiceType) (string, error) {
+func (s CloudComponent) RemoteIssueToken(ctx context.Context, clusterAddress string, peer string, componentType types.ComponentType) (string, error) {
 	c, err := s.client.RemoteClient(util.CanonicalNetworkAddress(clusterAddress, CloudPort))
 	if err != nil {
 		return "", err
@@ -138,17 +138,17 @@ func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress strin
 		return "", err
 	}
 
-	return client.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
+	return client.RemoteIssueToken(ctx, c, componentType, types.ComponentTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
 }
 
 // Join joins a cluster with the given token.
-func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
+func (s CloudComponent) Join(ctx context.Context, joinConfig JoinConfig) error {
 	return s.client.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
 }
 
 // remoteClient returns an https client for the given address:port.
 // It picks the cluster certificate if none is provided to verify the remote.
-func (s CloudService) remoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
+func (s CloudComponent) remoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
 	var err error
 	var client *microClient.Client
 
@@ -167,7 +167,7 @@ func (s CloudService) remoteClient(cert *x509.Certificate, address string) (*mic
 }
 
 // RequestJoin sends the signal to initiate a join to the remote system, or timeout after a maximum of 5 min.
-func (s CloudService) RequestJoin(ctx context.Context, name string, cert *x509.Certificate, joinConfig types.ServicesPut) error {
+func (s CloudComponent) RequestJoin(ctx context.Context, name string, cert *x509.Certificate, joinConfig types.ComponentsPut) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 
@@ -190,11 +190,11 @@ func (s CloudService) RequestJoin(ctx context.Context, name string, cert *x509.C
 		}
 	}
 
-	return client.JoinServices(ctx, c, joinConfig)
+	return client.JoinComponents(ctx, c, joinConfig)
 }
 
 // RequestJoinIntent send the intent to join the remote cluster.
-func (s CloudService) RequestJoinIntent(ctx context.Context, clusterAddress string, conf cloudClient.AuthConfig, intent types.SessionJoinPost) (*x509.Certificate, error) {
+func (s CloudComponent) RequestJoinIntent(ctx context.Context, clusterAddress string, conf cloudClient.AuthConfig, intent types.SessionJoinPost) (*x509.Certificate, error) {
 	c, err := s.client.RemoteClientWithCert(util.CanonicalNetworkAddress(clusterAddress, CloudPort), conf.TLSServerCertificate)
 	if err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func (s CloudService) RequestJoinIntent(ctx context.Context, clusterAddress stri
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
 // Provide the certificate of the remote server for mTLS.
-func (s CloudService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+func (s CloudComponent) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
 	client, err := s.remoteClient(cert, address)
 	if err != nil {
 		return nil, err
@@ -225,7 +225,7 @@ func (s CloudService) RemoteClusterMembers(ctx context.Context, cert *x509.Certi
 }
 
 // RemoteStatus returns the status of a remote member which doesn't have to be part of any cluster.
-func (s CloudService) RemoteStatus(ctx context.Context, cert *x509.Certificate, address string) (*Status, error) {
+func (s CloudComponent) RemoteStatus(ctx context.Context, cert *x509.Certificate, address string) (*Status, error) {
 	client, err := s.remoteClient(cert, address)
 	if err != nil {
 		return nil, err
@@ -246,7 +246,7 @@ func (s CloudService) RemoteStatus(ctx context.Context, cert *x509.Certificate, 
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, error) {
+func (s CloudComponent) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.client.LocalClient()
 	if err != nil {
 		return nil, err
@@ -270,8 +270,8 @@ func clusterMembers(ctx context.Context, client *microClient.Client) (map[string
 	return genericMembers, nil
 }
 
-// DeleteClusterMember removes the given cluster member from the service.
-func (s CloudService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+// DeleteClusterMember removes the given cluster member from the component.
+func (s CloudComponent) DeleteClusterMember(ctx context.Context, name string, force bool) error {
 	c, err := s.client.LocalClient()
 	if err != nil {
 		return err
@@ -280,28 +280,28 @@ func (s CloudService) DeleteClusterMember(ctx context.Context, name string, forc
 	return c.DeleteClusterMember(ctx, name, force)
 }
 
-// Type returns the type of Service.
-func (s CloudService) Type() types.ServiceType {
+// Type returns the type of Component.
+func (s CloudComponent) Type() types.ComponentType {
 	return types.MicroCloud
 }
 
-// Name returns the name of this Service instance.
-func (s CloudService) Name() string {
+// Name returns the name of this Component instance.
+func (s CloudComponent) Name() string {
 	return s.name
 }
 
-// Address returns the address of this Service instance.
-func (s CloudService) Address() string {
+// Address returns the address of this Component instance.
+func (s CloudComponent) Address() string {
 	return s.address
 }
 
-// Port returns the port of this Service instance.
-func (s CloudService) Port() int64 {
+// Port returns the port of this Component instance.
+func (s CloudComponent) Port() int64 {
 	return s.port
 }
 
-// SetConfig sets the config of this Service instance.
-func (s *CloudService) SetConfig(config map[string]string) {
+// SetConfig sets the config of this Component instance.
+func (s *CloudComponent) SetConfig(config map[string]string) {
 	if s.config == nil {
 		s.config = make(map[string]string)
 	}
@@ -311,8 +311,8 @@ func (s *CloudService) SetConfig(config map[string]string) {
 	}
 }
 
-// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
-func (s CloudService) GetVersion(ctx context.Context) (string, error) {
+// GetVersion gets the installed daemon version of the component, and returns an error if the version is not supported.
+func (s CloudComponent) GetVersion(ctx context.Context) (string, error) {
 	status, err := s.client.Status(ctx)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return "", fmt.Errorf("The installed version of %s is not supported", s.Type())
@@ -325,8 +325,8 @@ func (s CloudService) GetVersion(ctx context.Context) (string, error) {
 	return status.Version, nil
 }
 
-// IsInitialized returns whether the service is initialized.
-func (s CloudService) IsInitialized(ctx context.Context) (bool, error) {
+// IsInitialized returns whether the component is initialized.
+func (s CloudComponent) IsInitialized(ctx context.Context) (bool, error) {
 	err := s.client.Ready(ctx)
 	if err != nil {
 		return false, fmt.Errorf("Failed to wait for %s to get ready: %w", s.Type(), err)
@@ -340,8 +340,8 @@ func (s CloudService) IsInitialized(ctx context.Context) (bool, error) {
 	return status.Ready, nil
 }
 
-// SupportsFeature checks if the specified API feature of this Service instance if supported.
-func (s *CloudService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+// SupportsFeature checks if the specified API feature of this Component instance if supported.
+func (s *CloudComponent) SupportsFeature(ctx context.Context, feature string) (bool, error) {
 	server, err := s.client.Status(ctx)
 	if err != nil {
 		return false, fmt.Errorf("Failed to get MicroCloud server status while checking for features: %v", err)
@@ -356,17 +356,17 @@ func (s *CloudService) SupportsFeature(ctx context.Context, feature string) (boo
 }
 
 // ServerCert returns the local clusters server certificate.
-func (s *CloudService) ServerCert() (*shared.CertInfo, error) {
+func (s *CloudComponent) ServerCert() (*shared.CertInfo, error) {
 	return s.client.FileSystem.ServerCert()
 }
 
 // ClusterCert returns the local clusters certificate.
-func (s *CloudService) ClusterCert() (*shared.CertInfo, error) {
+func (s *CloudComponent) ClusterCert() (*shared.CertInfo, error) {
 	return s.client.FileSystem.ClusterCert()
 }
 
 // StartSession starts a trust establishment session via the unix socket.
-func (s *CloudService) StartSession(ctx context.Context, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
+func (s *CloudComponent) StartSession(ctx context.Context, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
 	c, err := s.client.LocalClient()
 	if err != nil {
 		return nil, err
@@ -376,7 +376,7 @@ func (s *CloudService) StartSession(ctx context.Context, role string, sessionTim
 }
 
 // RemoteClient returns a client targeting a remote MicroCloud.
-func (s *CloudService) RemoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
+func (s *CloudComponent) RemoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
 	c, err := s.remoteClient(cert, address)
 	if err != nil {
 		return nil, err

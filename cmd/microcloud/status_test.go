@@ -38,7 +38,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline)},
 					},
@@ -57,7 +57,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -65,7 +65,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -84,7 +84,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", "some unknown status")},
 					},
@@ -92,7 +92,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -112,7 +112,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberNeedsUpgrade)},
 					},
@@ -120,7 +120,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -140,7 +140,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", "some unknown status"), genMember("micro02", microTypes.MemberNeedsUpgrade)},
 					},
@@ -148,7 +148,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -164,12 +164,12 @@ func (s *statusSuite) Test_statusWarnings() {
 			expectedStatus: map[string]microTypes.MemberStatus{"micro01": "some unknown status", "micro02": microTypes.MemberNeedsUpgrade},
 		},
 		{
-			desc: "2 node MicroCloud with LXD, offline node and upgrading node across services",
+			desc: "2 node MicroCloud with LXD, offline node and upgrading node across components",
 			statuses: []types.Status{
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberNeedsUpgrade), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", "some unknown status"), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -177,7 +177,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -198,7 +198,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline)},
 					},
@@ -206,7 +206,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
 				},
@@ -226,7 +226,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -235,7 +235,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 					},
@@ -256,7 +256,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -265,7 +265,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -284,7 +284,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -293,7 +293,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -313,7 +313,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -323,7 +323,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -342,7 +342,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -352,7 +352,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -372,7 +372,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.101",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroOVN:   {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -382,7 +382,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
 						types.MicroOVN:   {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline)},
@@ -401,7 +401,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.100",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 					},
@@ -409,7 +409,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 					},
@@ -417,7 +417,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro03",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.LXD:        {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 					},
@@ -434,7 +434,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro01",
 					Address: "10.0.0.100",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.MicroOVN:   {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
@@ -445,7 +445,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro02",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.MicroOVN:   {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
@@ -456,7 +456,7 @@ func (s *statusSuite) Test_statusWarnings() {
 				{
 					Name:    "micro03",
 					Address: "10.0.0.102",
-					Clusters: map[types.ServiceType][]microTypes.ClusterMember{
+					Clusters: map[types.ComponentType][]microTypes.ClusterMember{
 						types.MicroCloud: {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.MicroOVN:   {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},
 						types.MicroCeph:  {genMember("micro01", microTypes.MemberOnline), genMember("micro02", microTypes.MemberOnline), genMember("micro03", microTypes.MemberOnline)},

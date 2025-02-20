@@ -26,8 +26,8 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/cmd/tui"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // DefaultAutoLookupTimeout is the default time limit for automatically finding systems over multicast.
@@ -114,7 +114,7 @@ type initConfig struct {
 	systems map[string]InitSystem
 
 	// state is the current state information for each system.
-	state map[string]service.SystemInformation
+	state map[string]component.SystemInformation
 }
 
 type cmdInit struct {
@@ -149,7 +149,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		common:    c.common,
 		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
-		state:     map[string]service.SystemInformation{},
+		state:     map[string]component.SystemInformation{},
 	}
 
 	cfg.sessionTimeout = DefaultSessionTimeout
@@ -162,7 +162,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 // RunInteractive runs the interactive subcommand for initializing a MicroCloud.
 func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
-	fmt.Println("Waiting for services to start ...")
+	fmt.Println("Waiting for components to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
 	if err != nil {
 		return err
@@ -190,37 +190,37 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	installedComponents := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	installedServices, err = c.askMissingServices(installedServices, optionalServices)
+	installedComponents, err = c.askMissingComponents(installedComponents, optionalComponents)
 	if err != nil {
 		return err
 	}
 
-	// check the API for service versions.
-	s, err := service.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedServices...)
+	// check the API for component versions.
+	s, err := component.NewHandler(c.name, c.address, c.common.FlagMicroCloudDir, installedComponents...)
 	if err != nil {
 		return err
 	}
 
-	services := make(map[types.ServiceType]string, len(installedServices))
-	for _, s := range s.Services {
+	components := make(map[types.ComponentType]string, len(installedComponents))
+	for _, s := range s.Components {
 		version, err := s.GetVersion(context.Background())
 		if err != nil {
 			return err
 		}
 
-		services[s.Type()] = version
+		components[s.Type()] = version
 	}
 
 	var reverter *revert.Reverter
 	if c.setupMany {
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.initiatingSession(gw, s, services, "", nil)
+			return c.initiatingSession(gw, s, components, "", nil)
 		})
 		if err != nil {
 			return err
@@ -231,7 +231,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 		reverter.Add(func() {
 			// Stop each joiner member session.
-			cloud := s.Services[types.MicroCloud].(*service.CloudService)
+			cloud := s.Components[types.MicroCloud].(*component.CloudComponent)
 			for peer, system := range c.systems {
 				if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
 					continue
@@ -242,7 +242,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 					continue
 				}
 
-				remoteClient, err := cloud.RemoteClient(system.ServerInfo.Certificate, util.CanonicalNetworkAddress(system.ServerInfo.Address, service.CloudPort))
+				remoteClient, err := cloud.RemoteClient(system.ServerInfo.Certificate, util.CanonicalNetworkAddress(system.ServerInfo.Address, component.CloudPort))
 				if err != nil {
 					logger.Error("Failed to create remote client", logger.Ctx{"address": system.ServerInfo.Address, "error": err})
 					continue
@@ -256,7 +256,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: c.name, Address: c.address, Services: services})
+	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: c.name, Address: c.address, Components: components})
 	if err != nil {
 		return err
 	}
@@ -278,19 +278,19 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	// Ensure LXD is not already clustered if we are running `microcloud init`.
 	for _, info := range c.state {
-		if info.ServiceClustered(types.LXD) {
+		if info.ComponentClustered(types.LXD) {
 			return fmt.Errorf("%s is already clustered on %q, aborting setup", types.LXD, info.ClusterName)
 		}
 	}
 
 	// Ensure there are no existing cluster conflicts.
-	conflict, serviceType := service.ClustersConflict(c.state, services)
+	conflict, componentType := component.ClustersConflict(c.state, components)
 	if conflict {
-		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
+		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", componentType)
 	}
 
 	// Ask to reuse existing clusters.
-	err = c.askClustered(s, services)
+	err = c.askClustered(s, components)
 	if err != nil {
 		return err
 	}
@@ -322,41 +322,41 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// waitForJoin requests a system to join each service's respective cluster,
+// waitForJoin requests a system to join each component's respective cluster,
 // and then waits for the request to either complete or time out.
 // If the request was successful, it additionally waits until the cluster appears in the database.
-func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, peer string, cert *x509.Certificate, cfg types.ServicesPut) error {
-	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+func waitForJoin(sh *component.Handler, clusterSizes map[types.ComponentType]int, peer string, cert *x509.Certificate, cfg types.ComponentsPut) error {
+	cloud := sh.Components[types.MicroCloud].(*component.CloudComponent)
 	err := cloud.RequestJoin(context.Background(), peer, cert, cfg)
 	if err != nil {
 		return fmt.Errorf("System %q failed to join the cluster: %w", peer, err)
 	}
 
-	clustered := make(map[types.ServiceType]bool, len(sh.Services))
+	clustered := make(map[types.ComponentType]bool, len(sh.Components))
 	for _, tokenInfo := range cfg.Tokens {
-		clustered[tokenInfo.Service] = false
+		clustered[tokenInfo.Component] = false
 	}
 
-	// Iterate over all services until the database is updated with the new node across all of them.
+	// Iterate over all components until the database is updated with the new node across all of them.
 	now := time.Now()
 	for len(clustered) != 0 {
 		if time.Since(now) >= time.Second*30 {
 			return fmt.Errorf("Timed out waiting for cluster member %q to appear", peer)
 		}
 
-		// Check the size of the cluster for each service.
-		for service := range clustered {
-			systems, err := sh.Services[service].ClusterMembers(context.Background())
+		// Check the size of the cluster for each component.
+		for component := range clustered {
+			systems, err := sh.Components[component].ClusterMembers(context.Background())
 			if err != nil {
 				return err
 			}
 
 			// If the size of the cluster has been incremented by 1 from its initial value,
-			// then we don't need to check the corresponding service anymore.
-			// So remove the service from consideration and update the current cluster size for the next node.
-			if len(systems) == clusterSizes[service]+1 {
-				delete(clustered, service)
-				clusterSizes[service] = clusterSizes[service] + 1
+			// then we don't need to check the corresponding component anymore.
+			// So remove the component from consideration and update the current cluster size for the next node.
+			if len(systems) == clusterSizes[component]+1 {
+				delete(clustered, component)
+				clusterSizes[component] = clusterSizes[component] + 1
 			}
 		}
 	}
@@ -364,28 +364,28 @@ func waitForJoin(sh *service.Handler, clusterSizes map[types.ServiceType]int, pe
 	return nil
 }
 
-func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
+func (c *initConfig) addPeers(sh *component.Handler) (revert.Hook, error) {
 	reverter := revert.New()
 	defer reverter.Fail()
 
 	// Grab the systems that are clustered from the InitSystem map.
-	initializedServices := map[types.ServiceType]string{}
-	existingSystems := map[types.ServiceType]map[string]string{}
-	for serviceType := range sh.Services {
+	initializedComponents := map[types.ComponentType]string{}
+	existingSystems := map[types.ComponentType]map[string]string{}
+	for componentType := range sh.Components {
 		for peer := range c.systems {
-			if c.state[peer].ExistingServices != nil && c.state[peer].ExistingServices[serviceType] != nil {
-				initializedServices[serviceType] = peer
-				existingSystems[serviceType] = c.state[peer].ExistingServices[serviceType]
+			if c.state[peer].ExistingComponents != nil && c.state[peer].ExistingComponents[componentType] != nil {
+				initializedComponents[componentType] = peer
+				existingSystems[componentType] = c.state[peer].ExistingComponents[componentType]
 				break
 			}
 		}
 	}
 
 	// Prepare a JoinConfig to send to each joiner.
-	joinConfig := make(map[string]types.ServicesPut, len(c.systems))
+	joinConfig := make(map[string]types.ComponentsPut, len(c.systems))
 	for peer, info := range c.systems {
-		joinConfig[peer] = types.ServicesPut{
-			Tokens:     []types.ServiceToken{},
+		joinConfig[peer] = types.ComponentsPut{
+			Tokens:     []types.ComponentToken{},
 			Address:    info.ServerInfo.Address,
 			LXDConfig:  info.JoinConfig,
 			CephConfig: info.MicroCephDisks,
@@ -398,23 +398,23 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		}
 	}
 
-	clusterSize := map[types.ServiceType]int{}
-	for serviceType, clusterMembers := range existingSystems {
-		clusterSize[serviceType] = len(clusterMembers)
+	clusterSize := map[types.ComponentType]int{}
+	for componentType, clusterMembers := range existingSystems {
+		clusterSize[componentType] = len(clusterMembers)
 	}
 
 	// First let each joiner join the MicroCloud cluster.
-	// This ensures that the tokens for existing services can be issued on the remote system already using mTLS.
+	// This ensures that the tokens for existing components can be issued on the remote system already using mTLS.
 	for peer := range c.systems {
 		// Only join other peers which aren't yet part of MicroCloud.
 		if peer != sh.Name && existingSystems[types.MicroCloud][peer] == "" {
-			token, err := sh.Services[types.MicroCloud].IssueToken(context.Background(), peer)
+			token, err := sh.Components[types.MicroCloud].IssueToken(context.Background(), peer)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to issue MicroCloud token for peer %q: %w", peer, err)
 			}
 
 			cfg := joinConfig[peer]
-			cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: types.MicroCloud, JoinToken: token})
+			cfg.Tokens = append(cfg.Tokens, types.ComponentToken{Component: types.MicroCloud, JoinToken: token})
 
 			cert := c.systems[peer].ServerInfo.Certificate
 			err = waitForJoin(sh, clusterSize, peer, cert, cfg)
@@ -427,7 +427,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 	// Concurrently issue a token for each joiner.
 	for peer := range c.systems {
 		mut := sync.Mutex{}
-		err := sh.RunConcurrent("", "", func(s service.Service) error {
+		err := sh.RunConcurrent("", "", func(s component.Component) error {
 			// Skip MicroCloud as the cluster is already formed.
 			if s.Type() == types.MicroCloud {
 				return nil
@@ -435,7 +435,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 
 			// Only issue a token if the system isn't already part of that cluster.
 			if existingSystems[s.Type()][peer] == "" {
-				clusteredSystem := c.systems[initializedServices[s.Type()]]
+				clusteredSystem := c.systems[initializedComponents[s.Type()]]
 
 				var token string
 				var err error
@@ -448,7 +448,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 						return fmt.Errorf("Failed to issue %s token for peer %q: %w", s.Type(), peer, err)
 					}
 				} else {
-					cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+					cloud := sh.Components[types.MicroCloud].(*component.CloudComponent)
 					token, err = cloud.RemoteIssueToken(context.Background(), clusteredSystem.ServerInfo.Address, peer, s.Type())
 					if err != nil {
 						return err
@@ -459,12 +459,12 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 				reverter.Add(func() {
 					err = s.DeleteToken(context.Background(), peer, clusteredSystem.ServerInfo.Address)
 					if err != nil {
-						logger.Error("Failed to clean up join token", logger.Ctx{"service": s.Type(), "error": err})
+						logger.Error("Failed to clean up join token", logger.Ctx{"component": s.Type(), "error": err})
 					}
 				})
 
 				cfg := joinConfig[peer]
-				cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
+				cfg.Tokens = append(cfg.Tokens, types.ComponentToken{Component: s.Type(), JoinToken: token})
 				joinConfig[peer] = cfg
 				mut.Unlock()
 			}
@@ -541,14 +541,14 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 
 	for _, ipRange := range ovnIPRanges {
 		if ipRange.ContainsIP(gatewayIP) {
-			return nil, fmt.Errorf("%s %s.ovn.ranges must not include gateway address %q", service.DefaultUplinkNetwork, ipPrefix, gatewayNet.IP)
+			return nil, fmt.Errorf("%s %s.ovn.ranges must not include gateway address %q", component.DefaultUplinkNetwork, ipPrefix, gatewayNet.IP)
 		}
 	}
 
 	return ovnIPRanges, nil
 }
 
-func (c *initConfig) validateSystems(s *service.Handler) (err error) {
+func (c *initConfig) validateSystems(s *component.Handler) (err error) {
 	for _, sys := range c.systems {
 		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
 			continue
@@ -581,7 +581,7 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 	var ip4OVNRanges, ip6OVNRanges []*shared.IPRange
 
 	for _, network := range c.systems[s.Name].Networks {
-		if network.Type == "physical" && network.Name == service.DefaultUplinkNetwork {
+		if network.Type == "physical" && network.Name == component.DefaultUplinkNetwork {
 			ip4OVNRanges, err = validateGatewayNet(network.Config, "ipv4", validate.IsNetworkAddressCIDRV4)
 			if err != nil {
 				return err
@@ -629,13 +629,13 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 
 		for _, ipRange := range ip4OVNRanges {
 			if ipRange.ContainsIP(systemAddr) {
-				return fmt.Errorf("%s ipv4.ovn.ranges must not include system address %q", service.DefaultUplinkNetwork, systemAddr)
+				return fmt.Errorf("%s ipv4.ovn.ranges must not include system address %q", component.DefaultUplinkNetwork, systemAddr)
 			}
 		}
 
 		for _, ipRange := range ip6OVNRanges {
 			if ipRange.ContainsIP(systemAddr) {
-				return fmt.Errorf("%s ipv6.ovn.ranges must not include system address %q", service.DefaultUplinkNetwork, systemAddr)
+				return fmt.Errorf("%s ipv6.ovn.ranges must not include system address %q", component.DefaultUplinkNetwork, systemAddr)
 			}
 		}
 	}
@@ -645,11 +645,11 @@ func (c *initConfig) validateSystems(s *service.Handler) (err error) {
 
 // setupCluster Bootstraps the cluster if necessary, adds all peers to the cluster, and completes any post cluster
 // configuration.
-func (c *initConfig) setupCluster(s *service.Handler) error {
+func (c *initConfig) setupCluster(s *component.Handler) error {
 	reverter := revert.New()
 	defer reverter.Fail()
 
-	lxd := s.Services[types.LXD].(*service.LXDService)
+	lxd := s.Components[types.LXD].(*component.LXDComponent)
 	lxdClient, err := lxd.Client(context.Background())
 	if err != nil {
 		return err
@@ -664,7 +664,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	for _, network := range system.Networks {
-		if network.Name == service.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
+		if network.Name == component.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
 			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
 		}
 	}
@@ -676,22 +676,22 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	profile.ProfilePut = *newProfile
 
-	initializedServices := map[types.ServiceType]string{}
+	initializedComponents := map[types.ComponentType]string{}
 	bootstrapSystem := c.systems[s.Name]
-	for serviceType := range s.Services {
+	for componentType := range s.Components {
 		for peer := range c.systems {
-			if c.state[peer].ExistingServices[serviceType] != nil {
-				initializedServices[serviceType] = peer
+			if c.state[peer].ExistingComponents[componentType] != nil {
+				initializedComponents[componentType] = peer
 				break
 			}
 		}
 	}
 
-	fmt.Println("Initializing new services ...")
+	fmt.Println("Initializing new components ...")
 	mu := sync.Mutex{}
-	err = s.RunConcurrent(types.MicroCloud, types.LXD, func(s service.Service) error {
-		// If there's already an initialized system for this service, we don't need to bootstrap it.
-		if initializedServices[s.Type()] != "" {
+	err = s.RunConcurrent(types.MicroCloud, types.LXD, func(s component.Component) error {
+		// If there's already an initialized system for this component, we don't need to bootstrap it.
+		if initializedComponents[s.Type()] != "" {
 			return nil
 		}
 
@@ -721,7 +721,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 
-		// set a 2 minute timeout to bootstrap a service in case the node is slow.
+		// set a 2 minute timeout to bootstrap a component in case the node is slow.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
@@ -730,14 +730,14 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			return fmt.Errorf("Failed to bootstrap local %s: %w", s.Type(), err)
 		}
 
-		// Since the system is now clustered, update its existing services map.
+		// Since the system is now clustered, update its existing components map.
 		mu.Lock()
 		clustered := c.state[s.Name()]
-		if clustered.ExistingServices == nil {
-			clustered.ExistingServices = map[types.ServiceType]map[string]string{}
+		if clustered.ExistingComponents == nil {
+			clustered.ExistingComponents = map[types.ComponentType]map[string]string{}
 		}
 
-		clustered.ExistingServices[s.Type()] = map[string]string{s.Name(): s.Address()}
+		clustered.ExistingComponents[s.Type()] = map[string]string{s.Name(): s.Address()}
 		c.state[s.Name()] = clustered
 		mu.Unlock()
 
@@ -757,13 +757,13 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	reverter.Add(cleanup)
 
 	peer := s.Name
-	microCeph := initializedServices[types.MicroCeph]
+	microCeph := initializedComponents[types.MicroCeph]
 	if microCeph != "" {
 		peer = microCeph
 	}
 
-	if s.Services[types.MicroCeph] != nil {
-		for name := range c.state[peer].ExistingServices[types.MicroCeph] {
+	if s.Components[types.MicroCeph] != nil {
+		for name := range c.state[peer].ExistingComponents[types.MicroCeph] {
 			// There may be existing cluster members that are not a part of MicroCloud, so ignore those.
 			if c.systems[name].ServerInfo.Name == "" {
 				continue
@@ -772,7 +772,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			var client *client.Client
 			for _, disk := range c.systems[name].MicroCephDisks {
 				if client == nil {
-					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name)
+					client, err = s.Components[types.MicroCeph].(*component.CephComponent).Client(name)
 					if err != nil {
 						return err
 					}
@@ -802,7 +802,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 
-		c, err := s.Services[types.MicroCeph].(*service.CephService).Client(s.Name)
+		c, err := s.Components[types.MicroCeph].(*component.CephComponent).Client(s.Name)
 		if err != nil {
 			return err
 		}
@@ -824,11 +824,11 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 
 			defaultOSDPools := map[string]bool{
-				service.DefaultMgrOSDPool:        true,
-				service.DefaultCephFSDataOSDPool: true,
-				service.DefaultCephFSMetaOSDPool: true,
-				service.DefaultCephFSOSDPool:     true,
-				service.DefaultCephOSDPool:       true,
+				component.DefaultMgrOSDPool:        true,
+				component.DefaultCephFSDataOSDPool: true,
+				component.DefaultCephFSMetaOSDPool: true,
+				component.DefaultCephFSOSDPool:     true,
+				component.DefaultCephOSDPool:       true,
 			}
 
 			poolsToUpdate := []string{}
@@ -853,14 +853,14 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	fmt.Println("Configuring cluster-wide devices ...")
 
 	var ovnConfig string
-	if s.Services[types.MicroOVN] != nil {
-		ovn := s.Services[types.MicroOVN].(*service.OVNService)
+	if s.Components[types.MicroOVN] != nil {
+		ovn := s.Components[types.MicroOVN].(*component.OVNComponent)
 		client, err := ovn.Client()
 		if err != nil {
 			return err
 		}
 
-		services, err := ovnClient.GetServices(context.Background(), client)
+		components, err := ovnClient.GetServices(context.Background(), client)
 		if err != nil {
 			return err
 		}
@@ -871,11 +871,11 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		conns := []string{}
-		for _, service := range services {
-			if service.Service == "central" {
+		for _, component := range components {
+			if component.Service == "central" {
 				addr := s.Address()
-				if service.Location != s.Name {
-					addr = clusterMap[service.Location]
+				if component.Location != s.Name {
+					addr = clusterMap[component.Location]
 				}
 
 				conns = append(conns, fmt.Sprintf("ssl:%s", util.CanonicalNetworkAddress(addr, 6641)))

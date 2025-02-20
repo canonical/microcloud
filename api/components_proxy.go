@@ -14,22 +14,22 @@ import (
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
 
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 // LXDProxy proxies all requests from MicroCloud to LXD.
-func LXDProxy(sh *service.Handler) rest.Endpoint {
-	return proxy(sh, "lxd", "services/lxd/{rest:.*}", lxdHandler)
+func LXDProxy(sh *component.Handler) rest.Endpoint {
+	return proxy(sh, "lxd", "components/lxd/{rest:.*}", lxdHandler)
 }
 
 // CephProxy proxies all requests from MicroCloud to MicroCeph.
-func CephProxy(sh *service.Handler) rest.Endpoint {
-	return proxy(sh, "microceph", "services/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
+func CephProxy(sh *component.Handler) rest.Endpoint {
+	return proxy(sh, "microceph", "components/microceph/{rest:.*}", microHandler("microceph", MicroCephDir))
 }
 
 // OVNProxy proxies all requests from MicroCloud to MicroOVN.
-func OVNProxy(sh *service.Handler) rest.Endpoint {
-	return proxy(sh, "microovn", "services/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
+func OVNProxy(sh *component.Handler) rest.Endpoint {
+	return proxy(sh, "microovn", "components/microovn/{rest:.*}", microHandler("microovn", MicroOVNDir))
 }
 
 // LXDDir is the path to the state directory of the LXD snap.
@@ -42,7 +42,7 @@ const MicroCephDir = "/var/snap/microceph/common/state"
 const MicroOVNDir = "/var/snap/microovn/common/state"
 
 // proxy returns a proxy endpoint with the given handler and access applied to all REST methods.
-func proxy(sh *service.Handler, name, path string, handler endpointHandler) rest.Endpoint {
+func proxy(sh *component.Handler, name, path string, handler endpointHandler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              name,
@@ -56,9 +56,9 @@ func proxy(sh *service.Handler, name, path string, handler endpointHandler) rest
 	}
 }
 
-// lxdHandler forwards a request made to /1.0/services/lxd/<rest> to /1.0/<rest> on the LXD unix socket.
+// lxdHandler forwards a request made to /1.0/components/lxd/<rest> to /1.0/<rest> on the LXD unix socket.
 func lxdHandler(s state.State, r *http.Request) response.Response {
-	_, path, ok := strings.Cut(r.URL.Path, "/1.0/services/lxd")
+	_, path, ok := strings.Cut(r.URL.Path, "/1.0/components/lxd")
 	if !ok {
 		return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
 	}
@@ -116,10 +116,10 @@ func lxdHandler(s state.State, r *http.Request) response.Response {
 	return NewResponse(resp)
 }
 
-// microHandler forwards a request made to /1.0/services/<microcluster-service>/<rest> to /1.0/<rest> on the service unix socket.
-func microHandler(service string, stateDir string) func(state.State, *http.Request) response.Response {
+// microHandler forwards a request made to /1.0/components/<microcluster-component>/<rest> to /1.0/<rest> on the component unix socket.
+func microHandler(component string, stateDir string) func(state.State, *http.Request) response.Response {
 	return func(s state.State, r *http.Request) response.Response {
-		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
+		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/components/%s", component))
 		if !ok {
 			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
 		}
@@ -127,7 +127,7 @@ func microHandler(service string, stateDir string) func(state.State, *http.Reque
 		unixPath := filepath.Join(stateDir, "control.socket")
 		_, err := os.Stat(unixPath)
 		if err != nil {
-			return response.NotFound(fmt.Errorf("Failed to find %s unix socket %q: %w", service, unixPath, err))
+			return response.NotFound(fmt.Errorf("Failed to find %s unix socket %q: %w", component, unixPath, err))
 		}
 
 		// Must unset the RequestURI. It is an error to set this in a client request.

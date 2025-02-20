@@ -5,7 +5,7 @@ test_interactive() {
 
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
-  echo "Creating a MicroCloud with all services but no devices"
+  echo "Creating a MicroCloud with all components but no devices"
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export EXPECT_PEERS=2
@@ -37,7 +37,7 @@ test_interactive() {
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
   echo "Creating a MicroCloud with ZFS storage"
-  export SKIP_SERVICE="yes"
+  export SKIP_COMPONENT="yes"
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
@@ -170,7 +170,7 @@ test_interactive() {
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
 
   echo "Creating a MicroCloud with ZFS and Ceph storage, and OVN network"
-  unset SKIP_SERVICE
+  unset SKIP_COMPONENT
   export SETUP_CEPH="yes"
   export SETUP_CEPHFS="yes"
   export CEPH_FILTER="lxd_disk2"
@@ -335,7 +335,7 @@ test_interactive() {
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
   export EXPECT_PEERS=1
-  export SKIP_SERVICE="yes"
+  export SKIP_COMPONENT="yes"
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
@@ -437,16 +437,16 @@ _test_case() {
     num_ifaces="${3}"
 
     shift 3
-    skip_services="${*}"
+    skip_components="${*}"
 
     # Refuse to create local storage, even if we have enough disks and peers.
-    force_no_zfs="$(echo "${skip_services}" | grep -Fwo zfs || true)"
+    force_no_zfs="$(echo "${skip_components}" | grep -Fwo zfs || true)"
 
     # Refuse to create ceph storage, even if we have enough disks and peers.
-    force_no_ceph="$(echo "${skip_services}" | grep -Fwo ceph || true)"
+    force_no_ceph="$(echo "${skip_components}" | grep -Fwo ceph || true)"
 
     # Refuse to create ovn network, even if we have enough interfaces and peers.
-    force_no_ovn="$(echo "${skip_services}" | grep -Fwo ovn || true)"
+    force_no_ovn="$(echo "${skip_components}" | grep -Fwo ovn || true)"
 
     expected_zfs_disk=""
     expected_ceph_disks=0
@@ -627,7 +627,7 @@ test_interactive_combinations() {
   _test_case 4 2 2
 }
 
-test_service_mismatch() {
+test_component_mismatch() {
   unset_interactive_vars
   # Selects all available systems, adds 1 local disk per system, skips ceph and ovn setup.
   export MULTI_NODE="yes"
@@ -654,17 +654,17 @@ test_service_mismatch() {
     lxc exec "${m}" -- snap restart microcloud
   done
 
-  # Init should fail to find the other systems as they don't have the same services.
+  # Init should fail to find the other systems as they don't have the same components.
   # The error is reported on the joining side.
-  echo "Peers with missing services cannot join"
+  echo "Peers with missing components cannot join"
   ! join_session init micro01 micro02 micro03 || false
 
-  # Ensure the joiners exited due to missing services.
+  # Ensure the joiners exited due to missing components.
   # The initiator exits automatically after the session timeout.
-  lxc exec micro02 -- tail -1 out | grep "Rejecting peer \"micro02\" due to missing services" -q
-  lxc exec micro03 -- tail -1 out | grep "Rejecting peer \"micro03\" due to missing services" -q
+  lxc exec micro02 -- tail -1 out | grep "Rejecting peer \"micro02\" due to missing components" -q
+  lxc exec micro03 -- tail -1 out | grep "Rejecting peer \"micro03\" due to missing components" -q
 
-  # Install the remaining services on the other systems.
+  # Install the remaining components on the other systems.
   lxc exec micro02 -- snap enable microceph
   lxc exec micro02 -- snap enable microovn
   lxc exec micro03 -- snap enable microceph
@@ -693,17 +693,17 @@ test_service_mismatch() {
   ! lxc exec micro01 --env "TEST_CONSOLE=0" -- sh -c "microcloud join 2> out" || false
   lxc exec micro01 -- tail -1 out | grep -q "The installed version of MicroCeph is not supported"
 
-  # Try to set up a LXD-only MicroCloud while some systems have other services present.
+  # Try to set up a LXD-only MicroCloud while some systems have other components present.
   reset_systems 3 3 1
 
-  # Run all services on the other systems only.
+  # Run all components on the other systems only.
   lxc exec micro01 -- snap disable microceph || true
   lxc exec micro01 -- snap disable microovn || true
   lxc exec micro01 -- snap restart microcloud
 
-  SKIP_SERVICE="yes"
+  SKIP_COMPONENT="yes"
   unset SETUP_CEPH SETUP_OVN
-  # Init from the minimal system should work, but not set up any services it doesn't have.
+  # Init from the minimal system should work, but not set up any components it doesn't have.
   echo "Creating a MicroCloud without setting up MicroOVN and MicroCeph on peers"
   join_session init micro01 micro02 micro03
 
@@ -756,8 +756,8 @@ test_disk_mismatch() {
   validate_system_microceph "micro04"
 }
 
-# services_validator: A basic validator of 3 systems with typical expected inputs.
-services_validator() {
+# components_validator: A basic validator of 3 systems with typical expected inputs.
+components_validator() {
   for m in micro01 micro02 micro03 ; do
     validate_system_lxd ${m} 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
     validate_system_microceph ${m} 1 disk2
@@ -769,7 +769,7 @@ services_validator() {
 bootstrap_microceph() {
   lxc exec "${1}" -- microceph cluster bootstrap
 
-  # Wait until the services are deployed.
+  # Wait until the components are deployed.
   # This is to ensure the test suite doesn't try to access the MicroCeph's socket too quickly after
   # bootstrapping to prevent running into timeouts.
   # See https://github.com/canonical/microceph/issues/473.
@@ -814,18 +814,18 @@ test_reuse_cluster() {
   export OVN_UNDERLAY_NETWORK="no"
 
   reset_systems 3 3 3
-  echo "Create a MicroCloud that re-uses an existing service"
+  echo "Create a MicroCloud that re-uses an existing component"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
   bootstrap_microceph micro02
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
 
   reset_systems 3 3 3
-  echo "Create a MicroCloud that re-uses an existing service on the local node"
+  echo "Create a MicroCloud that re-uses an existing component on the local node"
   bootstrap_microceph micro01
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN"
@@ -834,47 +834,47 @@ test_reuse_cluster() {
   bootstrap_microceph micro02
   lxc exec micro02 -- microovn cluster bootstrap
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
 
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN on different nodes"
   bootstrap_microceph micro02
   lxc exec micro03 -- microovn cluster bootstrap
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
 
   reset_systems 3 3 3
-  echo "Create a MicroCloud that re-uses an existing service with multiple nodes from this cluster"
+  echo "Create a MicroCloud that re-uses an existing component with multiple nodes from this cluster"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="add"
   bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
 
   reset_systems 3 3 3
-  echo "Create a MicroCloud that re-uses an existing existing service with all nodes from this cluster"
+  echo "Create a MicroCloud that re-uses an existing existing component with all nodes from this cluster"
   bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
   token="$(lxc exec micro02 -- microceph cluster add micro03)"
   lxc exec micro03 -- microceph cluster join "${token}"
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
 
   reset_systems 4 3 3
-  echo "Create a MicroCloud that re-uses an existing existing service with foreign cluster members"
+  echo "Create a MicroCloud that re-uses an existing existing component with foreign cluster members"
   lxc exec micro04 -- snap disable microcloud
   bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro04)"
   lxc exec micro04 -- microceph cluster join "${token}"
   join_session init micro01 micro02 micro03
-  services_validator
+  components_validator
   validate_system_microceph micro04 1
 
   reset_systems 3 3 3
-  echo "Fail to create a MicroCloud due to conflicting existing services"
+  echo "Fail to create a MicroCloud due to conflicting existing component"
   bootstrap_microceph micro02
   bootstrap_microceph micro03
   ! join_session init micro01 micro02 micro03 || false
@@ -959,7 +959,7 @@ test_remove_cluster_member() {
   unset SETUP_CEPH
   unset CEPH_CLUSTER_NETWORK
   unset CEPH_PUBLIC_NETWORK
-  export SKIP_SERVICE="yes"
+  export SKIP_COMPONENT="yes"
 
   # LXD will require --force if we have storage volumes, so don't set those up.
   export SETUP_ZFS="no"
@@ -968,7 +968,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
-  echo "Create a MicroCloud and remove a node from all services"
+  echo "Create a MicroCloud and remove a node from all components"
   join_session init micro01 micro02 micro03
 
   # Wait for roles to refresh from the next heartbeat.
@@ -990,7 +990,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
-  echo "Create a MicroCloud and remove a node from all services, but manually remove it from the MicroCloud daemon first"
+  echo "Create a MicroCloud and remove a node from all components, but manually remove it from the MicroCloud daemon first"
   join_session init micro01 micro02 micro03
 
   # Wait for roles to refresh from the next heartbeat.
@@ -1041,7 +1041,7 @@ test_remove_cluster_member() {
   done
 }
 
-test_add_services() {
+test_add_components() {
   unset_interactive_vars
   # Set the default config for interactive setup.
 
@@ -1077,7 +1077,7 @@ test_add_services() {
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage without updating the profile.
   lxc exec micro01 -- snap disable microceph
   unset SETUP_CEPH
-  export SKIP_SERVICE="yes"
+  export SKIP_COMPONENT="yes"
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
   export SETUP_CEPH="yes"
@@ -1086,8 +1086,8 @@ test_add_services() {
   unset SETUP_ZFS
   unset SETUP_OVN
   export REPLACE_PROFILE="no"
-  microcloud_interactive "service add" micro01
-  services_validator
+  microcloud_interactive "component add" micro01
+  components_validator
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
@@ -1098,7 +1098,7 @@ test_add_services() {
   unset REPLACE_PROFILE
   unset SKIP_LOOKUP
   export MULTI_NODE="yes"
-  export SKIP_SERVICE="yes"
+  export SKIP_COMPONENT="yes"
   export SETUP_ZFS="yes"
   export SETUP_OVN="yes"
   join_session init micro01 micro02 micro03
@@ -1109,8 +1109,8 @@ test_add_services() {
   unset SETUP_ZFS
   unset SETUP_OVN
   export REPLACE_PROFILE="yes"
-  microcloud_interactive "service add" micro01
-  services_validator
+  microcloud_interactive "component add" micro01
+  components_validator
 
   reset_systems 3 3 3
   set_cluster_subnet 3 "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
@@ -1128,8 +1128,8 @@ test_add_services() {
   unset MULTI_NODE
   unset SETUP_ZFS
   unset SETUP_CEPH
-  microcloud_interactive "service add" micro01
-  services_validator
+  microcloud_interactive "component add" micro01
+  components_validator
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
@@ -1150,8 +1150,8 @@ test_add_services() {
   export SKIP_LOOKUP=1
   unset MULTI_NODE
   unset SETUP_ZFS
-  microcloud_interactive "service add" micro01
-  services_validator
+  microcloud_interactive "component add" micro01
+  components_validator
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
@@ -1175,27 +1175,27 @@ test_add_services() {
   unset SETUP_OVN
   unset CEPH_CLUSTER_NETWORK
   unset CEPH_PUBLIC_NETWORK
-  microcloud_interactive "service add" micro01
-  services_validator
+  microcloud_interactive "component add" micro01
+  components_validator
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
   set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
 
-  echo Fail to add any services if they have been set up
+  echo Fail to add any components if they have been set up
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   export SETUP_OVN="yes"
   unset REUSE_EXISTING
   unset REUSE_EXISTING_COUNT
   unset SKIP_LOOKUP
-  unset SKIP_SERVICE
+  unset SKIP_COMPONENT
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   join_session init micro01 micro02 micro03
   export SKIP_LOOKUP=1
   unset MULTI_NODE
-  ! microcloud_interactive "service add" micro01 || true
+  ! microcloud_interactive "component add" micro01 || true
 }
 
 test_non_ha() {

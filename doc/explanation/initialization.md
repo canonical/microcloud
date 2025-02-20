@@ -38,7 +38,7 @@ The bootstrapping process consists of the following steps:
 1. MicroCloud creates the LXD cluster, the OVN cluster, and the Ceph cluster.
 1. MicroCloud issues join tokens for the other servers that are to be added to the cluster.
 1. MicroCloud sends the join tokens over the network to the other servers.
-1. The other servers initialize their services and join the MicroCloud cluster, the OVN cluster, and the Ceph cluster.
+1. The other servers initialize their components and join the MicroCloud cluster, the OVN cluster, and the Ceph cluster.
 
    This step of forming the cluster can take several minutes, mainly because of the initialization of MicroCeph and adding disks to the Ceph cluster.
 1. When the cluster is formed, MicroCloud configures LXD.

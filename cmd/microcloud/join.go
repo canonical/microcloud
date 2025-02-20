@@ -11,7 +11,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 type cmdJoin struct {
@@ -43,7 +43,7 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	fmt.Println("Waiting for services to start ...")
+	fmt.Println("Waiting for components to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		common:    c.common,
 		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
-		state:     map[string]service.SystemInformation{},
+		state:     map[string]component.SystemInformation{},
 	}
 
 	cfg.lookupTimeout = DefaultLookupTimeout
@@ -77,34 +77,34 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	installedComponents := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	// Enable auto setup to skip service related questions.
+	// Enable auto setup to skip component related questions.
 	cfg.autoSetup = true
-	installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
+	installedComponents, err = cfg.askMissingComponents(installedComponents, optionalComponents)
 	if err != nil {
 		return err
 	}
 
 	cfg.autoSetup = false
 
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedServices...)
+	s, err := component.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedComponents...)
 	if err != nil {
 		return err
 	}
 
-	services := make(map[types.ServiceType]string, len(installedServices))
-	for _, s := range s.Services {
+	components := make(map[types.ComponentType]string, len(installedComponents))
+	for _, s := range s.Components {
 		version, err := s.GetVersion(context.Background())
 		if err != nil {
 			return err
 		}
 
-		services[s.Type()] = version
+		components[s.Type()] = version
 	}
 
 	passphrase, err := cfg.askPassphrase(s)
@@ -113,6 +113,6 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	return cfg.runSession(context.Background(), s, types.SessionJoining, cfg.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-		return cfg.joiningSession(gw, s, services, c.flagInitiatorAddress, passphrase)
+		return cfg.joiningSession(gw, s, components, c.flagInitiatorAddress, passphrase)
 	})
 }

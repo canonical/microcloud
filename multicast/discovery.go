@@ -17,11 +17,11 @@ import (
 
 // ServerInfo is information about the server that is discovered using multicast.
 type ServerInfo struct {
-	Version     string                       `json:"version"`
-	Name        string                       `json:"name,omitempty"`
-	Address     string                       `json:"address,omitempty"`
-	Services    map[types.ServiceType]string `json:"services,omitempty"`
-	Certificate *x509.Certificate            `json:"certificates,omitempty"`
+	Version     string                         `json:"version"`
+	Name        string                         `json:"name,omitempty"`
+	Address     string                         `json:"address,omitempty"`
+	Components  map[types.ComponentType]string `json:"components,omitempty"`
+	Certificate *x509.Certificate              `json:"certificates,omitempty"`
 }
 
 // Discovery represents the information used for discovering peers using multicast.

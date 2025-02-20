@@ -28,7 +28,7 @@ Proposed changes will then go through review there and once approved, be merged 
 
 Use separate commits for every logical change, and for changes to different components.
 Prefix your commits with the component that is affected, using the code tree structure.
-For example, prefix a commit that updates the MicroCloud service with `microcloud/service:`.
+For example, prefix a commit that updates the MicroCloud component with `microcloud/component:`.
 
 This structure makes it easier for contributions to be reviewed and also greatly simplifies the process of porting fixes to other branches.
 

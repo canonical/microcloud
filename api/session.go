@@ -22,15 +22,15 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // HMACMicroCloud10 is the HMAC format version used during trust establishment.
 const HMACMicroCloud10 trust.HMACVersion = "MicroCloud-1.0"
 
 // SessionInitiatingCmd represents the /1.0/session/initiating API on MicroCloud.
-var SessionInitiatingCmd = func(sh *service.Handler) rest.Endpoint {
+var SessionInitiatingCmd = func(sh *component.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/initiating",
@@ -41,7 +41,7 @@ var SessionInitiatingCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // SessionJoiningCmd represents the /1.0/session/joining API on MicroCloud.
-var SessionJoiningCmd = func(sh *service.Handler) rest.Endpoint {
+var SessionJoiningCmd = func(sh *component.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/joining",
@@ -52,7 +52,7 @@ var SessionJoiningCmd = func(sh *service.Handler) rest.Endpoint {
 }
 
 // sessionGet returns a MicroCloud join session.
-func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state state.State, r *http.Request) response.Response {
+func sessionGet(sh *component.Handler, sessionRole types.SessionRole) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
 		if sh.ActiveSession() {
 			return response.BadRequest(errors.New("There already is an active session"))
@@ -116,7 +116,7 @@ func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state s
 	}
 }
 
-func confirmedIntents(sh *service.Handler, gw *cloudClient.WebsocketGateway) ([]types.SessionJoinPost, error) {
+func confirmedIntents(sh *component.Handler, gw *cloudClient.WebsocketGateway) ([]types.SessionJoinPost, error) {
 	for {
 		select {
 		case intent, ok := <-sh.Session.IntentCh():
@@ -146,7 +146,7 @@ func confirmedIntents(sh *service.Handler, gw *cloudClient.WebsocketGateway) ([]
 	}
 }
 
-func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudClient.WebsocketGateway) error {
+func handleInitiatingSession(state state.State, sh *component.Handler, gw *cloudClient.WebsocketGateway) error {
 	session := types.Session{}
 	err := gw.ReceiveWithContext(gw.Context(), &session)
 	if err != nil {
@@ -195,7 +195,7 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 		// Add system to temporary truststore.
 		sh.Session.Allow(intent.Name, *remoteCert)
 
-		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		cloud := sh.Components[types.MicroCloud].(*component.CloudComponent)
 		cert, err := cloud.ServerCert()
 		if err != nil {
 			return fmt.Errorf("Failed to get certificate of %q: %w", types.MicroCloud, err)
@@ -206,7 +206,7 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 			Name:        state.Name(),
 			Address:     session.Address,
 			Certificate: string(cert.PublicKey()),
-			Services:    session.Services,
+			Components:  session.Components,
 		}
 
 		h, err := trust.NewHMACArgon2([]byte(sessionPassphrase), nil, trust.NewDefaultHMACConf(HMACMicroCloud10))
@@ -252,7 +252,7 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 	return nil
 }
 
-func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClient.WebsocketGateway) error {
+func handleJoiningSession(state state.State, sh *component.Handler, gw *cloudClient.WebsocketGateway) error {
 	session := types.Session{}
 	err := gw.ReceiveWithContext(gw.Context(), &session)
 	if err != nil {
@@ -276,7 +276,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 		lookupCtx, cancel := context.WithTimeoutCause(gw.Context(), session.LookupTimeout, fmt.Errorf("Lookup timeout exceeded"))
 		defer cancel()
 
-		discovery := multicast.NewDiscovery(session.Interface, service.CloudMulticastPort)
+		discovery := multicast.NewDiscovery(session.Interface, component.CloudMulticastPort)
 		peer, err := discovery.Lookup(lookupCtx, multicast.Version)
 		if err != nil {
 			return fmt.Errorf("Failed to lookup eligible system: %w", err)
@@ -286,7 +286,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 	}
 
 	// Get the remotes name.
-	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+	cloud := sh.Components[types.MicroCloud].(*component.CloudComponent)
 	cert, err := cloud.ServerCert()
 	if err != nil {
 		return fmt.Errorf("Failed to get certificate of %q: %w", types.MicroCloud, err)
@@ -297,7 +297,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 		Name:        state.Name(),
 		Address:     session.Address,
 		Certificate: string(cert.PublicKey()),
-		Services:    session.Services,
+		Components:  session.Components,
 	}
 
 	h, err := trust.NewHMACArgon2([]byte(session.Passphrase), nil, trust.NewDefaultHMACConf(HMACMicroCloud10))

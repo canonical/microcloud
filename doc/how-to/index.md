@@ -15,7 +15,7 @@ Configure OVN underlay </how-to/ovn_underlay>
 Add a machine </how-to/add_machine>
 Remove a machine </how-to/remove_machine>
 Shut down a machine </how-to/shutdown_machine>
-Add a service </how-to/add_service>
+Add a component </how-to/add_component>
 Get support </how-to/support>
 Contribute to MicroCloud </how-to/contribute>
 Work with MicroCloud </how-to/commands>

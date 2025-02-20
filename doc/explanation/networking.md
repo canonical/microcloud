@@ -19,7 +19,7 @@ Along with enabling communication between MicroCloud cluster members, OVN also m
 (exp-networking-ovn-features)=
 ### Key features and benefits
 
-- **Logical networks**: OVN networks are logical networks implemented in software, which means they operate independently of physical network infrastructure and allow for segmentation within the same cluster. For example, you can use separate networks for frontend and backend services.
+- **Logical networks**: OVN networks are logical networks implemented in software, which means they operate independently of physical network infrastructure and allow for segmentation within the same cluster. For example, you can use separate networks for frontend and backend components.
 
 - **Distributed virtual routers and logical switches**: Data plane operations are distributed across cluster members rather than run by a centralized controller, allowing network traffic to be processed at the edge, closer to where workloads run.
 
@@ -100,6 +100,6 @@ For users familiar with public cloud networking, understanding the similarities 
 
 - **Built for on-premises or self-hosted use**: MicroCloud is designed for on-premises or self-hosted environments, whereas VPCs are tightly integrated into managed cloud ecosystems.
 
-- **Self-contained networking environment**: Unlike public cloud VPCs, which operate within a provider’s infrastructure and managed networking services, MicroCloud runs on user-managed hardware and environments. Its networking is entirely self-contained, and users can configure external connectivity as needed.
+- **Self-contained networking environment**: Unlike public cloud VPCs, which operate within a provider’s infrastructure and managed networking components, MicroCloud runs on user-managed hardware and environments. Its networking is entirely self-contained, and users can configure external connectivity as needed.
 
 - **Use of OVN instead of vendor-specific SDN solutions**: Instead of relying on vendor-specific networking solutions, MicroCloud uses OVN to manage internal communication and overlays.

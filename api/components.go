@@ -13,35 +13,35 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
-// ServicesCmd represents the /1.0/services API on MicroCloud.
-var ServicesCmd = func(sh *service.Handler) rest.Endpoint {
+// ComponentCmd represents the /1.0/components API on MicroCloud.
+var ComponentCmd = func(sh *component.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		AllowedBeforeInit: true,
-		Name:              "services",
-		Path:              "services",
+		Name:              "components",
+		Path:              "components",
 
-		Put: rest.EndpointAction{Handler: authHandlerMTLS(sh, servicesPut), ProxyTarget: true},
+		Put: rest.EndpointAction{Handler: authHandlerMTLS(sh, componentsPut), ProxyTarget: true},
 	}
 }
 
-// servicesPut updates the cluster status of the MicroCloud peer.
-func servicesPut(state state.State, r *http.Request) response.Response {
+// componentsPut updates the cluster status of the MicroCloud peer.
+func componentsPut(state state.State, r *http.Request) response.Response {
 	// Parse the request.
-	req := types.ServicesPut{}
+	req := types.ComponentsPut{}
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		return response.BadRequest(err)
 	}
 
-	joinConfigs := map[types.ServiceType]service.JoinConfig{}
-	services := make([]types.ServiceType, len(req.Tokens))
+	joinConfigs := map[types.ComponentType]component.JoinConfig{}
+	components := make([]types.ComponentType, len(req.Tokens))
 	for i, cfg := range req.Tokens {
-		services[i] = types.ServiceType(cfg.Service)
-		joinConfigs[cfg.Service] = service.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig, CephConfig: req.CephConfig, OVNConfig: req.OVNConfig}
+		components[i] = types.ComponentType(cfg.Component)
+		joinConfigs[cfg.Component] = component.JoinConfig{Token: cfg.JoinToken, LXDConfig: req.LXDConfig, CephConfig: req.CephConfig, OVNConfig: req.OVNConfig}
 	}
 
 	// Default to the first iface if none specified.
@@ -50,12 +50,12 @@ func servicesPut(state state.State, r *http.Request) response.Response {
 		addr = req.Address
 	}
 
-	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir, services...)
+	sh, err := component.NewHandler(state.Name(), addr, state.FileSystem().StateDir, components...)
 	if err != nil {
 		return response.SmartError(err)
 	}
 
-	err = sh.RunConcurrent(types.MicroCloud, types.LXD, func(s service.Service) error {
+	err = sh.RunConcurrent(types.MicroCloud, types.LXD, func(s component.Component) error {
 		// set a 5 minute context for completing the join request in case the system is very slow.
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()

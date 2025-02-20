@@ -1,6 +1,6 @@
 //go:build !test
 
-package service
+package component
 
 // Provided by the EFF under the Creative Commons Attribution License.
 // License: http://creativecommons.org/licenses/by/3.0/us/

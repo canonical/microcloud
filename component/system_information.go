@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 
 // SystemInformation represents all information MicroCloud needs from a system in order to set it up as part of the MicroCloud.
 type SystemInformation struct {
-	// ExistingServices is a map of cluster members for each service currently installed on the system.
-	ExistingServices map[types.ServiceType]map[string]string
+	// ExistingComponents is a map of cluster members for each component currently installed on the system.
+	ExistingComponents map[types.ComponentType]map[string]string
 
 	// ClusterName is the name of the system in MicroCloud.
 	ClusterName string
@@ -72,7 +72,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	localSystem := sh.Name == connectInfo.Name
 
 	s := &SystemInformation{
-		ExistingServices:          map[types.ServiceType]map[string]string{},
+		ExistingComponents:        map[types.ComponentType]map[string]string{},
 		ClusterName:               connectInfo.Name,
 		ClusterAddress:            connectInfo.Address,
 		AvailableDisks:            map[string]api.ResourcesStorageDisk{},
@@ -82,13 +82,13 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	}
 
 	var err error
-	s.ExistingServices, err = sh.GetExistingClusters(ctx, connectInfo)
+	s.ExistingComponents, err = sh.GetExistingClusters(ctx, connectInfo)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to check for existing clusters on %q: %w", s.ClusterName, err)
 	}
 
 	var allResources *api.Resources
-	lxd := sh.Services[types.LXD].(*LXDService)
+	lxd := sh.Components[types.LXD].(*LXDComponent)
 	if localSystem {
 		allResources, err = lxd.GetResources(ctx, s.ClusterName, "", nil)
 	} else {
@@ -165,8 +165,8 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 		s.existingRemoteFSPool = &poolCopy
 	}
 
-	if len(s.ExistingServices[types.MicroCeph]) > 0 {
-		microceph := sh.Services[types.MicroCeph].(*CephService)
+	if len(s.ExistingComponents[types.MicroCeph]) > 0 {
+		microceph := sh.Components[types.MicroCeph].(*CephComponent)
 
 		if localSystem {
 			s.CephConfig, err = microceph.ClusterConfig(ctx, "", nil)
@@ -180,9 +180,9 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	}
 
 	if localSystem {
-		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ServiceClustered(types.LXD), s.ClusterName, "", nil)
+		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ComponentClustered(types.LXD), s.ClusterName, "", nil)
 	} else {
-		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ServiceClustered(types.LXD), s.ClusterName, s.ClusterAddress, connectInfo.Certificate)
+		s.LXDLocalConfig, s.LXDConfig, err = lxd.GetConfig(ctx, s.ComponentClustered(types.LXD), s.ClusterName, s.ClusterAddress, connectInfo.Certificate)
 	}
 
 	if err != nil {
@@ -192,30 +192,30 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	return s, nil
 }
 
-// GetExistingClusters checks against the services reachable by the specified ServerInfo,
-// and returns a map of cluster members for each service supported by the Handler.
-// If a service is not clustered, its map will be nil.
-func (sh *Handler) GetExistingClusters(ctx context.Context, connectInfo multicast.ServerInfo) (map[types.ServiceType]map[string]string, error) {
+// GetExistingClusters checks against the components reachable by the specified ServerInfo,
+// and returns a map of cluster members for each component supported by the Handler.
+// If a component is not clustered, its map will be nil.
+func (sh *Handler) GetExistingClusters(ctx context.Context, connectInfo multicast.ServerInfo) (map[types.ComponentType]map[string]string, error) {
 	localSystem := sh.Name == connectInfo.Name
 	var err error
-	existingServices := map[types.ServiceType]map[string]string{}
-	for service := range sh.Services {
+	existingComponents := map[types.ComponentType]map[string]string{}
+	for component := range sh.Components {
 		var existingCluster map[string]string
 		if localSystem {
-			existingCluster, err = sh.Services[service].ClusterMembers(ctx)
+			existingCluster, err = sh.Components[component].ClusterMembers(ctx)
 		} else {
-			existingCluster, err = sh.Services[service].RemoteClusterMembers(ctx, connectInfo.Certificate, connectInfo.Address)
+			existingCluster, err = sh.Components[component].RemoteClusterMembers(ctx, connectInfo.Certificate, connectInfo.Address)
 		}
 
 		if err != nil && !api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
-			return nil, fmt.Errorf("Failed to reach %s on system %q: %w", service, connectInfo.Name, err)
+			return nil, fmt.Errorf("Failed to reach %s on system %q: %w", component, connectInfo.Name, err)
 		}
 
-		// If a service isn't clustered, this loop will be skipped.
+		// If a component isn't clustered, this loop will be skipped.
 
 		for k, v := range existingCluster {
-			if existingServices[service] == nil {
-				existingServices[service] = map[string]string{}
+			if existingComponents[component] == nil {
+				existingComponents[component] = map[string]string{}
 			}
 
 			host, _, err := net.SplitHostPort(v)
@@ -223,11 +223,11 @@ func (sh *Handler) GetExistingClusters(ctx context.Context, connectInfo multicas
 				return nil, err
 			}
 
-			existingServices[service][k] = host
+			existingComponents[component][k] = host
 		}
 	}
 
-	return existingServices, nil
+	return existingComponents, nil
 }
 
 // SupportsLocalPool checks if the SystemInformation supports a MicroCloud configured local storage pool.
@@ -310,40 +310,40 @@ func (s *SystemInformation) SupportsFANNetwork(checkUsable bool) (hasNet bool, s
 	return true, false, nil
 }
 
-// ServiceClustered returns whether or not a particular service is already clustered
+// ComponentClustered returns whether or not a particular component is already clustered
 // by checking if there are any cluster members in-memory.
-func (s *SystemInformation) ServiceClustered(service types.ServiceType) bool {
-	return len(s.ExistingServices[service]) > 0
+func (s *SystemInformation) ComponentClustered(component types.ComponentType) bool {
+	return len(s.ExistingComponents[component]) > 0
 }
 
-// ClustersConflict compares the cluster members reported by each system in the list of systems, for each given service.
-// If two distinct clusters exist for any service, this function returns true, with the name of the service.
-func ClustersConflict(systems map[string]SystemInformation, services map[types.ServiceType]string) (bool, types.ServiceType) {
-	firstEncounteredClusters := map[types.ServiceType]map[string]string{}
+// ClustersConflict compares the cluster members reported by each system in the list of systems, for each given component.
+// If two distinct clusters exist for any component, this function returns true, with the name of the component.
+func ClustersConflict(systems map[string]SystemInformation, components map[types.ComponentType]string) (bool, types.ComponentType) {
+	firstEncounteredClusters := map[types.ComponentType]map[string]string{}
 	for _, info := range systems {
-		for service := range services {
-			// If a service is not clustered, it cannot conflict.
-			if !info.ServiceClustered(service) {
+		for component := range components {
+			// If a component is not clustered, it cannot conflict.
+			if !info.ComponentClustered(component) {
 				continue
 			}
 
-			// Record the first encountered cluster for each service.
-			cluster, encountered := firstEncounteredClusters[service]
+			// Record the first encountered cluster for each component.
+			cluster, encountered := firstEncounteredClusters[component]
 			if !encountered {
-				firstEncounteredClusters[service] = info.ExistingServices[service]
+				firstEncounteredClusters[component] = info.ExistingComponents[component]
 
 				continue
 			}
 
-			// Check if the first encountered cluster for this service is identical to each system's record.
-			for name, addr := range info.ExistingServices[service] {
+			// Check if the first encountered cluster for this component is identical to each system's record.
+			for name, addr := range info.ExistingComponents[component] {
 				if cluster[name] != addr {
-					return true, service
+					return true, component
 				}
 			}
 
-			if len(cluster) != len(info.ExistingServices[service]) {
-				return true, service
+			if len(cluster) != len(info.ExistingComponents[component]) {
+				return true, component
 			}
 		}
 	}

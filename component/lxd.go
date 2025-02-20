@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -23,8 +23,8 @@ import (
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
-// LXDService is a LXD service.
-type LXDService struct {
+// LXDComponent is a LXD component.
+type LXDComponent struct {
 	m *microcluster.MicroCluster
 
 	name    string
@@ -33,14 +33,14 @@ type LXDService struct {
 	config  map[string]string
 }
 
-// NewLXDService creates a new LXD service with a client attached.
-func NewLXDService(name string, addr string, cloudDir string) (*LXDService, error) {
+// NewLXDComponent creates a new LXD component with a client attached.
+func NewLXDComponent(name string, addr string, cloudDir string) (*LXDComponent, error) {
 	client, err := microcluster.App(microcluster.Args{StateDir: cloudDir})
 	if err != nil {
 		return nil, err
 	}
 
-	return &LXDService{
+	return &LXDComponent{
 		m:       client,
 		name:    name,
 		address: addr,
@@ -50,7 +50,7 @@ func NewLXDService(name string, addr string, cloudDir string) (*LXDService, erro
 }
 
 // Client returns a client to the LXD unix socket.
-func (s LXDService) Client(ctx context.Context) (lxd.InstanceServer, error) {
+func (s LXDComponent) Client(ctx context.Context) (lxd.InstanceServer, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (s LXDService) Client(ctx context.Context) (lxd.InstanceServer, error) {
 
 // remoteClient returns an https client for the given address:port.
 // It picks the cluster certificate if none is provided to verify the remote.
-func (s LXDService) remoteClient(cert *x509.Certificate, address string, port int64) (lxd.InstanceServer, error) {
+func (s LXDComponent) remoteClient(cert *x509.Certificate, address string, port int64) (lxd.InstanceServer, error) {
 	c, err := s.m.RemoteClient(util.CanonicalNetworkAddress(address, port))
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (s LXDService) remoteClient(cert *x509.Certificate, address string, port in
 }
 
 // Bootstrap bootstraps the LXD daemon on the default port.
-func (s LXDService) Bootstrap(ctx context.Context) error {
+func (s LXDComponent) Bootstrap(ctx context.Context) error {
 	client, err := s.Client(ctx)
 	if err != nil {
 		return err
@@ -183,7 +183,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 }
 
 // Join joins a cluster with the given token.
-func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
+func (s LXDComponent) Join(ctx context.Context, joinConfig JoinConfig) error {
 	config, err := s.configFromToken(joinConfig.Token)
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 }
 
 // IssueToken issues a token for the given peer.
-func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error) {
+func (s LXDComponent) IssueToken(ctx context.Context, peer string) (string, error) {
 	client, err := s.Client(ctx)
 	if err != nil {
 		return "", err
@@ -245,7 +245,7 @@ func (s LXDService) IssueToken(ctx context.Context, peer string) (string, error)
 }
 
 // DeleteToken deletes a token by its name.
-func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address string) error {
+func (s LXDComponent) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c lxd.InstanceServer
 	var err error
 	if address != "" {
@@ -294,7 +294,7 @@ func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address s
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
 // Provide the certificate of the remote server for mTLS.
-func (s LXDService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+func (s LXDComponent) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
 	client, err := s.remoteClient(cert, address, CloudPort)
 	if err != nil {
 		return nil, err
@@ -304,7 +304,7 @@ func (s LXDService) RemoteClusterMembers(ctx context.Context, cert *x509.Certifi
 }
 
 // ClusterMembers returns a map of cluster member names.
-func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, error) {
+func (s LXDComponent) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client(ctx)
 	if err != nil {
 		return nil, err
@@ -315,7 +315,7 @@ func (s LXDService) ClusterMembers(ctx context.Context) (map[string]string, erro
 
 // clusterMembers returns a map of cluster member names and addresses.
 // If LXD is not clustered, it returns a 503 http error similar to microcluster.
-func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string, error) {
+func (s LXDComponent) clusterMembers(client lxd.InstanceServer) (map[string]string, error) {
 	server, _, err := client.GetServer()
 	if err != nil {
 		return nil, err
@@ -343,8 +343,8 @@ func (s LXDService) clusterMembers(client lxd.InstanceServer) (map[string]string
 	return genericMembers, nil
 }
 
-// DeleteClusterMember removes the given cluster member from the service.
-func (s LXDService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+// DeleteClusterMember removes the given cluster member from the component.
+func (s LXDComponent) DeleteClusterMember(ctx context.Context, name string, force bool) error {
 	c, err := s.Client(ctx)
 	if err != nil {
 		return err
@@ -353,28 +353,28 @@ func (s LXDService) DeleteClusterMember(ctx context.Context, name string, force 
 	return c.DeleteClusterMember(name, force)
 }
 
-// Type returns the type of Service.
-func (s LXDService) Type() types.ServiceType {
+// Type returns the type of Component.
+func (s LXDComponent) Type() types.ComponentType {
 	return types.LXD
 }
 
-// Name returns the name of this Service instance.
-func (s LXDService) Name() string {
+// Name returns the name of this Component instance.
+func (s LXDComponent) Name() string {
 	return s.name
 }
 
-// Address returns the address of this Service instance.
-func (s LXDService) Address() string {
+// Address returns the address of this Component instance.
+func (s LXDComponent) Address() string {
 	return s.address
 }
 
-// Port returns the port of this Service instance.
-func (s LXDService) Port() int64 {
+// Port returns the port of this Component instance.
+func (s LXDComponent) Port() int64 {
 	return s.port
 }
 
-// SetConfig sets the config of this Service instance.
-func (s *LXDService) SetConfig(config map[string]string) {
+// SetConfig sets the config of this Component instance.
+func (s *LXDComponent) SetConfig(config map[string]string) {
 	if s.config == nil {
 		s.config = make(map[string]string)
 	}
@@ -385,7 +385,7 @@ func (s *LXDService) SetConfig(config map[string]string) {
 }
 
 // HasExtension checks if the server supports the API extension.
-func (s *LXDService) HasExtension(ctx context.Context, target string, address string, cert *x509.Certificate, apiExtension string) (bool, error) {
+func (s *LXDComponent) HasExtension(ctx context.Context, target string, address string, cert *x509.Certificate, apiExtension string) (bool, error) {
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
@@ -414,7 +414,7 @@ func (s *LXDService) HasExtension(ctx context.Context, target string, address st
 // GetResources returns the system resources for the LXD target.
 // As we cannot guarantee that LXD is available on this machine, the request is
 // forwarded through MicroCloud on via the ListenPort argument.
-func (s *LXDService) GetResources(ctx context.Context, target string, address string, cert *x509.Certificate) (*api.Resources, error) {
+func (s *LXDComponent) GetResources(ctx context.Context, target string, address string, cert *x509.Certificate) (*api.Resources, error) {
 	var err error
 	var client lxd.InstanceServer
 	if s.Name() == target {
@@ -433,7 +433,7 @@ func (s *LXDService) GetResources(ctx context.Context, target string, address st
 }
 
 // GetStoragePools fetches the list of all storage pools from LXD, keyed by pool name.
-func (s LXDService) GetStoragePools(ctx context.Context, name string, address string, cert *x509.Certificate) (map[string]api.StoragePool, error) {
+func (s LXDComponent) GetStoragePools(ctx context.Context, name string, address string, cert *x509.Certificate) (map[string]api.StoragePool, error) {
 	var err error
 	var client lxd.InstanceServer
 	if name == s.Name() {
@@ -461,7 +461,7 @@ func (s LXDService) GetStoragePools(ctx context.Context, name string, address st
 
 // GetConfig returns the member-specific and cluster-wide configurations of LXD.
 // If LXD is not clustered, it just returns the member-specific configuration.
-func (s LXDService) GetConfig(ctx context.Context, clustered bool, name string, address string, cert *x509.Certificate) (localConfig map[string]any, globalConfig map[string]any, err error) {
+func (s LXDComponent) GetConfig(ctx context.Context, clustered bool, name string, address string, cert *x509.Certificate) (localConfig map[string]any, globalConfig map[string]any, err error) {
 	var client lxd.InstanceServer
 	if name == s.Name() {
 		client, err = s.Client(ctx)
@@ -537,7 +537,7 @@ type DedicatedInterface struct {
 // - A map of ceph compatible networks keyed by interface name.
 // - A map of ovn compatible networks keyed by interface name.
 // - The list of all networks.
-func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, address string, cert *x509.Certificate) (map[string]api.Network, map[string]DedicatedInterface, []api.Network, error) {
+func (s LXDComponent) GetNetworkInterfaces(ctx context.Context, name string, address string, cert *x509.Certificate) (map[string]api.Network, map[string]DedicatedInterface, []api.Network, error) {
 	var err error
 	var client lxd.InstanceServer
 	if name == s.Name() {
@@ -606,7 +606,7 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 
 // ValidateCephInterfaces validates the given interfaces map against the given Ceph network subnet
 // and returns a map of peer name to interfaces that are in the subnet.
-func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]DedicatedInterface) (map[string][][]string, error) {
+func (s *LXDComponent) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]DedicatedInterface) (map[string][][]string, error) {
 	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid CIDR subnet: %v", err)
@@ -649,8 +649,8 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 	return data, nil
 }
 
-// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
-func (s LXDService) GetVersion(ctx context.Context) (string, error) {
+// GetVersion gets the installed daemon version of the component, and returns an error if the version is not supported.
+func (s LXDComponent) GetVersion(ctx context.Context) (string, error) {
 	client, err := s.Client(ctx)
 	if err != nil {
 		return "", err
@@ -669,8 +669,8 @@ func (s LXDService) GetVersion(ctx context.Context) (string, error) {
 	return server.Environment.ServerVersion, nil
 }
 
-// IsInitialized returns whether the service is initialized.
-func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
+// IsInitialized returns whether the component is initialized.
+func (s LXDComponent) IsInitialized(ctx context.Context) (bool, error) {
 	c, err := s.Client(ctx)
 	if err != nil {
 		return false, err
@@ -695,7 +695,7 @@ func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
 
 // isInitialized checks if LXD is initialized by fetching the storage pools, and cluster status.
 // If none exist, that means LXD has not yet been set up.
-func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
+func (s *LXDComponent) isInitialized(c lxd.InstanceServer) (bool, error) {
 	server, _, err := c.GetServer()
 	if err != nil {
 		return false, err
@@ -716,7 +716,7 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 // waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
 // Waits up to a minute for LXD to start, before failing.
 // Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
-func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error {
+func (s *LXDComponent) waitReady(ctx context.Context, c lxd.InstanceServer) error {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
 	defer timeoutCancel()
 
@@ -764,7 +764,7 @@ func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error 
 }
 
 // defaultGatewaySubnetV4 returns subnet of default gateway interface.
-func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
+func (s LXDComponent) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 	available, ifaceName, err := FanNetworkUsable()
 	if err != nil {
 		return nil, "", err
@@ -810,8 +810,8 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 	return subnet, ifaceName, nil
 }
 
-// SupportsFeature checks if the specified API feature of this Service instance if supported.
-func (s LXDService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+// SupportsFeature checks if the specified API feature of this Component instance if supported.
+func (s LXDComponent) SupportsFeature(ctx context.Context, feature string) (bool, error) {
 	c, err := s.Client(ctx)
 	if err != nil {
 		return false, err

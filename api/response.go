@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/lxd/shared/api"
 )
 
-// Response represents a response returned from a MicroCloud service.
+// Response represents a response returned from a MicroCloud component.
 type Response struct {
 	response *http.Response
 }
