@@ -58,14 +58,14 @@ func StopSession(ctx context.Context, c *client.Client, stopMsg string) error {
 	return nil
 }
 
-// JoinServices sends join information to initiate the cluster join process.
-func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut) error {
+// JoinComponents sends join information to initiate the cluster join process.
+func JoinComponents(ctx context.Context, c *client.Client, data types.ComponentsPut) error {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("services"), data, nil)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("components"), data, nil)
 	if err != nil {
-		return fmt.Errorf("Failed to update cluster status of services: %w", err)
+		return fmt.Errorf("Failed to update cluster status of components: %w", err)
 	}
 
 	return nil
@@ -110,12 +110,12 @@ func JoinIntent(ctx context.Context, c *client.Client, data types.SessionJoinPos
 }
 
 // RemoteIssueToken issues a token on the remote MicroCloud.
-func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.ServiceType, data types.ServiceTokensPost) (string, error) {
+func RemoteIssueToken(ctx context.Context, c *client.Client, componentType types.ComponentType, data types.ComponentTokensPost) (string, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	var token string
-	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("services", string(serviceType), "tokens"), data, &token)
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("components", string(componentType), "tokens"), data, &token)
 	if err != nil {
 		return "", fmt.Errorf("Failed to issue remote token: %w", err)
 	}
@@ -123,12 +123,12 @@ func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.S
 	return token, nil
 }
 
-// DeleteClusterMember removes the cluster member from any service that it is part of.
+// DeleteClusterMember removes the cluster member from any component that it is part of.
 func DeleteClusterMember(ctx context.Context, c *client.Client, memberName string, force bool) error {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	path := api.NewURL().Path("services", "cluster", memberName)
+	path := api.NewURL().Path("components", "cluster", memberName)
 	if force {
 		path = path.WithQuery("force", "1")
 	}

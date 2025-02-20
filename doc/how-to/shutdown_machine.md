@@ -15,9 +15,9 @@ Alternatively, for instances that can be {ref}`live-migrated <lxd:live-migration
 
 You can also temporarily move all instances on a machine to another cluster member by using cluster evacuation, then restore them after you restart. This method can live-migrate eligible instances; instances that cannot be live-migrated are automatically stopped and restarted. See: {ref}`lxd:cluster-evacuate` for more information.
 
-## Enforce services shutdown and restart order
+## Enforce components shutdown and restart order
 
-During the shutdown process of a MicroCloud cluster member, the LXD service must stop _before_ the MicroCeph and MicroOVN services. At restart, the LXD service must start _after_ MicroCeph and MicroOVN. This order ensures that LXD does not run into issues due to unavailable storage or networking services.
+During the shutdown process of a MicroCloud cluster member, the LXD component must stop _before_ the MicroCeph and MicroOVN components. At restart, the LXD service must start _after_ MicroCeph and MicroOVN. This order ensures that LXD does not run into issues due to unavailable storage or networking services.
 
 To enforce this shutdown and restart order, create a configuration file in each cluster member's `/etc/systemd/system/snap.lxd.daemon.service.d` directory to override the behavior of `snap.lxd.daemon.service`. To simplify creating the directory and configuration file, you can copy and paste the following commands into each cluster member:
 

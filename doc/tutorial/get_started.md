@@ -468,7 +468,7 @@ Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6): 2001
 Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: 192.0.2.1,2001:db8:d:200::1):
 Configure dedicated underlay networking? (yes/no) [default=no]:
 
-Initializing new services
+Initializing new component
  Local MicroCloud is ready
  Local LXD is ready
  Local MicroOVN is ready
@@ -514,7 +514,7 @@ Select "micro2" on "micro1" to let it join the cluster
 Do not exit out to keep the session alive.
 Complete the remaining configuration on "micro1" ...
 Successfully joined the MicroCloud cluster and closing the session.
-Commencing cluster join of the remaining services (LXD, MicroCeph, MicroOVN)
+Commencing cluster join of the remaining components (LXD, MicroCeph, MicroOVN)
 ```
 
 ## 7. Inspect your MicroCloud setup

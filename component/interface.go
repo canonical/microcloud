@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
-// Service represents a common interface for all MicroCloud services.
-type Service interface {
+// Component represents a common interface for all MicroCloud components.
+type Component interface {
 	Bootstrap(ctx context.Context) error
 	Join(ctx context.Context, config JoinConfig) error
 
@@ -21,7 +21,7 @@ type Service interface {
 	RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error)
 	DeleteClusterMember(ctx context.Context, name string, force bool) error
 
-	Type() types.ServiceType
+	Type() types.ComponentType
 	Name() string
 	Address() string
 	Port() int64

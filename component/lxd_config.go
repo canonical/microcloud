@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"bufio"
@@ -48,7 +48,7 @@ const (
 
 // DefaultPendingFanNetwork returns the default Ubuntu Fan network configuration when
 // creating a pending network on a specific cluster member target.
-func (s LXDService) DefaultPendingFanNetwork() api.NetworksPost {
+func (s LXDComponent) DefaultPendingFanNetwork() api.NetworksPost {
 	return api.NetworksPost{Name: DefaultFANNetwork, Type: "bridge"}
 }
 
@@ -89,7 +89,7 @@ func FanNetworkUsable() (available bool, ifaceName string, err error) {
 
 // DefaultFanNetwork returns the default Ubuntu Fan network configuration when
 // creating the finalized network.
-func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
+func (s LXDComponent) DefaultFanNetwork() (api.NetworksPost, error) {
 	underlay, _, err := s.defaultGatewaySubnetV4()
 	if err != nil {
 		return api.NetworksPost{}, fmt.Errorf("Could not determine Fan overlay subnet: %w", err)
@@ -117,7 +117,7 @@ func (s LXDService) DefaultFanNetwork() (api.NetworksPost, error) {
 
 // DefaultPendingOVNNetwork returns the default OVN uplink network configuration when
 // creating a pending network on a specific cluster member target.
-func (s LXDService) DefaultPendingOVNNetwork(parent string) api.NetworksPost {
+func (s LXDComponent) DefaultPendingOVNNetwork(parent string) api.NetworksPost {
 	return api.NetworksPost{
 		NetworkPut: api.NetworkPut{Config: map[string]string{"parent": parent}},
 		Name:       DefaultUplinkNetwork,
@@ -127,7 +127,7 @@ func (s LXDService) DefaultPendingOVNNetwork(parent string) api.NetworksPost {
 
 // DefaultOVNNetworkJoinConfig returns the default OVN uplink network configuration when
 // joining an existing cluster.
-func (s LXDService) DefaultOVNNetworkJoinConfig(parent string) api.ClusterMemberConfigKey {
+func (s LXDComponent) DefaultOVNNetworkJoinConfig(parent string) api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "network",
 		Name:   DefaultUplinkNetwork,
@@ -140,7 +140,7 @@ func (s LXDService) DefaultOVNNetworkJoinConfig(parent string) api.ClusterMember
 // creating the finalized network.
 // Returns both the finalized uplink configuration as the first argument,
 // and the default OVN network configuration as the second argument.
-func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6Gateway string, dnsServers string) (api.NetworksPost, api.NetworksPost) {
+func (s LXDComponent) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6Gateway string, dnsServers string) (api.NetworksPost, api.NetworksPost) {
 	finalUplinkCfg := api.NetworksPost{
 		NetworkPut: api.NetworkPut{
 			Config:      map[string]string{},
@@ -173,7 +173,7 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 
 // DefaultPendingZFSStoragePool returns the default local storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.StoragePoolsPost {
+func (s LXDComponent) DefaultPendingZFSStoragePool(wipe bool, path string) api.StoragePoolsPost {
 	cfg := map[string]string{"source": path}
 	if wipe {
 		cfg["source.wipe"] = strconv.FormatBool(wipe)
@@ -191,7 +191,7 @@ func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.Sto
 
 // DefaultZFSStoragePool returns the default local storage configuration when
 // creating the finalized pool.
-func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
+func (s LXDComponent) DefaultZFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
 		Name:   DefaultZFSPool,
 		Driver: "zfs",
@@ -203,7 +203,7 @@ func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
 
 // DefaultZFSStoragePoolJoinConfig returns the default local storage configuration when
 // joining an existing cluster.
-func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []api.ClusterMemberConfigKey {
+func (s LXDComponent) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []api.ClusterMemberConfigKey {
 	wipeDisk := api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
 		Name:   DefaultZFSPool,
@@ -228,7 +228,7 @@ func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []ap
 
 // DefaultPendingCephStoragePool returns the default remote storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
+func (s LXDComponent) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
 		Name:   DefaultCephPool,
 		Driver: "ceph",
@@ -242,7 +242,7 @@ func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 
 // DefaultCephStoragePool returns the default remote storage configuration when
 // creating the finalized pool.
-func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
+func (s LXDComponent) DefaultCephStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
 		Name:   DefaultCephPool,
 		Driver: "ceph",
@@ -258,7 +258,7 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 
 // DefaultCephStoragePoolJoinConfig returns the default remote storage configuration when
 // joining an existing cluster.
-func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKey {
+func (s LXDComponent) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
 		Name:   DefaultCephPool,
@@ -269,7 +269,7 @@ func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKe
 
 // DefaultPendingCephFSStoragePool returns the default cephfs storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
+func (s LXDComponent) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
 		Name:   DefaultCephFSPool,
 		Driver: "cephfs",
@@ -283,7 +283,7 @@ func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
 
 // DefaultCephFSStoragePool returns the default cephfs storage configuration when
 // creating the finalized pool.
-func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
+func (s LXDComponent) DefaultCephFSStoragePool() api.StoragePoolsPost {
 	return api.StoragePoolsPost{
 		Name:   DefaultCephFSPool,
 		Driver: "cephfs",
@@ -300,7 +300,7 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 
 // DefaultCephFSStoragePoolJoinConfig returns the default cephfs storage configuration when
 // joining an existing cluster.
-func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
+func (s LXDComponent) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
 	return api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
 		Name:   "remote-fs",

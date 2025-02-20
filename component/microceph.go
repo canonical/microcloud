@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -22,8 +22,8 @@ import (
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
-// CephService is a MicroCeph service.
-type CephService struct {
+// CephComponent is a MicroCeph component.
+type CephComponent struct {
 	m *microcluster.MicroCluster
 
 	name    string
@@ -32,11 +32,11 @@ type CephService struct {
 	config  map[string]string
 }
 
-// NewCephService creates a new MicroCeph service with a client attached.
-func NewCephService(name string, addr string, cloudDir string) (*CephService, error) {
+// NewCephComponent creates a new MicroCeph component with a client attached.
+func NewCephComponent(name string, addr string, cloudDir string) (*CephComponent, error) {
 	proxy := func(r *http.Request) (*url.URL, error) {
-		if !strings.HasPrefix(r.URL.Path, "/1.0/services/microceph") {
-			r.URL.Path = "/1.0/services/microceph" + r.URL.Path
+		if !strings.HasPrefix(r.URL.Path, "/1.0/components/microceph") {
+			r.URL.Path = "/1.0/components/microceph" + r.URL.Path
 		}
 
 		return shared.ProxyFromEnvironment(r)
@@ -47,7 +47,7 @@ func NewCephService(name string, addr string, cloudDir string) (*CephService, er
 		return nil, err
 	}
 
-	return &CephService{
+	return &CephComponent{
 		m:       client,
 		name:    name,
 		address: addr,
@@ -57,7 +57,7 @@ func NewCephService(name string, addr string, cloudDir string) (*CephService, er
 }
 
 // Client returns a client to the Ceph unix socket. If target is specified, it will be added to the query params.
-func (s CephService) Client(target string) (*client.Client, error) {
+func (s CephComponent) Client(target string) (*client.Client, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (s CephService) Client(target string) (*client.Client, error) {
 }
 
 // Bootstrap bootstraps the MicroCeph daemon on the default port.
-func (s CephService) Bootstrap(ctx context.Context) error {
+func (s CephComponent) Bootstrap(ctx context.Context) error {
 	err := s.m.NewCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), s.config)
 	if err != nil {
 		return err
@@ -104,12 +104,12 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 }
 
 // IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
-func (s CephService) IssueToken(ctx context.Context, peer string) (string, error) {
+func (s CephComponent) IssueToken(ctx context.Context, peer string) (string, error) {
 	return s.m.NewJoinToken(ctx, peer, 5*time.Minute)
 }
 
 // DeleteToken deletes a token by its name.
-func (s CephService) DeleteToken(ctx context.Context, tokenName string, address string) error {
+func (s CephComponent) DeleteToken(ctx context.Context, tokenName string, address string) error {
 	var c *client.Client
 	var err error
 	if address != "" {
@@ -131,7 +131,7 @@ func (s CephService) DeleteToken(ctx context.Context, tokenName string, address 
 }
 
 // Join joins a cluster with the given token.
-func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
+func (s CephComponent) Join(ctx context.Context, joinConfig JoinConfig) error {
 	err := s.m.JoinCluster(ctx, s.name, util.CanonicalNetworkAddress(s.address, s.port), joinConfig.Token, nil)
 	if err != nil {
 		return err
@@ -154,7 +154,7 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 
 // remoteClient returns an https client for the given address:port.
 // It picks the cluster certificate if none is provided to verify the remote.
-func (s CephService) remoteClient(cert *x509.Certificate, address string) (*client.Client, error) {
+func (s CephComponent) remoteClient(cert *x509.Certificate, address string) (*client.Client, error) {
 	var err error
 	var client *client.Client
 
@@ -174,7 +174,7 @@ func (s CephService) remoteClient(cert *x509.Certificate, address string) (*clie
 
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
 // Provide the certificate of the remote server for mTLS.
-func (s CephService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
+func (s CephComponent) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
 	client, err := s.remoteClient(cert, address)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (s CephService) RemoteClusterMembers(ctx context.Context, cert *x509.Certif
 }
 
 // ClusterMembers returns a map of cluster member names and addresses.
-func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, error) {
+func (s CephComponent) ClusterMembers(ctx context.Context) (map[string]string, error) {
 	client, err := s.Client("")
 	if err != nil {
 		return nil, err
@@ -198,8 +198,8 @@ func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, err
 	return clusterMembers(ctx, client)
 }
 
-// DeleteClusterMember removes the given cluster member from the service.
-func (s CephService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
+// DeleteClusterMember removes the given cluster member from the component.
+func (s CephComponent) DeleteClusterMember(ctx context.Context, name string, force bool) error {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return err
@@ -209,7 +209,7 @@ func (s CephService) DeleteClusterMember(ctx context.Context, name string, force
 }
 
 // ClusterConfig returns the Ceph cluster configuration.
-func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, cert *x509.Certificate) (map[string]string, error) {
+func (s CephComponent) ClusterConfig(ctx context.Context, targetAddress string, cert *x509.Certificate) (map[string]string, error) {
 	var c *client.Client
 	var err error
 	if targetAddress == "" {
@@ -243,28 +243,28 @@ func (s CephService) ClusterConfig(ctx context.Context, targetAddress string, ce
 	return configs, nil
 }
 
-// Type returns the type of Service.
-func (s CephService) Type() types.ServiceType {
+// Type returns the type of Component.
+func (s CephComponent) Type() types.ComponentType {
 	return types.MicroCeph
 }
 
-// Name returns the name of this Service instance.
-func (s CephService) Name() string {
+// Name returns the name of this Component instance.
+func (s CephComponent) Name() string {
 	return s.name
 }
 
-// Address returns the address of this Service instance.
-func (s CephService) Address() string {
+// Address returns the address of this Component instance.
+func (s CephComponent) Address() string {
 	return s.address
 }
 
-// Port returns the port of this Service instance.
-func (s CephService) Port() int64 {
+// Port returns the port of this Component instance.
+func (s CephComponent) Port() int64 {
 	return s.port
 }
 
-// GetVersion gets the installed daemon version of the service, and returns an error if the version is not supported.
-func (s CephService) GetVersion(ctx context.Context) (string, error) {
+// GetVersion gets the installed daemon version of the component, and returns an error if the version is not supported.
+func (s CephComponent) GetVersion(ctx context.Context) (string, error) {
 	status, err := s.m.Status(ctx)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return "", fmt.Errorf("The installed version of %s is not supported", s.Type())
@@ -282,8 +282,8 @@ func (s CephService) GetVersion(ctx context.Context) (string, error) {
 	return status.Version, nil
 }
 
-// IsInitialized returns whether the service is initialized.
-func (s CephService) IsInitialized(ctx context.Context) (bool, error) {
+// IsInitialized returns whether the component is initialized.
+func (s CephComponent) IsInitialized(ctx context.Context) (bool, error) {
 	err := s.m.Ready(ctx)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
@@ -301,8 +301,8 @@ func (s CephService) IsInitialized(ctx context.Context) (bool, error) {
 	return status.Ready, nil
 }
 
-// SetConfig sets the config of this Service instance.
-func (s *CephService) SetConfig(config map[string]string) {
+// SetConfig sets the config of this Component instance.
+func (s *CephComponent) SetConfig(config map[string]string) {
 	if s.config == nil {
 		s.config = make(map[string]string)
 	}
@@ -312,8 +312,8 @@ func (s *CephService) SetConfig(config map[string]string) {
 	}
 }
 
-// SupportsFeature checks if the specified API feature of this Service instance if supported.
-func (s *CephService) SupportsFeature(ctx context.Context, feature string) (bool, error) {
+// SupportsFeature checks if the specified API feature of this Component instance if supported.
+func (s *CephComponent) SupportsFeature(ctx context.Context, feature string) (bool, error) {
 	server, err := s.m.Status(ctx)
 	if err != nil {
 		return false, fmt.Errorf("Failed to get MicroCeph server status while checking for features: %v", err)

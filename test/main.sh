@@ -106,7 +106,7 @@ cleanup() {
 
 	# LXD daemon logs
 	echo "::group::lxd logs"
-	journalctl --quiet --no-hostname --no-pager --boot=0 --lines=100 --unit=snap.lxd.daemon.service
+	journalctl --quiet --no-hostname --no-pager --boot=0 --lines=100 --unit=snap.lxd.daemon.component
 	echo "::endgroup::"
 
 	# dmesg may contain oops, IO errors, crashes, etc
@@ -256,7 +256,7 @@ run_instances_tests() {
 
 run_basic_tests() {
   run_test test_reuse_cluster "reuse_cluster"
-  run_test test_add_services "add_services"
+  run_test test_add_components "add_components"
   run_test test_remove_cluster_member "remove_cluster_member"
   run_test test_non_ha "non_ha"
 }
@@ -271,7 +271,7 @@ run_interactive_tests() {
 }
 
 run_mismatch_tests() {
-  run_test test_service_mismatch "service mismatch"
+  run_test test_component_mismatch "component mismatch"
   run_test test_disk_mismatch "disk mismatch"
 }
 

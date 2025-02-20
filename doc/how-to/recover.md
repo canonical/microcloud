@@ -2,9 +2,9 @@
 # How to recover a MicroCloud cluster
 
 ```{note}
-Each MicroCloud service uses the [Dqlite](https://dqlite.io/) distributed
+Each MicroCloud component uses the [Dqlite](https://dqlite.io/) distributed
 database for highly-available storage. While the cluster recovery process is
-similar for each service, this document only covers cluster recovery for the
+similar for each component, this document only covers cluster recovery for the
 `microcloudd` daemon. For cluster recovery procedures for LXD, MicroCeph and
 MicroOVN, see:
 

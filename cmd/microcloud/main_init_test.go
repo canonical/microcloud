@@ -5,8 +5,8 @@ import (
 
 	lxdAPI "github.com/canonical/lxd/shared/api"
 
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 func newSystemWithNetworks(address string, networks []lxdAPI.NetworksPost) InitSystem {
@@ -21,7 +21,7 @@ func newSystemWithNetworks(address string, networks []lxdAPI.NetworksPost) InitS
 
 func newSystemWithUplinkNetConfig(address string, config map[string]string) InitSystem {
 	return newSystemWithNetworks(address, []lxdAPI.NetworksPost{{
-		Name: service.DefaultUplinkNetwork,
+		Name: component.DefaultUplinkNetwork,
 		Type: "physical",
 		NetworkPut: lxdAPI.NetworkPut{
 			Config: config,
@@ -29,10 +29,10 @@ func newSystemWithUplinkNetConfig(address string, config map[string]string) Init
 	}})
 }
 
-func newTestHandler(addr string, t *testing.T) *service.Handler {
-	handler, err := service.NewHandler("testSystem", addr, "/tmp/microcloud_test_hander")
+func newTestHandler(addr string, t *testing.T) *component.Handler {
+	handler, err := component.NewHandler("testSystem", addr, "/tmp/microcloud_test_hander")
 	if err != nil {
-		t.Fatalf("Failed to create test service handler: %s", err)
+		t.Fatalf("Failed to create test component handler: %s", err)
 	}
 
 	return handler
@@ -48,7 +48,7 @@ func newTestSystemsMap(systems ...InitSystem) map[string]InitSystem {
 	return systemsMap
 }
 
-func ensureValidateSystemsPasses(handler *service.Handler, testSystems map[string]InitSystem, t *testing.T) {
+func ensureValidateSystemsPasses(handler *component.Handler, testSystems map[string]InitSystem, t *testing.T) {
 	for testName, system := range testSystems {
 		systems := newTestSystemsMap(system)
 		cfg := initConfig{systems: systems, bootstrap: true}
@@ -60,7 +60,7 @@ func ensureValidateSystemsPasses(handler *service.Handler, testSystems map[strin
 	}
 }
 
-func ensureValidateSystemsFails(handler *service.Handler, testSystems map[string]InitSystem, t *testing.T) {
+func ensureValidateSystemsFails(handler *component.Handler, testSystems map[string]InitSystem, t *testing.T) {
 	for testName, system := range testSystems {
 		systems := newTestSystemsMap(system)
 		cfg := initConfig{systems: systems, bootstrap: true}

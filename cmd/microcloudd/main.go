@@ -20,7 +20,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
@@ -80,43 +80,43 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
 	}
 
-	services := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	components := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	for serviceType, stateDir := range optionalServices {
-		if service.Exists(serviceType, stateDir) {
-			services = append(services, serviceType)
+	for componentType, stateDir := range optionalComponents {
+		if component.Exists(componentType, stateDir) {
+			components = append(components, componentType)
 		} else {
-			logger.Infof("Skipping %s service, could not detect state directory", serviceType)
+			logger.Infof("Skipping %s component, could not detect state directory", componentType)
 		}
 	}
 
-	s, err := service.NewHandler(name, addr, c.flagMicroCloudDir, services...)
+	s, err := component.NewHandler(name, addr, c.flagMicroCloudDir, components...)
 	if err != nil {
 		return err
 	}
 
-	// Periodically check if new services have been installed.
+	// Periodically check if new components have been installed.
 	go func() {
 		for {
-			for serviceName, stateDir := range optionalServices {
-				if service.Exists(serviceName, stateDir) {
-					if s.Services[serviceName] != nil {
+			for componentName, stateDir := range optionalComponents {
+				if component.Exists(componentName, stateDir) {
+					if s.Components[componentName] != nil {
 						continue
 					}
 
-					newService, err := service.NewHandler(name, addr, c.flagMicroCloudDir, serviceName)
+					newComponent, err := component.NewHandler(name, addr, c.flagMicroCloudDir, componentName)
 					if err != nil {
-						logger.Error("Failed to create servie handler for service", logger.Ctx{"service": serviceName, "error": err})
+						logger.Error("Failed to create servie handler for component", logger.Ctx{"component": componentName, "error": err})
 						break
 					}
 
-					s.Services[serviceName] = newService.Services[serviceName]
-				} else if s.Services[serviceName] != nil {
-					delete(s.Services, serviceName)
+					s.Components[componentName] = newComponent.Components[componentName]
+				} else if s.Components[componentName] != nil {
+					delete(s.Components, componentName)
 				}
 			}
 
@@ -126,9 +126,9 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 	endpoints := []rest.Endpoint{
 		api.StatusCmd(s),
-		api.ServicesCmd(s),
-		api.ServiceTokensCmd(s),
-		api.ServicesClusterCmd(s),
+		api.ComponentCmd(s),
+		api.ComponentsTokensCmd(s),
+		api.ComponentClusterCmd(s),
 		api.SessionJoinCmd(s),
 		api.SessionInitiatingCmd(s),
 		api.SessionJoiningCmd(s),
@@ -157,7 +157,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		Version:           version.RawVersion,
 		HeartbeatInterval: c.flagHeartbeatInterval,
 
-		PreInitListenAddress: "[::]:" + strconv.FormatInt(service.CloudPort, 10),
+		PreInitListenAddress: "[::]:" + strconv.FormatInt(component.CloudPort, 10),
 		Hooks: &state.Hooks{
 			PostBootstrap: func(ctx context.Context, state state.State, initConfig map[string]string) error {
 				return setHandlerAddress(state.Address().URL.Host)
@@ -194,7 +194,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 					return nil
 				}
 
-				initialized, err := s.Services[types.LXD].IsInitialized(context.Background())
+				initialized, err := s.Components[types.LXD].IsInitialized(context.Background())
 				if err != nil {
 					return err
 				}
@@ -204,7 +204,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 				}
 
 				// If the MicroCloud database is online, and LXD is initialized, try to set user.microcloud.
-				c, err := s.Services[types.LXD].(*service.LXDService).Client(context.Background())
+				c, err := s.Components[types.LXD].(*component.LXDComponent).Client(context.Background())
 				if err != nil {
 					return err
 				}
@@ -250,7 +250,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	return s.Services[types.MicroCloud].(*service.CloudService).StartCloud(context.Background(), dargs)
+	return s.Components[types.MicroCloud].(*component.CloudComponent).StartCloud(context.Background(), dargs)
 }
 
 func main() {

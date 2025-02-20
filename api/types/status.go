@@ -14,15 +14,15 @@ type Status struct {
 	// Address represnts the cluster address for the member.
 	Address string `json:"address" yaml:"address"`
 
-	// Clusters is a list of cluster members for each service installed on the member.
-	Clusters map[ServiceType][]microTypes.ClusterMember `json:"clusters" yaml:"clusters"`
+	// Clusters is a list of cluster members for each component installed on the member.
+	Clusters map[ComponentType][]microTypes.ClusterMember `json:"clusters" yaml:"clusters"`
 
 	// OSDs is a list of all OSDs local to the member.
 	OSDs cephTypes.Disks `json:"osds" yaml:"osds"`
 
-	// CephServices is a list of all ceph services running on this member.
-	CephServices cephTypes.Services `json:"ceph_services" yaml:"ceph_services"`
+	// CephComponents is a list of all ceph components running on this member.
+	CephComponents cephTypes.Services `json:"ceph_components" yaml:"ceph_components"`
 
-	// OVNServices is a list of all ovn services running on this member.
-	OVNServices ovnTypes.Services `json:"ovn_services" yaml:"ovn_services"`
+	// OVNComponents is a list of all ovn components running on this member.
+	OVNComponents ovnTypes.Services `json:"ovn_components" yaml:"ovn_components"`
 }

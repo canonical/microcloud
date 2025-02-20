@@ -21,7 +21,7 @@ test_add_interactive() {
     lxc exec "${m}" -- snap disable microcloud
   done
 
-  echo "Test growing a MicroCloud with all services and devices set up"
+  echo "Test growing a MicroCloud with all components and devices set up"
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
@@ -77,17 +77,17 @@ test_add_interactive() {
   done
 
   reset_systems 4 2 1
-  echo "Test growing a MicroCloud with missing services"
+  echo "Test growing a MicroCloud with missing components"
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
-  export SKIP_SERVICE="yes"
+  export SKIP_COMPONENT="yes"
   export EXPECT_PEERS=2
   export SETUP_ZFS="no"
   export SETUP_CEPH="no"
   export SETUP_OVN="no"
 
-  # Disable optional services on the initial cluster only.
+  # Disable optional components on the initial cluster only.
   for m in micro01 micro02 micro03 ; do
     lxc exec "${m}" -- snap disable microovn || true
     lxc exec "${m}" -- snap disable microceph || true
@@ -104,7 +104,7 @@ test_add_interactive() {
   lxc exec micro04 -- snap start microcloud
 
   unset_interactive_vars
-  export SKIP_SERVICE=yes
+  export SKIP_COMPONENT=yes
   export EXPECT_PEERS=1
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"

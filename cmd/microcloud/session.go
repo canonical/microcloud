@@ -12,15 +12,15 @@ import (
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/cmd/tui"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // SessionFunc represents a function executed throughout the lifetime of a session.
 type SessionFunc func(gw *cloudClient.WebsocketGateway) error
 
-func (c *initConfig) runSession(ctx context.Context, s *service.Handler, role types.SessionRole, timeout time.Duration, f SessionFunc) error {
-	cloud := s.Services[types.MicroCloud].(*service.CloudService)
+func (c *initConfig) runSession(ctx context.Context, s *component.Handler, role types.SessionRole, timeout time.Duration, f SessionFunc) error {
+	cloud := s.Components[types.MicroCloud].(*component.CloudComponent)
 	conn, err := cloud.StartSession(ctx, string(role), timeout)
 	if err != nil {
 		return err
@@ -31,11 +31,11 @@ func (c *initConfig) runSession(ctx context.Context, s *service.Handler, role ty
 	return f(cloudClient.NewWebsocketGateway(ctx, conn))
 }
 
-func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, passphrase string, expectedSystems []string) error {
+func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *component.Handler, components map[types.ComponentType]string, passphrase string, expectedSystems []string) error {
 	session := types.Session{
 		Address:    c.address,
 		Interface:  c.lookupIface.Name,
-		Services:   services,
+		Components: components,
 		Passphrase: passphrase,
 	}
 
@@ -50,7 +50,7 @@ func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *ser
 	}
 
 	if !c.autoSetup {
-		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		cloud := sh.Components[types.MicroCloud].(*component.CloudComponent)
 
 		// If the cluster is already bootstrapped the cluster certificate is used
 		// instead for the server.
@@ -139,10 +139,10 @@ Verify the fingerprint %s is displayed on joining systems.
 		// Register init system
 		c.systems[joinIntent.Name] = InitSystem{
 			ServerInfo: multicast.ServerInfo{
-				Version:  joinIntent.Version,
-				Name:     joinIntent.Name,
-				Address:  joinIntent.Address,
-				Services: joinIntent.Services,
+				Version:    joinIntent.Version,
+				Name:       joinIntent.Name,
+				Address:    joinIntent.Address,
+				Components: joinIntent.Components,
 				// Store the peers certificate to allow mTLS server validation
 				// for requests after the trust establishment.
 				Certificate: remoteCert,
@@ -164,13 +164,13 @@ Verify the fingerprint %s is displayed on joining systems.
 	return nil
 }
 
-func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, initiatorAddress string, passphrase string) error {
+func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *component.Handler, components map[types.ComponentType]string, initiatorAddress string, passphrase string) error {
 	session := types.Session{
 		Passphrase:       passphrase,
 		Address:          sh.Address(),
 		InitiatorAddress: initiatorAddress,
 		Interface:        c.lookupIface.Name,
-		Services:         services,
+		Components:       components,
 		LookupTimeout:    c.lookupTimeout,
 	}
 
@@ -205,5 +205,5 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 		fmt.Println(tui.Printf(tmplArg, localArg, remoteArg))
 	}
 
-	return c.askJoinConfirmation(gw, services)
+	return c.askJoinConfirmation(gw, components)
 }

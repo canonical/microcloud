@@ -16,12 +16,12 @@ type cmdRemove struct {
 	flagForce bool
 }
 
-// Command returns the subcommand to remove a member from all MicroCloud services.
+// Command returns the subcommand to remove a member from all MicroCloud components.
 func (c *cmdRemove) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove <name>",
 		Aliases: []string{"rm"},
-		Short:   "Remove the specified member from all MicroCloud services",
+		Short:   "Remove the specified member from all MicroCloud components",
 		RunE:    c.Run,
 	}
 
@@ -30,7 +30,7 @@ func (c *cmdRemove) Command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand to remove a member from all MicroCloud services.
+// Run runs the subcommand to remove a member from all MicroCloud components.
 func (c *cmdRemove) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return cmd.Help()

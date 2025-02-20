@@ -11,14 +11,14 @@ import (
 	"github.com/canonical/lxd/shared/trust"
 	"github.com/canonical/microcluster/v2/state"
 
-	"github.com/canonical/microcloud/microcloud/service"
+	"github.com/canonical/microcloud/microcloud/component"
 )
 
 // endpointHandler is just a convenience for writing clean return types.
 type endpointHandler func(state.State, *http.Request) response.Response
 
 // authHandlerMTLS ensures a request has been authenticated using mTLS.
-func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
+func authHandlerMTLS(sh *component.Handler, f endpointHandler) endpointHandler {
 	return func(s state.State, r *http.Request) response.Response {
 		if r.RemoteAddr == "@" {
 			logger.Debug("Allowing unauthenticated request through unix socket")
@@ -50,9 +50,9 @@ func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
 }
 
 // authHandlerHMAC ensures a request has been authenticated using the HMAC in the Authorization header.
-func authHandlerHMAC(sh *service.Handler, f endpointHandler) endpointHandler {
+func authHandlerHMAC(sh *component.Handler, f endpointHandler) endpointHandler {
 	return func(s state.State, r *http.Request) response.Response {
-		sessionFunc := func(session *service.Session) error {
+		sessionFunc := func(session *component.Session) error {
 			h, err := trust.NewHMACArgon2([]byte(session.Passphrase()), nil, trust.NewDefaultHMACConf(HMACMicroCloud10))
 			if err != nil {
 				return err

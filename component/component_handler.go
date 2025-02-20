@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"crypto/x509"
@@ -31,11 +31,11 @@ const (
 	CloudMulticastPort int64 = 9444
 )
 
-// Handler holds a set of stateful services.
+// Handler holds a set of stateful components.
 type Handler struct {
-	Services map[types.ServiceType]Service
-	Name     string
-	Port     int64
+	Components map[types.ComponentType]Component
+	Name       string
+	Port       int64
 
 	sessionLock sync.RWMutex
 	Session     *Session
@@ -44,46 +44,46 @@ type Handler struct {
 	address string
 }
 
-// NewHandler creates a new Handler with a client for each of the given services.
-func NewHandler(name string, addr string, stateDir string, services ...types.ServiceType) (*Handler, error) {
-	servicesMap := make(map[types.ServiceType]Service, len(services))
-	for _, serviceType := range services {
-		var service Service
+// NewHandler creates a new Handler with a client for each of the given components.
+func NewHandler(name string, addr string, stateDir string, components ...types.ComponentType) (*Handler, error) {
+	componentsMap := make(map[types.ComponentType]Component, len(components))
+	for _, componentType := range components {
+		var component Component
 		var err error
-		switch serviceType {
+		switch componentType {
 		case types.MicroCloud:
-			service, err = NewCloudService(name, addr, stateDir)
+			component, err = NewCloudComponent(name, addr, stateDir)
 		case types.MicroCeph:
-			service, err = NewCephService(name, addr, stateDir)
+			component, err = NewCephComponent(name, addr, stateDir)
 		case types.MicroOVN:
-			service, err = NewOVNService(name, addr, stateDir)
+			component, err = NewOVNComponent(name, addr, stateDir)
 		case types.LXD:
-			service, err = NewLXDService(name, addr, stateDir)
+			component, err = NewLXDComponent(name, addr, stateDir)
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create %q service: %w", serviceType, err)
+			return nil, fmt.Errorf("Failed to create %q component: %w", componentType, err)
 		}
 
-		servicesMap[serviceType] = service
+		componentsMap[componentType] = component
 	}
 
 	return &Handler{
-		Services: servicesMap,
-		Name:     name,
-		address:  addr,
-		Port:     CloudPort,
+		Components: componentsMap,
+		Name:       name,
+		address:    addr,
+		Port:       CloudPort,
 	}, nil
 }
 
-// RunConcurrent runs the given hook concurrently across all services.
-// If firstService or lastService are empty strings, they will be ignored and all services will run concurrently.
-func (s *Handler) RunConcurrent(firstService types.ServiceType, lastService types.ServiceType, f func(s Service) error) error {
-	errors := make([]error, 0, len(s.Services))
+// RunConcurrent runs the given hook concurrently across all components.
+// If firstComponent or lastComponent are empty strings, they will be ignored and all components will run concurrently.
+func (s *Handler) RunConcurrent(firstComponent types.ComponentType, lastComponent types.ComponentType, f func(s Component) error) error {
+	errors := make([]error, 0, len(s.Components))
 	mut := sync.Mutex{}
 	wg := sync.WaitGroup{}
 
-	first, ok := s.Services[firstService]
+	first, ok := s.Components[firstComponent]
 	if ok {
 		err := f(first)
 		if err != nil {
@@ -91,13 +91,13 @@ func (s *Handler) RunConcurrent(firstService types.ServiceType, lastService type
 		}
 	}
 
-	for _, s := range s.Services {
-		if s.Type() == firstService || s.Type() == lastService {
+	for _, s := range s.Components {
+		if s.Type() == firstComponent || s.Type() == lastComponent {
 			continue
 		}
 
 		wg.Add(1)
-		go func(s Service) {
+		go func(s Component) {
 			defer wg.Done()
 			err := f(s)
 			if err != nil {
@@ -117,7 +117,7 @@ func (s *Handler) RunConcurrent(firstService types.ServiceType, lastService type
 		}
 	}
 
-	last, ok := s.Services[lastService]
+	last, ok := s.Components[lastComponent]
 	if ok {
 		err := f(last)
 		if err != nil {
@@ -202,10 +202,10 @@ func (s *Handler) TemporaryTrustStore() map[string]x509.Certificate {
 	return trustStore
 }
 
-// Exists returns true if we can stat the unix socket in the state directory of the given service.
-func Exists(service types.ServiceType, stateDir string) bool {
+// Exists returns true if we can stat the unix socket in the state directory of the given component.
+func Exists(component types.ComponentType, stateDir string) bool {
 	socketPath := filepath.Join(stateDir, "control.socket")
-	if service == types.LXD {
+	if component == types.LXD {
 		socketPath = filepath.Join(stateDir, "unix.socket")
 	}
 

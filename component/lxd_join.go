@@ -1,4 +1,4 @@
-package service
+package component
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/canonical/lxd/shared/version"
 )
 
-func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
+func (s *LXDComponent) configFromToken(token string) (*api.ClusterPut, error) {
 	joinToken, err := shared.JoinTokenDecode(token)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid cluster join token: %w", err)

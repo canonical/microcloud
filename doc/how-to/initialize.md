@@ -2,7 +2,7 @@
 # How to initialize MicroCloud
 
 The {ref}`initialization process <explanation-initialization>` bootstraps the MicroCloud cluster.
-You run the initialization on one of the machines, and it configures the required services on all of the machines that have been joined.
+You run the initialization on one of the machines, and it configures the required components on all of the machines that have been joined.
 
 ## Pre-initialization requirements
 
@@ -132,7 +132,7 @@ If the MicroOVN or MicroCeph snap is not installed on the system that runs {comm
 
     MicroOVN not found. Continue anyway? (yes/no) [default=yes]:
 
-If you choose `yes`,  only existing services will be configured on all systems.
+If you choose `yes`,  only existing components will be configured on all systems.
 If you choose `no`, the setup will be canceled.
 
 All other systems must have at least the same set of snaps installed as the system that runs {command}`microcloud init`, otherwise they will not be available to select from the list of systems.
@@ -147,7 +147,7 @@ If some of the systems are already part of a MicroCeph or MicroOVN cluster, you 
     "micro01" is already part of a MicroOVN cluster. Do you want to add this cluster to MicroCloud? (add/skip) [default=add]:
 
 If you choose `add`, MicroCloud will add the remaining systems selected for initialization to the pre-existing cluster.
-If you choose `skip`, the respective service will not be set up at all.
+If you choose `skip`, the respective component will not be set up at all.
 
 If more than one MicroCeph or MicroOVN cluster exists among the systems, the MicroCloud initialization will be canceled.
 

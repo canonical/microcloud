@@ -14,8 +14,8 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/component"
 	"github.com/canonical/microcloud/microcloud/multicast"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 type cmdAdd struct {
@@ -43,7 +43,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	fmt.Println("Waiting for services to start ...")
+	fmt.Println("Waiting for components to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, true, false)
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		common:    c.common,
 		asker:     c.common.asker,
 		systems:   map[string]InitSystem{},
-		state:     map[string]service.SystemInformation{},
+		state:     map[string]component.SystemInformation{},
 	}
 
 	cfg.sessionTimeout = DefaultSessionTimeout
@@ -80,34 +80,34 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
-	optionalServices := map[types.ServiceType]string{
+	installedComponents := []types.ComponentType{types.MicroCloud, types.LXD}
+	optionalComponents := map[types.ComponentType]string{
 		types.MicroCeph: api.MicroCephDir,
 		types.MicroOVN:  api.MicroOVNDir,
 	}
 
-	installedServices, err = cfg.askMissingServices(installedServices, optionalServices)
+	installedComponents, err = cfg.askMissingComponents(installedComponents, optionalComponents)
 	if err != nil {
 		return err
 	}
 
-	s, err := service.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedServices...)
+	s, err := component.NewHandler(cfg.name, cfg.address, c.common.FlagMicroCloudDir, installedComponents...)
 	if err != nil {
 		return err
 	}
 
-	services := make(map[types.ServiceType]string, len(installedServices))
-	for _, s := range s.Services {
+	components := make(map[types.ComponentType]string, len(installedComponents))
+	for _, s := range s.Components {
 		version, err := s.GetVersion(context.Background())
 		if err != nil {
 			return err
 		}
 
-		services[s.Type()] = version
+		components[s.Type()] = version
 	}
 
 	err = cfg.runSession(context.Background(), s, types.SessionInitiating, cfg.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-		return cfg.initiatingSession(gw, s, services, "", nil)
+		return cfg.initiatingSession(gw, s, components, "", nil)
 	})
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 	reverter.Add(func() {
 		// Stop each joiner member session.
-		cloud := s.Services[types.MicroCloud].(*service.CloudService)
+		cloud := s.Components[types.MicroCloud].(*component.CloudComponent)
 		for peer, system := range cfg.systems {
 			if system.ServerInfo.Name == "" || system.ServerInfo.Name == cfg.name {
 				continue
@@ -129,7 +129,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			remoteClient, err := cloud.RemoteClient(system.ServerInfo.Certificate, util.CanonicalNetworkAddress(system.ServerInfo.Address, service.CloudPort))
+			remoteClient, err := cloud.RemoteClient(system.ServerInfo.Certificate, util.CanonicalNetworkAddress(system.ServerInfo.Address, component.CloudPort))
 			if err != nil {
 				logger.Error("Failed to create remote client", logger.Ctx{"address": system.ServerInfo.Address, "error": err})
 				continue
@@ -142,7 +142,7 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		}
 	})
 
-	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Services: services})
+	state, err := s.CollectSystemInformation(context.Background(), multicast.ServerInfo{Name: cfg.name, Address: cfg.address, Components: components})
 	if err != nil {
 		return err
 	}
@@ -165,34 +165,34 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	// Ensure LXD is not already clustered if we are running `microcloud init`.
 	for name, info := range cfg.state {
 		_, newSystem := cfg.systems[name]
-		if newSystem && info.ServiceClustered(types.LXD) {
+		if newSystem && info.ComponentClustered(types.LXD) {
 			return fmt.Errorf("%s is already clustered on %q, aborting setup", types.LXD, info.ClusterName)
 		}
 	}
 
 	// Ensure there are no existing cluster conflicts.
-	conflictableServices := map[types.ServiceType]string{}
-	for service, version := range services {
-		if service == types.LXD {
+	conflictableComponents := map[types.ComponentType]string{}
+	for component, version := range components {
+		if component == types.LXD {
 			continue
 		}
 
-		conflictableServices[service] = version
+		conflictableComponents[component] = version
 	}
 
-	conflict, serviceType := service.ClustersConflict(cfg.state, conflictableServices)
+	conflict, componentType := component.ClustersConflict(cfg.state, conflictableComponents)
 	if conflict {
-		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", serviceType)
+		return fmt.Errorf("Some systems are already part of different %s clusters. Aborting initialization", componentType)
 	}
 
 	// Ask to reuse existing clusters.
-	err = cfg.askClustered(s, services)
+	err = cfg.askClustered(s, components)
 	if err != nil {
 		return err
 	}
 
 	// Also populate system information for existing cluster members. This is so we can potentially set up storage and networks if they haven't been set up before.
-	for name, address := range state.ExistingServices[types.MicroCloud] {
+	for name, address := range state.ExistingComponents[types.MicroCloud] {
 		_, ok := cfg.systems[name]
 		if ok {
 			continue
@@ -200,9 +200,9 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 
 		cfg.systems[name] = InitSystem{
 			ServerInfo: multicast.ServerInfo{
-				Name:     name,
-				Address:  address,
-				Services: services,
+				Name:       name,
+				Address:    address,
+				Components: components,
 			},
 		}
 

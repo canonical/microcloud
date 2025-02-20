@@ -1,6 +1,6 @@
 //go:build test
 
-package service
+package component
 
 // Testing wordlist that will always print `a a a a`.
 var wordlist = `1	a

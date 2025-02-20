@@ -24,10 +24,10 @@ type AuthConfig struct {
 	InsecureSkipVerify   bool
 }
 
-// UseAuthProxy takes the given microcluster client and HMAC and proxies requests to other services through the MicroCloud API.
+// UseAuthProxy takes the given microcluster client and HMAC and proxies requests to other components through the MicroCloud API.
 // The HMAC will be set in the Authorization header in lieu of mTLS authentication, if present.
 // If no HMAC is present mTLS is assumed.
-func UseAuthProxy(c *client.Client, serviceType types.ServiceType, conf AuthConfig) (*client.Client, error) {
+func UseAuthProxy(c *client.Client, componentType types.ComponentType, conf AuthConfig) (*client.Client, error) {
 	tp, ok := c.Transport.(*http.Transport)
 	if !ok {
 		return nil, fmt.Errorf("Invalid client transport type")
@@ -39,25 +39,25 @@ func UseAuthProxy(c *client.Client, serviceType types.ServiceType, conf AuthConf
 	}
 
 	tp.TLSClientConfig.InsecureSkipVerify = conf.InsecureSkipVerify
-	tp.Proxy = AuthProxy(conf.HMAC, serviceType)
+	tp.Proxy = AuthProxy(conf.HMAC, componentType)
 
 	c.Transport = tp
 
 	return c, nil
 }
 
-// AuthProxy takes a request to a service and sends it to MicroCloud instead,
-// to be then forwarded to the unix socket of the corresponding service.
+// AuthProxy takes a request to a component and sends it to MicroCloud instead,
+// to be then forwarded to the unix socket of the corresponding component.
 // The HMAC is set in the request header to be used partially in lieu of mTLS authentication.
-func AuthProxy(hmac string, serviceType types.ServiceType) func(r *http.Request) (*url.URL, error) {
+func AuthProxy(hmac string, componentType types.ComponentType) func(r *http.Request) (*url.URL, error) {
 	return func(r *http.Request) (*url.URL, error) {
 		if hmac != "" {
 			r.Header.Set("Authorization", hmac)
 		}
 
 		// MicroCloud itself doesn't need to use the proxy.
-		if serviceType != types.MicroCloud {
-			path := fmt.Sprintf("/1.0/services/%s", strings.ToLower(string(serviceType)))
+		if componentType != types.MicroCloud {
+			path := fmt.Sprintf("/1.0/components/%s", strings.ToLower(string(componentType)))
 			if !strings.HasPrefix(r.URL.Path, path) {
 				r.URL.Path = path + r.URL.Path
 			}
