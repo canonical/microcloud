@@ -233,9 +233,9 @@ if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     }
 elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
     intersphinx_mapping = {
-        'lxd': ('/en/latest/lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
-        'microceph': ('/en/latest/microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
-        'microovn': ('/en/latest/microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
+        'lxd': ('/en/v2-edge/lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
+        'microceph': ('/en/v2-edge/microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
+        'microovn': ('/en/v2-edge/microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
         'ceph': ('https://docs.ceph.com/en/latest/', None)
     }
 else:
