@@ -13,7 +13,8 @@ env:
   CGO_LDFLAGS: -L/home/runner/go/deps/dqlite/.libs/
   LD_LIBRARY_PATH: /home/runner/go/deps/dqlite/.libs/
   CGO_LDFLAGS_ALLOW: (-Wl,-wrap,pthread_create)|(-Wl,-z,now)
-  GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && '/home/runner/work/microcloud/microcloud/cover' || '' }}
+  # Use the github.workspace variable to adapt the cover directory path based on the used runner.
+  GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && format('{0}/cover', github.workspace) || '' }}
 
 permissions:
   contents: read
