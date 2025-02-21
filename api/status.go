@@ -13,13 +13,11 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	cephClient "github.com/canonical/microceph/microceph/client"
 	microClient "github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/rest"
 	microTypes "github.com/canonical/microcluster/v2/rest/types"
 	"github.com/canonical/microcluster/v2/state"
 	ovnTypes "github.com/canonical/microovn/microovn/api/types"
-	ovnClient "github.com/canonical/microovn/microovn/client"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
@@ -150,7 +148,9 @@ func statusGet(sh *service.Handler) endpointHandler {
 }
 
 func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, osds []cephTypes.Disk, cephServices []cephTypes.Service, err error) {
-	microClient, err := s.(*service.CephService).Client("")
+	cephService := s.(*service.CephService)
+
+	microClient, err := cephService.Client("")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -160,7 +160,7 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 		return nil, nil, nil, err
 	}
 
-	disks, err := cephClient.GetDisks(ctx, microClient)
+	disks, err := cephService.GetDisks(ctx, "")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -175,7 +175,7 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 		}
 	}
 
-	services, err := cephClient.GetServices(ctx, microClient)
+	services, err := cephService.GetServices(ctx, "")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -194,7 +194,9 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 }
 
 func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, ovnServices []ovnTypes.Service, err error) {
-	microClient, err := s.(*service.OVNService).Client()
+	serviceOVN := s.(*service.OVNService)
+
+	microClient, err := serviceOVN.Client()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,7 +206,7 @@ func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTy
 		return nil, nil, err
 	}
 
-	services, err := ovnClient.GetServices(ctx, microClient)
+	services, err := serviceOVN.GetServices(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

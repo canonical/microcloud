@@ -17,9 +17,6 @@ import (
 	"github.com/canonical/lxd/shared/revert"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	cephClient "github.com/canonical/microceph/microceph/client"
-	"github.com/canonical/microcluster/v2/client"
-	ovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -769,17 +766,9 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				continue
 			}
 
-			var client *client.Client
 			for _, disk := range c.systems[name].MicroCephDisks {
-				if client == nil {
-					client, err = s.Services[types.MicroCeph].(*service.CephService).Client(name)
-					if err != nil {
-						return err
-					}
-				}
-
 				logger.Debug("Adding disk to MicroCeph", logger.Ctx{"name": name, "disk": disk.Path})
-				resp, err := cephClient.AddDisk(context.Background(), client, &disk)
+				resp, err := s.Services[types.MicroCeph].(*service.CephService).AddDisk(context.Background(), disk, name)
 				if err != nil {
 					return err
 				}
@@ -802,12 +791,9 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 
-		c, err := s.Services[types.MicroCeph].(*service.CephService).Client(s.Name)
-		if err != nil {
-			return err
-		}
+		cephService := s.Services[types.MicroCeph].(*service.CephService)
 
-		allDisks, err := cephClient.GetDisks(context.Background(), c)
+		allDisks, err := cephService.GetDisks(context.Background(), s.Name)
 		if err != nil {
 			return err
 		}
@@ -818,7 +804,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				defaultPoolSize = RecommendedOSDHosts
 			}
 
-			pools, err := cephClient.GetPools(context.Background(), c)
+			pools, err := cephService.GetPools(context.Background(), s.Name)
 			if err != nil {
 				return err
 			}
@@ -843,7 +829,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				poolsToUpdate = append(poolsToUpdate, "")
 			}
 
-			err = cephClient.PoolSetReplicationFactor(context.Background(), c, &cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(defaultPoolSize)})
+			err = cephService.PoolSetReplicationFactor(context.Background(), cephTypes.PoolPut{Pools: poolsToUpdate, Size: int64(defaultPoolSize)}, s.Name)
 			if err != nil {
 				return err
 			}
@@ -854,13 +840,9 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	var ovnConfig string
 	if s.Services[types.MicroOVN] != nil {
-		ovn := s.Services[types.MicroOVN].(*service.OVNService)
-		client, err := ovn.Client()
-		if err != nil {
-			return err
-		}
+		serviceOVN := s.Services[types.MicroOVN].(*service.OVNService)
 
-		services, err := ovnClient.GetServices(context.Background(), client)
+		services, err := serviceOVN.GetServices(context.Background())
 		if err != nil {
 			return err
 		}
