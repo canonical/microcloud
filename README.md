@@ -44,15 +44,11 @@ microcloud join
 
 Following the simple CLI prompts, a working MicroCloud will be ready within minutes.
 
-<!-- include start about -->
-
 The MicroCloud snap drives three other snaps ([LXD](https://canonical-microcloud.readthedocs-hosted.com/en/latest/lxd/), [MicroCeph](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microceph/), and [MicroOVN](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microovn/)), enabling automated deployment of a highly available LXD cluster for compute, with Ceph as the storage driver and OVN as the managed network.
 
 During initialisation, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
 
 At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
-
-<!-- include end about -->
 
 ## **What about networking?**
 
