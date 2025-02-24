@@ -52,6 +52,8 @@ During initialization, MicroCloud scrapes the other servers for details and then
 
 At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
+For more information, see the MicroCloud documentation for [installation](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/install/) and [initialization](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/initialize/). You can also [follow a tutorial](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/tutorial/get_started/) that demonstrates the basics of MicroCloud.
+
 ## **What about networking?**
 
 By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
