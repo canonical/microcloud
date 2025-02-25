@@ -182,7 +182,9 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 
 		// Ignore missing services in case of preseed.
 		if !c.autoSetup {
-			confirm, err := c.asker.AskBoolWarn(fmt.Sprintf("%s not found. Continue anyway?", serviceStr), true)
+			warning := fmt.Sprintf("%s not found", serviceStr)
+			question := "Continue anyway?"
+			confirm, err := c.asker.AskBoolWarn(warning, question, true)
 			if err != nil {
 				return nil, err
 			}
@@ -663,7 +665,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 		// Ask if the user is okay with fully remote ceph on some systems.
 		if len(askSystemsRemote) != availableDiskCount && wantsDisks {
-			wantsDisks, err = c.asker.AskBoolWarn("Unable to find disks on some systems. Continue anyway?", true)
+			warning := "Unable to find disks on some systems"
+			question := "Continue anyway?"
+			wantsDisks, err = c.asker.AskBoolWarn(warning, question, true)
 			if err != nil {
 				return err
 			}
@@ -935,7 +939,9 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(askSystems) == 0 || !allSystemsEligible {
-		wantsContinue, err := c.asker.AskBoolWarn("Some systems are ineligible for distributed networking, which requires either an interface with no IPs assigned or a bridge. Continue anyway?", true)
+		warning := "Some systems are ineligible for distributed networking.\nAt least one interface in state UP with no IPs assigned or a bridge is required"
+		question := "Continue anyway?"
+		wantsContinue, err := c.asker.AskBoolWarn(warning, question, true)
 		if err != nil {
 			return err
 		}
@@ -1274,7 +1280,9 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 		}
 
 		if !supportsFAN {
-			proceedWithNoOverlayNetworking, err := c.asker.AskBoolWarn("FAN networking is not usable. Do you want to proceed with setting up an inoperable cluster?", false)
+			warning := "Fan networking is not usable"
+			question := "Do you want to proceed with setting up an inoperable cluster?"
+			proceedWithNoOverlayNetworking, err := c.asker.AskBoolWarn(warning, question, false)
 			if err != nil {
 				return err
 			}
@@ -1453,7 +1461,8 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types
 			}
 
 			if info.ServiceClustered(serviceType) {
-				question := fmt.Sprintf("%q is already part of a %s cluster. Do you want to add this cluster to Microcloud? (add/skip) [default=add]", info.ClusterName, serviceType)
+				warning := fmt.Sprintf("%q is already part of a %s cluster", info.ClusterName, serviceType)
+				question := "Do you want to add this cluster to Microcloud? (add/skip) [default=add]"
 				validator := func(s string) error {
 					if !shared.ValueInSlice(s, []string{"add", "skip"}) {
 						return fmt.Errorf("Invalid input, expected one of (add,skip) but got %q", s)
@@ -1462,7 +1471,7 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types
 					return nil
 				}
 
-				addOrSkip, err := c.asker.AskStringWarn(question, "add", validator)
+				addOrSkip, err := c.asker.AskStringWarn(warning, question, "add", validator)
 				if err != nil {
 					return err
 				}
