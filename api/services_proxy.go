@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -111,6 +112,28 @@ func lxdHandler(s state.State, r *http.Request) response.Response {
 	resp, err := client.DoHTTP(r)
 	if err != nil {
 		return response.SmartError(err)
+	}
+
+	// Special case for metrics endpoint, that is not responding with JSON.
+	if r.URL.Path == "/1.0/metrics" {
+		return response.ManualResponse(func(w http.ResponseWriter) error {
+			defer resp.Body.Close()
+
+			// Copy headers from upstream response
+			for key, values := range resp.Header {
+				for _, value := range values {
+					w.Header().Add(key, value)
+				}
+			}
+
+			// Set status code
+			w.WriteHeader(resp.StatusCode)
+
+			// Stream response body
+			io.Copy(w, resp.Body)
+
+			return nil
+		})
 	}
 
 	return NewResponse(resp)
