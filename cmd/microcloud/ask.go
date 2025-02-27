@@ -1462,21 +1462,13 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types
 
 			if info.ServiceClustered(serviceType) {
 				warning := fmt.Sprintf("%q is already part of a %s cluster", info.ClusterName, serviceType)
-				question := "Do you want to add this cluster to Microcloud? (add/skip) [default=add]"
-				validator := func(s string) error {
-					if !shared.ValueInSlice(s, []string{"add", "skip"}) {
-						return fmt.Errorf("Invalid input, expected one of (add,skip) but got %q", s)
-					}
-
-					return nil
-				}
-
-				addOrSkip, err := c.asker.AskStringWarn(warning, question, "add", validator)
+				question := "Do you want to add this cluster to MicroCloud?"
+				addOrSkip, err := c.asker.AskBoolWarn(warning, question, true)
 				if err != nil {
 					return err
 				}
 
-				if addOrSkip != "add" {
+				if !addOrSkip {
 					delete(s.Services, serviceType)
 				}
 
