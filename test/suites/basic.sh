@@ -358,7 +358,7 @@ test_interactive() {
   export EXPECT_PEERS=1
   export PEERS_FILTER="micro03"
   export REUSE_EXISTING_COUNT=1
-  export REUSE_EXISTING="add"
+  export REUSE_EXISTING="yes"
   export SETUP_ZFS="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
@@ -816,7 +816,7 @@ test_reuse_cluster() {
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service"
   export REUSE_EXISTING_COUNT=1
-  export REUSE_EXISTING="add"
+  export REUSE_EXISTING="yes"
   bootstrap_microceph micro02
   join_session init micro01 micro02 micro03
   services_validator
@@ -830,7 +830,7 @@ test_reuse_cluster() {
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing MicroCeph and MicroOVN"
   export REUSE_EXISTING_COUNT=2
-  export REUSE_EXISTING="add"
+  export REUSE_EXISTING="yes"
   bootstrap_microceph micro02
   lxc exec micro02 -- microovn cluster bootstrap
   join_session init micro01 micro02 micro03
@@ -846,7 +846,7 @@ test_reuse_cluster() {
   reset_systems 3 3 3
   echo "Create a MicroCloud that re-uses an existing service with multiple nodes from this cluster"
   export REUSE_EXISTING_COUNT=1
-  export REUSE_EXISTING="add"
+  export REUSE_EXISTING="yes"
   bootstrap_microceph micro02
   token="$(lxc exec micro02 -- microceph cluster add micro01)"
   lxc exec micro01 -- microceph cluster join "${token}"
@@ -1167,7 +1167,7 @@ test_add_services() {
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
   export REUSE_EXISTING_COUNT=1
-  export REUSE_EXISTING="add"
+  export REUSE_EXISTING="yes"
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
