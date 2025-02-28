@@ -9,6 +9,8 @@
 
 current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
+# Set the path prefix and MicroCloud component versions corresponding to each MicroCloud docs version
+PATH_PREFIX      = /en/latest/
 LXDVERSION       = origin/main
 MICROCEPHVERSION = origin/main
 MICROOVNVERSION  = origin/main
@@ -84,10 +86,10 @@ html: integrate
 # `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
 # This target is used by the Read the Docs build.
 html-rtd:
-	cd integration/lxd/doc/ && $(MAKE) html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
-	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
-	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
-	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
 
 # `spelling` checks only the MicroCloud docs.
 spelling: clean-doc microcloud
