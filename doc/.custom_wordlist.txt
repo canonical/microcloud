@@ -1,13 +1,17 @@
 ACL
 ACLs
+AGPL
 AGPLv
 backend
+backporting
 balancers
+CCLA
 Ceph
 Ceph's
 CephFS
 CIDR
 CMS
+cryptographically
 DCO
 DHCP
 disaggregate
