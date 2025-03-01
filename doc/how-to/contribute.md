@@ -1,119 +1,49 @@
 (howto-contribute)=
 # How to contribute to MicroCloud
 
-The MicroCloud team appreciates contributions to the project, through pull requests, issues on the GitHub repository, or discussions or questions on the forum.
-
-Check the following guidelines before contributing to the project.
-
-## Code of Conduct
-
-When contributing, you must adhere to the Code of Conduct.
-MicroCloud follows the [Ubuntu Code of Conduct](https://ubuntu.com/community/ethos/code-of-conduct).
-
-## License and copyright
-
-By default, any contribution to this project is made under the AGPLv3 license.
-See the [license](https://github.com/canonical/microcloud/blob/main/COPYING) in the MicroCloud GitHub repository for detailed information.
-
-All contributors must sign the [Canonical contributor license agreement](https://ubuntu.com/legal/contributors), which gives Canonical permission to use the contributions.
-The author of a change remains the copyright holder of their code (no copyright assignment).
-
-## Pull requests
-
-Propose your changes to this project as pull requests on [GitHub](https://github.com/canonical/microcloud).
-
-Proposed changes will then go through review there and once approved, be merged in the main branch.
-
-### Commit structure
-
-Use separate commits for every logical change, and for changes to different components.
-Prefix your commits with the component that is affected, using the code tree structure.
-For example, prefix a commit that updates the MicroCloud service with `microcloud/service:`.
-
-This structure makes it easier for contributions to be reviewed and also greatly simplifies the process of porting fixes to other branches.
-
-### Developer Certificate of Origin
-
-To improve tracking of contributions to this project we use the DCO 1.1 and use a “sign-off” procedure for all changes going into the branch.
-
-The sign-off is a simple line at the end of the explanation for the commit which certifies that you wrote it or otherwise have the right to pass it on as an open-source contribution.
-
-```{code}
-Developer Certificate of Origin
-Version 1.1
-
-Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
-660 York Street, Suite 102,
-San Francisco, CA 94110 USA
-
-Everyone is permitted to copy and distribute verbatim copies of this
-license document, but changing it is not allowed.
-
-Developer's Certificate of Origin 1.1
-
-By making a contribution to this project, I certify that:
-
-(a) The contribution was created in whole or in part by me and I
-    have the right to submit it under the open source license
-    indicated in the file; or
-
-(b) The contribution is based upon previous work that, to the best
-    of my knowledge, is covered under an appropriate open source
-    license and I have the right under that license to submit that
-    work with modifications, whether created in whole or in part
-    by me, under the same open source license (unless I am
-    permitted to submit under a different license), as indicated
-    in the file; or
-
-(c) The contribution was provided directly to me by some other
-    person who certified (a), (b) or (c) and I have not modified
-    it.
-
-(d) I understand and agree that this project and the contribution
-    are public and that a record of the contribution (including all
-    personal information I submit with it, including my sign-off) is
-    maintained indefinitely and may be redistributed consistent with
-    this project or the open source license(s) involved.
+% Include content from [../../CONTRIBUTING.md](../../CONTRIBUTING.md)
+```{include} ../../CONTRIBUTING.md
+    :start-after: <!-- Include start contributing -->
+    :end-before: <!-- Include end contributing -->
 ```
-
-An example of a valid sign-off line is:
-
-    Signed-off-by: Random J Developer <random@developer.org>
-
-Use a known identity and a valid e-mail address, and make sure that you have signed the [Canonical contributor license agreement](https://ubuntu.com/legal/contributors).
-Sorry, no anonymous contributions are allowed.
-
-We also require each commit be individually signed-off by their author, even when part of a larger set.
-You may find git {command}`commit -s` useful.
 
 ## Contribute to the documentation
 
-We want MicroCloud to be as easy and straight-forward to use as possible.
-Therefore, we aim to provide documentation that contains the information that users need to work with MicroCloud, that covers all common use cases, and that answers typical questions.
+We strive to make MicroCloud as easy and straightforward to use as possible. To achieve this, our documentation aims to provide the information users need, cover all common use cases, and answer typical questions.
 
-You can contribute to the documentation in various different ways.
-We appreciate your contributions!
+You can contribute to the documentation in several ways. We appreciate your help!
 
-Typical ways to contribute are:
+Only use this repository for contributions to the MicroCloud documentation. Submit pull requests to the integrated documentation sets at their respective standalone GitHub repositories:
 
-- Add or update documentation for new features or feature improvements that you contribute to the code.
-  We'll review the documentation update and merge it together with your code.
-- Add or update documentation that clarifies any doubts you had when working with the product.
-  Such contributions can be done through a pull request or through a post in the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/).
-  Tutorials and other documentation posted in the forum will be considered for inclusion in the docs (through a link or by including the actual content).
-- To request a fix to the documentation, open a [documentation issue](https://github.com/canonical/microcloud/issues/new) on GitHub.
-  We'll evaluate the issue and update the documentation accordingly.
-- Post a question or a suggestion on the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/).
-  We'll monitor the posts and, if needed, update the documentation accordingly.
+- [LXD](https://github.com/canonical/lxd)
+- [MicroCeph](https://github.com/canonical/microceph)
+- [MicroOVN](https://github.com/canonical/microovn)
+
+### Ways to contribute
+
+Document new features or improvements you contribute to the code.
+: - Submit documentation updates in pull requests alongside your code changes. We will review and merge them together with the code.
+
+Clarify concepts or common questions based on your own experience.
+: - Submit a pull request with your documentation improvements.
+
+Report documentation issues by opening an issue in [GitHub](https://github.com/canonical/microcloud/issues).
+: - We will evaluate and update the documentation as needed.
+
+Ask questions or suggest improvements in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud).
+: - We monitor discussions and update the documentation when necessary.
+
+If you contribute images to `doc/images`:
+- Use **SVG** or **PNG** formats.
+- Optimize PNG images for smaller file size using a tool like [TinyPNG](https://tinypng.com/) (web-based), [OptiPNG](https://optipng.sourceforge.net/) (CLI-based), or similar.
 
 ### Documentation framework
 
-MicroCloud's documentation is built with [Sphinx](https://www.sphinx-doc.org/en/master/index.html) and hosted on [Read the Docs](https://about.readthedocs.com/). <!-- wokeignore:rule=master -->
+The MicroCloud documentation and its integrated documentation sets are built with [Sphinx](https://www.sphinx-doc.org/) and hosted on [Read the Docs](https://about.readthedocs.com/). For structuring, all use the [Diátaxis](https://diataxis.fr/) approach.
 
-It is written in [Markdown](https://commonmark.org/) with [MyST](https://myst-parser.readthedocs.io/) extensions.
-For syntax help and guidelines, see the [MyST style guide](https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com/style-guide-myst/) and the [documentation cheat sheet](cheat-sheet-myst) ([source](https://raw.githubusercontent.com/canonical/microcloud/main/doc/doc-cheat-sheet-myst.md)).
+The MicroCloud and LXD documentation sets are written in [Markdown](https://commonmark.org/) with [MyST](https://myst-parser.readthedocs.io/) extensions. For syntax help and guidelines, see the [MyST style guide](https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com/style-guide-myst/) and the [documentation cheat sheet](cheat-sheet-myst) ([source](https://raw.githubusercontent.com/canonical/microcloud/main/doc/doc-cheat-sheet-myst.md)).
 
-For structuring, the documentation uses the [Diátaxis](https://diataxis.fr/) approach.
+The MicroCeph and MicroOVN documentation sets are written in a documentation markup language called [reStructuredText](https://docutils.sourceforge.io/rst.html) (`.rst`). Differences in functionality are few; however, syntax differs.
 
 ### Build the documentation
 
@@ -124,15 +54,31 @@ To update the documentation for changed files only (without re-installing the to
 Before opening a pull request, make sure that the documentation builds without any warnings (warnings are treated as errors).
 To preview the documentation locally, run {command}`make doc-serve` and go to [`http://localhost:8000`](http://localhost:8000) to view the rendered documentation.
 
-When you open a pull request, a preview of the documentation output is built automatically.
-To see the output, view the details for the `docs/readthedocs.com:canonical-microcloud` check on the pull request.
+When you open a pull request, a preview of the documentation hosted by Read the Docs is built automatically.
+To see this, view the details for the `docs/readthedocs.com:canonical-microcloud` check on the pull request. Others can also use this preview to validate your changes.
 
 ### Automatic documentation checks
 
 GitHub runs automatic checks on the documentation to verify the spelling, the validity of links, and the use of inclusive language.
 
-You can (and should!) run these tests locally as well with the following commands:
+You can (and should!) run these tests locally before pushing your changes:
 
-- Check the spelling: {command}`make doc-spelling`
+- Check the spelling: {command}`make doc-spelling` (use {command}`make doc-spellcheck` to check without rebuilding)
 - Check the validity of links: {command}`make doc-linkcheck`
 - Check for inclusive language: {command}`make doc-woke`
+
+### Links between integrated documentation sets
+
+To link from the MicroCloud documentation to the other integrated documentation sets, use the `{ref}` role in combination with a project prefix and existing reference/link target. This allows for versions compatible with the selected MicroCloud documentation version to be shown.
+
+#### Project prefixes
+
+- LXD: `lxd`
+- MicroCeph: `microceph`
+- MicroOVN: `microovn`
+
+Example:
+
+```
+See {ref}`lxd:security` for details.
+```
