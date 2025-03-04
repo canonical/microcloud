@@ -19,7 +19,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ## **Requirements**
 
-MicroCloud can be deployed on machines running Ubuntu 22.04 or newer. A MicroCloud cluster can consist of a single cluster member for a testing deployment, and requires a minimum of 3 cluster members for a production deployment. 
+MicroCloud can be deployed on machines running Ubuntu 22.04 or newer. A MicroCloud cluster can consist of a single cluster member for a testing deployment, and requires a minimum of 3 cluster members for a production deployment.
 
 See: [Pre-deployment requirements](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/install/#pre-deployment-requirements) in the MicroCloud documentation for a full list of requirements.
 
@@ -72,3 +72,4 @@ You can optionally add the following dedicated networks:
  [![Snapcraft logo](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
 
 - Snap package sources: [microcloud-pkg-snap](https://github.com/canonical/microcloud-pkg-snap)
+
