@@ -91,10 +91,8 @@ jobs:
           path: ${{ steps.ShellCheck.outputs.sarif }}
         if: github.event_name == 'pull_request'
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y pkg-config autoconf automake libtool make libuv1-dev libsqlite3-dev liblz4-dev
+      - name: Install MicroCloud build dependencies
+        uses: ./.github/actions/install-builddeps
 
       - name: Build
         run: |
@@ -265,6 +263,9 @@ jobs:
           name: system-test-deps
           merge-multiple: true
           path: /home/runner/go/bin
+
+      - name: Install MicroCloud build dependencies
+        uses: ./.github/actions/install-builddeps
 
       - name: Install dependencies
         run: |
