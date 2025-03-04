@@ -91,15 +91,18 @@ jobs:
           path: ${{ steps.ShellCheck.outputs.sarif }}
         if: github.event_name == 'pull_request'
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y pkg-config autoconf automake libtool make libuv1-dev libsqlite3-dev liblz4-dev
+      - name: Install MicroCloud build dependencies
+        uses: ./.github/actions/install-builddeps
 
       - name: Build
         run: |
           make deps
           make build-test
+
+          # Include dqlite libs in dependencies for system tests.
+          mkdir /home/runner/go/bin/dqlite
+          mv ~/go/deps/dqlite/include /home/runner/go/bin/dqlite/include
+          mv ~/go/deps/dqlite/.libs /home/runner/go/bin/dqlite/libs
 
       - name: Run static analysis
         run: make check-static
@@ -231,6 +234,11 @@ jobs:
     name: Tiobe TICS
     runs-on: ubuntu-22.04
     needs: [system-tests-core, system-tests-upgrade]
+    env:
+      CGO_CFLAGS: "-I/home/runner/go/bin/dqlite/include/"
+      CGO_LDFLAGS: "-L/home/runner/go/bin/dqlite/libs/"
+      LD_LIBRARY_PATH: "/home/runner/go/bin/dqlite/libs/"
+      CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
     if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
     steps:
       - name: Checkout
@@ -260,6 +268,9 @@ jobs:
           name: system-test-deps
           merge-multiple: true
           path: /home/runner/go/bin
+
+      - name: Install MicroCloud build dependencies
+        uses: ./.github/actions/install-builddeps
 
       - name: Install dependencies
         run: |
