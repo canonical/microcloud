@@ -101,8 +101,8 @@ jobs:
 
           # Include dqlite libs in dependencies for system tests.
           mkdir /home/runner/go/bin/dqlite
-          mv ~/go/deps/dqlite/include /home/runner/go/bin/dqlite/include
-          mv ~/go/deps/dqlite/.libs /home/runner/go/bin/dqlite/libs
+          cp -r ~/go/deps/dqlite/include /home/runner/go/bin/dqlite/include
+          cp -r ~/go/deps/dqlite/.libs /home/runner/go/bin/dqlite/libs
 
       - name: Run static analysis
         run: make check-static
