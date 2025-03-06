@@ -16,6 +16,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
+// SessionFunc represents a function executed throughout the lifetime of a session.
 type SessionFunc func(gw *cloudClient.WebsocketGateway) error
 
 func (c *initConfig) runSession(ctx context.Context, s *service.Handler, role types.SessionRole, timeout time.Duration, f SessionFunc) error {

@@ -22,6 +22,7 @@ type cmdJoin struct {
 	flagInitiatorAddress string
 }
 
+// Command returns the subcommand for joining a MicroCloud.
 func (c *cmdJoin) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "join",
@@ -36,6 +37,7 @@ func (c *cmdJoin) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for joining a MicroCloud.
 func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

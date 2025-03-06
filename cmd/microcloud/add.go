@@ -24,6 +24,7 @@ type cmdAdd struct {
 	flagSessionTimeout int64
 }
 
+// Command returns the subcommand to add new systems to MicroCloud.
 func (c *cmdAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -36,6 +37,7 @@ func (c *cmdAdd) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand to add new systems to MicroCloud.
 func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

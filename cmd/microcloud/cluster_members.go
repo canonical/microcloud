@@ -48,6 +48,7 @@ type cmdClusterMembers struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand to manage cluster members.
 func (c *cmdClusterMembers) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cluster",
@@ -67,6 +68,7 @@ func (c *cmdClusterMembers) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand to manage cluster members.
 func (c *cmdClusterMembers) Run(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
 }
@@ -78,6 +80,7 @@ type cmdClusterMembersList struct {
 	flagLocal  bool
 }
 
+// Command returns the subcommand to list cluster members.
 func (c *cmdClusterMembersList) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <address>",
@@ -91,6 +94,7 @@ func (c *cmdClusterMembersList) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand to list cluster members.
 func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
 	if len(args) > 1 {
 		return cmd.Help()
@@ -183,6 +187,7 @@ type cmdClusterMemberRemove struct {
 	flagForce bool
 }
 
+// Command returns the subcommand to remove a cluster member.
 func (c *cmdClusterMemberRemove) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <name>",
@@ -195,6 +200,7 @@ func (c *cmdClusterMemberRemove) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand to remove a cluster member.
 func (c *cmdClusterMemberRemove) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return cmd.Help()

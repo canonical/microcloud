@@ -31,16 +31,16 @@ func GetNetworkInfo() ([]NetworkInfo, error) {
 		}
 
 		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
-			if !ok {
+			ip, ipNet, err := net.ParseCIDR(addr.String())
+			if err != nil {
 				continue
 			}
 
-			if !ipNet.IP.IsGlobalUnicast() {
+			if !ip.IsGlobalUnicast() {
 				continue
 			}
 
-			networks = append(networks, NetworkInfo{Interface: iface, Address: ipNet.IP.String(), Subnet: ipNet})
+			networks = append(networks, NetworkInfo{Interface: iface, Address: ip.String(), Subnet: ipNet})
 		}
 	}
 

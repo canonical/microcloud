@@ -26,6 +26,7 @@ type cmdServices struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand to manage MicroCloud services.
 func (c *cmdServices) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "service",
@@ -46,6 +47,7 @@ type cmdServiceList struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand to list MicroCloud services.
 func (c *cmdServiceList) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -56,6 +58,7 @@ func (c *cmdServiceList) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand to list MicroCloud services.
 func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
@@ -195,6 +198,7 @@ type cmdServiceAdd struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand to add services to MicroCloud.
 func (c *cmdServiceAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -205,6 +209,7 @@ func (c *cmdServiceAdd) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand to add services to MicroCloud.
 func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

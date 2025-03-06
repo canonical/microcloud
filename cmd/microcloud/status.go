@@ -91,6 +91,7 @@ type cmdStatus struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand for the deployment status.
 func (c *cmdStatus) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
@@ -101,6 +102,7 @@ func (c *cmdStatus) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for the deployment status.
 func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

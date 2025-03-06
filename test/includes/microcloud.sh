@@ -1277,6 +1277,12 @@ setup_system() {
       lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
     fi
 
+    # Hold the snaps to not perform any refreshes during test execution.
+    # This can cause various side effects in case of restoring an old test deployment
+    # as the snaps will identify upstream changes and initiate a refresh.
+    # It was also observed in the test pipeline jobs from time to time.
+    lxc exec "${name}" -- snap refresh --hold microceph microovn lxd microcloud
+
     set_debug_binaries "${name}"
   )
 

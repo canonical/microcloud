@@ -642,6 +642,12 @@ EOF
   check_instance_connectivity "c1" "c2" "0"
   check_instance_connectivity "v1" "c1" "1"
 
+  # We're done with c2 so we can delete it now, and free up space on the runners for more instances.
+  lxc exec micro01 -- lxc delete c2 -f
+
+  # Flush the neighbour cache in the remaining container so that it can ping new containers via hostname quicker.
+  lxc exec micro01 -- lxc exec c1 -- ip neigh flush all
+
 
   # Add a new node, don't add any OSDs to keep Ceph fully remote.
   preseed="$(cat << EOF
@@ -689,7 +695,7 @@ EOF
   check_instance_connectivity "c1" "c3" "0"
   check_instance_connectivity "c1" "c4" "0"
 
-  lxc exec micro01 -- lxc delete -f c1 c2 c3 c4
+  lxc exec micro01 -- lxc delete -f c1 c3 c4
   if ! [ "${SKIP_VM_LAUNCH}" = "1" ]; then
     lxc exec micro01 -- lxc delete -f v1
   fi

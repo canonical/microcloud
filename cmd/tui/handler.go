@@ -66,9 +66,22 @@ func (i *InputHandler) getAllRows() [][]string {
 	return allRows
 }
 
-// AskBoolWarn is the same as AskBool but it appends "! Warning:" to the front of the message.
-func (i *InputHandler) AskBoolWarn(question string, defaultAnswer bool) (bool, error) {
-	question = fmt.Sprintf("%s %s: %s", WarningSymbol(), WarningColor("Warning", true), question)
+// printWarning prints the given warning with "!" appended to the front of the message.
+func (i *InputHandler) printWarning(warning string) {
+	warningParts := strings.Split(warning, "\n")
+	for i := range warningParts {
+		if i > 0 {
+			// Add two spaces at the start of each new line, to account for the warning symbol at the start of the first line.
+			warningParts[i] = "  " + warningParts[i]
+		}
+	}
+
+	fmt.Printf("%s %s\n", WarningSymbol(), strings.Join(warningParts, "\n"))
+}
+
+// AskBoolWarn is the same as AskBool but it prints the given warning before asking.
+func (i *InputHandler) AskBoolWarn(warning string, question string, defaultAnswer bool) (bool, error) {
+	i.printWarning(warning)
 	return i.AskBool(question, defaultAnswer)
 }
 
@@ -97,9 +110,9 @@ func (i *InputHandler) AskBool(question string, defaultAnswer bool) (bool, error
 	return false, fmt.Errorf("Response %q must be one of %v", result.answer, result.acceptedAnswers)
 }
 
-// AskStringWarn is the same as AskString but it appends "! Warning:" to the front of the message.
-func (i *InputHandler) AskStringWarn(question string, defaultAnswer string, validator func(string) error) (string, error) {
-	question = fmt.Sprintf("%s %s: %s", WarningSymbol(), WarningColor("Warning", true), question)
+// AskStringWarn is the same as AskString but it prints the given warning before asking.
+func (i *InputHandler) AskStringWarn(warning string, question string, defaultAnswer string, validator func(string) error) (string, error) {
+	i.printWarning(warning)
 	return i.AskString(question, defaultAnswer, validator)
 }
 

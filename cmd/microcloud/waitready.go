@@ -14,6 +14,7 @@ type cmdWaitready struct {
 	flagTimeout int
 }
 
+// Command returns the subcommand for waiting on the daemon to be ready.
 func (c *cmdWaitready) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "waitready",
@@ -26,6 +27,7 @@ func (c *cmdWaitready) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for waiting on the daemon to be ready.
 func (c *cmdWaitready) Run(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return cmd.Help()

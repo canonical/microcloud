@@ -114,6 +114,7 @@ type cmdPreseed struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand for unattended cluster initialization.
 func (c *cmdPreseed) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preseed",
@@ -124,6 +125,7 @@ func (c *cmdPreseed) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for unattended cluster initialization.
 func (c *cmdPreseed) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

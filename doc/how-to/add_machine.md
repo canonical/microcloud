@@ -2,7 +2,7 @@
 # How to add a machine
 ## Interactive configuration
 
-If you want to add a machine to the MicroCloud cluster after the initialisation, use the {command}`microcloud add` command:
+If you want to add a machine to the MicroCloud cluster after the initialization, use the {command}`microcloud add` command:
 
     sudo microcloud add
 

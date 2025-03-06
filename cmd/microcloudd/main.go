@@ -51,6 +51,7 @@ type cmdDaemon struct {
 	flagHeartbeatInterval time.Duration
 }
 
+// Command returns the main microcloudd command.
 func (c *cmdDaemon) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "microcloudd",
@@ -63,6 +64,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the main microcloudd command.
 func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

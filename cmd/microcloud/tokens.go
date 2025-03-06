@@ -16,6 +16,7 @@ type cmdSecrets struct {
 	common *CmdControl
 }
 
+// Command returns the tokens subcommand.
 func (c *cmdSecrets) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tokens",
@@ -32,6 +33,7 @@ func (c *cmdSecrets) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the tokens subcommand.
 func (c *cmdSecrets) Run(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
 }
@@ -41,6 +43,7 @@ type cmdTokensList struct {
 	flagFormat string
 }
 
+// Command returns the subcommand for listing tokens.
 func (c *cmdTokensList) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -53,6 +56,7 @@ func (c *cmdTokensList) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for listing tokens.
 func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
@@ -96,6 +100,7 @@ type cmdTokensRevoke struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand for revoking tokens by name.
 func (c *cmdTokensRevoke) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke <name>",
@@ -106,6 +111,7 @@ func (c *cmdTokensRevoke) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for revoking tokens by name.
 func (c *cmdTokensRevoke) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return cmd.Help()

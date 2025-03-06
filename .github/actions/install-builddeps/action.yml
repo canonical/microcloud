@@ -1,0 +1,23 @@
+name: Install MicroCloud build dependencies
+runs:
+  using: composite
+  steps:
+    - name: Installs MicroCloud build dependencies
+      shell: bash
+      run: |
+        set -eux
+        sudo apt-get update
+
+        # Install deps.
+        sudo apt-get install --no-install-recommends -y \
+          pkg-config \
+          autoconf \
+          automake \
+          libtool \
+          make \
+          libuv1-dev \
+          libsqlite3-dev \
+          liblz4-dev
+
+        # Reclaim some space.
+        sudo apt-get clean
