@@ -99,6 +99,10 @@ spelling: clean-doc microcloud
 microcloud:
 	$(MAKE) -f Makefile.sp sp-html SINGLE_BUILD=True
 
+.PHONY: run
+run:
+	$(MAKE) -f Makefile.sp sp-run LOCAL_SPHINX_BUILD=True ADDPREREQS='gitpython pyyaml' SPHINXOPTS="--ignore './index.html' -c . -d .sphinx/.doctrees -j auto"
+
 # `serve` rebuilds the integrated docs and serves them.
 serve: html
 	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
