@@ -1,6 +1,6 @@
 ---
-discourse: lxc:15871
-relatedlinks: https://snapcraft.io/microcloud
+discourse: lxc:[Introducing&#32;MicroCloud](15871)
+relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store](https://snapcraft.io/microcloud)"
 ---
 
 (home)=
