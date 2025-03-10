@@ -1,6 +1,6 @@
 module github.com/canonical/microcloud/microcloud
 
-go 1.22.7
+go 1.23.0
 
 require (
 	github.com/canonical/lxd v0.0.0-20241106165613-4aab50ec18c3
@@ -17,7 +17,7 @@ require (
 	golang.org/x/mod v0.23.0
 	golang.org/x/net v0.35.0
 	golang.org/x/sync v0.11.0
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
