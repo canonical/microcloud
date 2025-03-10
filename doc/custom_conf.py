@@ -82,8 +82,8 @@ html_context = {
 
     # ru-fu: we're using different Discourses
     'discourse_prefix': {
+        'ubuntu': 'https://discourse.ubuntu.com/t/',
         'lxc': 'https://discuss.linuxcontainers.org/t/',
-        'ubuntu': 'https://discourse.ubuntu.com/t/'
     },
 
     # Change to the Mattermost channel you want to link to
