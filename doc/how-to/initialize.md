@@ -1,25 +1,25 @@
-(howto-initialise)=
-# How to initialise MicroCloud
+(howto-initialize)=
+# How to initialize MicroCloud
 
-The {ref}`initialisation process <explanation-initialisation>` bootstraps the MicroCloud cluster.
-You run the initialisation on one of the machines, and it configures the required services on all of the machines that have been joined.
+The {ref}`initialization process <explanation-initialization>` bootstraps the MicroCloud cluster.
+You run the initialization on one of the machines, and it configures the required services on all of the machines that have been joined.
 
-## Pre-initialisation requirements
+## Pre-initialization requirements
 
-- Complete the steps in {ref}`howto-install` before initialisation.
-- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`. 
-  - Follow only the instructions in the Prerequisites section on that page. Skip its Usage section; the MicroCloud initialisation process handles the disk encryption.
+- Complete the steps in {ref}`howto-install` before initialization.
+- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`.
+  - Follow only the instructions in the Prerequisites section on that page. Skip its Usage section; the MicroCloud initialization process handles the disk encryption.
 
-(howto-initialise-interactive)=
+(howto-initialize-interactive)=
 ## Interactive configuration
 
-If you run the initialisation process in interactive mode (the default), you are prompted for information about your machines and how you want to set them up.
+If you run the initialization process in interactive mode (the default), you are prompted for information about your machines and how you want to set them up.
 The questions that you are asked might differ depending on your setup. For example, if you do not have the MicroOVN snap installed, you will not be prompted to configure your network; if your machines don't have local disks, you will not be prompted to set up storage.
 
-The following instructions show the full initialisation process.
+The following instructions show the full initialization process.
 
 ```{tip}
-During initialisation, MicroCloud displays tables of entities to choose from.
+During initialization, MicroCloud displays tables of entities to choose from.
 
 To select specific entities, use the {kbd}`Up` and {kbd}`Down` keys to choose a table row and select it with the {kbd}`Space` key.
 To select all rows, use the {kbd}`Right` key.
@@ -28,7 +28,7 @@ You can filter the table rows by typing one or more characters.
 When you have selected the required entities, hit {kbd}`Enter` to confirm.
 ```
 
-Complete the following steps to initialise MicroCloud:
+Complete the following steps to initialize MicroCloud:
 
 1. On one of the machines, enter the following command:
 
@@ -109,20 +109,20 @@ Complete the following steps to initialise MicroCloud:
       You must select one network interface per machine.
    1. If you want to use IPv4, specify the IPv4 gateway on the uplink network (in CIDR notation) and the first and last IPv4 address in the range that you want to use with LXD.
    1. If you want to use IPv6, specify the IPv6 gateway on the uplink network (in CIDR notation).
-   1. If you chose to set up distributed networking, you can choose to setup an underlay network for the distributed networking:
+   1. If you chose to set up distributed networking, you can optionally set up an underlay network for the distributed networking (for an explanation of the benefits, see {ref}`exp-networking-ovn-underlay`):
 
       If you choose ``yes``, configure the underlay network:
 
-      1. Select the network interfaces that you want to use (see {ref}`microcloud-networking-underlay`).
+      1. Select the network interfaces that you want to use.
 
          You must select one network interface with an IP address per machine.
 1. MicroCloud now starts to bootstrap the cluster.
    Monitor the output to see whether all steps complete successfully.
    See {ref}`bootstrapping-process` for more information.
 
-   Once the initialisation process is complete, you can start using MicroCloud.
+   Once the initialization process is complete, you can start using MicroCloud.
 
-See an example of the full initialisation process in the {ref}`Get started with MicroCloud <initialisation-process>` tutorial.
+See an example of the full initialization process in the {ref}`Get started with MicroCloud <initialization-process>` tutorial.
 
 ### Excluding MicroCeph or MicroOVN from MicroCloud
 
@@ -133,28 +133,28 @@ If the MicroOVN or MicroCeph snap is not installed on the system that runs {comm
     MicroOVN not found. Continue anyway? (yes/no) [default=yes]:
 
 If you choose `yes`,  only existing services will be configured on all systems.
-If you choose `no`, the setup will be cancelled.
+If you choose `no`, the setup will be canceled.
 
 All other systems must have at least the same set of snaps installed as the system that runs {command}`microcloud init`, otherwise they will not be available to select from the list of systems.
 Any questions associated to these systems will be skipped. For example, if MicroCeph is not installed, you will not be prompted for distributed storage configuration.
 
 ### Reusing an existing MicroCeph or MicroOVN with MicroCloud
 
-If some of the systems are already part of a MicroCeph or MicroOVN cluster, you can choose to reuse this cluster when initialising MicroCloud when prompted with the following question:
+If some of the systems are already part of a MicroCeph or MicroOVN cluster, you can choose to reuse this cluster when initializing MicroCloud when prompted with the following question:
 
     "micro01" is already part of a MicroCeph cluster. Do you want to add this cluster to MicroCloud? (add/skip) [default=add]:
 
     "micro01" is already part of a MicroOVN cluster. Do you want to add this cluster to MicroCloud? (add/skip) [default=add]:
 
-If you choose `add`, MicroCloud will add the remaining systems selected for initialisation to the pre-existing cluster.
+If you choose `add`, MicroCloud will add the remaining systems selected for initialization to the pre-existing cluster.
 If you choose `skip`, the respective service will not be set up at all.
 
-If more than one MicroCeph or MicroOVN cluster exists among the systems, the MicroCloud initialisation will be cancelled.
+If more than one MicroCeph or MicroOVN cluster exists among the systems, the MicroCloud initialization will be canceled.
 
-(howto-initialise-preseed)=
+(howto-initialize-preseed)=
 ## Non-interactive configuration
 
-If you want to automate the initialisation process, you can provide a preseed configuration in YAML format to the {command}`microcloud preseed` command:
+If you want to automate the initialization process, you can provide a preseed configuration in YAML format to the {command}`microcloud preseed` command:
 
     cat <preseed_file> | microcloud preseed
 
@@ -169,11 +169,14 @@ The preseed YAML file must use the following syntax:
 
 ### Minimal preseed using multicast discovery
 
-You can use the following minimal preseed file to initialise a MicroCloud across three machines.
+You can use the following minimal preseed file to initialize a MicroCloud across three machines.
 In this case `micro01` takes over the role of the initiator.
 Multicast discovery is used to find the other machines on the network.
 
 On each of the machines `eth1` is used as uplink for the OVN network.
+The uplink network `192.0.2.0/24` is configured with `192.0.2.1` as the gateway.
+The range `192.0.2.100-192.0.2.254` is used for the assignment of NAT addresses to the OVN overlay networks.
+
 For local storage the disk `/dev/sdb` is occupied.
 In case of remote storage `/dev/sdc` will be used by MicroCeph:
 
@@ -203,4 +206,7 @@ systems:
       path: /dev/sdb
     ceph:
       - path: /dev/sdc
+ovn:
+  ipv4_gateway: 192.0.2.1/24
+  ipv4_range: 192.0.2.100-192.0.2.254
 ```

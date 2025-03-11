@@ -7,5 +7,6 @@ The explanatory guides in this section introduce you to the concepts used in Mic
 :maxdepth: 2
 
 /explanation/microcloud
-Initialisation process </explanation/initialisation>
+/explanation/networking
+Initialization process </explanation/initialization>
 ```

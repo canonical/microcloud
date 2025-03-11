@@ -12,6 +12,7 @@ type cmdShutdown struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand for shutting down the MicroCloud daemon.
 func (c *cmdShutdown) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shutdown",
@@ -22,6 +23,7 @@ func (c *cmdShutdown) Command() *cobra.Command {
 	return cmd
 }
 
+// Run runs the subcommand for shutting down the MicroCloud daemon.
 func (c *cmdShutdown) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()

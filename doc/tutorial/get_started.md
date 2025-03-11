@@ -8,19 +8,19 @@ relatedlinks: https://documentation.ubuntu.com/lxd/
 MicroCloud is quick to set up.
 Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
 
-This tutorial guides you through installing and initialising MicroCloud in a confined environment, then starting some instances to see what you can do with MicroCloud.
+This tutorial guides you through installing and initializing MicroCloud in a confined environment, then starting some instances to see what you can do with MicroCloud.
 It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial.
 
 ```{tip}
-   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualisation enabled. See the [Ubuntu Server documentation on how to check if nested virtualisation is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
+   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualization enabled. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
 
-   We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfil the {ref}`hardware-requirements`.
+   We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfill the {ref}`hardware-requirements`.
 ```
 
-## 1. Install and initialise LXD
+## 1. Install and initialize LXD
 
 ```{note}
-   You can skip this step if you already have a LXD server installed and initialised on your host machine.
+   You can skip this step if you already have a LXD server installed and initialized on your host machine.
    However, you should make sure that you have a storage pool set up that is big enough to store four VMs. We recommend a minimum storage pool size of 40 GiB.
 ```
 
@@ -56,7 +56,7 @@ MicroCloud requires LXD version 5.21:
 
        sudo snap install lxd
 
-1. Enter the following command to initialise LXD:
+1. Enter the following command to initialize LXD:
 
        lxd init
 
@@ -177,7 +177,7 @@ Complete the following steps:
    ```{tip}
       Run these commands in sequence, not in parallel.
 
-      LXD downloads the image the first time you use it to initialise a VM. For subsequent runs, LXD uses the cached image. Therefore, the {command}`init` command will take longer to complete on the first run.
+      LXD downloads the image the first time you use it to initialize a VM. For subsequent runs, LXD uses the cached image. Therefore, the {command}`init` command will take longer to complete on the first run.
    ```
 
 1. Attach the disks to the VMs:
@@ -265,19 +265,19 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
 1. Repeat these steps on all VMs.
 
-## 6. Initialise MicroCloud
+## 6. Initialize MicroCloud
 
-We use the `micro1` VM to initialise MicroCloud in the instructions below, but you can use any of the four VMs.
+We use the `micro1` VM to initialize MicroCloud in the instructions below, but you can use any of the four VMs.
 
 Complete the following steps:
 
-1. Access the shell in `micro1` and start the initialisation process:
+1. Access the shell in `micro1` and start the initialization process:
 
        lxc exec micro1 microcloud init
 
    ```{tip}
-   In this tutorial, we initialise MicroCloud interactively.
-   Alternatively, you can use a preseed file for {ref}`howto-initialise-preseed`.
+   In this tutorial, we initialize MicroCloud interactively.
+   Alternatively, you can use a preseed file for {ref}`howto-initialize-preseed`.
    ```
 
 1. Answer the questions:
@@ -294,7 +294,7 @@ Complete the following steps:
 
    When prompted, enter the session passphrase for each joining  member.
 
-1. Return to `micro1` to continue the initialisation process:
+1. Return to `micro1` to continue the initialization process:
 
    1. Select all listed systems to join the cluster. These should be `micro2`, `micro3`, and `micro4`.
    1. Select `yes` to set up local storage.
@@ -326,12 +326,12 @@ Complete the following steps:
    1. Press {kbd}`Enter` to accept the default option for the DNS addresses for the distributed network.
    1. Press {kbd}`Enter` to accept the default option for configuring an underlay network for OVN.
 
-MicroCloud will now initialise the cluster.
-See {ref}`explanation-initialisation` for more information.
+MicroCloud will now initialize the cluster.
+See {ref}`explanation-initialization` for more information.
 
 See the full process here for the initiating side:
 
-(initialisation-process)=
+(initialization-process)=
 
 ```{terminal}
 :input: microcloud init
@@ -1087,9 +1087,9 @@ Now that your MicroCloud is up and running, you can start using it!
 
 If you're already familiar with LXD, see {ref}`howto-commands` for a reference of the most common commands.
 
-If you're new to LXD, check out the {ref}`LXD tutorials <lxd:tutorials>` to familiarise yourself with what you can do in LXD:
+If you're new to LXD, check out the {ref}`LXD tutorials <lxd:tutorials>` to familiarize yourself with what you can do in LXD:
 
 - {ref}`lxd:tutorial-ui` guides you through common operations in LXD, using the UI.
 - {ref}`lxd:first-steps` goes through the same functionality, but using the CLI.
 
-In both tutorials, you can skip the first section about installing and initialising LXD, because LXD is already operational as part of your MicroCloud setup.
+In both tutorials, you can skip the first section about installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.
