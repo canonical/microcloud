@@ -85,6 +85,9 @@ update-gomod:
 
 	go mod tidy -go=$(GOMIN)
 
+	# Use the bundled toolchain that meets the minimum go version
+	go get toolchain@none
+
 # Update lxd-generate generated database helpers.
 .PHONY: update-schema
 update-schema:
