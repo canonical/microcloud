@@ -1,4 +1,4 @@
-GOMIN=1.23.0
+GOMIN=1.23.3
 GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
@@ -84,6 +84,9 @@ update-gomod:
 	go get github.com/canonical/lxd@stable-5.21 # Stay on v2 dqlite and LXD LTS client
 
 	go mod tidy -go=$(GOMIN)
+
+	# Use the bundled toolchain that meets the minimum go version
+	go get toolchain@none
 
 # Update lxd-generate generated database helpers.
 .PHONY: update-schema
