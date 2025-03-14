@@ -1,4 +1,4 @@
-GOMIN=1.22.7
+GOMIN=1.23.3
 GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
@@ -86,6 +86,9 @@ update-gomod:
 	go get github.com/canonical/microovn@branch-24.03 # 24.03 LTS.
 
 	go mod tidy -go=$(GOMIN)
+
+	# Use the bundled toolchain that meets the minimum go version
+	go get toolchain@none
 
 # Update lxd-generate generated database helpers.
 .PHONY: update-schema
