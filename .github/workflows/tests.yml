@@ -34,20 +34,18 @@ jobs:
     name: Changes
     runs-on: ubuntu-22.04
     outputs:
-      except_docs: ${{ steps.filter.outputs.except_docs }}
+      except_docs: ${{ steps.check.outputs.changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Check for changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: filter
+        uses: ./.github/actions/check-changes
+        id: check
         with:
-          filters: |
-            except_docs:
-              # Match all changes except 'doc/**'.
-              # If no files outside of 'doc/**' are changed except_docs is set to 'false'.
-              - '!(doc/**)'
+          glob: ":!doc/*"
 
   code-tests:
     name: Code
