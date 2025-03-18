@@ -61,6 +61,9 @@ jobs:
           # A non-shallow clone is needed for the Differential ShellCheck
           fetch-depth: 0
 
+      - name: Require GHA pinning
+        uses: canonical/lxd/.github/actions/require-gha-pinning@main
+
       - name: Install Go
         uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
         with:
