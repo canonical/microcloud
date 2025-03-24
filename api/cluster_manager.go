@@ -1,10 +1,7 @@
 package api
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -18,8 +15,6 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/lxd/shared/trust"
-	"github.com/canonical/lxd/shared/version"
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
 
@@ -30,9 +25,6 @@ import (
 
 const updateIntervalField = "UpdateInterval"
 const updateIntervalDefaultValue = "60"
-
-// HMACClusterManager10 is the HMAC format version used for registering with a join token in cluster manager.
-const HMACClusterManager10 trust.HMACVersion = "ClusterManager-1.0"
 
 // ClusterManagerCmd represents the /1.0/cluster-manager API on MicroCloud.
 var ClusterManagerCmd = func(sh *service.Handler) rest.Endpoint {
@@ -106,15 +98,16 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 			return response.SmartError(err)
 		}
 
-		// register in remote cluster manager (also ensures the token is valid)
-		err = sendRequestToClusterManager(sh, joinToken)
-		if err != nil {
-			return response.SmartError(err)
-		}
-
 		clusterManager := database.ClusterManager{
 			Addresses:   strings.Join(joinToken.Addresses, ","),
 			Fingerprint: joinToken.Fingerprint,
+		}
+
+		// register in remote cluster manager (also ensures the token is valid)
+		clusterManagerClient := NewClusterManagerClient(&clusterManager)
+		err = clusterManagerClient.PostJoin(sh, joinToken.ServerName, joinToken.Secret)
+		if err != nil {
+			return response.SmartError(err)
 		}
 
 		updateIntervalConfig := database.ClusterManagerConfig{
@@ -144,55 +137,6 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 
 		return response.SyncResponse(true, nil)
 	}
-}
-
-func sendRequestToClusterManager(sh *service.Handler, joinToken *api.ClusterMemberJoinToken) error {
-	client, publicKey, address, err := NewClusterManagerClient(sh, joinToken.Addresses, joinToken.Fingerprint)
-	if err != nil {
-		return err
-	}
-
-	payload := ClusterManagerPostCluster{
-		ClusterName:        joinToken.ServerName,
-		ClusterCertificate: publicKey,
-	}
-
-	reqBody, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-
-	url := "https://" + address + "/1.0/remote-cluster"
-	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	// Sign the payload with a hmac, using the secret from the join token.
-	h := trust.NewHMAC([]byte(joinToken.Secret), trust.NewDefaultHMACConf(HMACClusterManager10))
-	hmacHeader, err := trust.HMACAuthorizationHeader(h, payload)
-	if err != nil {
-		return fmt.Errorf("Failed to create HMAC: %w", err)
-	}
-
-	req.Header.Set("Authorization", hmacHeader)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		content := new(bytes.Buffer)
-		_, err = content.ReadFrom(resp.Body)
-		if err != nil {
-			return fmt.Errorf("Failed to read response body: %s", err)
-		}
-
-		return fmt.Errorf("Failed to register in cluster manager: %s, body: %s", resp.Status, content.String())
-	}
-
-	return nil
 }
 
 // clusterManagerPut updates the cluster manager configuration.
@@ -260,80 +204,6 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 	return response.SyncResponse(true, nil)
 }
 
-// ClusterManagerPostCluster represents the payload when sending a POST request to cluster manager.
-type ClusterManagerPostCluster struct {
-	ClusterName        string `json:"cluster_name" yaml:"cluster_name"`
-	ClusterCertificate string `json:"cluster_certificate" yaml:"cluster_certificate"`
-}
-
-// NewClusterManagerClient returns a cluster manager client.
-func NewClusterManagerClient(sh *service.Handler, addresses []string, expectedFingerprint string) (*http.Client, string, string, error) {
-	client := &http.Client{}
-
-	var address string
-	var remoteCert *x509.Certificate
-	var err error
-
-	if len(addresses) == 0 {
-		return nil, "", "", errors.New("No cluster manager addresses provided.")
-	}
-
-	// fetch remote cert and pick the first address that responds without error
-	for _, address = range addresses {
-		remoteCert, err = shared.GetRemoteCertificate("https://"+address, version.UserAgent)
-		// found a working address, exit loop
-		if err == nil {
-			break
-		}
-
-		// ignore errors if we have a next address to try
-		if address != addresses[len(addresses)-1] {
-			err = nil
-		}
-	}
-
-	if err != nil {
-		return nil, "", "", err
-	}
-
-	// verify remote cert
-	remoteFingerprint := shared.CertFingerprint(remoteCert)
-	if !strings.EqualFold(remoteFingerprint, expectedFingerprint) {
-		return nil, "", "", fmt.Errorf("Invalid cluster manager certificate fingerprint, expected %s, got %s", expectedFingerprint, remoteFingerprint)
-	}
-
-	// get local cert
-	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	localCert, err := cloud.ClusterCert()
-	if err != nil {
-		return nil, "", "", err
-	}
-
-	cert := localCert.KeyPair()
-	localPubKey := string(localCert.PublicKey())
-
-	tlsConfig := shared.InitTLSConfig()
-
-	tlsConfig.GetClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		// GetClientCertificate is called if not nil instead of performing the default selection of an appropriate
-		// certificate from the `Certificates` list. We only have one-key pair to send, and we always want to send it
-		// because this is what uniquely identifies the caller to the server.
-		return &cert, nil
-	}
-
-	remoteCert.IsCA = true
-	remoteCert.KeyUsage = x509.KeyUsageCertSign
-
-	tlsConfig.RootCAs = x509.NewCertPool()
-	tlsConfig.RootCAs.AddCert(remoteCert)
-
-	client.Transport = &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
-
-	return client, localPubKey, address, nil
-}
-
 // clusterManagerDelete clears the cluster manager configuration.
 func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
@@ -358,25 +228,10 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 			return response.SmartError(err)
 		}
 
-		addresses := strings.Split(clusterManager.Addresses, ",")
-		client, _, address, err := NewClusterManagerClient(sh, addresses, clusterManager.Fingerprint)
+		clusterManagerClient := NewClusterManagerClient(clusterManager)
+		err = clusterManagerClient.Delete(sh)
 		if err != nil {
 			return response.SmartError(err)
-		}
-
-		url := "https://" + address + "/1.0/remote-cluster"
-		req, err := http.NewRequest("DELETE", url, nil)
-		if err != nil {
-			return response.SmartError(err)
-		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return response.SmartError(err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return response.SmartError(fmt.Errorf("Invalid status code received from cluster manager: %s", resp.Status))
 		}
 
 		return response.SyncResponse(true, nil)
@@ -527,13 +382,6 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		nextUpdate = interval
 	}
 
-	addresses := strings.Split(clusterManager.Addresses, ",")
-	client, _, address, err := NewClusterManagerClient(sh, addresses, clusterManager.Fingerprint)
-	if err != nil {
-		logger.Error("Failed to create cluster manager client", logger.Ctx{"err": err})
-		return nextUpdate
-	}
-
 	payload := ClusterManagerStatusPost{}
 
 	lxdService := sh.Services[types.LXD].(*service.LXDService)
@@ -561,29 +409,12 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
-	reqBody, err := json.Marshal(payload)
-	if err != nil {
-		logger.Error("Failed to marshal status message", logger.Ctx{"err": err})
-		return nextUpdate
-	}
+	logger.Debug("Sending status message to cluster manager")
 
-	logger.Debug("Sending status message to cluster manager", logger.Ctx{"reqBody": string(reqBody)})
-
-	url := "https://" + address + "/1.0/remote-cluster/status"
-	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
-	if err != nil {
-		logger.Error("Failed to create request", logger.Ctx{"err": err})
-		return nextUpdate
-	}
-
-	resp, err := client.Do(req)
+	clusterManagerClient := NewClusterManagerClient(clusterManager)
+	err = clusterManagerClient.PostStatus(sh, payload)
 	if err != nil {
 		logger.Error("Failed to send status message to cluster manager", logger.Ctx{"err": err})
-		return nextUpdate
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Error("Invalid status code received from cluster manager", logger.Ctx{"status": resp.Status})
 		return nextUpdate
 	}
 
@@ -680,7 +511,7 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *ClusterMan
 // SendClusterManagerStatusMessageTask starts a dedicated go routine, that sends the cluster manager status message.
 func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s state.State) {
 	go func(ctx context.Context, sh *service.Handler, s state.State) {
-		updateTime := 60 * time.Second
+		updateTime := 5 * time.Second
 		for {
 			time.Sleep(updateTime)
 			newUpdateTime := sendClusterManagerStatusMessage(ctx, sh, s)
