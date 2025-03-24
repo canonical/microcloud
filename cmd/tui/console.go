@@ -101,7 +101,7 @@ func (c *testConsole) parseInput(handler *InputHandler) error {
 	input := string(line)
 
 	// Log the input string.
-	_, err = c.out.WriteString(fmt.Sprintf(" ANSWER: {%s}\n", input))
+	_, err = fmt.Fprintf(c.out, " ANSWER: {%s}\n", input)
 	if err != nil {
 		return err
 	}
