@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/database"
@@ -18,6 +19,7 @@ type cmdClusterManger struct {
 	common *CmdControl
 }
 
+// Command returns the subcommand to manage cluster manager configuration.
 func (c *cmdClusterManger) Command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "cluster-manager"
@@ -78,7 +80,7 @@ func (c *cmdClusterManagerJoin) run(_ *cobra.Command, args []string) error {
 	token := args[0]
 
 	if token == "" {
-		return fmt.Errorf("Missing token")
+		return fmt.Errorf("Token cannot be empty")
 	}
 
 	payload := types.ClusterManagerPost{
@@ -96,7 +98,7 @@ func (c *cmdClusterManagerJoin) run(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Successfully joined cluster manager." + "\n")
+	fmt.Println("Successfully joined cluster manager.")
 
 	return nil
 }
@@ -131,16 +133,16 @@ func (c *cmdClusterManagerShow) run(_ *cobra.Command, _ []string) error {
 	}
 
 	if len(clusterManager.Addresses) == 0 {
-		fmt.Printf("cluster manager not configured" + "\n")
+		fmt.Println("cluster manager not configured")
 		return nil
 	}
 
-	fmt.Printf(
-		"cluster manager configuration:\n addresses"+": %s\n fingerprint"+": %s\n update-interval-seconds"+": %s\n",
-		strings.Join(clusterManager.Addresses, ", "),
-		*clusterManager.Fingerprint,
-		*clusterManager.UpdateInterval,
-	)
+	yamlConfig, err := yaml.Marshal(clusterManager)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(yamlConfig))
 
 	return nil
 }
@@ -174,7 +176,7 @@ func (c *cmdClusterManagerDelete) run(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Printf("cluster manager configuration cleared" + "\n")
+	fmt.Println("Cluster manager configuration cleared")
 
 	return nil
 }
@@ -215,7 +217,7 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 	}
 
 	if len(clusterManager.Addresses) == 0 {
-		fmt.Printf("cluster manager not configured" + "\n")
+		fmt.Println("Cluster manager not configured")
 		return nil
 	}
 

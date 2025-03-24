@@ -11,11 +11,10 @@ import (
 // SchemaExtensions is a list of schema extensions that can be passed to the MicroCluster daemon.
 // Each entry will increase the database schema version by one, and will be applied after internal schema updates.
 var SchemaExtensions = []schema.Update{
-	clusterManagerTable,
-	clusterManagerConfigTable,
+	clusterManagerTables,
 }
 
-func clusterManagerTable(ctx context.Context, tx *sql.Tx) error {
+func clusterManagerTables(ctx context.Context, tx *sql.Tx) error {
 	stmt := `
 CREATE TABLE cluster_manager (
     id           INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -25,21 +24,21 @@ CREATE TABLE cluster_manager (
 `
 
 	_, err := tx.ExecContext(ctx, stmt)
+	if err != nil {
+		return err
+	}
 
-	return err
-}
-
-func clusterManagerConfigTable(ctx context.Context, tx *sql.Tx) error {
-	stmt := `
+	stmt = `
 CREATE TABLE cluster_manager_config (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     cluster_manager_id  INTEGER NOT NULL,
     field               TEXT NOT NULL,
-    value               TEXT NOT NULL
+    value               TEXT NOT NULL,
+    FOREIGN KEY (cluster_manager_id) REFERENCES cluster_manager (id) ON DELETE CASCADE
 );
 `
 
-	_, err := tx.ExecContext(ctx, stmt)
+	_, err = tx.ExecContext(ctx, stmt)
 
 	return err
 }

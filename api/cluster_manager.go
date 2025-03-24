@@ -3,13 +3,11 @@ package api
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,6 +18,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/trust"
 	"github.com/canonical/lxd/shared/version"
 	"github.com/canonical/microcluster/v2/rest"
 	"github.com/canonical/microcluster/v2/state"
@@ -29,9 +28,13 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
-var updateIntervalField = "UpdateInterval"
+const updateIntervalField = "UpdateInterval"
+const updateIntervalDefaultValue = "60"
 
-// ClusterManagerCmd represents the manage cluster manager configuration.
+// HMACClusterManager10 is the HMAC format version used for registering with a join token in cluster manager.
+const HMACClusterManager10 trust.HMACVersion = "ClusterManager-1.0"
+
+// ClusterManagerCmd represents the /1.0/cluster-manager API on MicroCloud.
 var ClusterManagerCmd = func(sh *service.Handler) rest.Endpoint {
 	return rest.Endpoint{
 		Path: "cluster-manager",
@@ -47,7 +50,7 @@ var ClusterManagerCmd = func(sh *service.Handler) rest.Endpoint {
 func clusterManagerGet(state state.State, r *http.Request) response.Response {
 	clusterManager, updateIntervalConfig, err := loadClusterManagerConfig(state, r.Context())
 	if err != nil {
-		return response.InternalError(err)
+		return response.SmartError(err)
 	}
 
 	if clusterManager.Addresses == "" {
@@ -78,12 +81,35 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		}
 
 		if args.Token == "" {
-			return response.BadRequest(fmt.Errorf("No token provided"))
+			return response.BadRequest(errors.New("No token provided"))
 		}
 
 		joinToken, err := shared.JoinTokenDecode(args.Token)
 		if err != nil {
 			return response.BadRequest(err)
+		}
+
+		// ensure cluster manager is not already configured
+		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			existingId, err := loadClusterManagerId(state)
+			if err != nil {
+				return err
+			}
+
+			if existingId > 0 {
+				return errors.New("Cluster manager already configured.")
+			}
+
+			return nil
+		})
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		// register in remote cluster manager (also ensures the token is valid)
+		err = sendRequestToClusterManager(sh, joinToken)
+		if err != nil {
+			return response.SmartError(err)
 		}
 
 		clusterManager := database.ClusterManager{
@@ -93,19 +119,11 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 
 		updateIntervalConfig := database.ClusterManagerConfig{
 			Field: updateIntervalField,
-			Value: "60",
+			Value: updateIntervalDefaultValue,
 		}
 
+		// store cluster manager configuration in local database
 		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			existingId, err := loadClusterManagerId(state)
-			if err != nil {
-				return err
-			}
-
-			if existingId > 0 {
-				return fmt.Errorf("Cluster manager already configured.")
-			}
-
 			clusterManagerId, err := database.CreateClusterManager(ctx, tx, clusterManager)
 			if err != nil {
 				return err
@@ -121,12 +139,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 			return nil
 		})
 		if err != nil {
-			return response.InternalError(err)
-		}
-
-		err = sendRequestToClusterManager(sh, joinToken)
-		if err != nil {
-			return response.InternalError(err)
+			return response.SmartError(err)
 		}
 
 		return response.SyncResponse(true, nil)
@@ -156,22 +169,26 @@ func sendRequestToClusterManager(sh *service.Handler, joinToken *api.ClusterMemb
 	}
 
 	// Sign the payload with a hmac, using the secret from the join token.
-	mac := hmac.New(sha256.New, []byte(joinToken.Secret))
-	mac.Write(reqBody)
-	req.Header.Set("X-CLUSTER-SIGNATURE", base64.StdEncoding.EncodeToString(mac.Sum(nil)))
+	h := trust.NewHMAC([]byte(joinToken.Secret), trust.NewDefaultHMACConf(HMACClusterManager10))
+	hmacHeader, err := trust.HMACAuthorizationHeader(h, payload)
+	if err != nil {
+		return fmt.Errorf("Failed to create HMAC: %w", err)
+	}
+
+	req.Header.Set("Authorization", hmacHeader)
 
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	content := new(bytes.Buffer)
-	_, err = content.ReadFrom(resp.Body)
-	if err != nil {
-		return fmt.Errorf("Failed to read response body: %s", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
+		content := new(bytes.Buffer)
+		_, err = content.ReadFrom(resp.Body)
+		if err != nil {
+			return fmt.Errorf("Failed to read response body: %s", err)
+		}
+
 		return fmt.Errorf("Failed to register in cluster manager: %s, body: %s", resp.Status, content.String())
 	}
 
@@ -188,7 +205,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 
 	clusterManager, updateIntervalConfig, err := loadClusterManagerConfig(state, r.Context())
 	if err != nil {
-		return response.InternalError(err)
+		return response.SmartError(err)
 	}
 
 	if len(args.Addresses) > 0 {
@@ -237,7 +254,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 		return nil
 	})
 	if err != nil {
-		return response.InternalError(err)
+		return response.SmartError(err)
 	}
 
 	return response.SyncResponse(true, nil)
@@ -258,7 +275,7 @@ func NewClusterManagerClient(sh *service.Handler, addresses []string, expectedFi
 	var err error
 
 	if len(addresses) == 0 {
-		return nil, "", "", fmt.Errorf("No cluster manager addresses provided.")
+		return nil, "", "", errors.New("No cluster manager addresses provided.")
 	}
 
 	// fetch remote cert and pick the first address that responds without error
@@ -287,7 +304,7 @@ func NewClusterManagerClient(sh *service.Handler, addresses []string, expectedFi
 
 	// get local cert
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	localCert, err := cloud.ServerCert()
+	localCert, err := cloud.ClusterCert()
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -322,7 +339,7 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 	return func(state state.State, r *http.Request) response.Response {
 		clusterManager, _, err := loadClusterManagerConfig(state, r.Context())
 		if err != nil {
-			return response.InternalError(err)
+			return response.SmartError(err)
 		}
 
 		if clusterManager.Addresses == "" {
@@ -335,36 +352,31 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 				return err
 			}
 
-			err = database.DeleteClusterManagerConfig(ctx, tx, clusterManager.ID)
-			if err != nil {
-				return err
-			}
-
 			return nil
 		})
 		if err != nil {
-			return response.InternalError(err)
+			return response.SmartError(err)
 		}
 
 		addresses := strings.Split(clusterManager.Addresses, ",")
 		client, _, address, err := NewClusterManagerClient(sh, addresses, clusterManager.Fingerprint)
 		if err != nil {
-			return response.InternalError(err)
+			return response.SmartError(err)
 		}
 
 		url := "https://" + address + "/1.0/remote-cluster"
 		req, err := http.NewRequest("DELETE", url, nil)
 		if err != nil {
-			return response.InternalError(err)
+			return response.SmartError(err)
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return response.InternalError(err)
+			return response.SmartError(err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return response.InternalError(fmt.Errorf("Invalid status code received from cluster manager: %s", resp.Status))
+			return response.SmartError(fmt.Errorf("Invalid status code received from cluster manager: %s", resp.Status))
 		}
 
 		return response.SyncResponse(true, nil)
@@ -407,7 +419,7 @@ func loadClusterManagerConfig(state state.State, ctx context.Context) (*database
 		}
 
 		if clusterManagerId == -1 {
-			return fmt.Errorf("Cluster manager not configured")
+			return errors.New("Cluster manager not configured")
 		}
 
 		clusterManager, err = database.GetClusterManager(ctx, tx, clusterManagerId)
@@ -415,6 +427,7 @@ func loadClusterManagerConfig(state state.State, ctx context.Context) (*database
 			return err
 		}
 
+		updateIntervalField := updateIntervalField
 		updateIntervalConfig, err = database.GetClusterManagerConfig(ctx, tx, database.ClusterManagerConfigFilter{
 			Field:            &updateIntervalField,
 			ClusterManagerID: &clusterManager.ID,
@@ -459,7 +472,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	var nextUpdate time.Duration = 0
 
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	isInitialized, err := cloud.IsInitialized(context.Background())
+	isInitialized, err := cloud.IsInitialized(ctx)
 	if err != nil {
 		logger.Error("Failed to check if MicroCloud is initialized", logger.Ctx{"err": err})
 		return nextUpdate
@@ -581,7 +594,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerStatusPost) error {
 	instanceFrequencies := make(map[string]int64)
 
-	instanceList, err := lxdClient.GetInstances(api.InstanceTypeAny)
+	instanceList, err := lxdClient.GetInstancesAllProjects(api.InstanceTypeAny)
 	for i := range instanceList {
 		inst := instanceList[i]
 		instanceFrequencies[inst.Status]++
@@ -614,7 +627,9 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *ClusterMan
 		return fmt.Errorf("Failed to get LXD cluster members: %w", err)
 	}
 
-	result.UiUrl = lxdMembers[0].URL
+	if len(lxdMembers) > 0 {
+		result.UiUrl = lxdMembers[0].URL
+	}
 
 	var cpuLoad1 float64
 	var cpuLoad5 float64
