@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/muesli/reflow/wrap"
 )
 
 // RemoveMsg is a table notification that returns a row index of the table to remove.
@@ -77,6 +78,9 @@ type selectableTable struct {
 
 	// testMode is set if the associated input handler is in test mode.
 	testMode bool
+
+	// windowWidth contains the current width of the terminal window.
+	windowWidth int
 }
 
 // SummarizeResult formats the result string and args with the standard style for table result summaries.
@@ -184,6 +188,9 @@ func (s *selectableTable) SendUpdate(msg tea.Msg) {
 // Update handles table updates.
 func (s *selectableTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		s.windowWidth = msg.Width
+		return s, nil
 	case tea.KeyMsg:
 		return s.handleKeyEvent(msg)
 	case InsertMsg:
@@ -269,7 +276,7 @@ func (s *selectableTable) View() string {
 
 	title := s.title
 	if title != "" {
-		title = lipgloss.NewStyle().SetString(s.title).Bold(true).String()
+		title = wrap.String(lipgloss.NewStyle().SetString(s.title).Bold(true).String(), s.windowWidth)
 	}
 
 	// If the test console is active, just print the title so that the table output isn't corrupted by debug messages.
