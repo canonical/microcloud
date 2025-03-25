@@ -35,7 +35,7 @@ var Debug bool
 var Verbose bool
 
 type cmdGlobal struct {
-	cmd *cobra.Command //nolint:structcheck,unused // FIXME: Remove the nolint flag when this is in use.
+	cmd *cobra.Command //nolint:unused // FIXME: Remove the nolint flag when this is in use.
 
 	flagHelp    bool
 	flagVersion bool

@@ -15,7 +15,7 @@ import (
 // CmdControl has functions that are common to the microcloud commands.
 // command line tools.
 type CmdControl struct {
-	cmd *cobra.Command //nolint:structcheck,unused // FIXME: Remove the nolint flag when this is in use.
+	cmd *cobra.Command //nolint:unused // FIXME: Remove the nolint flag when this is in use.
 
 	FlagHelp          bool
 	FlagVersion       bool
