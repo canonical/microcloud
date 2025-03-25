@@ -14,28 +14,6 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
-// StatusDistribution represents the status distribution of items.
-type StatusDistribution struct {
-	Status string `json:"status"`
-	Count  int64  `json:"count"`
-}
-
-// ClusterManagerStatusPost represents the status message sent to cluster manager.
-type ClusterManagerStatusPost struct {
-	CPUTotalCount     int64                `json:"cpu_total_count"`
-	CPULoad1          string               `json:"cpu_load_1"`
-	CPULoad5          string               `json:"cpu_load_5"`
-	CPULoad15         string               `json:"cpu_load_15"`
-	MemoryTotalAmount int64                `json:"memory_total_amount"`
-	MemoryUsage       int64                `json:"memory_usage"`
-	DiskTotalSize     int64                `json:"disk_total_size"`
-	DiskUsage         int64                `json:"disk_usage"`
-	MemberStatuses    []StatusDistribution `json:"member_statuses"`
-	InstanceStatuses  []StatusDistribution `json:"instance_status"`
-	Metrics           string               `json:"metrics"`
-	UiUrl             string               `json:"ui_url"`
-}
-
 // SendClusterManagerStatusMessageTask starts a dedicated go routine, that sends the cluster manager status message.
 func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s state.State) {
 	go func(ctx context.Context, sh *service.Handler, s state.State) {
@@ -110,7 +88,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		nextUpdate = interval
 	}
 
-	payload := ClusterManagerStatusPost{}
+	payload := types.ClusterManagerStatusPost{}
 
 	lxdService := sh.Services[types.LXD].(*service.LXDService)
 	lxdClient, err := lxdService.Client(context.Background())
@@ -150,7 +128,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	return nextUpdate
 }
 
-func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerStatusPost) error {
+func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerStatusPost) error {
 	instanceFrequencies := make(map[string]int64)
 
 	instanceList, err := lxdClient.GetInstancesAllProjects(api.InstanceTypeAny)
@@ -160,7 +138,7 @@ func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerS
 	}
 
 	for status, count := range instanceFrequencies {
-		result.InstanceStatuses = append(result.InstanceStatuses, StatusDistribution{
+		result.InstanceStatuses = append(result.InstanceStatuses, types.StatusDistribution{
 			Status: status,
 			Count:  count,
 		})
@@ -169,7 +147,7 @@ func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerS
 	return err
 }
 
-func enrichServerMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerStatusPost) error {
+func enrichServerMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerStatusPost) error {
 	metrics, err := lxdClient.GetMetrics()
 	if err != nil {
 		return fmt.Errorf("Failed to get LXD metrics: %w", err)
@@ -180,7 +158,7 @@ func enrichServerMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerSta
 	return nil
 }
 
-func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *ClusterManagerStatusPost) error {
+func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerStatusPost) error {
 	lxdMembers, err := lxdClient.GetClusterMembers()
 	if err != nil {
 		return fmt.Errorf("Failed to get LXD cluster members: %w", err)
@@ -217,7 +195,7 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *ClusterMan
 	}
 
 	for status, count := range statusFrequencies {
-		result.MemberStatuses = append(result.MemberStatuses, StatusDistribution{
+		result.MemberStatuses = append(result.MemberStatuses, types.StatusDistribution{
 			Status: status,
 			Count:  count,
 		})

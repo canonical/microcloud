@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/canonical/microcloud/microcloud/database"
+
 	"github.com/canonical/microcluster/v2/state"
+
+	"github.com/canonical/microcloud/microcloud/database"
 )
 
+// LoadClusterManagerId finds the cluster manager id from the database.
 func LoadClusterManagerId(state state.State) (int64, error) {
 	var maxId int64 = -1
 
@@ -33,6 +36,7 @@ func LoadClusterManagerId(state state.State) (int64, error) {
 	return maxId, nil
 }
 
+// LoadClusterManagerConfig loads the cluster manager configuration from the database.
 func LoadClusterManagerConfig(state state.State, ctx context.Context) (*database.ClusterManager, []database.ClusterManagerConfig, error) {
 	var clusterManager *database.ClusterManager
 	var updateIntervalConfig []database.ClusterManagerConfig

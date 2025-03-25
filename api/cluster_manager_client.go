@@ -36,7 +36,7 @@ func NewClusterManagerClient(config *database.ClusterManager) *ClusterManagerCli
 }
 
 // PostStatus sends the status of MicroCloud to the cluster manager.
-func (c *ClusterManagerClient) PostStatus(sh *service.Handler, status ClusterManagerStatusPost) error {
+func (c *ClusterManagerClient) PostStatus(sh *service.Handler, status types.ClusterManagerStatusPost) error {
 	reqBody, err := json.Marshal(status)
 	if err != nil {
 		return errors.New("Failed to marshal status message")
@@ -70,12 +70,6 @@ func (c *ClusterManagerClient) Delete(sh *service.Handler) error {
 	return nil
 }
 
-// ClusterManagerPostCluster represents the payload when sending a POST request to cluster manager.
-type ClusterManagerPostCluster struct {
-	ClusterName        string `json:"cluster_name" yaml:"cluster_name"`
-	ClusterCertificate string `json:"cluster_certificate" yaml:"cluster_certificate"`
-}
-
 // PostJoin registers MicroCloud in cluster manager.
 func (c *ClusterManagerClient) PostJoin(sh *service.Handler, serverName string, secret string) error {
 	localCert, err := c.getLocalCert(sh)
@@ -83,7 +77,7 @@ func (c *ClusterManagerClient) PostJoin(sh *service.Handler, serverName string, 
 		return err
 	}
 
-	payload := ClusterManagerPostCluster{
+	payload := types.ClusterManagerJoinPost{
 		ClusterName:        serverName,
 		ClusterCertificate: string(localCert.PublicKey()),
 	}
