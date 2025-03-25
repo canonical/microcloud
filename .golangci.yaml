@@ -11,14 +11,10 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
     rules:
       - linters:
           - staticcheck
-        text: "ST1005:" # ST1005: error strings should not be capitalized (5585 occurences as of 2023-10-20)
+        text: "ST1005:" # ST1005: error strings should not be capitalized
 formatters:
   enable:
     - gci
@@ -29,9 +25,3 @@ formatters:
         - standard
         - default
         - prefix(github.com/canonical/microcloud/microcloud)
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
