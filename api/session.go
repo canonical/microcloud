@@ -94,9 +94,10 @@ func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state s
 
 			gw := cloudClient.NewWebsocketGateway(sessionCtx, conn)
 
-			if sessionRole == types.SessionInitiating {
+			switch sessionRole {
+			case types.SessionInitiating:
 				err = handleInitiatingSession(state, sh, gw)
-			} else if sessionRole == types.SessionJoining {
+			case types.SessionJoining:
 				err = handleJoiningSession(state, sh, gw)
 			}
 

@@ -189,7 +189,7 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return err
 	}
 
-	config.Cluster.MemberConfig = joinConfig.LXDConfig
+	config.MemberConfig = joinConfig.LXDConfig
 	client, err := s.Client(ctx)
 	if err != nil {
 		return err
