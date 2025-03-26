@@ -13,7 +13,7 @@ The installed snap versions must be compatible with one another, and for each of
 Snaps come with different channels that define which release of a snap is installed and tracked for updates.
 See [Channels and tracks](https://snapcraft.io/docs/channels) in the snap documentation for detailed information.
 
-MicroCloud currently provides the legacy `1` and the latest `2` track.
+MicroCloud currently provides the `2` LTS and `3` development track. The `1` track reaches {abbr}`EOL (End of Life)` at the end of April 2025.
 
 ```{tip}
 In general, you should use the default channels for all snaps required to run MicroCloud.
