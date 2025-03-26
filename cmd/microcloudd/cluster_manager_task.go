@@ -16,7 +16,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
-// SendClusterManagerStatusMessageTask starts a dedicated go routine, that sends the cluster manager status message.
+// SendClusterManagerStatusMessageTask starts a go routine, that sends periodic status messages to cluster manager.
 func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s state.State) {
 	go func(ctx context.Context, sh *service.Handler, s state.State) {
 		ticker := time.NewTicker(60 * time.Second)
@@ -38,7 +38,7 @@ func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handle
 }
 
 func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s state.State) time.Duration {
-	logger.Debug("Running sendClusterManagerStatusMessage")
+	logger.Debug("Starting sendClusterManagerStatusMessage.")
 	var nextUpdate time.Duration = 0
 
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
@@ -49,7 +49,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	}
 
 	if !isInitialized {
-		logger.Debug("MicroCloud not initialized, skipping status message")
+		logger.Debug("MicroCloud not initialized, skipping status message.")
 		return nextUpdate
 	}
 
@@ -66,18 +66,18 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	}
 
 	if leaderInfo.Address != s.Address().URL.Host {
-		logger.Debug("Not the leader, skipping status message")
+		logger.Debug("Not the leader, skipping status message.")
 		return nextUpdate
 	}
 
 	isConfigured, err := database.ClusterManagerIsConfigured(s, ctx)
 	if err != nil {
-		logger.Error("Failed to get cluster manager status", logger.Ctx{"err": err})
+		logger.Error("Failed to get cluster manager config status", logger.Ctx{"err": err})
 		return nextUpdate
 	}
 
 	if !isConfigured {
-		logger.Debug("Cluster manager not configured")
+		logger.Debug("Cluster manager not configured, skipping status message.")
 		return nextUpdate
 	}
 
@@ -97,7 +97,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		nextUpdate = interval
 	}
 
-	payload := types.ClusterManagerStatusPost{}
+	payload := types.ClusterManagerPostStatus{}
 
 	lxdService := sh.Services[types.LXD].(*service.LXDService)
 	lxdClient, err := lxdService.Client(context.Background())
@@ -114,7 +114,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 
 	err = enrichServerMetrics(lxdClient, &payload)
 	if err != nil {
-		logger.Error("Failed to enrich cluster member metrics", logger.Ctx{"err": err})
+		logger.Error("Failed to enrich server metrics", logger.Ctx{"err": err})
 		return nextUpdate
 	}
 
@@ -123,8 +123,6 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		logger.Error("Failed to enrich cluster member metrics", logger.Ctx{"err": err})
 		return nextUpdate
 	}
-
-	logger.Debug("Sending status message to cluster manager")
 
 	clusterCert, err := cloud.ClusterCert()
 	if err != nil {
@@ -142,11 +140,11 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 
 	_ = database.SetClusterManagerStatusLastSuccess(s, ctx, time.Now())
 
-	logger.Debug("Done sending status message to cluster manager")
+	logger.Debug("Finished sendClusterManagerStatusMessage.")
 	return nextUpdate
 }
 
-func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerStatusPost) error {
+func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
 	instanceFrequencies := make(map[string]int64)
 
 	instanceList, err := lxdClient.GetInstancesAllProjects(api.InstanceTypeAny)
@@ -165,7 +163,7 @@ func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterMa
 	return err
 }
 
-func enrichServerMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerStatusPost) error {
+func enrichServerMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
 	metrics, err := lxdClient.GetMetrics()
 	if err != nil {
 		return fmt.Errorf("Failed to get LXD metrics: %w", err)
@@ -176,7 +174,7 @@ func enrichServerMetrics(lxdClient lxd.InstanceServer, result *types.ClusterMana
 	return nil
 }
 
-func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerStatusPost) error {
+func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
 	lxdMembers, err := lxdClient.GetClusterMembers()
 	if err != nil {
 		return fmt.Errorf("Failed to get LXD cluster members: %w", err)

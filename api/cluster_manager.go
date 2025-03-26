@@ -158,18 +158,22 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
-	if len(args.Addresses) > 0 {
+	hasChangedAddress := len(args.Addresses) > 0
+	if hasChangedAddress {
 		clusterManager.Addresses = strings.Join(args.Addresses, ",")
 	}
 
-	if args.Fingerprint != nil {
+	hasChangedFingerprint := args.Fingerprint != nil
+	if hasChangedFingerprint {
 		clusterManager.Fingerprint = *args.Fingerprint
 	}
 
 	err = state.Database().Transaction(r.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err = database.UpdateClusterManager(ctx, tx, clusterManager.ID, *clusterManager)
-		if err != nil {
-			return err
+		if hasChangedAddress || hasChangedFingerprint {
+			err = database.UpdateClusterManager(ctx, tx, clusterManager.ID, *clusterManager)
+			if err != nil {
+				return err
+			}
 		}
 
 		if args.UpdateInterval == nil {
@@ -216,10 +220,6 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 		clusterManager, _, err := database.LoadClusterManagerConfig(state, r.Context())
 		if err != nil {
 			return response.SmartError(err)
-		}
-
-		if clusterManager.Addresses == "" {
-			return response.SyncResponse(true, nil)
 		}
 
 		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

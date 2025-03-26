@@ -133,11 +133,6 @@ func (c *cmdClusterManagerShow) run(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if len(clusterManager.Addresses) == 0 {
-		fmt.Println("cluster manager not configured")
-		return nil
-	}
-
 	yamlConfig, err := yaml.Marshal(clusterManager)
 	if err != nil {
 		return err
@@ -177,7 +172,7 @@ func (c *cmdClusterManagerDelete) run(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Println("Cluster manager configuration cleared")
+	fmt.Println("Cluster manager configuration cleared.")
 
 	return nil
 }
@@ -217,11 +212,6 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
-	}
-
-	if len(clusterManager.Addresses) == 0 {
-		fmt.Println("Cluster manager not configured")
-		return nil
 	}
 
 	switch key {
@@ -274,10 +264,6 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
-	}
-
-	if len(clusterManager.Addresses) == 0 {
-		return fmt.Errorf("Cluster manager not configured.")
 	}
 
 	switch key {
@@ -334,10 +320,6 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
-	}
-
-	if len(clusterManager.Addresses) == 0 {
-		return fmt.Errorf("Cluster manager not configured.")
 	}
 
 	switch key {

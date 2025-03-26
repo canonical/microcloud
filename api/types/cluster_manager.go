@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// ClusterManagerPost represents the cluster manager configuration when receiving a POST request.
+// ClusterManagerPost represents the cluster manager configuration when receiving a POST request in MicroCloud.
 type ClusterManagerPost struct {
 	Token string `json:"token" yaml:"token"`
 }
@@ -42,8 +42,8 @@ type StatusDistribution struct {
 	Count  int64  `json:"count"`
 }
 
-// ClusterManagerStatusPost represents the periodic status message sent to cluster manager.
-type ClusterManagerStatusPost struct {
+// ClusterManagerPostStatus represents the periodic status payload sent to cluster manager.
+type ClusterManagerPostStatus struct {
 	CPUTotalCount     int64                `json:"cpu_total_count"`
 	CPULoad1          string               `json:"cpu_load_1"`
 	CPULoad5          string               `json:"cpu_load_5"`
@@ -58,8 +58,8 @@ type ClusterManagerStatusPost struct {
 	UiUrl             string               `json:"ui_url"`
 }
 
-// ClusterManagerJoinPost represents the payload when sending a POST to join cluster manager.
-type ClusterManagerJoinPost struct {
+// ClusterManagerPostJoin represents the join payload sent to cluster manager.
+type ClusterManagerPostJoin struct {
 	ClusterName        string `json:"cluster_name" yaml:"cluster_name"`
 	ClusterCertificate string `json:"cluster_certificate" yaml:"cluster_certificate"`
 }

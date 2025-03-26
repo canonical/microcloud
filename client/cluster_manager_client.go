@@ -34,45 +34,10 @@ func NewClusterManagerClient(config *database.ClusterManager) *ClusterManagerCli
 	}
 }
 
-// PostStatus sends the status of MicroCloud to the cluster manager.
-func (c *ClusterManagerClient) PostStatus(clusterCert *shared.CertInfo, status types.ClusterManagerStatusPost) error {
-	reqBody, err := json.Marshal(status)
-	if err != nil {
-		return errors.New("Failed to marshal status message")
-	}
-
-	req, err := c.craftRequest("POST", "/1.0/remote-cluster/status", bytes.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	err = c.sendRequest(clusterCert, req)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Delete removes the server from the cluster.
-func (c *ClusterManagerClient) Delete(clusterCert *shared.CertInfo) error {
-	req, err := c.craftRequest("DELETE", "/1.0/remote-cluster", nil)
-	if err != nil {
-		return err
-	}
-
-	err = c.sendRequest(clusterCert, req)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // PostJoin registers MicroCloud in cluster manager.
-func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, serverName string, secret string) error {
-	payload := types.ClusterManagerJoinPost{
-		ClusterName:        serverName,
+func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, clusterName string, secret string) error {
+	payload := types.ClusterManagerPostJoin{
+		ClusterName:        clusterName,
 		ClusterCertificate: string(clusterCert.PublicKey()),
 	}
 
@@ -103,9 +68,43 @@ func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, serverName
 	return nil
 }
 
+// PostStatus sends the status of MicroCloud to the cluster manager.
+func (c *ClusterManagerClient) PostStatus(clusterCert *shared.CertInfo, status types.ClusterManagerPostStatus) error {
+	reqBody, err := json.Marshal(status)
+	if err != nil {
+		return errors.New("Failed to marshal status message")
+	}
+
+	req, err := c.craftRequest("POST", "/1.0/remote-cluster/status", bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+
+	err = c.sendRequest(clusterCert, req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Delete removes a MicroCloud from cluster manager.
+func (c *ClusterManagerClient) Delete(clusterCert *shared.CertInfo) error {
+	req, err := c.craftRequest("DELETE", "/1.0/remote-cluster", nil)
+	if err != nil {
+		return err
+	}
+
+	err = c.sendRequest(clusterCert, req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *ClusterManagerClient) craftRequest(method string, path string, reqBody io.Reader) (*http.Request, error) {
-	// host name will be replaced with a real value in sendRequest method below
-	url := "https://remote" + path
+	url := "https://remote" + path // remote is a placeholder, real address will be set in sendRequest
 	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
 		return nil, err
@@ -149,13 +148,13 @@ func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*htt
 
 	addresses := strings.Split(c.config.Addresses, ",")
 	if len(addresses) == 0 {
-		return nil, "", errors.New("No cluster manager addresses provided.")
+		return nil, "", errors.New("No cluster manager addresses.")
 	}
 
-	// fetch remote cert and pick the first address that responds without error
+	// fetch remote cert and pick the first address that succeeds a connection
 	for _, address = range addresses {
 		remoteCert, err = shared.GetRemoteCertificate("https://"+address, version.UserAgent)
-		// found a working address, exit loop
+		// found a succeeding address, exit loop
 		if err == nil {
 			break
 		}
@@ -176,20 +175,20 @@ func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*htt
 		return nil, "", fmt.Errorf("Invalid cluster manager certificate fingerprint, expected %s, got %s", c.config.Fingerprint, remoteFingerprint)
 	}
 
-	cert := clusterCert.KeyPair()
+	remoteCert.IsCA = true
+	remoteCert.KeyUsage = x509.KeyUsageCertSign
+
 	tlsConfig := shared.InitTLSConfig()
+	tlsConfig.RootCAs = x509.NewCertPool()
+	tlsConfig.RootCAs.AddCert(remoteCert)
+
+	cert := clusterCert.KeyPair()
 	tlsConfig.GetClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		// GetClientCertificate is called if not nil instead of performing the default selection of an appropriate
 		// certificate from the `Certificates` list. We only have one-key pair to send, and we always want to send it
 		// because this is what uniquely identifies the caller to the server.
 		return &cert, nil
 	}
-
-	remoteCert.IsCA = true
-	remoteCert.KeyUsage = x509.KeyUsageCertSign
-
-	tlsConfig.RootCAs = x509.NewCertPool()
-	tlsConfig.RootCAs.AddCert(remoteCert)
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: tlsConfig,

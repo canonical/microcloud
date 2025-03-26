@@ -21,9 +21,9 @@ CREATE TABLE cluster_manager (
     addresses                  TEXT NOT NULL,
     fingerprint                TEXT NOT NULL,
     name                       TEXT NOT NULL,
-	status_last_success_time   DATETIME,
-	status_last_error_time     DATETIME,
-	status_last_error_response TEXT
+    status_last_success_time   DATETIME,
+    status_last_error_time     DATETIME,
+    status_last_error_response TEXT
 );
 `
 
