@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"bytes"
@@ -17,7 +17,6 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/database"
-	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // HMACClusterManager10 is the HMAC format version used for registering with a join token in cluster manager.
@@ -36,7 +35,7 @@ func NewClusterManagerClient(config *database.ClusterManager) *ClusterManagerCli
 }
 
 // PostStatus sends the status of MicroCloud to the cluster manager.
-func (c *ClusterManagerClient) PostStatus(sh *service.Handler, status types.ClusterManagerStatusPost) error {
+func (c *ClusterManagerClient) PostStatus(clusterCert *shared.CertInfo, status types.ClusterManagerStatusPost) error {
 	reqBody, err := json.Marshal(status)
 	if err != nil {
 		return errors.New("Failed to marshal status message")
@@ -47,7 +46,7 @@ func (c *ClusterManagerClient) PostStatus(sh *service.Handler, status types.Clus
 		return err
 	}
 
-	err = c.sendRequest(sh, req)
+	err = c.sendRequest(clusterCert, req)
 	if err != nil {
 		return err
 	}
@@ -56,13 +55,13 @@ func (c *ClusterManagerClient) PostStatus(sh *service.Handler, status types.Clus
 }
 
 // Delete removes the server from the cluster.
-func (c *ClusterManagerClient) Delete(sh *service.Handler) error {
+func (c *ClusterManagerClient) Delete(clusterCert *shared.CertInfo) error {
 	req, err := c.craftRequest("DELETE", "/1.0/remote-cluster", nil)
 	if err != nil {
 		return err
 	}
 
-	err = c.sendRequest(sh, req)
+	err = c.sendRequest(clusterCert, req)
 	if err != nil {
 		return err
 	}
@@ -71,15 +70,10 @@ func (c *ClusterManagerClient) Delete(sh *service.Handler) error {
 }
 
 // PostJoin registers MicroCloud in cluster manager.
-func (c *ClusterManagerClient) PostJoin(sh *service.Handler, serverName string, secret string) error {
-	localCert, err := c.getLocalCert(sh)
-	if err != nil {
-		return err
-	}
-
+func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, serverName string, secret string) error {
 	payload := types.ClusterManagerJoinPost{
 		ClusterName:        serverName,
-		ClusterCertificate: string(localCert.PublicKey()),
+		ClusterCertificate: string(clusterCert.PublicKey()),
 	}
 
 	reqBody, err := json.Marshal(payload)
@@ -101,7 +95,7 @@ func (c *ClusterManagerClient) PostJoin(sh *service.Handler, serverName string, 
 
 	req.Header.Set("Authorization", hmacHeader)
 
-	err = c.sendRequest(sh, req)
+	err = c.sendRequest(clusterCert, req)
 	if err != nil {
 		return err
 	}
@@ -120,8 +114,8 @@ func (c *ClusterManagerClient) craftRequest(method string, path string, reqBody 
 	return req, nil
 }
 
-func (c *ClusterManagerClient) sendRequest(sh *service.Handler, req *http.Request) error {
-	client, hostAddress, err := c.getHTTPClient(sh)
+func (c *ClusterManagerClient) sendRequest(clusterCert *shared.CertInfo, req *http.Request) error {
+	client, hostAddress, err := c.getHTTPClient(clusterCert)
 	if err != nil {
 		return err
 	}
@@ -146,7 +140,7 @@ func (c *ClusterManagerClient) sendRequest(sh *service.Handler, req *http.Reques
 	return nil
 }
 
-func (c *ClusterManagerClient) getHTTPClient(sh *service.Handler) (*http.Client, string, error) {
+func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*http.Client, string, error) {
 	client := &http.Client{}
 
 	var address string
@@ -182,12 +176,7 @@ func (c *ClusterManagerClient) getHTTPClient(sh *service.Handler) (*http.Client,
 		return nil, "", fmt.Errorf("Invalid cluster manager certificate fingerprint, expected %s, got %s", c.config.Fingerprint, remoteFingerprint)
 	}
 
-	localCert, err := c.getLocalCert(sh)
-	if err != nil {
-		return nil, "", err
-	}
-
-	cert := localCert.KeyPair()
+	cert := clusterCert.KeyPair()
 	tlsConfig := shared.InitTLSConfig()
 	tlsConfig.GetClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		// GetClientCertificate is called if not nil instead of performing the default selection of an appropriate
@@ -207,14 +196,4 @@ func (c *ClusterManagerClient) getHTTPClient(sh *service.Handler) (*http.Client,
 	}
 
 	return client, address, nil
-}
-
-func (c *ClusterManagerClient) getLocalCert(sh *service.Handler) (*shared.CertInfo, error) {
-	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
-	localCert, err := cloud.ClusterCert()
-	if err != nil {
-		return nil, err
-	}
-
-	return localCert, nil
 }

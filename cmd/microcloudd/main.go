@@ -179,7 +179,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 				return setHandlerAddress(state.Address().URL.Host)
 			},
 			OnStart: func(ctx context.Context, state state.State) error {
-				api.SendClusterManagerStatusMessageTask(ctx, s, state)
+				SendClusterManagerStatusMessageTask(ctx, s, state)
 
 				// If we are already initialized, there's nothing to do.
 				err := state.Database().IsOpen(ctx)

@@ -1,5 +1,9 @@
 package types
 
+import (
+	"time"
+)
+
 // ClusterManagerPost represents the cluster manager configuration when receiving a POST request.
 type ClusterManagerPost struct {
 	Token string `json:"token" yaml:"token"`
@@ -18,6 +22,18 @@ type ClusterManager struct {
 	// Interval in seconds to send status messages to the cluster manager
 	// Example: 60
 	UpdateInterval *string `json:"update_interval" yaml:"update_interval"`
+
+	// The time of the last successful status message sent to the cluster manager
+	// Example: 2025-03-26T11:37:17.83536772Z
+	StatusLastSuccessTime time.Time `json:"status_last_success_time" yaml:"status_last_success_time"`
+
+	// The time of the last error response received on sending a status message to cluster manager
+	// Example: 2025-03-26T11:37:17.83536772Z
+	StatusLastErrorTime time.Time `json:"status_last_error_time" yaml:"status_last_error_time"`
+
+	// The last error response received from the cluster manager
+	// Example: Failed to send request to cluster manager: 403 Forbidden, body: {"type":"error","status":"","status_code":0,"operation":"","error_code":403,"error":"not authorized","metadata":null}
+	StatusLastErrorResponse string `json:"status_last_error_response" yaml:"status_last_error_response"`
 }
 
 // StatusDistribution represents the distribution of items.
@@ -37,7 +53,7 @@ type ClusterManagerStatusPost struct {
 	DiskTotalSize     int64                `json:"disk_total_size"`
 	DiskUsage         int64                `json:"disk_usage"`
 	MemberStatuses    []StatusDistribution `json:"member_statuses"`
-	InstanceStatuses  []StatusDistribution `json:"instance_status"`
+	InstanceStatuses  []StatusDistribution `json:"instance_statuses"`
 	Metrics           string               `json:"metrics"`
 	UiUrl             string               `json:"ui_url"`
 }

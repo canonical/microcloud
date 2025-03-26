@@ -14,17 +14,18 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/database"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
-const updateIntervalField = "UpdateInterval"
 const updateIntervalDefaultValue = "60"
 
-// ClusterManagerCmd represents the /1.0/cluster-manager API on MicroCloud.
+// ClusterManagerCmd represents the /1.0/cluster-manager/default API on MicroCloud.
+// We hardcode default as the name, this can be weakened later to support multiple cluster managers.
 var ClusterManagerCmd = func(sh *service.Handler) rest.Endpoint {
 	return rest.Endpoint{
-		Path: "cluster-manager",
+		Path: "cluster-manager/default",
 
 		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerDelete(sh))},
 		Get:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerGet)},
@@ -35,7 +36,7 @@ var ClusterManagerCmd = func(sh *service.Handler) rest.Endpoint {
 
 // clusterManagerGet returns the cluster manager configuration.
 func clusterManagerGet(state state.State, r *http.Request) response.Response {
-	clusterManager, updateIntervalConfig, err := LoadClusterManagerConfig(state, r.Context())
+	clusterManager, updateIntervalConfig, err := database.LoadClusterManagerConfig(state, r.Context())
 	if err != nil {
 		return response.SmartError(err)
 	}
@@ -50,9 +51,12 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 	}
 
 	resp := types.ClusterManager{
-		Addresses:      []string{clusterManager.Addresses},
-		Fingerprint:    &clusterManager.Fingerprint,
-		UpdateInterval: &updateInterval,
+		Addresses:               []string{clusterManager.Addresses},
+		Fingerprint:             &clusterManager.Fingerprint,
+		StatusLastSuccessTime:   clusterManager.StatusLastSuccessTime,
+		StatusLastErrorTime:     clusterManager.StatusLastErrorTime,
+		StatusLastErrorResponse: clusterManager.StatusLastErrorResponse,
+		UpdateInterval:          &updateInterval,
 	}
 
 	return response.SyncResponse(true, resp)
@@ -78,12 +82,12 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 
 		// ensure cluster manager is not already configured
 		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			existingId, err := LoadClusterManagerId(state)
+			isConfigured, err := database.ClusterManagerIsConfigured(state, ctx)
 			if err != nil {
 				return err
 			}
 
-			if existingId > 0 {
+			if isConfigured {
 				return errors.New("Cluster manager already configured.")
 			}
 
@@ -94,19 +98,26 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		}
 
 		clusterManager := database.ClusterManager{
+			Name:        database.ClusterManagerDefaultName,
 			Addresses:   strings.Join(joinToken.Addresses, ","),
 			Fingerprint: joinToken.Fingerprint,
 		}
 
+		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		clusterCert, err := cloud.ClusterCert()
+		if err != nil {
+			return response.SmartError(err)
+		}
+
 		// register in remote cluster manager (also ensures the token is valid)
-		clusterManagerClient := NewClusterManagerClient(&clusterManager)
-		err = clusterManagerClient.PostJoin(sh, joinToken.ServerName, joinToken.Secret)
+		clusterManagerClient := client.NewClusterManagerClient(&clusterManager)
+		err = clusterManagerClient.PostJoin(clusterCert, joinToken.ServerName, joinToken.Secret)
 		if err != nil {
 			return response.SmartError(err)
 		}
 
 		updateIntervalConfig := database.ClusterManagerConfig{
-			Field: updateIntervalField,
+			Field: database.UpdateIntervalField,
 			Value: updateIntervalDefaultValue,
 		}
 
@@ -142,7 +153,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 		return response.BadRequest(err)
 	}
 
-	clusterManager, updateIntervalConfig, err := LoadClusterManagerConfig(state, r.Context())
+	clusterManager, updateIntervalConfig, err := database.LoadClusterManagerConfig(state, r.Context())
 	if err != nil {
 		return response.SmartError(err)
 	}
@@ -175,7 +186,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 			// create update interval
 			_, err = database.CreateClusterManagerConfig(ctx, tx, database.ClusterManagerConfig{
 				ClusterManagerID: clusterManager.ID,
-				Field:            updateIntervalField,
+				Field:            database.UpdateIntervalField,
 				Value:            *args.UpdateInterval,
 			})
 			if err != nil {
@@ -202,7 +213,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 // clusterManagerDelete clears the cluster manager configuration.
 func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
-		clusterManager, _, err := LoadClusterManagerConfig(state, r.Context())
+		clusterManager, _, err := database.LoadClusterManagerConfig(state, r.Context())
 		if err != nil {
 			return response.SmartError(err)
 		}
@@ -223,8 +234,14 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 			return response.SmartError(err)
 		}
 
-		clusterManagerClient := NewClusterManagerClient(clusterManager)
-		err = clusterManagerClient.Delete(sh)
+		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		clusterCert, err := cloud.ClusterCert()
+		if err != nil {
+			return response.SmartError(err)
+		}
+
+		clusterManagerClient := client.NewClusterManagerClient(clusterManager)
+		err = clusterManagerClient.Delete(clusterCert)
 		if err != nil {
 			return response.SmartError(err)
 		}

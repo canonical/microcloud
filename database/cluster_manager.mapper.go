@@ -7,26 +7,34 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/canonical/microcluster/v2/cluster"
 	"net/http"
 	"strings"
 
 	"github.com/canonical/lxd/lxd/db/query"
 	"github.com/canonical/lxd/shared/api"
+
+	"github.com/canonical/microcluster/v2/cluster"
 )
 
 var _ = api.ServerEnvironment{}
 
 var clusterManagerObjects = cluster.RegisterStmt(`
-SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint
+SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response
   FROM cluster_manager
   ORDER BY cluster_manager.id
 `)
 
 var clusterManagerObjectsByID = cluster.RegisterStmt(`
-SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint
+SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response
   FROM cluster_manager
   WHERE ( cluster_manager.id = ? )
+  ORDER BY cluster_manager.id
+`)
+
+var clusterManagerObjectsByName = cluster.RegisterStmt(`
+SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response
+  FROM cluster_manager
+  WHERE ( cluster_manager.name = ? )
   ORDER BY cluster_manager.id
 `)
 
@@ -40,20 +48,20 @@ DELETE FROM cluster_manager WHERE id = ?
 `)
 
 var clusterManagerCreate = cluster.RegisterStmt(`
-INSERT INTO cluster_manager (addresses, fingerprint)
-  VALUES (?, ?)
+INSERT INTO cluster_manager (addresses, fingerprint, name, status_last_success_time, status_last_error_time, status_last_error_response)
+  VALUES (?, ?, ?, ?, ?, ?)
 `)
 
 var clusterManagerUpdate = cluster.RegisterStmt(`
 UPDATE cluster_manager
-  SET addresses = ?, fingerprint = ?
+  SET addresses = ?, fingerprint = ?, name = ?, status_last_success_time = ?, status_last_error_time = ?, status_last_error_response = ?
  WHERE id = ?
 `)
 
 // clusterManagerColumns returns a string of column names to be used with a SELECT statement for the entity.
 // Use this function when building statements to retrieve database entries matching the ClusterManager entity.
 func clusterManagerColumns() string {
-	return "cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint"
+	return "cluster_manager.id, cluster_manager.addresses, cluster_manager.fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response"
 }
 
 // getClusterManagers can be used to run handwritten sql.Stmts to return a slice of objects.
@@ -62,7 +70,7 @@ func getClusterManagers(ctx context.Context, stmt *sql.Stmt, args ...any) ([]Clu
 
 	dest := func(scan func(dest ...any) error) error {
 		c := ClusterManager{}
-		err := scan(&c.ID, &c.Addresses, &c.Fingerprint)
+		err := scan(&c.ID, &c.Addresses, &c.Fingerprint, &c.Name, &c.StatusLastSuccessTime, &c.StatusLastErrorTime, &c.StatusLastErrorResponse)
 		if err != nil {
 			return err
 		}
@@ -86,7 +94,7 @@ func getClusterManagersRaw(ctx context.Context, tx *sql.Tx, sql string, args ...
 
 	dest := func(scan func(dest ...any) error) error {
 		c := ClusterManager{}
-		err := scan(&c.ID, &c.Addresses, &c.Fingerprint)
+		err := scan(&c.ID, &c.Addresses, &c.Fingerprint, &c.Name, &c.StatusLastSuccessTime, &c.StatusLastErrorTime, &c.StatusLastErrorResponse)
 		if err != nil {
 			return err
 		}
@@ -125,7 +133,31 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 	}
 
 	for i, filter := range filters {
-		if filter.ID != nil {
+		if filter.Name != nil && filter.ID == nil {
+			args = append(args, []any{filter.Name}...)
+			if len(filters) == 1 {
+				sqlStmt, err = cluster.Stmt(tx, clusterManagerObjectsByName)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to get \"clusterManagerObjectsByName\" prepared statement: %w", err)
+				}
+
+				break
+			}
+
+			query, err := cluster.StmtString(clusterManagerObjectsByName)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to get \"clusterManagerObjects\" prepared statement: %w", err)
+			}
+
+			parts := strings.SplitN(query, "ORDER BY", 2)
+			if i == 0 {
+				copy(queryParts[:], parts)
+				continue
+			}
+
+			_, where, _ := strings.Cut(parts[0], "WHERE")
+			queryParts[0] += "OR" + where
+		} else if filter.ID != nil && filter.Name == nil {
 			args = append(args, []any{filter.ID}...)
 			if len(filters) == 1 {
 				sqlStmt, err = cluster.Stmt(tx, clusterManagerObjectsByID)
@@ -149,7 +181,7 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 
 			_, where, _ := strings.Cut(parts[0], "WHERE")
 			queryParts[0] += "OR" + where
-		} else if filter.ID == nil {
+		} else if filter.ID == nil && filter.Name == nil {
 			return nil, fmt.Errorf("Cannot filter on empty ClusterManagerFilter")
 		} else {
 			return nil, fmt.Errorf("No statement exists for the given Filter")
@@ -241,11 +273,15 @@ func CreateClusterManager(ctx context.Context, tx *sql.Tx, object ClusterManager
 		return -1, api.StatusErrorf(http.StatusConflict, "This \"cluster_manager\" entry already exists")
 	}
 
-	args := make([]any, 2)
+	args := make([]any, 6)
 
 	// Populate the statement arguments.
 	args[0] = object.Addresses
 	args[1] = object.Fingerprint
+	args[2] = object.Name
+	args[3] = object.StatusLastSuccessTime
+	args[4] = object.StatusLastErrorTime
+	args[5] = object.StatusLastErrorResponse
 
 	// Prepared statement to use.
 	stmt, err := cluster.Stmt(tx, clusterManagerCreate)
@@ -280,7 +316,7 @@ func UpdateClusterManager(ctx context.Context, tx *sql.Tx, id int64, object Clus
 		return fmt.Errorf("Failed to get \"clusterManagerUpdate\" prepared statement: %w", err)
 	}
 
-	result, err := stmt.Exec(object.Addresses, object.Fingerprint, id)
+	result, err := stmt.Exec(object.Addresses, object.Fingerprint, object.Name, object.StatusLastSuccessTime, object.StatusLastErrorTime, object.StatusLastErrorResponse, id)
 	if err != nil {
 		return fmt.Errorf("Update \"cluster_manager\" entry failed: %w", err)
 	}
@@ -456,7 +492,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 
 			_, where, _ := strings.Cut(parts[0], "WHERE")
 			queryParts[0] += "OR" + where
-		} else if filter.ID == nil && filter.Field == nil && filter.ClusterManagerID == nil {
+		} else if filter.ID == nil && filter.ClusterManagerID == nil && filter.Field == nil {
 			return nil, fmt.Errorf("Cannot filter on empty ClusterManagerConfigFilter")
 		} else {
 			return nil, fmt.Errorf("No statement exists for the given Filter")

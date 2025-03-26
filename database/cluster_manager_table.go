@@ -1,10 +1,15 @@
 package database
 
+import (
+	"time"
+)
+
 //go:generate -command mapper lxd-generate db mapper -t cluster_manager.mapper.go
 //go:generate mapper reset
 //
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManager objects table=cluster_manager
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManager objects-by-ID table=cluster_manager
+//go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManager objects-by-Name table=cluster_manager
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManager id table=cluster_manager
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManager delete-by-ID table=cluster_manager
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManager create table=cluster_manager
@@ -34,14 +39,19 @@ package database
 
 // ClusterManager is used to track the cluster manager configuration.
 type ClusterManager struct {
-	ID          int64 `db:"primary=yes"`
-	Addresses   string
-	Fingerprint string
+	ID                      int64 `db:"primary=yes"`
+	Addresses               string
+	Fingerprint             string
+	Name                    string
+	StatusLastSuccessTime   time.Time
+	StatusLastErrorTime     time.Time
+	StatusLastErrorResponse string
 }
 
 // ClusterManagerFilter is used to filter cluster manager queries.
 type ClusterManagerFilter struct {
-	ID *int64
+	ID   *int64
+	Name *string
 }
 
 // ClusterManagerConfig is used to store arbitrary cluster manager configuration.

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared/api"
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
@@ -65,7 +66,7 @@ func (c *cmdClusterManagerJoin) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "join <token>"
 	cmd.Short = "Join a cluster manager"
-	cmd.Example = `lxc cluster-manager join "base64_encoded_token"`
+	cmd.Example = `microcloud cluster-manager join "base64_encoded_token"`
 
 	cmd.RunE = c.run
 
@@ -93,7 +94,7 @@ func (c *cmdClusterManagerJoin) run(_ *cobra.Command, args []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "POST", "1.0", api.NewURL().Path("cluster-manager"), payload, &clusterManager)
+	err = apiClient.QueryStruct(context.Background(), "POST", "1.0", api.NewURL().Path("cluster-manager", "default"), payload, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func (c *cmdClusterManagerShow) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "show"
 	cmd.Short = "Show cluster manager configuration"
-	cmd.Example = `lxc cluster-manager show`
+	cmd.Example = `microcloud cluster-manager show`
 
 	cmd.RunE = c.run
 
@@ -127,7 +128,7 @@ func (c *cmdClusterManagerShow) run(_ *cobra.Command, _ []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager"), nil, &clusterManager)
+	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -157,7 +158,7 @@ func (c *cmdClusterManagerDelete) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "delete"
 	cmd.Short = "Clear cluster manager configuration"
-	cmd.Example = `lxc cluster-manager delete`
+	cmd.Example = `microcloud cluster-manager delete`
 
 	cmd.RunE = c.run
 
@@ -171,7 +172,7 @@ func (c *cmdClusterManagerDelete) run(_ *cobra.Command, _ []string) error {
 	}
 
 	var clusterManager *database.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "DELETE", "1.0", api.NewURL().Path("cluster-manager"), nil, &clusterManager)
+	err = apiClient.QueryStruct(context.Background(), "DELETE", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -190,8 +191,10 @@ type cmdClusterManagerGet struct {
 func (c *cmdClusterManagerGet) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "get"
-	cmd.Short = "Get specific cluster manager configuration by key. Available keys are: addresses, fingerprint and update-interval-seconds."
-	cmd.Example = `lxc cluster-manager get addresses`
+	cmd.Short = "Get specific cluster manager configuration by key."
+	cmd.Example = cli.FormatSection("", `microcloud cluster-manager get addresses
+microcloud cluster-manager get fingerprint
+microcloud cluster-manager get update-interval-seconds`)
 
 	cmd.RunE = c.run
 
@@ -211,7 +214,7 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager"), nil, &clusterManager)
+	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -244,8 +247,10 @@ type cmdClusterManagerSet struct {
 func (c *cmdClusterManagerSet) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "set"
-	cmd.Short = "Set specific cluster manager configuration key. Available keys are: addresses, fingerprint and update-interval-seconds."
-	cmd.Example = `lxc cluster-manager set addresses example.com:8443`
+	cmd.Short = "Set specific cluster manager configuration key."
+	cmd.Example = cli.FormatSection("", `microcloud cluster-manager set addresses example.com:8443
+microcloud cluster-manager set fingerprint abababababababababababababababababababababababababababababababab
+microcloud cluster-manager set update-interval-seconds 50`)
 
 	cmd.RunE = c.run
 
@@ -266,7 +271,7 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager"), nil, &clusterManager)
+	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -286,7 +291,7 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("Invalid key.")
 	}
 
-	err = apiClient.QueryStruct(context.Background(), "PUT", "1.0", api.NewURL().Path("cluster-manager"), clusterManager, nil)
+	err = apiClient.QueryStruct(context.Background(), "PUT", "1.0", api.NewURL().Path("cluster-manager", "default"), clusterManager, nil)
 	if err != nil {
 		return err
 	}
@@ -303,8 +308,10 @@ type cmdClusterManagerUnset struct {
 func (c *cmdClusterManagerUnset) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "unset"
-	cmd.Short = "Unset specific cluster manager configuration key. Available keys are: update-interval-seconds."
-	cmd.Example = `lxc cluster-manager unset update-interval-seconds`
+	cmd.Short = "Unset specific cluster manager configuration key."
+	cmd.Example = cli.FormatSection("", `microcloud cluster-manager unset addresses
+microcloud cluster-manager unset fingerprint
+microcloud cluster-manager unset update-interval-seconds`)
 
 	cmd.RunE = c.run
 
@@ -324,7 +331,7 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager"), nil, &clusterManager)
+	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", api.NewURL().Path("cluster-manager", "default"), nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -345,7 +352,7 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("Invalid key.")
 	}
 
-	err = apiClient.QueryStruct(context.Background(), "PUT", "1.0", api.NewURL().Path("cluster-manager"), clusterManager, nil)
+	err = apiClient.QueryStruct(context.Background(), "PUT", "1.0", api.NewURL().Path("cluster-manager", "default"), clusterManager, nil)
 	if err != nil {
 		return err
 	}

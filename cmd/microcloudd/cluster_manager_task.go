@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"context"
@@ -11,18 +11,27 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/database"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // SendClusterManagerStatusMessageTask starts a dedicated go routine, that sends the cluster manager status message.
 func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s state.State) {
 	go func(ctx context.Context, sh *service.Handler, s state.State) {
-		updateTime := 60 * time.Second
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+
 		for {
-			time.Sleep(updateTime)
-			newUpdateTime := sendClusterManagerStatusMessage(ctx, sh, s)
-			if newUpdateTime > 0 {
-				updateTime = newUpdateTime
+			select {
+			case <-ticker.C:
+				newUpdateTime := sendClusterManagerStatusMessage(ctx, sh, s)
+				if newUpdateTime > 0 {
+					ticker.Reset(newUpdateTime)
+				}
+
+			case <-ctx.Done():
+				return // exit the loop and close the go routine
 			}
 		}
 	}(ctx, sh, s)
@@ -61,18 +70,18 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
-	clusterManagerId, err := LoadClusterManagerId(s)
+	isConfigured, err := database.ClusterManagerIsConfigured(s, ctx)
 	if err != nil {
-		logger.Error("Failed to get cluster manager id", logger.Ctx{"err": err})
+		logger.Error("Failed to get cluster manager status", logger.Ctx{"err": err})
 		return nextUpdate
 	}
 
-	if clusterManagerId == -1 {
+	if !isConfigured {
 		logger.Debug("Cluster manager not configured")
 		return nextUpdate
 	}
 
-	clusterManager, updateIntervalConfig, err := LoadClusterManagerConfig(s, ctx)
+	clusterManager, updateIntervalConfig, err := database.LoadClusterManagerConfig(s, ctx)
 	if err != nil {
 		logger.Error("Failed to load cluster manager config", logger.Ctx{"err": err})
 		return nextUpdate
@@ -117,12 +126,21 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 
 	logger.Debug("Sending status message to cluster manager")
 
-	clusterManagerClient := NewClusterManagerClient(clusterManager)
-	err = clusterManagerClient.PostStatus(sh, payload)
+	clusterCert, err := cloud.ClusterCert()
 	if err != nil {
-		logger.Error("Failed to send status message to cluster manager", logger.Ctx{"err": err})
+		logger.Error("Failed to get cluster certificate", logger.Ctx{"err": err})
 		return nextUpdate
 	}
+
+	clusterManagerClient := client.NewClusterManagerClient(clusterManager)
+	err = clusterManagerClient.PostStatus(clusterCert, payload)
+	if err != nil {
+		logger.Error("Failed to send status message to cluster manager", logger.Ctx{"err": err})
+		_ = database.SetClusterManagerStatusLastError(s, ctx, time.Now(), err.Error())
+		return nextUpdate
+	}
+
+	_ = database.SetClusterManagerStatusLastSuccess(s, ctx, time.Now())
 
 	logger.Debug("Done sending status message to cluster manager")
 	return nextUpdate

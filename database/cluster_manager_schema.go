@@ -17,9 +17,13 @@ var SchemaExtensions = []schema.Update{
 func clusterManagerTables(ctx context.Context, tx *sql.Tx) error {
 	stmt := `
 CREATE TABLE cluster_manager (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    addresses    TEXT NOT NULL,
-    fingerprint  TEXT NOT NULL
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    addresses                  TEXT NOT NULL,
+    fingerprint                TEXT NOT NULL,
+    name                       TEXT NOT NULL,
+	status_last_success_time   DATETIME,
+	status_last_error_time     DATETIME,
+	status_last_error_response TEXT
 );
 `
 
