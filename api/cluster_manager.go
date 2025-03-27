@@ -123,7 +123,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 
 		// register in remote cluster manager (also ensures the token is valid)
 		clusterManagerClient := client.NewClusterManagerClient(&clusterManager)
-		err = clusterManagerClient.PostJoin(clusterCert, joinToken.ServerName, joinToken.Secret)
+		err = clusterManagerClient.PostJoin(clusterCert, joinToken.ServerName, args.Token)
 		if err != nil {
 			return response.SmartError(err)
 		}

@@ -12,15 +12,11 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared"
-	"github.com/canonical/lxd/shared/trust"
 	"github.com/canonical/lxd/shared/version"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/database"
 )
-
-// HMACClusterManager10 is the HMAC format version used for registering with a join token in cluster manager.
-const HMACClusterManager10 trust.HMACVersion = "ClusterManager-1.0"
 
 // The ClusterManagerClient struct is used to interact with the cluster manager.
 type ClusterManagerClient struct {
@@ -35,10 +31,11 @@ func NewClusterManagerClient(config *database.ClusterManager) *ClusterManagerCli
 }
 
 // PostJoin registers MicroCloud in cluster manager.
-func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, clusterName string, secret string) error {
+func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, clusterName string, encodedToken string) error {
 	payload := types.ClusterManagerPostJoin{
 		ClusterName:        clusterName,
 		ClusterCertificate: string(clusterCert.PublicKey()),
+		Token:              encodedToken,
 	}
 
 	reqBody, err := json.Marshal(payload)
@@ -50,15 +47,6 @@ func (c *ClusterManagerClient) PostJoin(clusterCert *shared.CertInfo, clusterNam
 	if err != nil {
 		return err
 	}
-
-	// Sign the payload with a hmac, using the secret from the join token.
-	h := trust.NewHMAC([]byte(secret), trust.NewDefaultHMACConf(HMACClusterManager10))
-	hmacHeader, err := trust.HMACAuthorizationHeader(h, payload)
-	if err != nil {
-		return fmt.Errorf("Failed to create HMAC: %w", err)
-	}
-
-	req.Header.Set("Authorization", hmacHeader)
 
 	err = c.sendRequest(clusterCert, req)
 	if err != nil {

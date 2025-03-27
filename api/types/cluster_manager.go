@@ -78,4 +78,5 @@ type ClusterManagerPostStatus struct {
 type ClusterManagerPostJoin struct {
 	ClusterName        string `json:"cluster_name" yaml:"cluster_name"`
 	ClusterCertificate string `json:"cluster_certificate" yaml:"cluster_certificate"`
+	Token              string `json:"token" yaml:"token"`
 }
