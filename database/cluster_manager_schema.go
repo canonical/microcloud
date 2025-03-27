@@ -19,11 +19,12 @@ func clusterManagerTables(ctx context.Context, tx *sql.Tx) error {
 CREATE TABLE cluster_manager (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     addresses                  TEXT NOT NULL,
-    fingerprint                TEXT NOT NULL,
+    certificate_fingerprint    TEXT NOT NULL,
     name                       TEXT NOT NULL,
     status_last_success_time   DATETIME,
     status_last_error_time     DATETIME,
-    status_last_error_response TEXT
+    status_last_error_response TEXT,
+    UNIQUE (name)
 );
 `
 
@@ -36,8 +37,9 @@ CREATE TABLE cluster_manager (
 CREATE TABLE cluster_manager_config (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     cluster_manager_id  INTEGER NOT NULL,
-    field               TEXT NOT NULL,
+    key                TEXT NOT NULL,
     value               TEXT NOT NULL,
+    UNIQUE (cluster_manager_id, key),
     FOREIGN KEY (cluster_manager_id) REFERENCES cluster_manager (id) ON DELETE CASCADE
 );
 `

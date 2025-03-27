@@ -171,8 +171,8 @@ func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*htt
 
 	// verify remote cert
 	remoteFingerprint := shared.CertFingerprint(remoteCert)
-	if !strings.EqualFold(remoteFingerprint, c.config.Fingerprint) {
-		return nil, "", fmt.Errorf("Invalid cluster manager certificate fingerprint, expected %s, got %s", c.config.Fingerprint, remoteFingerprint)
+	if !strings.EqualFold(remoteFingerprint, c.config.CertificateFingerprint) {
+		return nil, "", fmt.Errorf("Invalid cluster manager certificate fingerprint, expected %s, got %s", c.config.CertificateFingerprint, remoteFingerprint)
 	}
 
 	remoteCert.IsCA = true

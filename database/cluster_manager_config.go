@@ -12,8 +12,8 @@ import (
 // ClusterManagerDefaultName is the default name for the cluster manager.
 const ClusterManagerDefaultName = "default"
 
-// UpdateIntervalField is the field name for the update interval configuration.
-const UpdateIntervalField = "UpdateInterval"
+// UpdateIntervalKey is the key for the update interval configuration.
+const UpdateIntervalKey = "UpdateInterval"
 
 // ClusterManagerIsConfigured finds if cluster manager is setup in the database.
 func ClusterManagerIsConfigured(state state.State, ctx context.Context) (bool, error) {
@@ -38,9 +38,9 @@ func LoadClusterManagerConfig(state state.State, ctx context.Context) (*ClusterM
 
 	var updateIntervalConfig []ClusterManagerConfig
 	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		updateIntervalField := UpdateIntervalField
+		key := UpdateIntervalKey
 		updateIntervalConfig, err = GetClusterManagerConfig(ctx, tx, ClusterManagerConfigFilter{
-			Field:            &updateIntervalField,
+			Key:              &key,
 			ClusterManagerID: &clusterManager.ID,
 		})
 		if err != nil {

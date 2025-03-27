@@ -21,15 +21,23 @@ import (
 
 const updateIntervalDefaultValue = "60"
 
-// ClusterManagerCmd represents the /1.0/cluster-manager/default API on MicroCloud.
-// We hardcode default as the name, this can be weakened later to support multiple cluster managers.
-var ClusterManagerCmd = func(sh *service.Handler) rest.Endpoint {
+// ClusterManagersJoinCmd represents the /1.0/cluster-managers API on MicroCloud.
+var ClusterManagersJoinCmd = func(sh *service.Handler) rest.Endpoint {
 	return rest.Endpoint{
-		Path: "cluster-manager/default",
+		Path: "cluster-managers",
+
+		Post: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPost(sh))},
+	}
+}
+
+// ClusterManagersCmd represents the /1.0/cluster-managers/default API on MicroCloud.
+// We hardcode default as the name, this can be weakened later to support multiple cluster managers.
+var ClusterManagersCmd = func(sh *service.Handler) rest.Endpoint {
+	return rest.Endpoint{
+		Path: "cluster-managers/default",
 
 		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerDelete(sh))},
 		Get:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerGet)},
-		Post:   rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPost(sh))},
 		Put:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPut)},
 	}
 }
@@ -42,7 +50,7 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 	}
 
 	if clusterManager.Addresses == "" {
-		return response.SyncResponse(true, types.ClusterManager{})
+		return response.SyncResponse(true, types.ClusterManagerGet{})
 	}
 
 	var updateInterval string
@@ -50,13 +58,13 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 		updateInterval = updateIntervalConfig[0].Value
 	}
 
-	resp := types.ClusterManager{
+	resp := types.ClusterManagerGet{
 		Addresses:               []string{clusterManager.Addresses},
-		Fingerprint:             &clusterManager.Fingerprint,
+		CertificateFingerprint:  clusterManager.CertificateFingerprint,
 		StatusLastSuccessTime:   clusterManager.StatusLastSuccessTime,
 		StatusLastErrorTime:     clusterManager.StatusLastErrorTime,
 		StatusLastErrorResponse: clusterManager.StatusLastErrorResponse,
-		UpdateInterval:          &updateInterval,
+		UpdateInterval:          updateInterval,
 	}
 
 	return response.SyncResponse(true, resp)
@@ -65,7 +73,7 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 // clusterManagerPost creates a new cluster manager configuration from a token.
 func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
-		args := types.ClusterManagerPost{}
+		args := types.ClusterManagersPost{}
 		err := json.NewDecoder(r.Body).Decode(&args)
 		if err != nil {
 			return response.BadRequest(err)
@@ -98,9 +106,9 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		}
 
 		clusterManager := database.ClusterManager{
-			Name:        database.ClusterManagerDefaultName,
-			Addresses:   strings.Join(joinToken.Addresses, ","),
-			Fingerprint: joinToken.Fingerprint,
+			Name:                   database.ClusterManagerDefaultName,
+			Addresses:              strings.Join(joinToken.Addresses, ","),
+			CertificateFingerprint: joinToken.Fingerprint,
 		}
 
 		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
@@ -117,7 +125,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		}
 
 		updateIntervalConfig := database.ClusterManagerConfig{
-			Field: database.UpdateIntervalField,
+			Key:   database.UpdateIntervalKey,
 			Value: updateIntervalDefaultValue,
 		}
 
@@ -147,7 +155,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 
 // clusterManagerPut updates the cluster manager configuration.
 func clusterManagerPut(state state.State, r *http.Request) response.Response {
-	args := types.ClusterManager{}
+	args := types.ClusterManagerPut{}
 	err := json.NewDecoder(r.Body).Decode(&args)
 	if err != nil {
 		return response.BadRequest(err)
@@ -163,9 +171,9 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 		clusterManager.Addresses = strings.Join(args.Addresses, ",")
 	}
 
-	hasChangedFingerprint := args.Fingerprint != nil
+	hasChangedFingerprint := args.CertificateFingerprint != nil
 	if hasChangedFingerprint {
-		clusterManager.Fingerprint = *args.Fingerprint
+		clusterManager.CertificateFingerprint = *args.CertificateFingerprint
 	}
 
 	err = state.Database().Transaction(r.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -190,7 +198,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 			// create update interval
 			_, err = database.CreateClusterManagerConfig(ctx, tx, database.ClusterManagerConfig{
 				ClusterManagerID: clusterManager.ID,
-				Field:            database.UpdateIntervalField,
+				Key:              database.UpdateIntervalKey,
 				Value:            *args.UpdateInterval,
 			})
 			if err != nil {

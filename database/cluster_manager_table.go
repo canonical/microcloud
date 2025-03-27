@@ -24,7 +24,7 @@ import (
 //go:generate mapper method -i -d github.com/canonical/microcluster/v2/cluster -e ClusterManager DeleteOne-by-ID table=cluster_manager
 //
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManagerConfig objects table=cluster_manager_config
-//go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManagerConfig objects-by-ClusterManagerID-and-Field table=cluster_manager_config
+//go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManagerConfig objects-by-ClusterManagerID-and-Key table=cluster_manager_config
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManagerConfig id table=cluster_manager_config
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManagerConfig delete-by-ClusterManagerID table=cluster_manager_config
 //go:generate mapper stmt -d github.com/canonical/microcluster/v2/cluster -e ClusterManagerConfig create table=cluster_manager_config
@@ -41,7 +41,7 @@ import (
 type ClusterManager struct {
 	ID                      int64 `db:"primary=yes"`
 	Addresses               string
-	Fingerprint             string
+	CertificateFingerprint  string
 	Name                    string
 	StatusLastSuccessTime   time.Time
 	StatusLastErrorTime     time.Time
@@ -58,7 +58,7 @@ type ClusterManagerFilter struct {
 type ClusterManagerConfig struct {
 	ID               int64 `db:"primary=yes"`
 	ClusterManagerID int64
-	Field            string
+	Key              string
 	Value            string
 }
 
@@ -66,5 +66,5 @@ type ClusterManagerConfig struct {
 type ClusterManagerConfigFilter struct {
 	ID               *int64
 	ClusterManagerID *int64
-	Field            *string
+	Key              *string
 }

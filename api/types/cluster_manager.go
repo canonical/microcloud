@@ -4,24 +4,24 @@ import (
 	"time"
 )
 
-// ClusterManagerPost represents the cluster manager configuration when receiving a POST request in MicroCloud.
-type ClusterManagerPost struct {
+// ClusterManagersPost represents the cluster manager configuration when receiving a POST request in MicroCloud.
+type ClusterManagersPost struct {
 	Token string `json:"token" yaml:"token"`
 }
 
-// ClusterManager represents the configuration in MicroCloud of cluster manager.
-type ClusterManager struct {
+// ClusterManagerGet represents the configuration in MicroCloud of cluster manager.
+type ClusterManagerGet struct {
 	// The remote address of cluster manager
 	// Example: example.com:8443
 	Addresses []string `json:"addresses" yaml:"addresses"`
 
-	// Fingerprint of the cluster manager server certificate
+	// CertificateFingerprint of the cluster manager server certificate
 	// Example: 90fedb21cda5ac6a45a878c151e6ac8fe16b4b723e44669fd113e4ea07597d83
-	Fingerprint *string `json:"fingerprint" yaml:"fingerprint"`
+	CertificateFingerprint string `json:"certificate_fingerprint" yaml:"certificate_fingerprint"`
 
 	// Interval in seconds to send status messages to the cluster manager
 	// Example: 60
-	UpdateInterval *string `json:"update_interval" yaml:"update_interval"`
+	UpdateInterval string `json:"update_interval" yaml:"update_interval"`
 
 	// The time of the last successful status message sent to the cluster manager
 	// Example: 2025-03-26T11:37:17.83536772Z
@@ -34,6 +34,21 @@ type ClusterManager struct {
 	// The last error response received from the cluster manager
 	// Example: Failed to send request to cluster manager: 403 Forbidden, body: {"type":"error","status":"","status_code":0,"operation":"","error_code":403,"error":"not authorized","metadata":null}
 	StatusLastErrorResponse string `json:"status_last_error_response" yaml:"status_last_error_response"`
+}
+
+// ClusterManagerPut represents the payload to update one or multiple fields of the configuration.
+type ClusterManagerPut struct {
+	// The remote address of cluster manager
+	// Example: example.com:8443
+	Addresses []string `json:"addresses" yaml:"addresses"`
+
+	// CertificateFingerprint of the cluster manager server certificate
+	// Example: 90fedb21cda5ac6a45a878c151e6ac8fe16b4b723e44669fd113e4ea07597d83
+	CertificateFingerprint *string `json:"certificate_fingerprint" yaml:"certificate_fingerprint"`
+
+	// Interval in seconds to send status messages to the cluster manager
+	// Example: 60
+	UpdateInterval *string `json:"update_interval" yaml:"update_interval"`
 }
 
 // StatusDistribution represents the distribution of items.
