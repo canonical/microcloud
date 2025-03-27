@@ -146,15 +146,7 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 				return err
 			}
 
-			errParts := strings.Split(err.Error(), "\n")
-			for i := range errParts {
-				if i > 0 {
-					// Add two spaces at the start of each new line, to account for the error symbol at the start of the first line.
-					errParts[i] = "  " + errParts[i]
-				}
-			}
-
-			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(strings.Join(errParts, "\n"), true))
+			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(err.Error(), true))
 			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
