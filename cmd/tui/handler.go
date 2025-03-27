@@ -125,37 +125,3 @@ func (i *InputHandler) AskString(question string, defaultAnswer string, validato
 
 	return result, nil
 }
-
-func (i *InputHandler) handleQuestion(question string, defaultAnswer string, acceptedAnswers []string) (*asker, error) {
-	ask := &asker{
-		question:        question,
-		defaultAnswer:   defaultAnswer,
-		acceptedAnswers: acceptedAnswers,
-		File:            i.output,
-	}
-
-	// The standard renderer does not yet support custom cursor positions so we need to
-	// manually remove the sequence from the end of the string to get proper cursor tracking.
-	// see: https://github.com/charmbracelet/bubbletea/issues/918
-	out, err := tea.NewProgram(ask, tea.WithOutput(ask), tea.WithInput(i.input)).Run()
-	if err != nil {
-		return nil, err
-	}
-
-	result, ok := out.(*asker)
-	if !ok {
-		return nil, fmt.Errorf("Unexpected question result")
-	}
-
-	if result.cancelled {
-		return nil, fmt.Errorf("Input cancelled")
-	}
-
-	if strings.TrimSpace(result.answer) == "" {
-		result.answer = result.defaultAnswer
-	} else {
-		result.answer = strings.TrimSpace(result.answer)
-	}
-
-	return result, nil
-}
