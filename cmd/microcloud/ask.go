@@ -760,7 +760,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			if insufficientDisks {
 				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
-				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks.\nContinuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
+				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
 			}
 
 			return nil
@@ -939,7 +939,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(askSystems) == 0 || !allSystemsEligible {
-		warning := "Some systems are ineligible for distributed networking.\nAt least one interface in state UP with no IPs assigned or a bridge is required"
+		warning := "Some systems are ineligible for distributed networking. At least one interface in state UP with no IPs assigned or a bridge is required"
 		question := "Continue anyway?"
 		wantsContinue, err := c.asker.AskBoolWarn(warning, question, true)
 		if err != nil {
