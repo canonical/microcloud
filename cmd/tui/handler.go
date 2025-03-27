@@ -80,6 +80,21 @@ func (i *InputHandler) printWarning(warning string) {
 	fmt.Printf("%s %s\n", WarningSymbol(), strings.Join(warningParts, "\n"))
 }
 
+// formatQuestion enriches the plain question string with default and accepted answers.
+func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acceptedAnswers []string) string {
+	var acceptedAnswersBlock string
+	if len(acceptedAnswers) > 0 {
+		acceptedAnswersBlock = Printf(Fmt{Arg: " (%s)"}, Fmt{Arg: strings.Join(acceptedAnswers, "/"), Bold: true})
+	}
+
+	var defaultAnswerBlock string
+	if defaultAnswer != "" {
+		defaultAnswerBlock = Printf(Fmt{Arg: " [%s]"}, Fmt{Arg: fmt.Sprintf("default=%s", defaultAnswer), Bold: true})
+	}
+
+	return fmt.Sprintf("%s%s%s: ", question, acceptedAnswersBlock, defaultAnswerBlock)
+}
+
 // AskBoolWarn is the same as AskBool but it prints the given warning before asking.
 func (i *InputHandler) AskBoolWarn(warning string, question string, defaultAnswer bool) (bool, error) {
 	i.printWarning(warning)
