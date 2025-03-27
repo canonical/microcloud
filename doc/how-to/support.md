@@ -13,6 +13,12 @@ The LTS version of MicroCloud is available in the `2` track.
 It's recommended to use the `<track>/stable` channels for production deployments.
 ```
 
+```{important}
+MicroCloud `1/(stable|candidate|edge)` reaches {abbr}`EOL (End of Life)` at the end of April 2025.
+Make sure to upgrade to the `2` LTS track before this date.
+See the {ref}`howto-update-upgrade-upgrade` guide for more information.
+```
+
 ## Support and community
 
 The following channels are available for you to interact with the MicroCloud community:
