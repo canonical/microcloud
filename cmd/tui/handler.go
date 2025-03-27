@@ -69,15 +69,7 @@ func (i *InputHandler) getAllRows() [][]string {
 
 // printWarning prints the given warning with "!" appended to the front of the message.
 func (i *InputHandler) printWarning(warning string) {
-	warningParts := strings.Split(warning, "\n")
-	for i := range warningParts {
-		if i > 0 {
-			// Add two spaces at the start of each new line, to account for the warning symbol at the start of the first line.
-			warningParts[i] = "  " + warningParts[i]
-		}
-	}
-
-	fmt.Printf("%s %s\n", WarningSymbol(), strings.Join(warningParts, "\n"))
+	fmt.Printf("%s %s\n", WarningSymbol(), warning)
 }
 
 // formatQuestion enriches the plain question string with default and accepted answers.
