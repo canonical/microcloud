@@ -6,6 +6,7 @@ import (
 
 // ClusterManagersPost represents the cluster manager configuration when receiving a POST request in MicroCloud.
 type ClusterManagersPost struct {
+	Name  string `json:"name" yaml:"name"`
 	Token string `json:"token" yaml:"token"`
 }
 

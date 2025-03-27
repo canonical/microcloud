@@ -84,6 +84,7 @@ func (c *cmdClusterManagerJoin) run(_ *cobra.Command, args []string) error {
 	}
 
 	payload := types.ClusterManagersPost{
+		Name:  "default",
 		Token: token,
 	}
 

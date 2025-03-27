@@ -83,6 +83,10 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 			return response.BadRequest(errors.New("No token provided"))
 		}
 
+		if args.Name != database.ClusterManagerDefaultName {
+			return response.BadRequest(errors.New("Invalid cluster manager name, only " + database.ClusterManagerDefaultName + " is allowed."))
+		}
+
 		joinToken, err := shared.JoinTokenDecode(args.Token)
 		if err != nil {
 			return response.BadRequest(err)
@@ -106,7 +110,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		}
 
 		clusterManager := database.ClusterManager{
-			Name:                   database.ClusterManagerDefaultName,
+			Name:                   args.Name,
 			Addresses:              strings.Join(joinToken.Addresses, ","),
 			CertificateFingerprint: joinToken.Fingerprint,
 		}
