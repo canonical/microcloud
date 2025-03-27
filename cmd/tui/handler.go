@@ -1,12 +1,13 @@
 package tui
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 
-	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/cmd"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -94,20 +95,8 @@ func (i *InputHandler) AskBool(question string, defaultAnswer bool) (bool, error
 		defaultAnswerStr = "yes"
 	}
 
-	result, err := i.handleQuestion(question, defaultAnswerStr, []string{"yes", "no"})
-	if err != nil {
-		return false, err
-	}
-
-	if shared.ValueInSlice(strings.ToLower(result.answer), []string{"yes", "y"}) {
-		fmt.Println(result.View())
-		return true, nil
-	} else if shared.ValueInSlice(strings.ToLower(result.answer), []string{"no", "n"}) {
-		fmt.Println(result.View())
-		return false, nil
-	}
-
-	return false, fmt.Errorf("Response %q must be one of %v", result.answer, result.acceptedAnswers)
+	asker := cmd.NewAsker(bufio.NewReader(i.input), nil)
+	return asker.AskBool(i.formatQuestion(question, defaultAnswerStr, []string{"yes", "no"}), defaultAnswerStr)
 }
 
 // AskStringWarn is the same as AskString but it prints the given warning before asking.
@@ -120,19 +109,14 @@ func (i *InputHandler) AskStringWarn(warning string, question string, defaultAns
 func (i *InputHandler) AskString(question string, defaultAnswer string, validator func(string) error) (string, error) {
 	i.setActive(true)
 	defer i.setActive(false)
-	result, err := i.handleQuestion(question, defaultAnswer, nil)
+
+	asker := cmd.NewAsker(bufio.NewReader(i.input), nil)
+	result, err := asker.AskString(i.formatQuestion(question, defaultAnswer, nil), defaultAnswer, validator)
 	if err != nil {
 		return "", err
 	}
 
-	err = validator(result.answer)
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Println(result.View())
-
-	return result.answer, nil
+	return result, nil
 }
 
 func (i *InputHandler) handleQuestion(question string, defaultAnswer string, acceptedAnswers []string) (*asker, error) {
