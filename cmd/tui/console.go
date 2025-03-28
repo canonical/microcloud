@@ -154,7 +154,7 @@ func (c *testConsole) parseInput(handler *InputHandler) error {
 		} else if filter != "" {
 			action = filter
 		} else {
-			action = input + "\r"
+			action = input + "\n"
 		}
 	}
 
