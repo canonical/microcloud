@@ -12,6 +12,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.8.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
+	github.com/muesli/reflow v0.3.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.24.0
