@@ -1,0 +1,74 @@
+#!/bin/bash
+set -eu
+set -o pipefail
+
+REMOTE="${REMOTE:-${1:-""}}"
+
+remoteAccessible() {
+    lxc info "${REMOTE}:" >/dev/null 2>&1
+}
+
+init() {
+    if ! command -v lxc >/dev/null; then
+        echo "Missing command: lxc" >&2
+        echo "Please install the LXD snap: snap install lxd" >&2
+        exit 1
+    fi
+
+    if [ -z "${REMOTE}" ]; then
+        echo "Please set the REMOTE environment variable to the name of the remote LXD server" >&2
+        exit 1
+    fi
+
+    if ! remoteAccessible; then
+        echo "The ${REMOTE}: remote is not usable." >&2
+        echo "Please see https://documentation.ubuntu.com/lxd/en/latest/howto/server_expose/#authenticate-with-the-lxd-server" >&2
+        exit 1
+    fi
+
+    if ! command -v terraform >/dev/null; then
+        echo "Missing command: terraform" >&2
+        exit 1
+    fi
+}
+
+
+apply() {
+    echo "terraform apply"
+    for i in 1 2 3; do
+        terraform apply -auto-approve -var "remote=${REMOTE}" && break
+        retry="$((i*5))"
+        echo "Retrying in ${retry} seconds... (${i}/3)"
+        sleep "${retry}"
+    done
+}
+
+destroy() {
+    read -rp "Are you sure you want to destroy the environment? [y/N] " confirm
+    if [ "${confirm:-N}" != "y" ]; then
+        echo "Not destroying the environment"
+        return
+    fi
+
+    for i in 1 2 3; do
+        terraform destroy -auto-approve -var "remote=${REMOTE}" && break
+        retry="$((i*5))"
+        echo "Retrying in ${retry} seconds... (${i}/3)"
+        sleep "${retry}"
+    done
+}
+
+setup() {
+    echo "Setting up e2e environment on ${REMOTE}"
+    apply
+
+    echo "Setup done"
+}
+
+init
+setup
+
+# TODO: Add tests here
+
+destroy
+echo "Done"
