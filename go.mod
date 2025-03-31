@@ -2,6 +2,8 @@ module github.com/canonical/microcloud/microcloud
 
 go 1.23.3
 
+toolchain go1.24.1
+
 require (
 	github.com/canonical/lxd v0.0.0-20250312121743-1d27b1eb2f86
 	github.com/canonical/microceph/microceph v0.0.0-20250311203058-210e20f30bba
@@ -16,7 +18,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.24.0
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/sync v0.12.0
 	golang.org/x/sys v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
