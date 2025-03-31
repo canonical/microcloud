@@ -1,12 +1,13 @@
 package tui
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 
-	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/cmd"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -68,15 +69,22 @@ func (i *InputHandler) getAllRows() [][]string {
 
 // printWarning prints the given warning with "!" appended to the front of the message.
 func (i *InputHandler) printWarning(warning string) {
-	warningParts := strings.Split(warning, "\n")
-	for i := range warningParts {
-		if i > 0 {
-			// Add two spaces at the start of each new line, to account for the warning symbol at the start of the first line.
-			warningParts[i] = "  " + warningParts[i]
-		}
+	fmt.Printf("%s %s\n", WarningSymbol(), warning)
+}
+
+// formatQuestion enriches the plain question string with default and accepted answers.
+func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acceptedAnswers []string) string {
+	var acceptedAnswersBlock string
+	if len(acceptedAnswers) > 0 {
+		acceptedAnswersBlock = Printf(Fmt{Arg: " (%s)"}, Fmt{Arg: strings.Join(acceptedAnswers, "/"), Bold: true})
 	}
 
-	fmt.Printf("%s %s\n", WarningSymbol(), strings.Join(warningParts, "\n"))
+	var defaultAnswerBlock string
+	if defaultAnswer != "" {
+		defaultAnswerBlock = Printf(Fmt{Arg: " [%s]"}, Fmt{Arg: fmt.Sprintf("default=%s", defaultAnswer), Bold: true})
+	}
+
+	return fmt.Sprintf("%s%s%s: ", question, acceptedAnswersBlock, defaultAnswerBlock)
 }
 
 // AskBoolWarn is the same as AskBool but it prints the given warning before asking.
@@ -94,20 +102,8 @@ func (i *InputHandler) AskBool(question string, defaultAnswer bool) (bool, error
 		defaultAnswerStr = "yes"
 	}
 
-	result, err := i.handleQuestion(question, defaultAnswerStr, []string{"yes", "no"})
-	if err != nil {
-		return false, err
-	}
-
-	if shared.ValueInSlice(strings.ToLower(result.answer), []string{"yes", "y"}) {
-		fmt.Println(result.View())
-		return true, nil
-	} else if shared.ValueInSlice(strings.ToLower(result.answer), []string{"no", "n"}) {
-		fmt.Println(result.View())
-		return false, nil
-	}
-
-	return false, fmt.Errorf("Response %q must be one of %v", result.answer, result.acceptedAnswers)
+	asker := cmd.NewAsker(bufio.NewReader(i.input), nil)
+	return asker.AskBool(i.formatQuestion(question, defaultAnswerStr, []string{"yes", "no"}), defaultAnswerStr)
 }
 
 // AskStringWarn is the same as AskString but it prints the given warning before asking.
@@ -120,50 +116,11 @@ func (i *InputHandler) AskStringWarn(warning string, question string, defaultAns
 func (i *InputHandler) AskString(question string, defaultAnswer string, validator func(string) error) (string, error) {
 	i.setActive(true)
 	defer i.setActive(false)
-	result, err := i.handleQuestion(question, defaultAnswer, nil)
+
+	asker := cmd.NewAsker(bufio.NewReader(i.input), nil)
+	result, err := asker.AskString(i.formatQuestion(question, defaultAnswer, nil), defaultAnswer, validator)
 	if err != nil {
 		return "", err
-	}
-
-	err = validator(result.answer)
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Println(result.View())
-
-	return result.answer, nil
-}
-
-func (i *InputHandler) handleQuestion(question string, defaultAnswer string, acceptedAnswers []string) (*asker, error) {
-	ask := &asker{
-		question:        question,
-		defaultAnswer:   defaultAnswer,
-		acceptedAnswers: acceptedAnswers,
-		File:            i.output,
-	}
-
-	// The standard renderer does not yet support custom cursor positions so we need to
-	// manually remove the sequence from the end of the string to get proper cursor tracking.
-	// see: https://github.com/charmbracelet/bubbletea/issues/918
-	out, err := tea.NewProgram(ask, tea.WithOutput(ask), tea.WithInput(i.input)).Run()
-	if err != nil {
-		return nil, err
-	}
-
-	result, ok := out.(*asker)
-	if !ok {
-		return nil, fmt.Errorf("Unexpected question result")
-	}
-
-	if result.cancelled {
-		return nil, fmt.Errorf("Input cancelled")
-	}
-
-	if strings.TrimSpace(result.answer) == "" {
-		result.answer = result.defaultAnswer
-	} else {
-		result.answer = strings.TrimSpace(result.answer)
 	}
 
 	return result, nil

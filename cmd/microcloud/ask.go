@@ -146,15 +146,7 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 				return err
 			}
 
-			errParts := strings.Split(err.Error(), "\n")
-			for i := range errParts {
-				if i > 0 {
-					// Add two spaces at the start of each new line, to account for the error symbol at the start of the first line.
-					errParts[i] = "  " + errParts[i]
-				}
-			}
-
-			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(strings.Join(errParts, "\n"), true))
+			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(err.Error(), true))
 			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
@@ -760,7 +752,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			if insufficientDisks {
 				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
-				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks.\nContinuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
+				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
 			}
 
 			return nil
@@ -939,7 +931,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if len(askSystems) == 0 || !allSystemsEligible {
-		warning := "Some systems are ineligible for distributed networking.\nAt least one interface in state UP with no IPs assigned or a bridge is required"
+		warning := "Some systems are ineligible for distributed networking. At least one interface in state UP with no IPs assigned or a bridge is required"
 		question := "Continue anyway?"
 		wantsContinue, err := c.asker.AskBoolWarn(warning, question, true)
 		if err != nil {
