@@ -24,7 +24,7 @@ See the {ref}`howto-update-upgrade-upgrade` guide for more information.
 The following channels are available for you to interact with the MicroCloud community:
 
 - You can file bug reports and feature requests as [GitHub issues](https://github.com/canonical/microcloud/issues/new).
-- To ask questions, go to the MicroCloud section of our [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/).
+- To ask questions, go to the MicroCloud section of our [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
 
 ## Commercial support
 
@@ -37,4 +37,4 @@ See the full [Ubuntu Pro service description](https://ubuntu.com/legal/ubuntu-pr
 
 See the [MicroCloud documentation](https://canonical-microcloud.readthedocs-hosted.com/) for official product documentation.
 
-You can find additional resources on the [website](https://canonical.com/microcloud) and in the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/).
+You can find additional resources on the [website](https://canonical.com/microcloud) and in the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
