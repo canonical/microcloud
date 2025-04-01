@@ -1006,20 +1006,34 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			}
 
 			// Remove any selected disks from the remaining available set.
-			if len(matched) > 0 {
+			if len(matchedDiskPaths) > 0 {
 				cephMachines[peer] = true
 				newDisks := []lxdAPI.ResourcesStorageDisk{}
-				for _, disk := range disks {
-					isMatch := false
-					for _, match := range matched {
-						if disk.ID == match.ID {
-							isMatch = true
-							break
-						}
-					}
 
-					if !isMatch {
-						newDisks = append(newDisks, disk)
+				for _, matchedDiskPath := range matchedDiskPaths {
+					for _, disk := range disks {
+						diskPath := parseDiskPath(disk)
+
+						if len(disk.Partitions) > 0 {
+							var remainingPartitions []lxdAPI.ResourcesStorageDiskPartition
+							for _, partition := range disk.Partitions {
+								if formatPartitionPath(diskPath, partition.Partition) != matchedDiskPath {
+									remainingPartitions = append(remainingPartitions, partition)
+								}
+							}
+
+							disk.Partitions = remainingPartitions
+
+							// Don't anymore list the disk as available as all of its partitions are already used for local storage.
+							if len(disk.Partitions) == 0 {
+								continue
+							}
+						}
+
+						// Filter out used disks.
+						if diskPath != matchedDiskPath {
+							newDisks = append(newDisks, disk)
+						}
 					}
 				}
 
