@@ -101,11 +101,6 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 
 	if allResources != nil {
 		for _, disk := range allResources.Storage.Disks {
-			// Exclude non-pristine disks with partitions.
-			if len(disk.Partitions) != 0 {
-				continue
-			}
-
 			// Exclude cdrom drives as viable storage disk.
 			if disk.Type == "cdrom" {
 				continue
