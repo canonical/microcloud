@@ -80,10 +80,58 @@ setup() {
     echo "Setup done"
 }
 
+instanceList() {
+    lxc list --project e2e-testing -f csv -c n "${REMOTE}:"
+}
+
+randomPick() {
+    local count="${1}"
+    shift
+    local list="$*"
+
+    echo "${list}" | sort -R | head -n "${count}"
+}
+
+getIPv4() {
+    local instance="${1}"
+    lxc list --project e2e-testing -f csv -c 4 "${REMOTE}:" name="${instance}" | cut -d" " -f1
+}
+
+checkConnectivity() {
+    local src="${1}"
+    local dst="${2}"
+    local dstIPv4
+    dstIPv4="$(getIPv4 "${dst}")"
+
+    echo -n " ● ${src} => ${dst} (${dstIPv4}):"
+    # Using bash /dev/tcp to check for connectivity as it is available in every Ubuntu images even the minimal ones.
+    if lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"; then
+        echo " ✅"
+    else
+        echo " ❌"
+        exit 1
+    fi
+}
+
+connectivity() {
+    local instances instance src dst
+    instances="$(instanceList)"
+
+    echo "Connectivity check:"
+    for src in $(randomPick 3 "${instances}"); do
+        for dst in $(randomPick 3 "${instances}"); do
+            [ "${src}" = "${dst}" ] && continue
+
+            checkConnectivity "${src}" "${dst}"
+        done
+    done
+    echo "DONE"
+}
+
 init
 setup
 
-# TODO: Add tests here
+connectivity
 
 destroy
 echo "Done"
