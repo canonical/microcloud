@@ -293,6 +293,10 @@ func parseDiskPath(disk api.ResourcesStorageDisk) string {
 	return devicePath
 }
 
+func parsePartitionPath(diskPath string, partitionID uint64) string {
+	return fmt.Sprintf("%s-part%d", diskPath, partitionID)
+}
+
 func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	useJoinConfig := false
 	askSystems := map[string]bool{}
