@@ -1037,13 +1037,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	zfsMachines := map[string]bool{}
 	for peer, r := range allResourcesZFS {
 		system := c.systems[peer]
-
-		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				disks = append(disks, disk)
-			}
-		}
+		disks := service.FilterDisks(r.Storage.Disks)
 
 		for _, filter := range p.Storage.Local {
 			// No need to check filters anymore if each machine has a disk.
