@@ -106,6 +106,21 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 				continue
 			}
 
+			// Carefully handle disk with partitions.
+			// In case any of the partition on a disk is mounted, consider this disk to be used
+			// as the root disk of the system and therefore skip it including all of its partitions.
+			potentialRootDisk := false
+			for _, partition := range disk.Partitions {
+				if partition.Mounted {
+					potentialRootDisk = true
+					break
+				}
+			}
+
+			if potentialRootDisk {
+				continue
+			}
+
 			s.AvailableDisks[disk.ID] = disk
 		}
 	}
