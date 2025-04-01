@@ -5,7 +5,7 @@
 The MicroCloud team welcomes contributions through pull requests, issue reports, and discussions.
 
 - Contribute to the code or documentation, report bugs, or request features in the [GitHub repository](https://github.com/canonical/microcloud).
-- Ask questions or join discussions in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud).
+- Ask questions or join discussions in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
 
 Review the following guidelines before contributing to the project.
 
