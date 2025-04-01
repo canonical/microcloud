@@ -349,6 +349,15 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 		for _, disk := range sortedDisks {
 			devicePath := parseDiskPath(disk)
+
+			if len(disk.Partitions) > 0 {
+				for _, partition := range disk.Partitions {
+					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(partition.Size), 2), disk.Type, parsePartitionPath(devicePath, partition.Partition)})
+				}
+
+				continue
+			}
+
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 		}
 	}
