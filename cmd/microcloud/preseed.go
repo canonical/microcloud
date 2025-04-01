@@ -570,7 +570,7 @@ func (p *Preseed) address(name string) (string, error) {
 }
 
 // Match matches the devices to the given filter, and returns the result.
-func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.ResourcesStorageDisk, error) {
+func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]string, error) {
 	if d.Find == "" {
 		return nil, fmt.Errorf("Received empty filter")
 	}
@@ -593,15 +593,38 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 		return strconv.ParseUint(c.Value, 10, 0)
 	}
 
-	matches := []lxdAPI.ResourcesStorageDisk{}
+	matches := []string{}
 	for _, disk := range disks {
+		diskPath := parseDiskPath(disk)
+
+		if len(disk.Partitions) > 0 {
+			diskUsed := false
+			for _, partition := range disk.Partitions {
+				match, err := filter.Match(partition, *clauses)
+				if err != nil {
+					return nil, err
+				}
+
+				if match {
+					diskUsed = true
+					matches = append(matches, formatPartitionPath(diskPath, partition.Partition))
+				}
+			}
+
+			// If one of the disks partitions got used for a match,
+			// continue the loop and don't try matching the parent disk too.
+			if diskUsed {
+				continue
+			}
+		}
+
 		match, err := filter.Match(disk, *clauses)
 		if err != nil {
 			return nil, err
 		}
 
 		if match {
-			matches = append(matches, disk)
+			matches = append(matches, diskPath)
 		}
 	}
 
