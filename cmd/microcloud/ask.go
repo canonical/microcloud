@@ -478,6 +478,26 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for target, path := range selectedDisks {
 		newAvailableDisks[target] = map[string]api.ResourcesStorageDisk{}
 		for id, disk := range availableDisks[target] {
+			diskPath := parseDiskPath(disk)
+
+			// Filter out used partitions.
+			if len(disk.Partitions) > 0 {
+				var remainingPartitions []api.ResourcesStorageDiskPartition
+				for _, partition := range disk.Partitions {
+					if formatPartitionPath(diskPath, partition.Partition) != path {
+						remainingPartitions = append(remainingPartitions, partition)
+					}
+				}
+
+				disk.Partitions = remainingPartitions
+
+				// Don't anymore list the disk as available as all of its partitions are already used for local storage.
+				if len(disk.Partitions) == 0 {
+					continue
+				}
+			}
+
+			// Filter out used disks.
 			if parseDiskPath(disk) != path {
 				newAvailableDisks[target][id] = disk
 			}
