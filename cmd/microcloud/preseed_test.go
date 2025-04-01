@@ -327,14 +327,14 @@ func (s *preseedSuite) Test_preseedMatchDisksMemory() {
 	unit2, err := units.ParseByteSizeString("2MiB")
 	s.NoError(err)
 
-	disks := []api.ResourcesStorageDisk{{Size: uint64(unit1)}, {Size: uint64(unit2)}}
+	disks := []api.ResourcesStorageDisk{{Size: uint64(unit1), ID: "foo1"}, {Size: uint64(unit2), ID: "foo2"}}
 	filter := DiskFilter{Find: "size == 1MiB"}
 
 	results, err := filter.Match(disks)
 	s.NoError(err)
 
 	s.Equal(len(results), 1)
-	s.Equal(results[0], disks[0])
+	s.Equal(parseDiskPath(disks[0]), results[0])
 }
 
 func (s *preseedSuite) Test_isInitiator() {
