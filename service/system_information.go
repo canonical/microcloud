@@ -140,13 +140,14 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 		return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", s.ClusterName, err)
 	}
 
-	if allResources != nil {
-		for _, disk := range allResources.Storage.Disks {
-			// Exclude cdrom drives as viable storage disk.
-			if disk.Type == "cdrom" {
-				continue
-			}
+	hasFSUUID, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "resources_device_fs_uuid")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check for resources_device_fs_uuid extension: %w", err)
+	}
 
+	if allResources != nil {
+		// Filter out
+		for _, disk := range FilterDisks(allResources.Storage.Disks, hasFSUUID) {
 			s.AvailableDisks[disk.ID] = disk
 		}
 	}

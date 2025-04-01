@@ -936,17 +936,16 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 	}
 
+	hasFSUUID, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "resources_device_fs_uuid")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check for resources_device_fs_uuid extension: %w", err)
+	}
+
 	cephMatches := map[string]int{}
 	cephMachines := map[string]bool{}
 	for peer, r := range allResourcesCeph {
 		system := c.systems[peer]
-
-		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				disks = append(disks, disk)
-			}
-		}
+		disks := service.FilterDisks(r.Storage.Disks, hasFSUUID)
 
 		addedCephPool := false
 		for _, filter := range p.Storage.Ceph {
@@ -1012,13 +1011,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	zfsMachines := map[string]bool{}
 	for peer, r := range allResourcesZFS {
 		system := c.systems[peer]
-
-		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				disks = append(disks, disk)
-			}
-		}
+		disks := service.FilterDisks(r.Storage.Disks, hasFSUUID)
 
 		for _, filter := range p.Storage.Local {
 			// No need to check filters anymore if each machine has a disk.
