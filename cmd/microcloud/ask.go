@@ -351,6 +351,10 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		for _, disk := range sortedDisks {
 			devicePath := parseDiskPath(disk)
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
+
+			for _, partition := range disk.Partitions {
+				data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(partition.Size), 2), disk.Type, formatPartitionPath(devicePath, partition.Partition)})
+			}
 		}
 	}
 
@@ -692,9 +696,12 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				})
 
 				for _, disk := range sortedDisks {
-					// Skip any disks that have been reserved for the local storage pool.
 					devicePath := parseDiskPath(disk)
 					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
+
+					for _, partition := range disk.Partitions {
+						data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(partition.Size), 2), disk.Type, formatPartitionPath(devicePath, partition.Partition)})
+					}
 				}
 			}
 
