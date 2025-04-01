@@ -293,6 +293,11 @@ func parseDiskPath(disk api.ResourcesStorageDisk) string {
 	return devicePath
 }
 
+// formatPartitionPath returns a partition's path derived from the parent disk and partition ID.
+func formatPartitionPath(diskPath string, partitionID uint64) string {
+	return fmt.Sprintf("%s-part%d", diskPath, partitionID)
+}
+
 func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	useJoinConfig := false
 	askSystems := map[string]bool{}
