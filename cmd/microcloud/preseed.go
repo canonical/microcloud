@@ -972,16 +972,16 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 		addedCephPool := false
 		for _, filter := range p.Storage.Ceph {
-			matched, err := filter.Match(disks)
+			matchedDiskPaths, err := filter.Match(disks)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to apply filter for ceph disks: %w", err)
 			}
 
-			for _, disk := range matched {
+			for _, diskPath := range matchedDiskPaths {
 				system.MicroCephDisks = append(
 					system.MicroCephDisks,
 					cephTypes.DisksPost{
-						Path:    []string{parseDiskPath(disk)},
+						Path:    []string{diskPath},
 						Wipe:    filter.Wipe,
 						Encrypt: filter.Encrypt,
 					},
@@ -1050,12 +1050,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			if len(matched) > 0 {
 				zfsMachines[peer] = true
 				if c.bootstrap {
-					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, parseDiskPath(matched[0])))
+					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, matched[0]))
 					if s.Name == peer {
 						system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
 					}
 				} else {
-					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, parseDiskPath(matched[0]))...)
+					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, matched[0])...)
 				}
 
 				zfsMatches[filter.Find] = zfsMatches[filter.Find] + 1
