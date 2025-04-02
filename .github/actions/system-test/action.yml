@@ -139,6 +139,12 @@ runs:
         echo "MICROOVN_SNAP_CHANNEL=${MICROOVN_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
         echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
 
+    - name: Setup Terraform
+      if: ${{ matrix.suite == 'e2e' }}
+      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      with:
+        terraform_wrapper: false
+
     - name: "Run system tests (${{ matrix.suite }})"
       shell: bash
       run: |
