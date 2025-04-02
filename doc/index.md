@@ -75,7 +75,7 @@ MicroCloud is a member of the Ubuntu family. It’s an open source project that 
 
 - [MicroCloud snap](https://snapcraft.io/microcloud)
 - [Contribute](https://github.com/canonical/microcloud)
-- [Get support](https://discourse.ubuntu.com/c/lxd/microcloud/)
+- [Get support](https://discourse.ubuntu.com/c/lxd/microcloud/145)
 - [Thinking about using MicroCloud for your next project? Get in touch!](https://canonical.com/microcloud)
 
 
