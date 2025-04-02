@@ -18,7 +18,7 @@ resource "lxd_profile" "e2e" {
   # Configuration
   config = {
     "limits.cpu"    = 1
-    "limits.memory" = "1GiB"
+    "limits.memory" = "384MiB"
   }
 
   # Devices
