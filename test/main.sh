@@ -249,6 +249,10 @@ run_add_tests() {
   run_test test_add_interactive "add interactive"
 }
 
+run_e2e_tests() {
+  run_test test_e2e "e2e with Terraform"
+}
+
 run_instances_tests() {
   run_test test_instances_config "instances config"
   run_test test_instances_launch "instances launch"
@@ -286,6 +290,7 @@ run_upgrade_tests() {
 # allow for running a specific set of tests
 if [ "${1:-"all"}" = "all" ]; then
   run_add_tests
+  run_e2e_tests
   run_instances_tests
   run_basic_tests
   run_recover_tests
@@ -295,6 +300,8 @@ if [ "${1:-"all"}" = "all" ]; then
   run_upgrade_tests
 elif [ "${1}" = "add" ]; then
   run_add_tests
+elif [ "${1}" = "e2e" ]; then
+  run_e2e_tests
 elif [ "${1}" = "instances" ]; then
   run_instances_tests
 elif [ "${1}" = "basic" ]; then
