@@ -3,6 +3,7 @@ set -eu
 set -o pipefail
 
 REMOTE="${REMOTE:-${1:-""}}"
+DESTROY="${DESTROY:-prompt}"
 
 remoteAccessible() {
     lxc info "${REMOTE}:" >/dev/null 2>&1
@@ -74,14 +75,17 @@ apply() {
 }
 
 destroy() {
-    local confirm
-    read -rp "Are you sure you want to destroy the environment? [y/N] " confirm
-    if [ "${confirm:-N}" != "y" ]; then
-        echo "Not destroying the environment"
-        return
+    echo "terraform destroy"
+    if [ "${DESTROY}" = "prompt" ]; then
+        terraform destroy -var "remote=${REMOTE}"
+    elif [ "${DESTROY}" = "yes" ]; then
+        terraform destroy -auto-approve -var "remote=${REMOTE}"
+    elif [ "${DESTROY}" = "no" ] ; then
+        echo "Skipping destroy"
+    else
+        echo "Invalid DESTROY value: ${DESTROY}" >&2
+        exit 1
     fi
-
-    terraform destroy -auto-approve -var "remote=${REMOTE}"
 }
 
 setup() {
