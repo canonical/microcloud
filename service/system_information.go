@@ -63,6 +63,36 @@ type SystemInformation struct {
 	existingUplinkNetwork *api.Network
 }
 
+// FilterDisks filters out all disks not applicable for both local and remote storage pool configuration.
+func FilterDisks(disks []api.ResourcesStorageDisk) []api.ResourcesStorageDisk {
+	var filteredDisks []api.ResourcesStorageDisk
+	for _, disk := range disks {
+		// Exclude cdrom drives as viable storage disk.
+		if disk.Type == "cdrom" {
+			continue
+		}
+
+		// Carefully handle disk with partitions.
+		// In case any of the partition on a disk is mounted, consider this disk to be used
+		// as the root disk of the system and therefore skip it including all of its partitions.
+		potentialRootDisk := false
+		for _, partition := range disk.Partitions {
+			if partition.Mounted {
+				potentialRootDisk = true
+				break
+			}
+		}
+
+		if potentialRootDisk {
+			continue
+		}
+
+		filteredDisks = append(filteredDisks, disk)
+	}
+
+	return filteredDisks
+}
+
 // CollectSystemInformation fetches the current cluster information of the system specified by the connection info.
 func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo multicast.ServerInfo) (*SystemInformation, error) {
 	if connectInfo.Name == "" || connectInfo.Address == "" {
@@ -100,17 +130,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	}
 
 	if allResources != nil {
-		for _, disk := range allResources.Storage.Disks {
-			// Exclude non-pristine disks with partitions.
-			if len(disk.Partitions) != 0 {
-				continue
-			}
-
-			// Exclude cdrom drives as viable storage disk.
-			if disk.Type == "cdrom" {
-				continue
-			}
-
+		for _, disk := range FilterDisks(allResources.Storage.Disks) {
 			s.AvailableDisks[disk.ID] = disk
 		}
 	}

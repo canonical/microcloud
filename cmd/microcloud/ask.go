@@ -293,6 +293,10 @@ func parseDiskPath(disk api.ResourcesStorageDisk) string {
 	return devicePath
 }
 
+func parsePartitionPath(diskPath string, partitionID uint64) string {
+	return fmt.Sprintf("%s-part%d", diskPath, partitionID)
+}
+
 func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	useJoinConfig := false
 	askSystems := map[string]bool{}
@@ -345,6 +349,15 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 		for _, disk := range sortedDisks {
 			devicePath := parseDiskPath(disk)
+
+			if len(disk.Partitions) > 0 {
+				for _, partition := range disk.Partitions {
+					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(partition.Size), 2), disk.Type, parsePartitionPath(devicePath, partition.Partition)})
+				}
+
+				continue
+			}
+
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 		}
 	}
@@ -469,6 +482,26 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for target, path := range selectedDisks {
 		newAvailableDisks[target] = map[string]api.ResourcesStorageDisk{}
 		for id, disk := range availableDisks[target] {
+			diskPath := parseDiskPath(disk)
+
+			// Filter out used partitions.
+			if len(disk.Partitions) > 0 {
+				var remainingPartitions []api.ResourcesStorageDiskPartition
+				for _, partition := range disk.Partitions {
+					if parsePartitionPath(diskPath, partition.Partition) != path {
+						remainingPartitions = append(remainingPartitions, partition)
+					}
+				}
+
+				disk.Partitions = remainingPartitions
+
+				// Don't anymore list the disk as available as all of its partitions are already used for local storage.
+				if len(disk.Partitions) == 0 {
+					continue
+				}
+			}
+
+			// Filter out used disks.
 			if parseDiskPath(disk) != path {
 				newAvailableDisks[target][id] = disk
 			}
@@ -687,8 +720,16 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				})
 
 				for _, disk := range sortedDisks {
-					// Skip any disks that have been reserved for the local storage pool.
 					devicePath := parseDiskPath(disk)
+
+					if len(disk.Partitions) > 0 {
+						for _, partition := range disk.Partitions {
+							data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(partition.Size), 2), disk.Type, parsePartitionPath(devicePath, partition.Partition)})
+						}
+
+						continue
+					}
+
 					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 				}
 			}
