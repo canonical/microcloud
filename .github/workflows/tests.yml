@@ -150,6 +150,7 @@ jobs:
         # after GitHub as formed the name for the respective check.
         suite:
           - "add"
+          - "e2e"
           - "instances"
           - "basic"
           - "recover"
