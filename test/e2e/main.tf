@@ -90,6 +90,8 @@ resource "lxd_instance" "e2e-vm" {
   profiles         = [lxd_profile.e2e.name]
   image            = lxd_cached_image.vm[0].fingerprint
   wait_for_network = true
+  allow_restart    = true
+
   config = {
     "migration.stateful" = "true"
   }
