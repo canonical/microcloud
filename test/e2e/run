@@ -30,6 +30,15 @@ init() {
         echo "Missing command: terraform" >&2
         exit 1
     fi
+
+    # Show overrides
+    if [ -s ./terraform.tfvars ]; then
+        echo "Using overrides from terraform.tfvars:"
+        echo "--------------------------------------"
+        cat ./terraform.tfvars
+        echo "--------------------------------------"
+        echo
+    fi
 }
 
 retry() {
