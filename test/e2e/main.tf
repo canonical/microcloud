@@ -112,7 +112,7 @@ locals {
   vms = flatten([
     for index, cluster_member_name in local.cluster_member_names : [
       for i in range(var.vms_per_host) : {
-        instance = "vm${format("%02d", var.vms_per_host * index + i + 1)}"
+        instance = "v${format("%02d", var.vms_per_host * index + i + 1)}"
         target   = cluster_member_name
       }
     ]
