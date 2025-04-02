@@ -44,6 +44,15 @@ This token can be used on the machine where the `run` script will be used:
 ```sh
 lxc remote add mc https://microcloud.lxd:8443 --token eyJjbGllbnRfbmFtZSI6ImUyZS10ZXN0aW5nIiwiZmluZ2VycHJpbnQiOiIyNzY1OGNjYmRlNmRkZDcwNDliMzliNmY5NzA1MWIzMWVkMWQ0NDM2OTFjZGFjMWIxNmI1ODBjNmI4NzFiNmM2IiwiYWRkcmVzc2VzIjpbIjE3Mi4yNC4yNi4xODo4NDQzIiwiWzIwMDE6NDcwOmIxYzM6Nzk0Njo4NWYzOmQzYTg6ZDcxZTo3YjA1XTo4NDQzIl0sInNlY3JldCI6ImJjNjlmOTM4YzM5NjRhNTI1ZDI3OTlmMTEyM2Q2NWE5ZGExZDE1ZGFmNjVjZjlmNTViYjQ1ZDdmZjBiMjg1YmYiLCJleHBpcmVzX2F0IjoiMDAwMS0wMS0wMVQwMDowMDowMFoiLCJ0eXBlIjoiQ2xpZW50IGNlcnRpZmljYXRlIn0=
 
-
 ./run mc
+```
+
+Upon successful completion, a confirmation prompt will be displayed before destroying the testing environment. This behavior can be changed by setting the `DESTROY` variable accordingly:
+
+```sh
+# Leave the environment in place
+DESTROY=no ./run mc
+
+# or automatically destroy it without prompting
+DESTROY=yes ./run mc
 ```
