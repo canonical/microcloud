@@ -27,6 +27,11 @@ init() {
         exit 1
     fi
 
+    if [ "$(clusterMembers ONLINE | wc -l)" != "$(clusterMembers ALL | wc -l)" ]; then
+        echo "Not all cluster members are online, aborting" >&2
+        exit 1
+    fi
+
     if ! command -v terraform >/dev/null; then
         echo "Missing command: terraform" >&2
         exit 1
@@ -99,6 +104,14 @@ instanceList() {
     lxc list --project e2e-testing -f csv -c n "${REMOTE}:"
 }
 
+clusterMembers() {
+    local state="${1}"
+    [ "${state}" = "ALL" ] && state=".*"
+    # XXX: cannot use the column number for the member state as if multiple
+    # roles are provided, the column number will change
+    lxc cluster list --project e2e-testing -f csv "${REMOTE}:" | awk -F, "/,${state},/ {print \$1}"
+}
+
 randomPick() {
     local count="${1}"
     shift
@@ -143,9 +156,36 @@ connectivity() {
     echo "DONE"
 }
 
+evacuation() {
+    local member
+
+    for member in $(clusterMembers ONLINE); do
+        echo "Evacuating ${member}"
+        lxc cluster evacuate --project e2e-testing --force "${REMOTE}:${member}"
+
+        echo "Waiting for ${member} to be rebooted"
+        if [ -x "./reboot" ]; then
+            ./reboot "${REMOTE}" "e2e-testing" "${member}"
+        else
+            read -rp "Please reboot ${member} and press enter to continue once it is back online"
+        fi
+
+        lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}"
+    done
+
+    echo -n "Allow time for stopped instances to start back again "
+    for _ in $(seq 20); do
+        echo -n "."
+        sleep 1
+    done
+    echo " DONE"
+}
+
 init
 setup
 
+connectivity
+evacuation
 connectivity
 
 destroy
