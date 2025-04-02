@@ -1,0 +1,89 @@
+#!/bin/bash
+set -eu
+set -o pipefail
+
+REMOTE="${REMOTE:-${1:-""}}"
+
+remoteAccessible() {
+    lxc info "${REMOTE}:" >/dev/null 2>&1
+}
+
+init() {
+    if ! command -v lxc >/dev/null; then
+        echo "Missing command: lxc" >&2
+        echo "Please install the LXD snap: snap install lxd" >&2
+        exit 1
+    fi
+
+    if [ -z "${REMOTE}" ]; then
+        echo "Please set the REMOTE environment variable to the name of the remote LXD server" >&2
+        exit 1
+    fi
+
+    if ! remoteAccessible; then
+        echo "The ${REMOTE}: remote is not usable." >&2
+        echo "Please see https://documentation.ubuntu.com/lxd/en/latest/howto/server_expose/#authenticate-with-the-lxd-server" >&2
+        exit 1
+    fi
+
+    if ! command -v terraform >/dev/null; then
+        echo "Missing command: terraform" >&2
+        exit 1
+    fi
+}
+
+retry() {
+    local cmd="$*"
+    local i
+    for i in 1 2 3; do
+        ${cmd} && return 0
+        retry="$((i*5))"
+        echo "Retrying in ${retry} seconds... (${i}/3)"
+        sleep "${retry}"
+    done
+    return 1
+}
+
+apply() {
+    echo "terraform apply"
+
+    # retry to work around the following issues with cluster image downloads:
+    # a) multiple cluster members trying to figure which image fingerprint to download:
+    # Failed creating instance from image: Error inserting volume "876fac034595ac77ccfd4dc023bd2667fe5d4b4226dfc38cd8109aa215783998" for project "default" in pool "remote" of type "images" into database "UNIQUE constraint failed: index
+    # 'storage_volumes_unique_storage_pool_id_node_id_project_id_name_type'"
+
+    # b) missing parent image (failed turning the tarball/squashfs into an image volume+snapshot):
+    # Failed creating instance from image: Failed to run: rbd --id admin --cluster ceph --image-feature layering --image-feature striping --image-feature exclusive-lock --image-feature object-map --image-feature fast-diff --image-feature deep-flatten clone
+    # lxd_remote/image_876fac034595ac77ccfd4dc023bd2667fe5d4b4226dfc38cd8109aa215783998_ext4@readonly lxd_remote/container_e2e-testing_c01: exit status 2 (2025-04-01T14:38:07.671+0000 7f8284b55640 -1 librbd::image::RefreshRequest: failed to locate snapshot:
+    # readonly
+    # 2025-04-01T14:38:07.671+0000 7f8284b55640 -1 librbd::image::OpenRequest: failed to find snapshot readonly
+    # 2025-04-01T14:38:07.671+0000 7f826bfff640 -1 librbd::image::CloneRequest: 0x55b8434ed7c0 handle_open_parent: failed to open parent image: (2) No such file or directory
+    # rbd: clone error: (2) No such file or directory)
+    retry terraform apply -auto-approve -var "remote=${REMOTE}"
+}
+
+destroy() {
+    local confirm
+    read -rp "Are you sure you want to destroy the environment? [y/N] " confirm
+    if [ "${confirm:-N}" != "y" ]; then
+        echo "Not destroying the environment"
+        return
+    fi
+
+    terraform destroy -auto-approve -var "remote=${REMOTE}"
+}
+
+setup() {
+    echo "Setting up e2e environment on ${REMOTE}"
+    apply
+
+    echo "Setup done"
+}
+
+init
+setup
+
+# TODO: Add tests here
+
+destroy
+echo "Done"
