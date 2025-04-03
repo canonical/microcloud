@@ -53,7 +53,7 @@ test_instances_config() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -98,7 +98,7 @@ EOF
   reset_systems 3 3 2
 
   # Create a MicroCloud with ceph and ovn setup.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -164,7 +164,7 @@ test_instances_launch() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -255,7 +255,7 @@ EOF
   reset_systems 3 3 2
 
   # Create a MicroCloud with ceph and ovn setup.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
