@@ -1,9 +1,4 @@
 name: System test
-inputs:
-  github_runner:
-    description: Whether or not this test is executed on a GitHub runner.
-    required: true
-    default: true
 runs:
   using: composite
   steps:
@@ -17,7 +12,7 @@ runs:
       uses: canonical/lxd/.github/actions/reclaim-memory@main
 
     - name: Disable Docker (GitHub runners)
-      if: inputs.github_runner == 'true'
+      if: ${{ runner.environment == 'github-hosted' }}
       uses: canonical/lxd/.github/actions/disable-docker@main
 
     - name: "Disable br_netfilter"
