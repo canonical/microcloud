@@ -1291,7 +1291,7 @@ test_non_ha() {
 
   reset_systems 2 3 3
   echo "Creating a MicroCloud with 1 system and growing it to 3, using preseed"
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -1321,7 +1321,7 @@ EOF
   validate_system_microceph "micro01" 1 "disk2" "disk3"
   validate_system_microovn "micro01"
 
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -1351,7 +1351,7 @@ EOF
 
   reset_systems 2 3 3
   echo "Creating a MicroCloud with 2 systems with Ceph storage using preseed"
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
