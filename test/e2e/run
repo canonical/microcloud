@@ -31,6 +31,8 @@ init() {
         exit 1
     fi
 
+    terraform init
+
     # Show overrides
     if [ -s ./terraform.tfvars ]; then
         echo "Using overrides from terraform.tfvars:"
