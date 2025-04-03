@@ -242,11 +242,7 @@ $(true)                                 # workaround for set -e
 
 
   for joiner in ${joiners} ; do
-    if [ "${code}" = 0 ]; then
-      [ "$(lxc exec "${joiner}" -- cat code)" = "0" ]
-    else
-      ! [ "$(lxc exec "${joiner}" -- cat code)" = "0" ] || false
-    fi
+    [ "$(lxc file pull "${joiner}"/root/code -)" = "${code}" ]
   done
 
   return "${code}"
