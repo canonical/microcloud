@@ -168,8 +168,6 @@ jobs:
 
       - name: System test
         uses: ./.github/actions/system-test
-        with:
-          github_runner: true
 
   system-tests-upgrade:
     env:
@@ -198,8 +196,6 @@ jobs:
 
       - name: System test
         uses: ./.github/actions/system-test
-        with:
-          github_runner: true
 
   system-tests-canonical:
     env:
@@ -228,8 +224,6 @@ jobs:
 
       - name: System test
         uses: ./.github/actions/system-test
-        with:
-          github_runner: false
 
   tics:
     name: Tiobe TICS
