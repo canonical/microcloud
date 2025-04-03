@@ -65,10 +65,12 @@ apply() {
     echo "terraform apply"
 
     # retry to work around the following issues with cluster image downloads:
+    # XXX: https://github.com/canonical/lxd/issues/11636
     # a) multiple cluster members trying to figure which image fingerprint to download:
     # Failed creating instance from image: Error inserting volume "876fac034595ac77ccfd4dc023bd2667fe5d4b4226dfc38cd8109aa215783998" for project "default" in pool "remote" of type "images" into database "UNIQUE constraint failed: index
     # 'storage_volumes_unique_storage_pool_id_node_id_project_id_name_type'"
 
+    # XXX: https://github.com/canonical/lxd/issues/15315
     # b) missing parent image (failed turning the tarball/squashfs into an image volume+snapshot):
     # Failed creating instance from image: Failed to run: rbd --id admin --cluster ceph --image-feature layering --image-feature striping --image-feature exclusive-lock --image-feature object-map --image-feature fast-diff --image-feature deep-flatten clone
     # lxd_remote/image_876fac034595ac77ccfd4dc023bd2667fe5d4b4226dfc38cd8109aa215783998_ext4@readonly lxd_remote/container_e2e-testing_c01: exit status 2 (2025-04-01T14:38:07.671+0000 7f8284b55640 -1 librbd::image::RefreshRequest: failed to locate snapshot:
