@@ -5,7 +5,7 @@ MicroCloud is distributed as a [snap](https://snapcraft.io/docs).
 The benefit of packaging MicroCloud as a snap is that it makes it possible to include the required dependencies, and that it allows MicroCloud to be installed on many different Linux distributions.
 The snap ensures that MicroCloud runs in a consistent environment.
 
-Because MicroCloud uses a set of {ref}`other snaps <snaps>`, you must make sure to have suitable versions of these snaps installed on all machines of your MicroCloud cluster.
+Because MicroCloud uses a set of {ref}`other snaps <reference-requirements-software-snaps>`, you must make sure to have suitable versions of these snaps installed on all machines of your MicroCloud cluster.
 The installed snap versions must be compatible with one another, and for each of the snaps, the same version must be installed on all machines.
 
 ## Choose the right channel and track
