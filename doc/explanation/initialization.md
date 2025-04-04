@@ -25,7 +25,7 @@ If required MicroCloud uses multicast discovery to automatically detect a so cal
 This method works in physical networks, but it is usually not supported in a cloud environment.
 Instead you can specify the address of the initiator instead to not require using multicast.
 
-The scan is limited to the local subnet of the network interface you select when choosing an address for MicroCloud's internal traffic (see {ref}`microcloud-networking-intracluster`).
+The scan is limited to the local subnet of the network interface you select when choosing an address for MicroCloud's internal traffic (see {ref}`reference-requirements-network-interfaces-intracluster`).
 
 (bootstrapping-process)=
 ## Bootstrapping process
