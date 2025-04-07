@@ -77,7 +77,7 @@ You can configure the Enterprise Store Proxy to make only specific snap revision
 See the [Enterprise Store Proxy documentation](https://documentation.ubuntu.com/enterprise-store/) for information about how to install and register the Enterprise Store Proxy.
 
 After setting it up, configure the snap clients on all cluster members to use the proxy.
-See [Configuring devices](https://documentation.ubuntu.com/enterprise-store/en/devices/) for instructions.
+See [Configuring devices](https://documentation.ubuntu.com/enterprise-store/main/how-to/devices/) for instructions.
 
 You can then configure the Enterprise Store Proxy to override the revisions for the snaps that are needed for MicroCloud:
 
