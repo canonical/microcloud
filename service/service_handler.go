@@ -59,6 +59,8 @@ func NewHandler(name string, addr string, stateDir string, services ...types.Ser
 			service, err = NewOVNService(name, addr, stateDir)
 		case types.LXD:
 			service, err = NewLXDService(name, addr, stateDir)
+		default:
+			return nil, api.StatusErrorf(http.StatusNotFound, "Invalid service type: %q", serviceType)
 		}
 
 		if err != nil {
