@@ -63,6 +63,47 @@ type SystemInformation struct {
 	existingUplinkNetwork *api.Network
 }
 
+// FilterDisks filters out all disks not applicable for both local and remote storage pool configuration.
+// To allow staying backwards compatible with older verions of LXD, the caller can specify whether
+// or not to filter out disks/partitions that contain a FS.
+// If excludeFS is set to false all disks with partitions are filtered out without checking for a FS.
+func FilterDisks(disks []api.ResourcesStorageDisk, excludeFS bool) []api.ResourcesStorageDisk {
+	var filteredDisks []api.ResourcesStorageDisk
+
+outerLoop:
+	for _, disk := range disks {
+		// Exclude cdrom drives as viable storage disk.
+		if disk.Type == "cdrom" {
+			continue
+		}
+
+		// Carefully handle disk with partitions.
+		// In case any of the partition on a disk contains a FS, exclude the entire parent disk.
+		if excludeFS {
+			// Exclude parent disk with FS.
+			if disk.DeviceFSUUID != "" {
+				continue
+			}
+
+			for _, partition := range disk.Partitions {
+				if partition.DeviceFSUUID != "" {
+					continue outerLoop
+				}
+			}
+		} else {
+			// If the filter to exclude disks/partitions with FS is set to false,
+			// simply filter out all disks with partitions regardless whether or not they contain a FS.
+			if len(disk.Partitions) > 0 {
+				continue
+			}
+		}
+
+		filteredDisks = append(filteredDisks, disk)
+	}
+
+	return filteredDisks
+}
+
 // CollectSystemInformation fetches the current cluster information of the system specified by the connection info.
 func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo multicast.ServerInfo) (*SystemInformation, error) {
 	if connectInfo.Name == "" || connectInfo.Address == "" {
