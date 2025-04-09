@@ -595,7 +595,7 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]string, error
 
 	matches := []string{}
 	for _, disk := range disks {
-		diskPath := parseDiskPath(disk)
+		diskPath := formatDiskPath(disk)
 
 		if len(disk.Partitions) > 0 {
 			diskUsed := false
@@ -1012,7 +1012,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 				for _, matchedDiskPath := range matchedDiskPaths {
 					for _, disk := range disks {
-						diskPath := parseDiskPath(disk)
+						diskPath := formatDiskPath(disk)
 
 						if len(disk.Partitions) > 0 {
 							var remainingPartitions []lxdAPI.ResourcesStorageDiskPartition

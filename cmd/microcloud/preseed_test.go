@@ -334,7 +334,7 @@ func (s *preseedSuite) Test_preseedMatchDisksMemory() {
 	s.NoError(err)
 
 	s.Equal(len(results), 1)
-	s.Equal(parseDiskPath(disks[0]), results[0])
+	s.Equal(formatDiskPath(disks[0]), results[0])
 }
 
 func (s *preseedSuite) Test_isInitiator() {

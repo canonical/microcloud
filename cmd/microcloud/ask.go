@@ -281,7 +281,8 @@ func (c *initConfig) askDisks(sh *service.Handler) error {
 	return nil
 }
 
-func parseDiskPath(disk api.ResourcesStorageDisk) string {
+// formatDiskPath returns a disk's path.
+func formatDiskPath(disk api.ResourcesStorageDisk) string {
 	devicePath := fmt.Sprintf("/dev/%s", disk.ID)
 	if disk.DeviceID != "" {
 		devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
@@ -344,11 +345,11 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		sort.Slice(sortedDisks, func(i, j int) bool {
-			return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+			return formatDiskPath(sortedDisks[i]) < formatDiskPath(sortedDisks[j])
 		})
 
 		for _, disk := range sortedDisks {
-			devicePath := parseDiskPath(disk)
+			devicePath := formatDiskPath(disk)
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 
 			for _, partition := range disk.Partitions {
@@ -397,7 +398,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			}
 
 			for _, disk := range availableDisks[target] {
-				if parseDiskPath(disk) == path && len(disk.Partitions) > 0 {
+				if formatDiskPath(disk) == path && len(disk.Partitions) > 0 {
 					wipeableRow := make([]string, len(header))
 					for j, h := range header {
 						wipeableRow[j] = answers[row][h]
@@ -476,7 +477,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for target, path := range selectedDisks {
 		newAvailableDisks[target] = map[string]api.ResourcesStorageDisk{}
 		for id, disk := range availableDisks[target] {
-			diskPath := parseDiskPath(disk)
+			diskPath := formatDiskPath(disk)
 
 			// Filter out used partitions.
 			if len(disk.Partitions) > 0 {
@@ -496,7 +497,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			}
 
 			// Filter out used disks.
-			if parseDiskPath(disk) != path {
+			if formatDiskPath(disk) != path {
 				newAvailableDisks[target][id] = disk
 			}
 		}
@@ -712,11 +713,11 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 				// Ensure the list of disks is sorted by name.
 				sort.Slice(sortedDisks, func(i, j int) bool {
-					return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+					return formatDiskPath(sortedDisks[i]) < formatDiskPath(sortedDisks[j])
 				})
 
 				for _, disk := range sortedDisks {
-					devicePath := parseDiskPath(disk)
+					devicePath := formatDiskPath(disk)
 					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 
 					for _, partition := range disk.Partitions {
@@ -762,7 +763,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				}
 
 				for _, disk := range availableDisks[target] {
-					diskPath := parseDiskPath(disk)
+					diskPath := formatDiskPath(disk)
 					directlyUsed := shared.ValueInSlice(diskPath, directlyUsedDisks[target])
 					indirectlyUsed := shared.ValueInSlice(diskPath, indirectlyUsedDisks[target])
 					if diskPath == path && (directlyUsed || indirectlyUsed) {
