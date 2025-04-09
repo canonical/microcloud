@@ -78,6 +78,7 @@ ovn:
       echo "::warning::SKIPPING VM LAUNCH TEST"
     else
       lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 v1 --vm
+      sleep 30  # Allow time for VM to boot.
       v1_boot_id=$(lxc exec micro01 -- lxc exec v1 -- cat /proc/sys/kernel/random/boot_id)
     fi
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 c1
