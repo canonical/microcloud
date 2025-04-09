@@ -40,11 +40,11 @@ check_instance_connectivity() {
     lxc exec micro01 -- lxc exec "${m}" -- timeout 5 bash -cex "for dst in _gateway ${IPV4_GW} ${IPV6_GW}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
   done
 
-  echo "Test connectivity between instances"
-  lxc exec micro01 -- lxc exec "${instance_1}" -- ping -nc1 -w5 -4 "${instance_2}"
-  lxc exec micro01 -- lxc exec "${instance_1}" -- ping -nc1 -w5 -6 "${instance_2}"
-  lxc exec micro01 -- lxc exec "${instance_2}" -- ping -nc1 -w5 -4 "${instance_1}"
-  lxc exec micro01 -- lxc exec "${instance_2}" -- ping -nc1 -w5 -6 "${instance_1}"
+  echo "Test connectivity between instances via DNS, IPv4 and IPv6"
+  INSTANCE1_IPS="$(lxc exec micro01 -- lxc exec "${instance_1}" -- hostname -i)"
+  INSTANCE2_IPS="$(lxc exec micro01 -- lxc exec "${instance_2}" -- hostname -i)"
+  lxc exec micro01 -- lxc exec "${instance_1}" -- timeout 5 bash -cex "for dst in ${instance_2} ${INSTANCE2_IPS}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
+  lxc exec micro01 -- lxc exec "${instance_2}" -- timeout 5 bash -cex "for dst in ${instance_1} ${INSTANCE1_IPS}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
 }
 
 
