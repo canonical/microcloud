@@ -29,7 +29,7 @@ const (
 )
 
 func baseTableTemplate(header []string, compact bool) *table.Table {
-	t := table.New()
+	t := table.New().Wrap(false)
 	t = t.Headers(header...)
 	if !compact {
 		t = t.Border(lipgloss.NormalBorder())
@@ -41,7 +41,7 @@ func baseTableTemplate(header []string, compact bool) *table.Table {
 	t = t.StyleFunc(func(row, col int) lipgloss.Style {
 		tmpl := lipgloss.NewStyle()
 		tmpl = tmpl.Padding(0, 1)
-		tmpl = tmpl.Align(lipgloss.Center)
+		tmpl = tmpl.Align(lipgloss.Left)
 
 		if row == 0 {
 			header[col] = lipgloss.NewStyle().Foreground(Bright).Bold(true).SetString(header[col]).String()
