@@ -189,7 +189,7 @@ ovn:
 
     # Check if the workload survived the upgrade.
     # Perform some pings to check the network.
-    gateway="$(lxc network get lxdbr0 ipv4.address | awk -F'/' '{print $1}')"
+    gateway="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
     if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
       echo "::warning::SKIPPING VM TESTS"
     else
