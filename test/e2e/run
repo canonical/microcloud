@@ -3,6 +3,7 @@ set -eu
 set -o pipefail
 
 REMOTE="${REMOTE:-${1:-""}}"
+DESTROY="${DESTROY:-prompt}"
 
 remoteAccessible() {
     lxc info "${REMOTE}:" >/dev/null 2>&1
@@ -26,9 +27,25 @@ init() {
         exit 1
     fi
 
+    if [ "$(clusterMembers ONLINE | wc -l)" != "$(clusterMembers ALL | wc -l)" ]; then
+        echo "Not all cluster members are online, aborting" >&2
+        exit 1
+    fi
+
     if ! command -v terraform >/dev/null; then
         echo "Missing command: terraform" >&2
         exit 1
+    fi
+
+    terraform init
+
+    # Show overrides
+    if [ -s ./terraform.tfvars ]; then
+        echo "Using overrides from terraform.tfvars:"
+        echo "--------------------------------------"
+        cat ./terraform.tfvars
+        echo "--------------------------------------"
+        echo
     fi
 }
 
@@ -48,10 +65,12 @@ apply() {
     echo "terraform apply"
 
     # retry to work around the following issues with cluster image downloads:
+    # XXX: https://github.com/canonical/lxd/issues/11636
     # a) multiple cluster members trying to figure which image fingerprint to download:
     # Failed creating instance from image: Error inserting volume "876fac034595ac77ccfd4dc023bd2667fe5d4b4226dfc38cd8109aa215783998" for project "default" in pool "remote" of type "images" into database "UNIQUE constraint failed: index
     # 'storage_volumes_unique_storage_pool_id_node_id_project_id_name_type'"
 
+    # XXX: https://github.com/canonical/lxd/issues/15315
     # b) missing parent image (failed turning the tarball/squashfs into an image volume+snapshot):
     # Failed creating instance from image: Failed to run: rbd --id admin --cluster ceph --image-feature layering --image-feature striping --image-feature exclusive-lock --image-feature object-map --image-feature fast-diff --image-feature deep-flatten clone
     # lxd_remote/image_876fac034595ac77ccfd4dc023bd2667fe5d4b4226dfc38cd8109aa215783998_ext4@readonly lxd_remote/container_e2e-testing_c01: exit status 2 (2025-04-01T14:38:07.671+0000 7f8284b55640 -1 librbd::image::RefreshRequest: failed to locate snapshot:
@@ -63,14 +82,17 @@ apply() {
 }
 
 destroy() {
-    local confirm
-    read -rp "Are you sure you want to destroy the environment? [y/N] " confirm
-    if [ "${confirm:-N}" != "y" ]; then
-        echo "Not destroying the environment"
-        return
+    echo "terraform destroy"
+    if [ "${DESTROY}" = "prompt" ]; then
+        terraform destroy -var "remote=${REMOTE}"
+    elif [ "${DESTROY}" = "yes" ]; then
+        terraform destroy -auto-approve -var "remote=${REMOTE}"
+    elif [ "${DESTROY}" = "no" ] ; then
+        echo "Skipping destroy"
+    else
+        echo "Invalid DESTROY value: ${DESTROY}" >&2
+        exit 1
     fi
-
-    terraform destroy -auto-approve -var "remote=${REMOTE}"
 }
 
 setup() {
@@ -80,10 +102,93 @@ setup() {
     echo "Setup done"
 }
 
+instanceList() {
+    lxc list --project e2e-testing -f csv -c n "${REMOTE}:"
+}
+
+clusterMembers() {
+    local state="${1}"
+    [ "${state}" = "ALL" ] && state=".*"
+    # XXX: cannot use the column number for the member state as if multiple
+    # roles are provided, the column number will change
+    lxc cluster list --project e2e-testing -f csv "${REMOTE}:" | awk -F, "/,${state},/ {print \$1}"
+}
+
+randomPick() {
+    local count="${1}"
+    shift
+    local list="$*"
+
+    echo "${list}" | sort -R | head -n "${count}"
+}
+
+getIPv4() {
+    local instance="${1}"
+    lxc list --project e2e-testing -f csv -c 4 "${REMOTE}:" name="${instance}" | cut -d" " -f1
+}
+
+checkConnectivity() {
+    local src="${1}"
+    local dst="${2}"
+    local dstIPv4
+    dstIPv4="$(getIPv4 "${dst}")"
+
+    echo -n " ● ${src} => ${dst} (${dstIPv4}):"
+    # Using bash /dev/tcp to check for connectivity as it is available in every Ubuntu images even the minimal ones.
+    if lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"; then
+        echo " ✅"
+    else
+        echo " ❌"
+        exit 1
+    fi
+}
+
+connectivity() {
+    local instances instance src dst
+    instances="$(instanceList)"
+
+    echo "Connectivity check:"
+    for src in $(randomPick 3 "${instances}"); do
+        for dst in $(randomPick 3 "${instances}"); do
+            [ "${src}" = "${dst}" ] && continue
+
+            checkConnectivity "${src}" "${dst}"
+        done
+    done
+    echo "DONE"
+}
+
+evacuation() {
+    local member
+
+    for member in $(clusterMembers ONLINE); do
+        echo "Evacuating ${member}"
+        lxc cluster evacuate --project e2e-testing --force "${REMOTE}:${member}"
+
+        echo "Waiting for ${member} to be rebooted"
+        if [ -x "./reboot" ]; then
+            ./reboot "${REMOTE}" "e2e-testing" "${member}"
+        else
+            read -rp "Please reboot ${member} and press enter to continue once it is back online"
+        fi
+
+        lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}"
+    done
+
+    echo -n "Allow time for stopped instances to start back again "
+    for _ in $(seq 20); do
+        echo -n "."
+        sleep 1
+    done
+    echo " DONE"
+}
+
 init
 setup
 
-# TODO: Add tests here
+connectivity
+evacuation
+connectivity
 
 destroy
 echo "Done"
