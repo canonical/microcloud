@@ -33,12 +33,11 @@ check_instance_connectivity() {
     "
   done
 
-  echo "Test connectivity to lxdbr0"
+  echo "Test connectivity to lxdbr0 via DNS, IPv4 and IPv6"
   IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
   IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
   for m in "${instance_1}" "${instance_2}" ; do
-    lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -4 "${IPV4_GW}"
-    lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -6 "${IPV6_GW}"
+    lxc exec micro01 -- lxc exec "${m}" -- timeout 5 bash -cex "for dst in _gateway ${IPV4_GW} ${IPV6_GW}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
   done
 
   echo "Test connectivity between instances"
