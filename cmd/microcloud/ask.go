@@ -15,7 +15,6 @@ import (
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
-	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/units"
 	"github.com/canonical/lxd/shared/validate"
@@ -376,7 +375,6 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	err = c.askRetry("Retry selecting disks?", func() error {
 		selected := map[string]string{}
-		sort.Sort(cli.SortColumnsNaturally(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 		table := tui.NewSelectableTable(header, data)
 		answers, err := table.Render(context.Background(), c.asker, "Select exactly one disk from each cluster member:")
@@ -388,13 +386,25 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			return fmt.Errorf("No disks selected")
 		}
 
-		for _, entry := range answers {
+		wipeableRows := [][]string{}
+		for row, entry := range answers {
 			target := entry["LOCATION"]
 			path := entry["PATH"]
 
 			_, ok := selected[target]
 			if ok {
 				return fmt.Errorf("Failed to add local storage pool: Selected more than one disk for target peer %q", target)
+			}
+
+			for _, disk := range availableDisks[target] {
+				if parseDiskPath(disk) == path && len(disk.Partitions) > 0 {
+					wipeableRow := make([]string, len(header))
+					for j, h := range header {
+						wipeableRow[j] = answers[row][h]
+					}
+
+					wipeableRows = append(wipeableRows, wipeableRow)
+				}
 			}
 
 			selected[target] = path
@@ -404,16 +414,10 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
 		}
 
-		if wipeable {
-			newRows := make([][]string, len(answers))
-			for row := range answers {
-				newRows[row] = make([]string, len(header))
-				for j, h := range header {
-					newRows[row][j] = answers[row][h]
-				}
-			}
+		selectedDisks = selected
 
-			answers, err := table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
+		if wipeable && len(wipeableRows) > 0 {
+			answers, err := table.Render(context.Background(), c.asker, "Select which disks to wipe as they contain partitions:", wipeableRows...)
 			if err != nil {
 				return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
 			}
@@ -425,8 +429,6 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			}
 		}
 
-		selectedDisks = selected
-
 		return nil
 	})
 	if err != nil {
@@ -437,22 +439,18 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		return nil
 	}
 
-	if wipeable {
-		toWipe = selectedDisks
-	}
-
 	var joinConfigs map[string][]api.ClusterMemberConfigKey
 	var finalConfigs []api.StoragePoolsPost
 	var targetConfigs map[string][]api.StoragePoolsPost
 	if useJoinConfig {
 		joinConfigs = map[string][]api.ClusterMemberConfigKey{}
 		for target, path := range selectedDisks {
-			joinConfigs[target] = lxd.DefaultZFSStoragePoolJoinConfig(wipeable && toWipe[target] != "", path)
+			joinConfigs[target] = lxd.DefaultZFSStoragePoolJoinConfig(toWipe[target] != "", path)
 		}
 	} else {
 		targetConfigs = map[string][]api.StoragePoolsPost{}
 		for target, path := range selectedDisks {
-			targetConfigs[target] = []api.StoragePoolsPost{lxd.DefaultPendingZFSStoragePool(wipeable && toWipe[target] != "", path)}
+			targetConfigs[target] = []api.StoragePoolsPost{lxd.DefaultPendingZFSStoragePool(toWipe[target] != "", path)}
 		}
 
 		if len(targetConfigs) > 0 {
@@ -658,8 +656,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			askSystemsRemoteFS[info.ClusterName] = true
 		}
 	}
-	var selectedDisks map[string][]string
-	var wipeDisks map[string]map[string]bool
+	selectedDisks := map[string][]string{}
+	wipeDisks := map[string]map[string]bool{}
 	availableDiskCount := 0
 	if len(askSystemsRemote) != 0 {
 		availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
@@ -700,8 +698,10 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 		var insufficientDisks bool
 		err = c.askRetry("Change disk selection?", func() error {
+			// Reset selection in case of retry.
 			selectedDisks = map[string][]string{}
 			wipeDisks = map[string]map[string]bool{}
+
 			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 			data := [][]string{}
 			for peer, disks := range availableDisks {
@@ -729,49 +729,91 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				return fmt.Errorf("Invalid disk configuration. Found no available disks")
 			}
 
-			sort.Sort(cli.SortColumnsNaturally(data))
-			var toWipe []map[string]string
 			table := tui.NewSelectableTable(header, data)
-			selected, err := table.Render(context.Background(), c.asker, "Select from the available unpartitioned disks:")
+			selected, err := table.Render(context.Background(), c.asker, "Select one or more disks from each cluster member:")
 			if err != nil {
 				return err
 			}
 
-			if len(selected) > 0 {
-				newRows := make([][]string, len(selected))
-				for row := range selected {
-					newRows[row] = make([]string, len(header))
-					for j, h := range header {
-						newRows[row][j] = selected[row][h]
-					}
-				}
-
-				toWipe, err = table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
-				if err != nil {
-					return err
-				}
-			}
-
+			// Final selection of disks and partitions.
 			targetDisks := map[string][]string{}
-			for _, entry := range selected {
+
+			// Track from which disks partitions where selected to prevent "double occupancy"
+			// where both a disk's partition and the disk itself are selected.
+			// Indirectly used disks are the ones from which at least one partition got selected.
+			directlyUsedDisks := map[string][]string{}
+			indirectlyUsedDisks := map[string][]string{}
+
+			wipableRows := [][]string{}
+			for row, entry := range selected {
 				target := entry["LOCATION"]
 				path := entry["PATH"]
+
 				if targetDisks[target] == nil {
 					targetDisks[target] = []string{}
+				}
+
+				if directlyUsedDisks[target] == nil {
+					directlyUsedDisks[target] = []string{}
+				}
+
+				if indirectlyUsedDisks[target] == nil {
+					indirectlyUsedDisks[target] = []string{}
+				}
+
+				for _, disk := range availableDisks[target] {
+					diskPath := parseDiskPath(disk)
+					directlyUsed := shared.ValueInSlice(diskPath, directlyUsedDisks[target])
+					indirectlyUsed := shared.ValueInSlice(diskPath, indirectlyUsedDisks[target])
+					if diskPath == path && (directlyUsed || indirectlyUsed) {
+						return fmt.Errorf("Disk %q on %q seems to be already indirectly selected by a partition", diskPath, target)
+					}
+
+					if diskPath == path {
+						// Mark the disk as directly used.
+						directlyUsedDisks[target] = append(directlyUsedDisks[target], diskPath)
+					}
+
+					for _, partition := range disk.Partitions {
+						partitionDiskPath := formatPartitionPath(diskPath, partition.Partition)
+						if partitionDiskPath == path && directlyUsed {
+							return fmt.Errorf("Parent disk %q on %q seems to be already selected directly", diskPath, target)
+						}
+
+						if partitionDiskPath == path && !indirectlyUsed {
+							// Mark the disk as indirectly used.
+							indirectlyUsedDisks[target] = append(indirectlyUsedDisks[target], diskPath)
+						}
+					}
+
+					if diskPath == path && len(disk.Partitions) > 0 {
+						wipableRow := make([]string, len(header))
+						for j, h := range header {
+							wipableRow[j] = selected[row][h]
+						}
+
+						wipableRows = append(wipableRows, wipableRow)
+					}
 				}
 
 				targetDisks[target] = append(targetDisks[target], path)
 			}
 
-			wipeDisks = map[string]map[string]bool{}
-			for _, entry := range toWipe {
-				target := entry["LOCATION"]
-				path := entry["PATH"]
-				if wipeDisks[target] == nil {
-					wipeDisks[target] = map[string]bool{}
+			if len(wipableRows) > 0 {
+				answers, err := table.Render(context.Background(), c.asker, "Select which disks to wipe as they contain partitions:", wipableRows...)
+				if err != nil {
+					return err
 				}
 
-				wipeDisks[target][path] = true
+				for _, entry := range answers {
+					target := entry["LOCATION"]
+					path := entry["PATH"]
+					if wipeDisks[target] == nil {
+						wipeDisks[target] = map[string]bool{}
+					}
+
+					wipeDisks[target][path] = true
+				}
 			}
 
 			selectedDisks = targetDisks
