@@ -32,7 +32,7 @@ To add MicroOVN:
 
 1. Select `yes` to set up distributed networking.
 
-   1. Select the network interfaces that you want to use (see {ref}`microcloud-networking-uplink`).
+   1. Select the network interfaces that you want to use (see {ref}`reference-requirements-network-interfaces-uplink`).
       You must select one network interface per machine.
 
    1. If you want to use IPv4, specify the IPv4 gateway on the uplink network (in CIDR notation) and the first and last IPv4 address in the range that you want to use with LXD.

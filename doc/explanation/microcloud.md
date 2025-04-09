@@ -23,7 +23,7 @@ Apart from that, you can use LXD commands to manage the cluster. In the LXD docu
 By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
 
 - For an overview of MicroCloud networking with OVN, see: {ref}`exp-networking`.
-- For networking requirements, see: {ref}`network-requirements`.
+- For networking requirements, see: {ref}`reference-requirements-network`.
 - To learn how to use a dedicated underlay network, see: {ref}`howto-ovn-underlay`.
 
 ## Storage

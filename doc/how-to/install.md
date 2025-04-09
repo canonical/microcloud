@@ -84,7 +84,7 @@ For detailed information, see: {ref}`reference-requirements`.
 ```{youtube} https://www.youtube.com/watch?v=M0y0hQ16YuE
 ```
 
-To install MicroCloud, install all required {ref}`snaps` on all machines that you want to include in your cluster.
+To install MicroCloud, install all required {ref}`snaps <reference-requirements-software-snaps>` on all machines that you want to include in your cluster.
 
 To do so, enter the following commands on all machines:
 
