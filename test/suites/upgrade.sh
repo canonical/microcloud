@@ -78,9 +78,11 @@ ovn:
       echo "::warning::SKIPPING VM LAUNCH TEST"
     else
       lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 v1 --vm
+      lxc exec micro01 -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady v1"
       v1_boot_id=$(lxc exec micro01 -- lxc exec v1 -- cat /proc/sys/kernel/random/boot_id)
     fi
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 c1
+    lxc exec micro01 -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady c1"
     c1_boot_id="$(lxc exec micro01 -- lxc exec c1 -- cat /proc/sys/kernel/random/boot_id)"
 
     # First upgrade MicroCeph.
