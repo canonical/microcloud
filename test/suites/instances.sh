@@ -210,8 +210,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -309,8 +307,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -404,8 +400,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -502,8 +496,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -612,8 +604,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -669,7 +659,7 @@ EOF
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro04
 
-  # Let cloud-init finish its job of installing required packages (i.e: iputils-ping).
+  # Let cloud-init finish its job.
   for m in c3 c4; do
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
