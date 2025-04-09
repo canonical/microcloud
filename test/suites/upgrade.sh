@@ -78,13 +78,9 @@ ovn:
       echo "::warning::SKIPPING VM LAUNCH TEST"
     else
       lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 v1 --vm
-      lxc exec micro01 -- lxc exec v1 -- apt-get update
-      lxc exec micro01 -- lxc exec v1 -- apt-get install --no-install-recommends -y iputils-ping
       v1_boot_id=$(lxc exec micro01 -- lxc exec v1 -- cat /proc/sys/kernel/random/boot_id)
     fi
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 c1
-    lxc exec micro01 -- lxc exec c1 -- apt-get update
-    lxc exec micro01 -- lxc exec c1 -- apt-get install --no-install-recommends -y iputils-ping
     c1_boot_id="$(lxc exec micro01 -- lxc exec c1 -- cat /proc/sys/kernel/random/boot_id)"
 
     # First upgrade MicroCeph.
