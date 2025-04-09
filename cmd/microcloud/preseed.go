@@ -570,7 +570,7 @@ func (p *Preseed) address(name string) (string, error) {
 }
 
 // Match matches the devices to the given filter, and returns the result.
-func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.ResourcesStorageDisk, error) {
+func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]string, error) {
 	if d.Find == "" {
 		return nil, fmt.Errorf("Received empty filter")
 	}
@@ -593,15 +593,38 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 		return strconv.ParseUint(c.Value, 10, 0)
 	}
 
-	matches := []lxdAPI.ResourcesStorageDisk{}
+	matches := []string{}
 	for _, disk := range disks {
+		diskPath := formatDiskPath(disk)
+
+		if len(disk.Partitions) > 0 {
+			diskUsed := false
+			for _, partition := range disk.Partitions {
+				match, err := filter.Match(partition, *clauses)
+				if err != nil {
+					return nil, err
+				}
+
+				if match {
+					diskUsed = true
+					matches = append(matches, formatPartitionPath(diskPath, partition.Partition))
+				}
+			}
+
+			// If one of the disks partitions got used for a match,
+			// continue the loop and don't try matching the parent disk too.
+			if diskUsed {
+				continue
+			}
+		}
+
 		match, err := filter.Match(disk, *clauses)
 		if err != nil {
 			return nil, err
 		}
 
 		if match {
-			matches = append(matches, disk)
+			matches = append(matches, diskPath)
 		}
 	}
 
@@ -936,30 +959,29 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 	}
 
+	hasFSUUID, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "resources_device_fs_uuid")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check for resources_device_fs_uuid extension: %w", err)
+	}
+
 	cephMatches := map[string]int{}
 	cephMachines := map[string]bool{}
 	for peer, r := range allResourcesCeph {
 		system := c.systems[peer]
-
-		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				disks = append(disks, disk)
-			}
-		}
+		disks := service.FilterDisks(r.Storage.Disks, hasFSUUID)
 
 		addedCephPool := false
 		for _, filter := range p.Storage.Ceph {
-			matched, err := filter.Match(disks)
+			matchedDiskPaths, err := filter.Match(disks)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to apply filter for ceph disks: %w", err)
 			}
 
-			for _, disk := range matched {
+			for _, diskPath := range matchedDiskPaths {
 				system.MicroCephDisks = append(
 					system.MicroCephDisks,
 					cephTypes.DisksPost{
-						Path:    []string{parseDiskPath(disk)},
+						Path:    []string{diskPath},
 						Wipe:    filter.Wipe,
 						Encrypt: filter.Encrypt,
 					},
@@ -984,20 +1006,34 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			}
 
 			// Remove any selected disks from the remaining available set.
-			if len(matched) > 0 {
+			if len(matchedDiskPaths) > 0 {
 				cephMachines[peer] = true
 				newDisks := []lxdAPI.ResourcesStorageDisk{}
-				for _, disk := range disks {
-					isMatch := false
-					for _, match := range matched {
-						if disk.ID == match.ID {
-							isMatch = true
-							break
-						}
-					}
 
-					if !isMatch {
-						newDisks = append(newDisks, disk)
+				for _, matchedDiskPath := range matchedDiskPaths {
+					for _, disk := range disks {
+						diskPath := formatDiskPath(disk)
+
+						if len(disk.Partitions) > 0 {
+							var remainingPartitions []lxdAPI.ResourcesStorageDiskPartition
+							for _, partition := range disk.Partitions {
+								if formatPartitionPath(diskPath, partition.Partition) != matchedDiskPath {
+									remainingPartitions = append(remainingPartitions, partition)
+								}
+							}
+
+							disk.Partitions = remainingPartitions
+
+							// Don't anymore list the disk as available as all of its partitions are already used for local storage.
+							if len(disk.Partitions) == 0 {
+								continue
+							}
+						}
+
+						// Filter out used disks.
+						if diskPath != matchedDiskPath {
+							newDisks = append(newDisks, disk)
+						}
 					}
 				}
 
@@ -1012,13 +1048,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	zfsMachines := map[string]bool{}
 	for peer, r := range allResourcesZFS {
 		system := c.systems[peer]
-
-		disks := make([]lxdAPI.ResourcesStorageDisk, 0, len(r.Storage.Disks))
-		for _, disk := range r.Storage.Disks {
-			if len(disk.Partitions) == 0 {
-				disks = append(disks, disk)
-			}
-		}
+		disks := service.FilterDisks(r.Storage.Disks, hasFSUUID)
 
 		for _, filter := range p.Storage.Local {
 			// No need to check filters anymore if each machine has a disk.
@@ -1034,12 +1064,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			if len(matched) > 0 {
 				zfsMachines[peer] = true
 				if c.bootstrap {
-					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, parseDiskPath(matched[0])))
+					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, matched[0]))
 					if s.Name == peer {
 						system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
 					}
 				} else {
-					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, parseDiskPath(matched[0]))...)
+					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, matched[0])...)
 				}
 
 				zfsMatches[filter.Find] = zfsMatches[filter.Find] + 1

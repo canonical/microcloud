@@ -3,8 +3,8 @@ module github.com/canonical/microcloud/microcloud
 go 1.23.7
 
 require (
-	github.com/canonical/lxd v0.0.0-20250325123738-fcb8c6503907
-	github.com/canonical/microceph/microceph v0.0.0-20250327150042-265036a9667c
+	github.com/canonical/lxd v0.0.0-20250407155837-c32e13760bcc
+	github.com/canonical/microceph/microceph v0.0.0-20250403170328-95f3cc98f8de
 	github.com/canonical/microcluster/v2 v2.1.0
 	github.com/canonical/microovn/microovn v0.0.0-20250328134802-336b7904ac05
 	github.com/charmbracelet/bubbletea v1.3.4
@@ -34,7 +34,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -50,7 +50,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/mattn/go-sqlite3 v1.14.24 // indirect
+	github.com/mattn/go-sqlite3 v1.14.27 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
@@ -72,8 +72,8 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/term v0.30.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/oauth2 v0.29.0 // indirect
+	golang.org/x/term v0.31.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 )
