@@ -33,19 +33,18 @@ check_instance_connectivity() {
     "
   done
 
-  echo "Test connectivity to lxdbr0"
+  echo "Test connectivity to lxdbr0 via DNS, IPv4 and IPv6"
   IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
   IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
   for m in "${instance_1}" "${instance_2}" ; do
-    lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -4 "${IPV4_GW}"
-    lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -6 "${IPV6_GW}"
+    lxc exec micro01 -- lxc exec "${m}" -- timeout 5 bash -cex "for dst in _gateway ${IPV4_GW} ${IPV6_GW}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
   done
 
-  echo "Test connectivity between instances"
-  lxc exec micro01 -- lxc exec "${instance_1}" -- ping -nc1 -w5 -4 "${instance_2}"
-  lxc exec micro01 -- lxc exec "${instance_1}" -- ping -nc1 -w5 -6 "${instance_2}"
-  lxc exec micro01 -- lxc exec "${instance_2}" -- ping -nc1 -w5 -4 "${instance_1}"
-  lxc exec micro01 -- lxc exec "${instance_2}" -- ping -nc1 -w5 -6 "${instance_1}"
+  echo "Test connectivity between instances via DNS, IPv4 and IPv6"
+  INSTANCE1_IPS="$(lxc exec micro01 -- lxc exec "${instance_1}" -- hostname -i)"
+  INSTANCE2_IPS="$(lxc exec micro01 -- lxc exec "${instance_2}" -- hostname -i)"
+  lxc exec micro01 -- lxc exec "${instance_1}" -- timeout 5 bash -cex "for dst in ${instance_2} ${INSTANCE2_IPS}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
+  lxc exec micro01 -- lxc exec "${instance_2}" -- timeout 5 bash -cex "for dst in ${instance_1} ${INSTANCE1_IPS}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
 }
 
 
@@ -211,8 +210,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -310,8 +307,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -405,8 +400,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -503,8 +496,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -613,8 +604,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -670,7 +659,7 @@ EOF
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro04
 
-  # Let cloud-init finish its job of installing required packages (i.e: iputils-ping).
+  # Let cloud-init finish its job.
   for m in c3 c4; do
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "
