@@ -82,8 +82,8 @@ html_context = {
 
     # ru-fu: we're using different Discourses
     'discourse_prefix': {
+        'ubuntu': 'https://discourse.ubuntu.com/t/',
         'lxc': 'https://discuss.linuxcontainers.org/t/',
-        'ubuntu': 'https://discourse.ubuntu.com/t/'
     },
 
     # Change to the Mattermost channel you want to link to
@@ -164,6 +164,11 @@ linkcheck_rate_limit_timeout = 600
 # Increase linkcheck retries, default when unset is 1
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-linkcheck_retries
 linkcheck_retries = 3
+
+# Increase the duration, in seconds, that the linkcheck builder will wait for a response after each hyperlink request.
+# Default when unset is 30
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-linkcheck_timeout
+linkcheck_timeout = 45
 
 ############################################################
 ### Additions to default configuration

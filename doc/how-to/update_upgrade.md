@@ -39,6 +39,12 @@ Performing an update requires going through the list of snaps one after another 
 Depending on which snap gets updated, some services of this snap (such as API endpoints) might not be available while performing the update. Check the respective services' documentation on updates for more information.
 ```
 
+```{important}
+MicroCloud `1/(stable|candidate|edge)` reaches {abbr}`EOL (End of Life)` at the end of April 2025.
+Make sure to upgrade to the `2` LTS track before this date.
+See the {ref}`howto-update-upgrade-upgrade` guide below for more information.
+```
+
 During an update, the snaps channel won't be modified, so the snaps are updated to the last available version inside the current channel.
 This does not introduce breaking changes and can be used on a regular basis to update a MicroCloud deployment.
 

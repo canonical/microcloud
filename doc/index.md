@@ -1,6 +1,6 @@
 ---
-discourse: lxc:15871
-relatedlinks: https://snapcraft.io/microcloud
+discourse: lxc:[Introducing&#32;MicroCloud](15871)
+relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store](https://snapcraft.io/microcloud)"
 ---
 
 (home)=
@@ -75,7 +75,7 @@ MicroCloud is a member of the Ubuntu family. It’s an open source project that 
 
 - [MicroCloud snap](https://snapcraft.io/microcloud)
 - [Contribute](https://github.com/canonical/microcloud)
-- [Get support](https://discourse.ubuntu.com/c/lxd/microcloud/)
+- [Get support](https://discourse.ubuntu.com/c/lxd/microcloud/145)
 - [Thinking about using MicroCloud for your next project? Get in touch!](https://canonical.com/microcloud)
 
 

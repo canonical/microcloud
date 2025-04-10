@@ -30,7 +30,7 @@ Clarify concepts or common questions based on your own experience.
 Report documentation issues by opening an issue in [GitHub](https://github.com/canonical/microcloud/issues).
 : - We will evaluate and update the documentation as needed.
 
-Ask questions or suggest improvements in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud).
+Ask questions or suggest improvements in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
 : - We monitor discussions and update the documentation when necessary.
 
 If you contribute images to `doc/images`:

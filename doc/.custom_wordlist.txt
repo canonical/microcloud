@@ -17,6 +17,7 @@ DHCP
 disaggregate
 disaggregated
 DNS
+EOL
 FDE
 frontend
 GbE
