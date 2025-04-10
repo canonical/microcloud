@@ -172,7 +172,11 @@ evacuation() {
             read -rp "Please reboot ${member} and press enter to continue once it is back online"
         fi
 
-        lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}"
+        lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}" && continue
+
+        echo "restoration of ${REMOTE}:${member} failed, here are the LXD logs:"
+        lxc exec "${REMOTE}:${member}" -- snap logs -n 100 lxd
+        return 1
     done
 
     echo -n "Allow time for stopped instances to start back again "
@@ -186,9 +190,12 @@ evacuation() {
 init
 setup
 
-connectivity
-evacuation
-connectivity
+i=0
+while evacuation; do
+    i="$((i + 1))"
+    echo "${i} evacuation successful"
+    sleep 5
+done
 
 destroy
 echo "Done"
