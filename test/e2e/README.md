@@ -56,3 +56,19 @@ DESTROY=no ./run mc
 # or automatically destroy it without prompting
 DESTROY=yes ./run mc
 ```
+
+### Rolling reboots
+
+During the test execution, each cluster member will be evacuated, rebooted and restored into the cluster. The evacuation and restoration is done by the test script itself but the machine reboot needs to be done externally.
+
+The script will pause and ask the operator to proceed with rebooting the evacuated cluster member and wait for it to come back online before resuming the script execution.
+
+````{note}
+If desired and possible, the evacuated cluster member reboot can be automated by creating an executable file in the same directory as the `run` script. That executable needs to be named `reboot` and will be invoked:
+
+```sh
+# REMOTE: the name of the LXD remote used (i.e: the MicroCloud being tested)
+# member: the name of the evacuated cluster member that needs to be rebooted
+./reboot "${REMOTE}" "${member}"
+```
+````
