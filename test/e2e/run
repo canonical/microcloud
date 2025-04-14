@@ -169,7 +169,11 @@ evacuation() {
         if [ -x "./reboot" ]; then
             ./reboot "${REMOTE}" "${member}"
         else
-            read -rp "Please reboot ${member} and press enter to continue once it is back online"
+            echo "Please reboot ${member} and wait for it to come back online."
+            echo "Once online, run the following on ${member} to confirm readiness:"
+            echo " sudo lxd waitready"
+            echo
+            read -rp "Press enter to continue with the evacuation test"
         fi
 
         lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}"
