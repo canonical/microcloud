@@ -3,11 +3,10 @@ set -eu
 set -o pipefail
 
 REMOTE="${1}"
-PROJECT="${2}"
-MEMBER="${3}"
-shift 3
+MEMBER="${2}"
+shift 2
 
-echo "Rebooting ${MEMBER} of ${REMOTE} (project: ${PROJECT})"
+echo "Rebooting ${MEMBER} of ${REMOTE}"
 lxc restart "${MEMBER}"
 
 # Wait for the instance to report more than one process.
