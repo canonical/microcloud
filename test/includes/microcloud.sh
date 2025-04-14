@@ -1283,7 +1283,7 @@ setup_system() {
   )
 
   # let boot/cloud-init finish its job
-  lxc exec "${name}" -- systemctl is-system-running --wait || lxc exec "${name}" -- systemctl --failed || true
+  waitInstanceBooted "${name}" || lxc exec "${name}" -- systemctl --failed || true
 
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
