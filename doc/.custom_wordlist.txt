@@ -18,6 +18,7 @@ disaggregate
 disaggregated
 DNS
 EOL
+failover
 FDE
 frontend
 GbE
