@@ -167,7 +167,7 @@ evacuation() {
 
         echo "Waiting for ${member} to be rebooted"
         if [ -x "./reboot" ]; then
-            ./reboot "${REMOTE}" "e2e-testing" "${member}"
+            ./reboot "${REMOTE}" "${member}"
         else
             read -rp "Please reboot ${member} and press enter to continue once it is back online"
         fi
