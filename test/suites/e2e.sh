@@ -58,5 +58,8 @@ test_e2e() {
     fi
   fi
 
+  echo "==> Initializing Terraform"
+  terraform init
+
   ./run mc
 }
