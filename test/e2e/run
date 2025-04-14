@@ -21,6 +21,11 @@ init() {
         exit 1
     fi
 
+    if [ "${REMOTE}" = "local" ]; then
+        echo "This script is not meant to be run on the local LXD server" >&2
+        exit 1
+    fi
+
     if ! remoteAccessible; then
         echo "The ${REMOTE}: remote is not usable." >&2
         echo "Please see https://documentation.ubuntu.com/lxd/en/latest/howto/server_expose/#authenticate-with-the-lxd-server" >&2
