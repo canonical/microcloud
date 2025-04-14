@@ -66,6 +66,10 @@ DESTROY=no ./run mc
 DESTROY=yes ./run mc
 ```
 
+```{important}
+The client credentials used during tests are not removed from the tested MicroCloud environment at the end. This part of the cleanup needs to be done manually.
+```
+
 ### Rolling reboots
 
 During the test execution, each cluster member will be evacuated, rebooted and restored into the cluster. The evacuation and restoration is done by the test script itself but the machine reboot needs to be done externally.
