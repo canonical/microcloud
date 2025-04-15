@@ -98,6 +98,9 @@ func main() {
 	var cmdWaitready = cmdWaitready{common: &commonCmd}
 	app.AddCommand(cmdWaitready.Command())
 
+	var cmdClusterManager = cmdClusterManager{common: &commonCmd}
+	app.AddCommand(cmdClusterManager.Command())
+
 	app.InitDefaultHelpCmd()
 
 	app.SetErr(&tui.ColorErr{})
