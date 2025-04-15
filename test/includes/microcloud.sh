@@ -1283,7 +1283,7 @@ setup_system() {
   )
 
   # let boot/cloud-init finish its job
-  lxc exec "${name}" -- systemctl is-system-running --wait || lxc exec "${name}" -- systemctl --failed || true
+  waitInstanceBooted "${name}" || lxc exec "${name}" -- systemctl --failed || true
 
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
@@ -1456,3 +1456,52 @@ set_cluster_subnet() {
     lxc exec "${name}" -- ip addr add "${cluster_ip}" dev "${iface}"
   done
 }
+
+# waitInstanceReady: waits for the instance to be ready (processes count > 1).
+waitInstanceReady() (
+  { set +x; } 2>/dev/null
+  maxWait="${MAX_WAIT_SECONDS:-120}"
+  instName="${1}"
+
+  # Wait for the instance to report more than one process.
+  processes=0
+  for _ in $(seq "${maxWait}"); do
+      processes="$(lxc info "${instName}" | awk '{if ($1 == "Processes:") print $2}')"
+      if [ "${processes:-0}" -ge "${MIN_PROC_COUNT:-2}" ]; then
+          return 0 # Success.
+      fi
+      sleep 1
+  done
+
+  echo "Instance ${instName} not ready after ${maxWait}s"
+  return 1 # Failed.
+)
+
+# waitInstanceBooted: waits for the instance to be ready and fully booted.
+waitInstanceBooted() (
+  { set +x; } 2>/dev/null
+  prefix="${WARNING_PREFIX:-::warning::}"
+  maxWait=90
+  instName="$1"
+
+  # Wait for the instance to be ready
+  waitInstanceReady "${instName}"
+
+  # Then wait for the boot sequence to complete.
+  sleep 1
+  rc=0
+  state="$(lxc exec "${instName}" -- timeout "${maxWait}" systemctl is-system-running --wait)" || rc="$?"
+
+  # rc=124 is when `timeout` is hit.
+  # Other rc values are ignored as it doesn't matter if the system is fully
+  # operational (`running`) as it is booted.
+  if [ "${rc}" -eq 124 ]; then
+    echo "${prefix}Instance ${instName} not booted after ${maxWait}s"
+    lxc list "${instName}"
+    return 1 # Failed.
+  elif [ "${state}" != "running" ]; then
+    echo "${prefix}Instance ${instName} booted but not fully operational: ${state} != running"
+  fi
+
+  return 0 # Success.
+)

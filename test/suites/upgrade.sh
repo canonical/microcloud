@@ -78,13 +78,11 @@ ovn:
       echo "::warning::SKIPPING VM LAUNCH TEST"
     else
       lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 v1 --vm
-      lxc exec micro01 -- lxc exec v1 -- apt-get update
-      lxc exec micro01 -- lxc exec v1 -- apt-get install --no-install-recommends -y iputils-ping
+      lxc exec micro01 -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady v1"
       v1_boot_id=$(lxc exec micro01 -- lxc exec v1 -- cat /proc/sys/kernel/random/boot_id)
     fi
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 c1
-    lxc exec micro01 -- lxc exec c1 -- apt-get update
-    lxc exec micro01 -- lxc exec c1 -- apt-get install --no-install-recommends -y iputils-ping
+    lxc exec micro01 -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady c1"
     c1_boot_id="$(lxc exec micro01 -- lxc exec c1 -- cat /proc/sys/kernel/random/boot_id)"
 
     # First upgrade MicroCeph.
@@ -189,17 +187,17 @@ ovn:
 
     # Check if the workload survived the upgrade.
     # Perform some pings to check the network.
-    gateway="$(lxc network get lxdbr0 ipv4.address | awk -F'/' '{print $1}')"
+    gateway="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
     if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
       echo "::warning::SKIPPING VM TESTS"
     else
-      lxc exec micro01 -- lxc exec v1 -- ping -nc2 "${gateway}"
+      lxc exec micro01 -- lxc exec v1 -- timeout 5 bash -cex "grep -qm1 ^SSH- < /dev/tcp/${gateway}/22"
 
       # Compare the boot ids to verify the instances haven't been restarted.
       v1_boot_id_after_upgrade=$(lxc exec micro01 -- lxc exec v1 -- cat /proc/sys/kernel/random/boot_id)
       [ "${v1_boot_id}" = "${v1_boot_id_after_upgrade}" ]
     fi
-    lxc exec micro01 -- lxc exec c1 -- ping -nc2 "${gateway}"
+    lxc exec micro01 -- lxc exec c1 -- timeout 5 bash -cex "grep -qm1 ^SSH- < /dev/tcp/${gateway}/22"
     c1_boot_id_after_upgrade=$(lxc exec micro01 -- lxc exec c1 -- cat /proc/sys/kernel/random/boot_id)
     [ "${c1_boot_id}" = "${c1_boot_id_after_upgrade}" ]
 
