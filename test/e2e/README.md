@@ -2,6 +2,15 @@
 
 Once MicroCloud is deployed, end to end testing can verify that everything works as it should.
 
+```{caution}
+By running end to end tests against a MicroCloud, you acknowledge that:
+
+1. All instances will be impacted as the cluster member evacuations require them to be moved, restarted or live-migrated
+1. Resources will be consumed (instances, memory, CPU, disk space, IP addresses, etc)
+
+As such, those end to end tests are best used to ascertain the working condition of a MicroCloud deployment before  deploying production workload to it.
+```
+
 ## Testing
 
 The [`run`](run) script will setup a dedicated project using the [Terraform provider for LXD](https://github.com/terraform-lxd/terraform-provider-lxd) and deploy a number of instances on the MicroCloud. Those instances will be a mix of containers and virtual machines.
@@ -56,3 +65,23 @@ DESTROY=no ./run mc
 # or automatically destroy it without prompting
 DESTROY=yes ./run mc
 ```
+
+```{important}
+The client credentials used during tests are not removed from the tested MicroCloud environment at the end. This part of the cleanup needs to be done manually.
+```
+
+### Rolling reboots
+
+During the test execution, each cluster member will be evacuated, rebooted and restored into the cluster. The evacuation and restoration is done by the test script itself but the machine reboot needs to be done externally.
+
+The script will pause and ask the operator to proceed with rebooting the evacuated cluster member and wait for it to come back online before resuming the script execution.
+
+````{note}
+If desired and possible, the evacuated cluster member reboot can be automated by creating an executable file in the same directory as the `run` script. That executable needs to be named `reboot` and will be invoked:
+
+```sh
+# REMOTE: the name of the LXD remote used (i.e: the MicroCloud being tested)
+# member: the name of the evacuated cluster member that needs to be rebooted
+./reboot "${REMOTE}" "${member}"
+```
+````
