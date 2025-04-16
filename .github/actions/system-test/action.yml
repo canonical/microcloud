@@ -32,13 +32,6 @@ runs:
       with:
         go-version-file: 'go.mod'
 
-    - name: Install dependencies
-      shell: bash
-      run: |
-        sudo add-apt-repository ppa:dqlite/dev -y --no-update
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config net-tools
-
     - name: Download system test dependencies
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
