@@ -26,7 +26,11 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 	case types.LXD:
 		lxdVersion := semver.Canonical("v" + daemonVersion)
 		expectedVersion := semver.Canonical("v" + lxdMinVersion)
-		if semver.Compare(semver.MajorMinor(lxdVersion), semver.MajorMinor(expectedVersion)) != 0 {
+		// semver.Compare returns
+		// * 0 in case lxdVersion == expectedVersion
+		// * 1 in case lxdVersion > expectedVersion
+		// Only if the lxdVersion is lower than the expected version MicroCloud should error out.
+		if semver.Compare(semver.MajorMinor(lxdVersion), semver.MajorMinor(expectedVersion)) == -1 {
 			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
 		}
 
