@@ -13,7 +13,7 @@ The installed snap versions must be compatible with one another, and for each of
 Snaps come with different channels that define which release of a snap is installed and tracked for updates.
 See [Channels and tracks](https://snapcraft.io/docs/channels) in the snap documentation for detailed information.
 
-MicroCloud currently provides the legacy `1` and the latest `2` track.
+MicroCloud currently provides the `2` LTS and `3` development track. The `1` track reaches {abbr}`EOL (End of Life)` at the end of April 2025.
 
 ```{tip}
 In general, you should use the default channels for all snaps required to run MicroCloud.
@@ -67,19 +67,19 @@ To avoid this problem, use the `--cohort="+"` flag when refreshing your snaps:
 
 This flag ensures that all machines in a cluster see the same snap revision and are therefore not affected by a progressive rollout.
 
-## Use a Snap Store Proxy
+## Use an Enterprise Store Proxy
 
-If you manage a large MicroCloud deployment and you need absolute control over when updates are applied, consider installing a Snap Store Proxy.
+If you manage a large MicroCloud deployment and you need absolute control over when updates are applied, consider installing an Enterprise Store Proxy.
 
-The Snap Store Proxy is a separate application that sits between the snap client command on your machines and the snap store.
-You can configure the Snap Store Proxy to make only specific snap revisions available for installation.
+The Enterprise Store Proxy is a separate application that sits between the snap client command on your machines and the snap store.
+You can configure the Enterprise Store Proxy to make only specific snap revisions available for installation.
 
-See the [Snap Store Proxy documentation](https://docs.ubuntu.com/snap-store-proxy/) for information about how to install and register the Snap Store Proxy.
+See the [Enterprise Store Proxy documentation](https://documentation.ubuntu.com/enterprise-store/) for information about how to install and register the Enterprise Store Proxy.
 
 After setting it up, configure the snap clients on all cluster members to use the proxy.
-See [Configuring snap devices](https://docs.ubuntu.com/snap-store-proxy/en/devices) for instructions.
+See [Configuring devices](https://documentation.ubuntu.com/enterprise-store/main/how-to/devices/) for instructions.
 
-You can then configure the Snap Store Proxy to override the revisions for the snaps that are needed for MicroCloud:
+You can then configure the Enterprise Store Proxy to override the revisions for the snaps that are needed for MicroCloud:
 
     sudo snap-proxy override lxd <channel>=<revision>
     sudo snap-proxy override microceph <channel>=<revision>

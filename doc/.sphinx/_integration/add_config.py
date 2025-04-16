@@ -18,3 +18,6 @@ elif project == "MicroCeph":
     html_baseurl = "https://canonical-microceph.readthedocs-hosted.com/en/latest/"
 elif project == "MicroOVN":
     html_baseurl = "https://canonical-microovn.readthedocs-hosted.com/en/latest/"
+
+# Include integrated tag
+custom_tags.append('integrated')

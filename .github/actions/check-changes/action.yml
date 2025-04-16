@@ -1,0 +1,36 @@
+name: Check for changes
+inputs:
+  glob:
+    # For syntax reference see https://git-scm.com/docs/gitglossary#Documentation/gitglossary.txt-aiddefpathspecapathspec.
+    description: "Glob pattern used to search for changes"
+    required: true
+outputs:
+  changes:
+    description: "Set to true in case there are any changes matching the glob pattern"
+    value: ${{ steps.check.outputs.changes }}
+runs:
+  using: composite
+  steps:
+    - name: Check for changes
+      id: check
+      shell: bash
+      run: |
+        changes=""
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "Checking pull request changes between HEAD and origin/${{ github.base_ref }}"
+
+          changes="$(git diff 'origin/${{ github.base_ref }}..HEAD' --name-only '${{ inputs.glob }}')"
+        else
+          echo "Checking changes made by the last (merge) commit"
+
+          changes="$(git diff HEAD^ --name-only '${{ inputs.glob }}')"
+        fi
+
+        if [ "$changes" != "" ]; then
+          echo "Found changes matching the glob pattern:"
+          echo "$changes"
+
+          echo "changes=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "changes=false" >> "$GITHUB_OUTPUT"
+        fi

@@ -38,6 +38,11 @@ func UseAuthProxy(c *client.Client, serviceType types.ServiceType, conf AuthConf
 		tp.TLSClientConfig = &tls.Config{}
 	}
 
+	// Error out if no HMAC is provided and mTLS verification is disabled.
+	if conf.HMAC == "" && conf.InsecureSkipVerify {
+		return nil, fmt.Errorf("Cannot disable mTLS verification without providing an HMAC")
+	}
+
 	tp.TLSClientConfig.InsecureSkipVerify = conf.InsecureSkipVerify
 	tp.Proxy = AuthProxy(conf.HMAC, serviceType)
 

@@ -313,7 +313,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 
 	conf := cloudClient.AuthConfig{
 		HMAC: header,
-		// The certificate of the initiater isn't yet known so we have to skip any TLS verification.
+		// The certificate of the initiator isn't yet known so we have to skip any TLS verification.
 		InsecureSkipVerify: true,
 	}
 
