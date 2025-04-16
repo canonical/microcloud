@@ -161,7 +161,10 @@ jobs:
         os: ["24.04"]
         microceph: ["latest/edge"]
         microovn: ["latest/edge"]
-        lxd: ["5.21/edge"]
+        lxd:
+          # Both LXD 5.21 and 6 are supported.
+          - "5.21/edge"
+          - "6/edge"
         microcloud: ["latest/edge"]
     steps:
       - name: Checkout
