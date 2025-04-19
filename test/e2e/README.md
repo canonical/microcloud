@@ -85,3 +85,13 @@ If desired and possible, the evacuated cluster member reboot can be automated by
 ./reboot "${REMOTE}" "${member}"
 ```
 ````
+
+It is possible to influence how many rolling reboots are performed:
+
+```sh
+# don't do any rolling reboot/evacuation test
+EVACUATION_COUNTS=0 ./run mc
+
+# do multuple rolling reboots/evacuation tests:
+EVACUATION_COUNTS=5 ./run mc
+```

@@ -4,6 +4,7 @@ set -o pipefail
 
 REMOTE="${REMOTE:-${1:-""}}"
 DESTROY="${DESTROY:-prompt}"
+EVACUATION_COUNTS="${EVACUATION_COUNTS:-1}"
 
 remoteAccessible() {
     lxc info "${REMOTE}:" >/dev/null 2>&1
@@ -198,9 +199,23 @@ evacuation() {
 init
 setup
 
+SUCCESFUL_EVACUATIONS=0
 connectivity
-evacuation
-connectivity
+for i in $(seq "${EVACUATION_COUNTS}"); do
+    echo "Evacuation test (${i}/$((EVACUATION_COUNTS - 1)))"
+    evacuation
+    connectivity
+    SUCCESFUL_EVACUATIONS=$((SUCCESFUL_EVACUATIONS + 1))
+done
+
+if [ "${EVACUATION_COUNTS}" = "0" ]; then
+    echo "Evacuation test skipped"
+elif [ "${SUCCESFUL_EVACUATIONS}" = "${EVACUATION_COUNTS}" ]; then
+    echo "Ecuation test passed after ${SUCCESFUL_EVACUATIONS} successful evacuations"
+else
+    echo "Evacuation test failed: ${SUCCESFUL_EVACUATIONS} successful evacuations out of the ${EVACUATION_COUNTS} expected"
+    exit 1
+fi
 
 destroy
 echo "Done"

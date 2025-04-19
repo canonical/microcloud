@@ -61,5 +61,7 @@ test_e2e() {
   echo "==> Initializing Terraform"
   terraform init
 
+  echo "==> Run multiple cluster evacuation/restore cycles to find any race"
+  export EVACUATION_COUNTS=10
   ./run mc
 }
