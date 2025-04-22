@@ -7,7 +7,7 @@ You run the initialization on one of the machines, and it configures the require
 ## Pre-initialization requirements
 
 - Complete the steps in {ref}`howto-install` before initialization.
-- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`.
+- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/security/full-disk-encryption`.
   - Follow only the instructions in the Prerequisites section on that page. Skip its Usage section; the MicroCloud initialization process handles the disk encryption.
 
 (howto-initialize-interactive)=
@@ -91,7 +91,7 @@ Complete the following steps to initialize MicroCloud:
       Encrypting a disk will store the encryption keys in the Ceph key ring inside the Ceph configuration folder.
 
       ```{warning}
-      Cluster members with disks to be encrypted require a kernel with `dm-crypt` enabled. The snap `dm-crypt` plug must also be connected. See the Prerequisites section of this page for more information: {doc}`microceph:explanation/full-disk-encryption`.
+      Cluster members with disks to be encrypted require a kernel with `dm-crypt` enabled. The snap `dm-crypt` plug must also be connected. See the Prerequisites section of this page for more information: {doc}`microceph:explanation/security/full-disk-encryption`.
 
       If you have not enabled and connected `dm-crypt` on any cluster member that you want to encrypt, do so now before you continue.
 
