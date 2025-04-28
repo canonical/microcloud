@@ -157,6 +157,7 @@ jobs:
           - "interactive"
           - "mismatch"
           - "preseed"
+          - "cluster-manager"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
         microceph: ["latest/edge"]
