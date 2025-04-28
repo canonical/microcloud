@@ -95,8 +95,12 @@ cleanup() {
     fi
     echo
 
-    echo -n "${name} MicroCloud daemon log:"
-    lxc exec "${name}" -- snap logs microcloud -n 200
+    for service in microcloud microceph microovn lxd; do
+      echo "${name} ${service} daemon log:"
+      lxc exec "${name}" -- snap logs "${service}" -n 200
+      # Print a newline to separate the log from the next one.
+      echo ""
+    done
   done
 
   if [ ${enable_xtrace} = 1 ]; then
