@@ -253,6 +253,10 @@ run_add_tests() {
   run_test test_add_interactive "add interactive"
 }
 
+run_cluster_manager_tests() {
+  run_test test_cluster_manager "cluster manager tests"
+}
+
 run_e2e_tests() {
   run_test test_e2e "e2e with Terraform"
 }
@@ -294,6 +298,7 @@ run_upgrade_tests() {
 # allow for running a specific set of tests
 if [ "${1:-"all"}" = "all" ]; then
   run_add_tests
+  run_cluster_manager_tests
   run_e2e_tests
   run_instances_tests
   run_basic_tests
@@ -304,6 +309,8 @@ if [ "${1:-"all"}" = "all" ]; then
   run_upgrade_tests
 elif [ "${1}" = "add" ]; then
   run_add_tests
+elif [ "${1}" = "cluster-manager" ]; then
+  run_cluster_manager_tests
 elif [ "${1}" = "e2e" ]; then
   run_e2e_tests
 elif [ "${1}" = "instances" ]; then
