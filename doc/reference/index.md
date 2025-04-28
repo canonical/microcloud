@@ -52,7 +52,7 @@ For production environments, we recommend at least 3 NVMe disks per cluster memb
 
 If you intend to use full disk encryption on any cluster member, the `dm-crypt` kernel module must be available, and the snap `dm-crypt` plug must be connected to MicroCeph. The `dm-crypt` module is available by default in Ubuntu 24.04 and higher.
 
-For further information, see the Prerequisites section of this page: {doc}`microceph:explanation/full-disk-encryption`. Note that the command shown on that page to connect the snap `dm-crypt` plug can only be performed once MicroCeph is installed. The MicroCloud installation steps include installing MicroCeph; thus, {ref}`install MicroCloud first<howto-install>`, then connect the plug.
+For further information, see the Prerequisites section of this page: {doc}`microceph:explanation/security/full-disk-encryption`. Note that the command shown on that page to connect the snap `dm-crypt` plug can only be performed once MicroCeph is installed. The MicroCloud installation steps include installing MicroCeph; thus, {ref}`install MicroCloud first<howto-install>`, then connect the plug.
 
 (network-requirements)=
 ### Networking requirements
