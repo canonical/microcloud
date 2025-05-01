@@ -10,7 +10,7 @@
 current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
 # Set the path prefix and MicroCloud component versions corresponding to each MicroCloud docs version
-PATH_PREFIX      = /en/latest/
+PATH_PREFIX      = /microcloud/latest/
 LXDVERSION       = origin/main
 MICROCEPHVERSION = origin/main
 MICROOVNVERSION  = origin/main
