@@ -18,8 +18,8 @@ github.com/canonical/microcluster/v2 v2.1.0 h1:jEycvk2vu8XH5SaT4GatqymCOmY7Bhj/m
 github.com/canonical/microcluster/v2 v2.1.0/go.mod h1:Aofp11LCtIpIm8OdkQRpl7RWXYtLMTE+B+SOE0gcyAE=
 github.com/canonical/microovn/microovn v0.0.0-20250328134802-336b7904ac05 h1:AkpzMGA80jTfKYJDEGQLD4hgkZcrlJmokfUzVKozr2A=
 github.com/canonical/microovn/microovn v0.0.0-20250328134802-336b7904ac05/go.mod h1:Z641vwo0yEELl9vqvl6eT37ngl03eo9eeE906HTVqZk=
-github.com/charmbracelet/bubbletea v1.3.4 h1:kCg7B+jSCFPLYRA52SDZjr51kG/fMUEoPoZrkaDHyoI=
-github.com/charmbracelet/bubbletea v1.3.4/go.mod h1:dtcUCyCGEX3g9tosuYiut3MXgY/Jsv9nKVdibKKRRXo=
+github.com/charmbracelet/bubbletea v1.3.5 h1:JAMNLTbqMOhSwoELIr0qyP4VidFq72/6E9j7HHmRKQc=
+github.com/charmbracelet/bubbletea v1.3.5/go.mod h1:TkCnmH+aBd4LrXhXcqrKiYwRs7qyQx5rBgH5fVY3v54=
 github.com/charmbracelet/colorprofile v0.3.0 h1:KtLh9uuu1RCt+Hml4s6Hz+kB1PfV3wi++1h5ia65yKQ=
 github.com/charmbracelet/colorprofile v0.3.0/go.mod h1:oHJ340RS2nmG1zRGPmhJKJ/jf4FPNNk0P39/wBPA1G0=
 github.com/charmbracelet/lipgloss v1.1.0 h1:vYXsiLHVkK7fp74RkV7b2kq9+zDLoEU4MZoFqR/noCY=
