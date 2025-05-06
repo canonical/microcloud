@@ -24,8 +24,8 @@ const (
 func validateVersion(serviceType types.ServiceType, daemonVersion string) error {
 	switch serviceType {
 	case types.LXD:
-		lxdVersion := semver.Canonical(fmt.Sprintf("v%s", daemonVersion))
-		expectedVersion := semver.Canonical(fmt.Sprintf("v%s", lxdMinVersion))
+		lxdVersion := semver.Canonical("v" + daemonVersion)
+		expectedVersion := semver.Canonical("v" + lxdMinVersion)
 		if semver.Compare(semver.MajorMinor(lxdVersion), semver.MajorMinor(expectedVersion)) != 0 {
 			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
 		}
@@ -42,8 +42,8 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 			return fmt.Errorf("%s version format not supported (%s)", serviceType, daemonVersion)
 		}
 
-		daemonVersion = semver.Canonical(fmt.Sprintf("v%s", match))
-		expectedVersion := semver.Canonical(fmt.Sprintf("v%s", microCephMinVersion))
+		daemonVersion = semver.Canonical("v" + match)
+		expectedVersion := semver.Canonical("v" + microCephMinVersion)
 		if semver.Compare(semver.MajorMinor(daemonVersion), semver.MajorMinor(expectedVersion)) != 0 {
 			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
 		}
