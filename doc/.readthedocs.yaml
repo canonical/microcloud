@@ -10,7 +10,7 @@ build:
   os: ubuntu-24.04
   tools:
     golang: "1.23"
-    python: "3.11"
+    python: "3.12"
   commands:
       - git fetch --unshallow || true
       - cd doc && make integrate
