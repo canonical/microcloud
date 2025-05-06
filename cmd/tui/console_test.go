@@ -61,7 +61,7 @@ func (s *inputSuite) Test_consoleComments() {
 	s.Equal("a line with a comment and more delimiters", string(line))
 	line, _, err = c.queue.ReadLine()
 	s.NoError(err)
-	s.Equal("", string(line))
+	s.Empty(string(line))
 	line, _, err = c.queue.ReadLine()
 	s.NoError(err)
 	s.Equal("a line with a comment with more spaces", string(line))
