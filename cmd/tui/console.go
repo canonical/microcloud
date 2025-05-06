@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -139,7 +140,7 @@ func (c *testConsole) parseInput(handler *InputHandler) error {
 
 			// If expecting 0, error out as the table will be invalid with 0 rows.
 			if count == 0 {
-				return fmt.Errorf("Cannot expect 0 rows")
+				return errors.New("Cannot expect 0 rows")
 			}
 
 			// Sanity check that the table didn't start with more rows than we are going to expect.
