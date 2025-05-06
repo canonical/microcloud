@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/pem"
+	"errors"
 	"fmt"
 
 	"github.com/canonical/lxd/lxd/util"
@@ -58,7 +59,7 @@ func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
 	}
 
 	if config.ClusterCertificate == "" {
-		return nil, fmt.Errorf("Unable to connect to any of the cluster members specified in join token")
+		return nil, errors.New("Unable to connect to any of the cluster members specified in join token")
 	}
 
 	return config, nil
