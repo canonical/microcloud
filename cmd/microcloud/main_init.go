@@ -860,7 +860,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 					addr = clusterMap[service.Location]
 				}
 
-				conns = append(conns, fmt.Sprintf("ssl:%s", util.CanonicalNetworkAddress(addr, 6641)))
+				conns = append(conns, "ssl:"+util.CanonicalNetworkAddress(addr, 6641))
 			}
 		}
 
