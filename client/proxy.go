@@ -62,7 +62,7 @@ func AuthProxy(hmac string, serviceType types.ServiceType) func(r *http.Request)
 
 		// MicroCloud itself doesn't need to use the proxy.
 		if serviceType != types.MicroCloud {
-			path := fmt.Sprintf("/1.0/services/%s", strings.ToLower(string(serviceType)))
+			path := "/1.0/services/" + strings.ToLower(string(serviceType))
 			if !strings.HasPrefix(r.URL.Path, path) {
 				r.URL.Path = path + r.URL.Path
 			}
