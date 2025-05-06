@@ -44,6 +44,8 @@ Also see Ceph's {ref}`ceph:hardware-recommendations`.
 
 Local storage is fast and convenient. It is commonly used in production and is typically sufficient on its own for testing and development. To use local storage, each cluster member requires at least one local disk.
 
+The default file system type for local storage is ZFS.
+
 (reference-requirements-storage-distributed)=
 ### Distributed storage
 
