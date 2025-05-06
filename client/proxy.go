@@ -3,7 +3,7 @@ package client
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,7 +30,7 @@ type AuthConfig struct {
 func UseAuthProxy(c *client.Client, serviceType types.ServiceType, conf AuthConfig) (*client.Client, error) {
 	tp, ok := c.Transport.(*http.Transport)
 	if !ok {
-		return nil, fmt.Errorf("Invalid client transport type")
+		return nil, errors.New("Invalid client transport type")
 	}
 
 	// If the client is a unix client, it may not have any TLS config.
@@ -40,7 +40,7 @@ func UseAuthProxy(c *client.Client, serviceType types.ServiceType, conf AuthConf
 
 	// Error out if no HMAC is provided and mTLS verification is disabled.
 	if conf.HMAC == "" && conf.InsecureSkipVerify {
-		return nil, fmt.Errorf("Cannot disable mTLS verification without providing an HMAC")
+		return nil, errors.New("Cannot disable mTLS verification without providing an HMAC")
 	}
 
 	tp.TLSClientConfig.InsecureSkipVerify = conf.InsecureSkipVerify
