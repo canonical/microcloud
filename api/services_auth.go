@@ -45,7 +45,7 @@ func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
 			}
 		}
 
-		return response.Forbidden(fmt.Errorf("Failed to authenticate using mTLS"))
+		return response.Forbidden(errors.New("Failed to authenticate using mTLS"))
 	}
 }
 
