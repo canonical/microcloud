@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -72,7 +73,7 @@ func (s OVNService) Bootstrap(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Timed out waiting for MicroOVN cluster to initialize")
+			return errors.New("Timed out waiting for MicroOVN cluster to initialize")
 		default:
 			names, err := s.ClusterMembers(ctx)
 			if err != nil {
