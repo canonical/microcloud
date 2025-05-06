@@ -64,14 +64,14 @@ func checkInitialized(stateDir string, expectInitialized bool, preseed bool) err
 		if expectInitialized && !initialized {
 			errMsg := fmt.Sprintf("%s is not initialized", s.Type())
 			if s.Type() == types.MicroCloud && !preseed {
-				errMsg = fmt.Sprintf("%s. Run 'microcloud init' first", errMsg)
+				errMsg = errMsg + ". Run 'microcloud init' first"
 			}
 
 			return fmt.Errorf("%s", errMsg)
 		} else if !expectInitialized && initialized {
 			errMsg := fmt.Sprintf("%s is already initialized", s.Type())
 			if s.Type() == types.MicroCloud && !preseed {
-				errMsg = fmt.Sprintf("%s. Use 'microcloud add' instead", errMsg)
+				errMsg = errMsg + ". Use 'microcloud add' instead"
 			}
 
 			return fmt.Errorf("%s", errMsg)
@@ -174,7 +174,7 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 
 		// Ignore missing services in case of preseed.
 		if !c.autoSetup {
-			warning := fmt.Sprintf("%s not found", serviceStr)
+			warning := serviceStr + " not found"
 			question := "Continue anyway?"
 			confirm, err := c.asker.AskBoolWarn(warning, question, true)
 			if err != nil {
@@ -283,11 +283,11 @@ func (c *initConfig) askDisks(sh *service.Handler) error {
 }
 
 func parseDiskPath(disk api.ResourcesStorageDisk) string {
-	devicePath := fmt.Sprintf("/dev/%s", disk.ID)
+	devicePath := "/dev/" + disk.ID
 	if disk.DeviceID != "" {
-		devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+		devicePath = "/dev/disk/by-id/" + disk.DeviceID
 	} else if disk.DevicePath != "" {
-		devicePath = fmt.Sprintf("/dev/disk/by-path/%s", disk.DevicePath)
+		devicePath = "/dev/disk/by-path/" + disk.DevicePath
 	}
 
 	return devicePath
