@@ -32,7 +32,7 @@ defaults:
 jobs:
   changes:
     name: Changes
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       except_docs: ${{ steps.check.outputs.changes }}
     steps:
