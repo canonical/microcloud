@@ -119,7 +119,7 @@ func lxdHandler(s state.State, r *http.Request) response.Response {
 // microHandler forwards a request made to /1.0/services/<microcluster-service>/<rest> to /1.0/<rest> on the service unix socket.
 func microHandler(service string, stateDir string) func(state.State, *http.Request) response.Response {
 	return func(s state.State, r *http.Request) response.Response {
-		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
+		_, path, ok := strings.Cut(r.URL.Path, "/1.0/services/"+service)
 		if !ok {
 			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
 		}
