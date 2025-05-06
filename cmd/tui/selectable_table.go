@@ -91,7 +91,7 @@ func SummarizeResult(tmpl string, args ...any) string {
 		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Color: Yellow, Bold: true})
 	}
 
-	return Printf(Fmt{Arg: fmt.Sprintf(" %s", tmpl), Color: White}, fmtArgs...)
+	return Printf(Fmt{Arg: " " + tmpl, Color: White}, fmtArgs...)
 }
 
 // NewSelectableTable takes a slice of structs and adds table rows for them.
