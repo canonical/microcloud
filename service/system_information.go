@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -66,7 +67,7 @@ type SystemInformation struct {
 // CollectSystemInformation fetches the current cluster information of the system specified by the connection info.
 func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo multicast.ServerInfo) (*SystemInformation, error) {
 	if connectInfo.Name == "" || connectInfo.Address == "" {
-		return nil, fmt.Errorf("Connection information is incomplete")
+		return nil, errors.New("Connection information is incomplete")
 	}
 
 	localSystem := sh.Name == connectInfo.Name
