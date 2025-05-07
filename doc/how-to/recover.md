@@ -8,7 +8,7 @@ similar for each service, this document only covers cluster recovery for the
 `microcloudd` daemon. For cluster recovery procedures for LXD, MicroCeph and
 MicroOVN, see:
 
-- [LXD Cluster Recovery](https://documentation.ubuntu.com/lxd/en/latest/howto/cluster_recover/)
+- {ref}`How to recover a LXD cluster <lxd:cluster-recover>`
 - [MicroOVN Launchpad Bug](https://bugs.launchpad.net/microovn/+bug/2072377)
 - [MicroCeph Issue](https://github.com/canonical/microceph/issues/380)
 ```
