@@ -35,6 +35,6 @@ See the full [Ubuntu Pro service description](https://ubuntu.com/legal/ubuntu-pr
 
 ## Documentation
 
-See the [MicroCloud documentation](https://canonical-microcloud.readthedocs-hosted.com/) for official product documentation.
+See the [MicroCloud documentation](https://documentation.ubuntu.com/microcloud/latest/microcloud/) for official product documentation.
 
 You can find additional resources on the [website](https://canonical.com/microcloud) and in the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
