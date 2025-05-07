@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"time"
 
@@ -122,13 +123,13 @@ Verify the fingerprint %s is displayed on joining systems.
 	}
 
 	if !session.Accepted {
-		return fmt.Errorf("Join confirmations didn't get accepted on all systems")
+		return errors.New("Join confirmations didn't get accepted on all systems")
 	}
 
 	for _, joinIntent := range confirmedIntents {
 		certBlock, _ := pem.Decode([]byte(joinIntent.Certificate))
 		if certBlock == nil {
-			return fmt.Errorf("Invalid certificate file")
+			return errors.New("Invalid certificate file")
 		}
 
 		remoteCert, err := x509.ParseCertificate(certBlock.Bytes)

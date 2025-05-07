@@ -58,7 +58,7 @@ func (s *versionSuite) Test_validateVersions() {
 		},
 		{
 			desc:      "Valid LXD with different patch version",
-			version:   fmt.Sprintf("%s.999", lxdMinVersion),
+			version:   lxdMinVersion + ".999",
 			service:   types.LXD,
 			expectErr: false,
 		},
@@ -76,7 +76,7 @@ func (s *versionSuite) Test_validateVersions() {
 		},
 		{
 			desc:      "Unsupported LXD with different minor version",
-			version:   fmt.Sprintf("%s.999", strings.Split(lxdMinVersion, ".")[0]),
+			version:   strings.Split(lxdMinVersion, ".")[0] + ".999",
 			service:   types.LXD,
 			expectErr: true,
 		},

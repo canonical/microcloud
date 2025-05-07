@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -90,7 +91,7 @@ func SummarizeResult(tmpl string, args ...any) string {
 		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Color: Yellow, Bold: true})
 	}
 
-	return Printf(Fmt{Arg: fmt.Sprintf(" %s", tmpl), Color: White}, fmtArgs...)
+	return Printf(Fmt{Arg: " " + tmpl, Color: White}, fmtArgs...)
 }
 
 // NewSelectableTable takes a slice of structs and adds table rows for them.
@@ -108,7 +109,7 @@ func NewSelectableTable(header []string, rows [][]string) *selectableTable {
 // Optionally takes a set of rows to replace the initial set.
 func (s *selectableTable) Render(ctx context.Context, handler *InputHandler, title string, newRows ...[]string) ([]map[string]string, error) {
 	if s.active || handler.table.active {
-		return nil, fmt.Errorf("Cannot render table while another is already active")
+		return nil, errors.New("Cannot render table while another is already active")
 	}
 
 	handler.tableMu.Lock()
@@ -145,7 +146,7 @@ func (s *selectableTable) Render(ctx context.Context, handler *InputHandler, tit
 
 	table, ok := result.(*selectableTable)
 	if !ok {
-		return nil, fmt.Errorf("Unexpected result type")
+		return nil, errors.New("Unexpected result type")
 	}
 
 	resultMap := make([]map[string]string, 0, len(table.rawRows))
@@ -460,7 +461,7 @@ func (s *selectableTable) handleKeyEvent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.activeRows = map[int]bool{}
 		s.active = false
 		if s.err != nil {
-			s.err = fmt.Errorf("Input cancelled")
+			s.err = errors.New("Input cancelled")
 		}
 
 		return s, tea.Quit

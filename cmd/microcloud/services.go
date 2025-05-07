@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -82,7 +83,7 @@ func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if !status.Ready {
-		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
+		return errors.New("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
 	services := []types.ServiceType{types.MicroCloud, types.LXD}
@@ -317,7 +318,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	for _, state := range cfg.state {
 		localState := cfg.state[s.Name]
 		if len(state.ExistingServices[types.LXD]) != len(localState.ExistingServices[types.LXD]) || len(state.ExistingServices[types.LXD]) <= 0 {
-			return fmt.Errorf("Unable to add services. Some systems are not part of the LXD cluster")
+			return errors.New("Unable to add services. Some systems are not part of the LXD cluster")
 		}
 
 		if len(state.ExistingServices[types.MicroCeph]) <= 0 && !serviceMap[types.MicroCeph] {
@@ -332,7 +333,7 @@ func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(askClusteredServices) == 0 {
-		return fmt.Errorf("All services have already been set up")
+		return errors.New("All services have already been set up")
 	}
 
 	err = cfg.askClustered(s, askClusteredServices)

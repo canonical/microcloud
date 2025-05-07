@@ -274,7 +274,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 
 	// No address selected, try to lookup system.
 	if session.InitiatorAddress == "" {
-		lookupCtx, cancel := context.WithTimeoutCause(gw.Context(), session.LookupTimeout, fmt.Errorf("Lookup timeout exceeded"))
+		lookupCtx, cancel := context.WithTimeoutCause(gw.Context(), session.LookupTimeout, errors.New("Lookup timeout exceeded"))
 		defer cancel()
 
 		discovery := multicast.NewDiscovery(session.Interface, service.CloudMulticastPort)
@@ -371,7 +371,7 @@ func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClien
 
 	certBlock, _ := pem.Decode([]byte(confirmedIntent.Certificate))
 	if certBlock == nil {
-		return fmt.Errorf("Invalid certificate file")
+		return errors.New("Invalid certificate file")
 	}
 
 	remoteCert, err := x509.ParseCertificate(certBlock.Bytes)

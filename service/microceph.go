@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -86,7 +87,7 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Timed out waiting for MicroCeph cluster to initialize")
+			return errors.New("Timed out waiting for MicroCeph cluster to initialize")
 		default:
 			names, err := s.ClusterMembers(ctx)
 			if err != nil {

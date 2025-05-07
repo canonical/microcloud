@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -103,7 +104,7 @@ func JoinIntent(ctx context.Context, c *client.Client, data types.SessionJoinPos
 	}
 
 	if len(resp.TLS.PeerCertificates) == 0 {
-		return nil, fmt.Errorf("Peer's certificate is missing")
+		return nil, errors.New("Peer's certificate is missing")
 	}
 
 	return resp.TLS.PeerCertificates[0], nil

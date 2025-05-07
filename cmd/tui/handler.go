@@ -81,7 +81,7 @@ func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acc
 
 	var defaultAnswerBlock string
 	if defaultAnswer != "" {
-		defaultAnswerBlock = Printf(Fmt{Arg: " [%s]"}, Fmt{Arg: fmt.Sprintf("default=%s", defaultAnswer), Bold: true})
+		defaultAnswerBlock = Printf(Fmt{Arg: " [%s]"}, Fmt{Arg: "default=" + defaultAnswer, Bold: true})
 	}
 
 	return fmt.Sprintf("%s%s%s: ", question, acceptedAnswersBlock, defaultAnswerBlock)

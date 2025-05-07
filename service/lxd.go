@@ -141,7 +141,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	}
 
 	if currentCluster.Enabled {
-		return fmt.Errorf("This LXD server is already clustered")
+		return errors.New("This LXD server is already clustered")
 	}
 
 	cluster := api.ClusterPut{
@@ -166,7 +166,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Timed out waiting for LXD cluster to initialize")
+			return errors.New("Timed out waiting for LXD cluster to initialize")
 		default:
 			names, err := client.GetClusterMemberNames()
 			if err != nil {
@@ -614,7 +614,7 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 
 	ones, bits := subnet.Mask.Size()
 	if bits-ones == 0 {
-		return nil, fmt.Errorf("Invalid Ceph network subnet (must have more than one address)")
+		return nil, errors.New("Invalid Ceph network subnet (must have more than one address)")
 	}
 
 	data := make(map[string][][]string)
@@ -771,7 +771,7 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 	}
 
 	if !available {
-		return nil, "", fmt.Errorf("No default IPv4 gateway available")
+		return nil, "", errors.New("No default IPv4 gateway available")
 	}
 
 	iface, err := net.InterfaceByName(ifaceName)
@@ -797,14 +797,14 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 		}
 
 		if subnet != nil {
-			return nil, "", fmt.Errorf("More than one IPv4 subnet on default interface")
+			return nil, "", errors.New("More than one IPv4 subnet on default interface")
 		}
 
 		subnet = addrNet
 	}
 
 	if subnet == nil {
-		return nil, "", fmt.Errorf("No IPv4 subnet on default interface")
+		return nil, "", errors.New("No IPv4 subnet on default interface")
 	}
 
 	return subnet, ifaceName, nil
@@ -823,7 +823,7 @@ func (s LXDService) SupportsFeature(ctx context.Context, feature string) (bool, 
 	}
 
 	if server.APIExtensions == nil {
-		return false, fmt.Errorf("API extensions not available when checking for a LXD feature")
+		return false, errors.New("API extensions not available when checking for a LXD feature")
 	}
 
 	return shared.ValueInSlice(feature, server.APIExtensions), nil

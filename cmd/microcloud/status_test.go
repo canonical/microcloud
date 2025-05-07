@@ -473,7 +473,7 @@ func (s *statusSuite) Test_statusWarnings() {
 		s.T().Log(i, c.desc)
 		warnings := compileWarnings("micro01", c.statuses)
 
-		s.Equal(len(c.expectedWarnings), len(warnings))
+		s.Len(warnings, len(c.expectedWarnings))
 		for _, w := range warnings {
 			s.Contains(c.expectedWarnings, w)
 		}

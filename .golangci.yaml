@@ -3,6 +3,9 @@ linters:
   enable:
     - godot
     - misspell
+    - perfsprint
+    - prealloc
+    - testifylint
     - whitespace
   exclusions:
     generated: lax
@@ -15,6 +18,11 @@ linters:
       - linters:
           - staticcheck
         text: "ST1005:" # ST1005: error strings should not be capitalized
+  settings:
+    testifylint:
+      disable:
+        - float-compare
+        - require-error
 formatters:
   enable:
     - gci
