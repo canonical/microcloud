@@ -20,7 +20,9 @@ runs:
       run: |
         # When br_netfilter is enabled, the multicast traffic that passes the native LXD bridge
         # will get masqueraded too which breaks the multicast discovery.
-        sudo rmmod br_netfilter
+        if lsmod | grep -qw ^br_netfilter; then
+          sudo modprobe -r br_netfilter
+        fi
 
     - name: Checkout
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
