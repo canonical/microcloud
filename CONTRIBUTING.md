@@ -104,4 +104,4 @@ In addition to the sign-off requirement, contributors must also cryptographicall
 
 ## More information
 
-For more information, see [How to contribute to MicroCloud](https://canonical-microcloud.readthedocs-hosted.com/en/latest/microcloud/how-to/contribute/) in the documentation.
+For more information, see [How to contribute to MicroCloud](https://documentation.ubuntu.com/microcloud/latest/microcloud/how-to/contribute/) in the documentation.
