@@ -36,7 +36,7 @@ MicroCloud requires LXD version 5.21:
       snap    2.59.4
       snapd   2.59.4
       series  16
-      ubuntu  22.04
+      ubuntu  24.04
       kernel  5.15.0-73-generic
       ```
 
@@ -169,10 +169,10 @@ Complete the following steps:
 
 1. Create the VMs, but don't start them yet:
 
-       lxc init ubuntu:22.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.10 -d eth0,ipv6.address=fd42:1:1234:1234::10
-       lxc init ubuntu:22.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.20 -d eth0,ipv6.address=fd42:1:1234:1234::20
-       lxc init ubuntu:22.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.30 -d eth0,ipv6.address=fd42:1:1234:1234::30
-       lxc init ubuntu:22.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.40 -d eth0,ipv6.address=fd42:1:1234:1234::40
+       lxc init ubuntu:24.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.10 -d eth0,ipv6.address=fd42:1:1234:1234::10
+       lxc init ubuntu:24.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.20 -d eth0,ipv6.address=fd42:1:1234:1234::20
+       lxc init ubuntu:24.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.30 -d eth0,ipv6.address=fd42:1:1234:1234::30
+       lxc init ubuntu:24.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.40 -d eth0,ipv6.address=fd42:1:1234:1234::40
 
    ```{tip}
       Run these commands in sequence, not in parallel.
@@ -743,15 +743,15 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
 
 1. Launch an Ubuntu container with the default settings:
 
-       lxc launch ubuntu:22.04 u1
+       lxc launch ubuntu:24.04 u1
 
 1. Launch another Ubuntu container, but use local storage instead of the default remote storage:
 
-       lxc launch ubuntu:22.04 u2 --storage local
+       lxc launch ubuntu:24.04 u2 --storage local
 
 1. Launch an Ubuntu VM:
 
-       lxc launch ubuntu:22.04 u3 --vm
+       lxc launch ubuntu:24.04 u3 --vm
 
 1. Check the list of instances.
    Note that the instances are running on different cluster members.
@@ -961,7 +961,7 @@ You can, however, create a different network to isolate some instances from othe
 
 1. Launch an Ubuntu container that uses the new network:
 
-       lxc launch ubuntu:22.04 u4 --network isolated
+       lxc launch ubuntu:24.04 u4 --network isolated
 
 1. Access the shell in `u4`:
 
