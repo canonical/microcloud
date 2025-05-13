@@ -333,7 +333,7 @@ func (s *preseedSuite) Test_preseedMatchDisksMemory() {
 	results, err := filter.Match(disks)
 	s.NoError(err)
 
-	s.Equal(len(results), 1)
+	s.Len(results, 1)
 	s.Equal(results[0], disks[0])
 }
 

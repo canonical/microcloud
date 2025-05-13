@@ -64,14 +64,14 @@ func checkInitialized(stateDir string, expectInitialized bool, preseed bool) err
 		if expectInitialized && !initialized {
 			errMsg := fmt.Sprintf("%s is not initialized", s.Type())
 			if s.Type() == types.MicroCloud && !preseed {
-				errMsg = fmt.Sprintf("%s. Run 'microcloud init' first", errMsg)
+				errMsg = errMsg + ". Run 'microcloud init' first"
 			}
 
 			return fmt.Errorf("%s", errMsg)
 		} else if !expectInitialized && initialized {
 			errMsg := fmt.Sprintf("%s is already initialized", s.Type())
 			if s.Type() == types.MicroCloud && !preseed {
-				errMsg = fmt.Sprintf("%s. Use 'microcloud add' instead", errMsg)
+				errMsg = errMsg + ". Use 'microcloud add' instead"
 			}
 
 			return fmt.Errorf("%s", errMsg)
@@ -174,7 +174,7 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 
 		// Ignore missing services in case of preseed.
 		if !c.autoSetup {
-			warning := fmt.Sprintf("%s not found", serviceStr)
+			warning := serviceStr + " not found"
 			question := "Continue anyway?"
 			confirm, err := c.asker.AskBoolWarn(warning, question, true)
 			if err != nil {
@@ -182,7 +182,7 @@ func (c *initConfig) askMissingServices(services []types.ServiceType, stateDirs 
 			}
 
 			if !confirm {
-				return nil, fmt.Errorf("User aborted")
+				return nil, errors.New("User aborted")
 			}
 
 			return services, nil
@@ -203,7 +203,7 @@ func (c *initConfig) askAddress(filterAddress string) error {
 	listenAddr := c.address
 	if listenAddr == "" {
 		if len(info) == 0 {
-			return fmt.Errorf("Found no valid network interfaces")
+			return errors.New("Found no valid network interfaces")
 		}
 
 		filterIp := net.ParseIP(filterAddress)
@@ -231,7 +231,7 @@ func (c *initConfig) askAddress(filterAddress string) error {
 				}
 
 				if len(answers) != 1 {
-					return fmt.Errorf("You must select exactly one address")
+					return errors.New("You must select exactly one address")
 				}
 
 				listenAddr = answers[0]["ADDRESS"]
@@ -283,11 +283,11 @@ func (c *initConfig) askDisks(sh *service.Handler) error {
 }
 
 func parseDiskPath(disk api.ResourcesStorageDisk) string {
-	devicePath := fmt.Sprintf("/dev/%s", disk.ID)
+	devicePath := "/dev/" + disk.ID
 	if disk.DeviceID != "" {
-		devicePath = fmt.Sprintf("/dev/disk/by-id/%s", disk.DeviceID)
+		devicePath = "/dev/disk/by-id/" + disk.DeviceID
 	} else if disk.DevicePath != "" {
-		devicePath = fmt.Sprintf("/dev/disk/by-path/%s", disk.DevicePath)
+		devicePath = "/dev/disk/by-path/" + disk.DevicePath
 	}
 
 	return devicePath
@@ -376,7 +376,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		if len(answers) == 0 {
-			return fmt.Errorf("No disks selected")
+			return errors.New("No disks selected")
 		}
 
 		for _, entry := range answers {
@@ -392,7 +392,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		if len(selected) != len(askSystems) {
-			return fmt.Errorf("Failed to add local storage pool: Some peers don't have an available disk")
+			return errors.New("Failed to add local storage pool: Some peers don't have an available disk")
 		}
 
 		if wipeable {
@@ -548,7 +548,7 @@ func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDServ
 func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwork *net.IPNet, internalCephNetwork *net.IPNet, err error) {
 	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
 	if microCephService == nil {
-		return nil, nil, fmt.Errorf("Failed to get MicroCeph service")
+		return nil, nil, errors.New("Failed to get MicroCeph service")
 	}
 
 	var cephAddr string
@@ -614,7 +614,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if !hasPool && hasFSPool {
-			return fmt.Errorf("Unsupported configuration, remote-fs pool already exists")
+			return errors.New("Unsupported configuration, remote-fs pool already exists")
 		}
 
 		if hasPool {
@@ -694,7 +694,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 
 			if len(data) == 0 {
-				return fmt.Errorf("Invalid disk configuration. Found no available disks")
+				return errors.New("Invalid disk configuration. Found no available disks")
 			}
 
 			sort.Sort(cli.SortColumnsNaturally(data))
@@ -745,7 +745,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			selectedDisks = targetDisks
 
 			if len(targetDisks) == 0 {
-				return fmt.Errorf("No disks were selected")
+				return errors.New("No disks were selected")
 			}
 
 			insufficientDisks = !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
@@ -942,7 +942,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 			return nil
 		}
 
-		return fmt.Errorf("User aborted")
+		return errors.New("User aborted")
 	}
 
 	// Ask the user if they want OVN.
@@ -988,7 +988,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 
 		if len(selected) != len(askSystems) {
-			return fmt.Errorf("Failed to add OVN uplink network: Some peers don't have a selected interface")
+			return errors.New("Failed to add OVN uplink network: Some peers don't have a selected interface")
 		}
 
 		selectedIfaces = selected
@@ -1032,11 +1032,11 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 				}
 
 				if addr.To4() == nil && ip == "IPv4" {
-					return fmt.Errorf("Not a valid IPv4")
+					return errors.New("Not a valid IPv4")
 				}
 
 				if addr.To4() != nil && ip == "IPv6" {
-					return fmt.Errorf("Not a valid IPv6")
+					return errors.New("Not a valid IPv6")
 				}
 
 				return nil
@@ -1280,7 +1280,7 @@ func (c *initConfig) askNetwork(sh *service.Handler) error {
 			}
 
 			if !proceedWithNoOverlayNetworking {
-				return fmt.Errorf("Cluster bootstrapping aborted due to lack of usable networking")
+				return errors.New("Cluster bootstrapping aborted due to lack of usable networking")
 			}
 		}
 
@@ -1474,7 +1474,7 @@ func (c *initConfig) askClustered(s *service.Handler, expectedServices map[types
 
 func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 	if len(fingerprint) < 12 {
-		return "", fmt.Errorf("Fingerprint is not long enough")
+		return "", errors.New("Fingerprint is not long enough")
 	}
 
 	return fingerprint[0:12], nil
@@ -1489,7 +1489,7 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 		})
 
 		if len(passwordClean) != 4 {
-			return "", fmt.Errorf("Passphrase has to contain exactly four elements")
+			return "", errors.New("Passphrase has to contain exactly four elements")
 		}
 
 		return strings.Join(passwordClean, " "), nil
@@ -1497,7 +1497,7 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 
 	validator := func(password string) error {
 		if password == "" {
-			return fmt.Errorf("Passphrase cannot be empty")
+			return errors.New("Passphrase cannot be empty")
 		}
 
 		_, err := format(password)
@@ -1605,7 +1605,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 			}
 
 			if len(answers) == 0 {
-				return fmt.Errorf("No system selected")
+				return errors.New("No system selected")
 			}
 
 			return nil
@@ -1671,7 +1671,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 
 	fmt.Println(tui.SuccessColor("Successfully joined the MicroCloud cluster and closing the session.", true))
 
-	var servicesStr []string
+	servicesStr := make([]string, 0, len(services))
 	for serviceType := range services {
 		if serviceType == types.MicroCloud {
 			continue

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/pem"
+	"errors"
 	"fmt"
 
 	"github.com/canonical/lxd/lxd/util"
@@ -41,7 +42,7 @@ func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
 		config.ClusterAddress = util.CanonicalNetworkAddress(clusterAddress, s.port)
 
 		// Cluster certificate
-		cert, err := shared.GetRemoteCertificate(fmt.Sprintf("https://%s", config.ClusterAddress), version.UserAgent)
+		cert, err := shared.GetRemoteCertificate("https://"+config.ClusterAddress, version.UserAgent)
 		if err != nil {
 			logger.Warnf("Error connecting to existing cluster member %q: %v\n", clusterAddress, err)
 			continue
@@ -58,7 +59,7 @@ func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
 	}
 
 	if config.ClusterCertificate == "" {
-		return nil, fmt.Errorf("Unable to connect to any of the cluster members specified in join token")
+		return nil, errors.New("Unable to connect to any of the cluster members specified in join token")
 	}
 
 	return config, nil

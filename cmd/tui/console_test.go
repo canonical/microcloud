@@ -61,7 +61,7 @@ func (s *inputSuite) Test_consoleComments() {
 	s.Equal("a line with a comment and more delimiters", string(line))
 	line, _, err = c.queue.ReadLine()
 	s.NoError(err)
-	s.Equal("", string(line))
+	s.Empty(string(line))
 	line, _, err = c.queue.ReadLine()
 	s.NoError(err)
 	s.Equal("a line with a comment with more spaces", string(line))
@@ -139,7 +139,7 @@ func (s *inputSuite) Test_parseInput() {
 		defer cancel()
 		b := bytes.Buffer{}
 		for _, line := range t.in {
-			_, _ = b.WriteString(fmt.Sprintf("%s\n", line))
+			_, _ = b.WriteString(line + "\n")
 		}
 
 		out, err := os.CreateTemp("", "test-output")
@@ -177,7 +177,7 @@ func (s *inputSuite) Test_waitInput() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		b := bytes.Buffer{}
-		_, _ = b.WriteString(fmt.Sprintf("%s\n", t.txt))
+		_, _ = b.WriteString(t.txt + "\n")
 		_, _ = b.WriteString("table:select\n")
 		_, _ = b.WriteString("table:done\n")
 
@@ -242,7 +242,7 @@ func (s *inputSuite) Test_waitExpectStatic() {
 		defer cancel()
 
 		b := bytes.Buffer{}
-		_, _ = b.WriteString(fmt.Sprintf("%s\n", t.txt))
+		_, _ = b.WriteString(t.txt + "\n")
 		_, _ = b.WriteString("table:done\n")
 
 		r := bufio.NewReader(bytes.NewReader(b.Bytes()))
@@ -313,7 +313,7 @@ func (s *inputSuite) Test_waitExpectDynamic() {
 		defer cancel()
 
 		b := bytes.Buffer{}
-		_, _ = b.WriteString(fmt.Sprintf("%s\n", t.txt))
+		_, _ = b.WriteString(t.txt + "\n")
 		_, _ = b.WriteString("table:done\n")
 
 		r := bufio.NewReader(bytes.NewReader(b.Bytes()))
