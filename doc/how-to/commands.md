@@ -271,15 +271,15 @@ See {ref}`lxd:cluster-manage-instance` and {ref}`lxd:cluster-evacuate`.
      {command}`microceph cluster list`
 
      {command}`microovn cluster list`
- * - Move an instance to a different cluster member
+ * - Migrate an instance to a different cluster member
    - {command}`lxc move <instance> --target <member>`
  * - Copy an instance from a different LXD server
-   - Add one of the MicroCloud cluster members as a remote on the different LXD server and copy or move the instance from that server.
+   - Add one of the MicroCloud cluster members as a remote on the different LXD server and copy or migrate the instance from that server.
 
      {command}`lxc copy <instance> <remote>`
 
      ```{tip}
-     See {ref}`lxd:move-instances` for details.
+     See {ref}`lxd:howto-instances-migrate` for details.
      ```
  * - Evacuate a cluster member
    - {command}`lxc cluster evacuate <member>`
