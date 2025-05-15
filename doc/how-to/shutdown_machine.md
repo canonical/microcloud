@@ -11,9 +11,9 @@ You can stop all instances on a cluster member using the command:
 lxc stop --all
 ```
 
-Alternatively, for instances that can be {ref}`live-migrated <lxd:live-migration>`, you can move them to another cluster member without stopping them. See: {ref}`lxd:move-instances` for more information.
+Alternatively, for instances that can be {ref}`live-migrated <lxd:live-migration>`, you can migrate them to another cluster member without stopping them. See: {ref}`lxd:howto-instances-migrate` for more information.
 
-You can also temporarily move all instances on a machine to another cluster member by using cluster evacuation, then restore them after you restart. This method can live-migrate eligible instances; instances that cannot be live-migrated are automatically stopped and restarted. See: {ref}`lxd:cluster-evacuate` for more information.
+You can also temporarily migrate all instances on a machine to another cluster member by using cluster evacuation, then restore them after you restart. This method can live-migrate eligible instances; instances that cannot be live-migrated are automatically stopped and restarted. See: {ref}`lxd:cluster-evacuate` for more information.
 
 ## Enforce services shutdown and restart order
 
