@@ -249,6 +249,7 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
 1. Install the required snaps:
 
+       sudo snap install lxd --channel=5.21/stable --cohort="+"
        snap install microceph --channel=squid/stable --cohort="+"
        snap install microovn --channel=24.03/stable --cohort="+"
        snap install microcloud --channel=2/stable --cohort="+"
@@ -257,11 +258,6 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
    The `--cohort="+"` flag in the command ensures that the same version of the snap is installed on all machines.
    See {ref}`howto-snap-cluster` for more information.
    ```
-
-1. The LXD snap is already installed.
-   Refresh it to the latest version:
-
-       snap refresh lxd --channel=5.21/stable --cohort="+"
 
 1. Repeat these steps on all VMs.
 
