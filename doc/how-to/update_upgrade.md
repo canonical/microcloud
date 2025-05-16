@@ -39,9 +39,10 @@ Performing an update requires going through the list of snaps one after another 
 Depending on which snap gets updated, some services of this snap (such as API endpoints) might not be available while performing the update. Check the respective services' documentation on updates for more information.
 ```
 
-```{important}
-MicroCloud `1/(stable|candidate|edge)` reaches {abbr}`EOL (End of Life)` at the end of April 2025.
-Make sure to upgrade to the `2` LTS track before this date.
+```{admonition} Users of the 1 track
+:class: important
+MicroCloud `1/(stable|candidate|edge)` reached {abbr}`EOL (End of Life)` at the end of April 2025.
+If you use this track, make sure to upgrade to the `2` LTS track.
 See the {ref}`howto-update-upgrade-upgrade` guide below for more information.
 ```
 
