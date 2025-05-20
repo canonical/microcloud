@@ -7,6 +7,7 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 )
 
 const (
@@ -32,6 +33,11 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 		// Only if the lxdVersion is lower than the expected version MicroCloud should error out.
 		if semver.Compare(semver.MajorMinor(lxdVersion), semver.MajorMinor(expectedVersion)) == -1 {
 			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
+		}
+
+		// Print a warning in case a non-LTS version of LXD is used.
+		if semver.Compare(semver.MajorMinor(lxdVersion), semver.MajorMinor(expectedVersion)) == 1 {
+			fmt.Printf("%s Discovered non-LTS version %q of LXD\n", tui.WarningSymbol(), daemonVersion)
 		}
 
 	case types.MicroOVN:
