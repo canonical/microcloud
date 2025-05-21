@@ -676,7 +676,7 @@ func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	err = s.waitReady(ctx, c)
+	err = s.WaitReady(ctx, c, false, false)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
 	}
@@ -713,10 +713,11 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 	return len(pools) != 0, nil
 }
 
-// waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
+// WaitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
 // Waits up to a minute for LXD to start, before failing.
 // Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
-func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error {
+// Furthermore the caller can wait for both network and storage to be ready.
+func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, network bool, storage bool) error {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
 	defer timeoutCancel()
 
@@ -729,7 +730,16 @@ func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error 
 	var errLast error
 	go func() {
 		for ctx.Err() == nil {
-			_, _, err := c.RawQuery("GET", "/internal/ready", nil, "")
+			url := api.NewURL().Path("internal", "ready")
+			if network {
+				url.WithQuery("network", "1")
+			}
+
+			if storage {
+				url.WithQuery("storage", "1")
+			}
+
+			_, _, err := c.RawQuery("GET", url.String(), nil, "")
 			if err != nil {
 				if api.StatusErrorCheck(err, http.StatusNotFound) {
 					if unixCtx.Err() != nil {
