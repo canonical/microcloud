@@ -31,6 +31,5 @@ for _ in $(seq 30); do
 done
 lxc exec "${MEMBER}" -- timeout 90 systemctl is-system-running --wait --quiet || true
 sleep 5
-lxc exec "${MEMBER}" -- lxd waitready --timeout=90 || true
+lxc exec "${MEMBER}" --env TEST_CONSOLE=0 -- microcloud waitready --timeout=90 || true
 echo " DONE"
-
