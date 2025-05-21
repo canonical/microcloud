@@ -763,6 +763,10 @@ reset_snaps() {
     lxc exec "${name}" -- lxd waitready
 
     set_debug_binaries "${name}"
+
+    echo "Wait for all snaps in ${name} to settle"
+    # No networks and storage pools are setup yet but the command will still wait for both MicroCloud and LXD to be ready.
+    lxc exec "${name}" --env TEST_CONSOLE=0 -- microcloud waitready > /dev/null 2>&1 || true
   )
 }
 
