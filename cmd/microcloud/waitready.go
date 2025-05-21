@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
+
+	"github.com/canonical/microcloud/microcloud/service"
 )
 
 type cmdWaitready struct {
@@ -18,7 +21,7 @@ type cmdWaitready struct {
 func (c *cmdWaitready) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "waitready",
-		Short: "Wait for the daemon to be ready to process requests",
+		Short: "Wait for MicroCloud to be ready to process requests",
 		RunE:  c.Run,
 	}
 
@@ -46,5 +49,33 @@ func (c *cmdWaitready) Run(cmd *cobra.Command, args []string) error {
 		defer cancel()
 	}
 
-	return m.Ready(ctx)
+	// First wait for the local MicroCloud daemon.
+	err = m.Ready(ctx)
+	if err != nil {
+		return fmt.Errorf("Failed waiting for the MicroCloud daemon: %w", err)
+	}
+
+	// Only MicroCloud's state dir is required as we use the proxy to reach out to LXD's unix socket.
+	lxdService, err := service.NewLXDService("", "", c.common.FlagMicroCloudDir)
+	if err != nil {
+		return fmt.Errorf("Failed to create LXD service: %w", err)
+	}
+
+	initialized, _ := lxdService.IsInitialized(ctx)
+	if initialized {
+		client, err := lxdService.Client(ctx)
+		if err != nil {
+			return err
+		}
+
+		// Wait for all networks and storage pools to be ready in LXD.
+		// If no remote storage was configured, wait for the local pool.
+		// If no distributed networking was configured, wait for the FAN network.
+		err = lxdService.WaitReady(ctx, client, true, true)
+		if err != nil {
+			return fmt.Errorf("Failed waiting for the LXD daemon: %w", err)
+		}
+	}
+
+	return nil
 }
