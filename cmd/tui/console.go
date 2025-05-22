@@ -144,12 +144,12 @@ func (c *testConsole) parseInput(handler *InputHandler) error {
 			}
 
 			// Sanity check that the table didn't start with more rows than we are going to expect.
-			if len(handler.getAllRows()) > count {
-				return fmt.Errorf("Table has more rows (%d) than expected (%d)", len(handler.getAllRows()), count)
+			if handler.countAllRows() > count {
+				return fmt.Errorf("Table has more rows (%d) than expected (%d)", handler.countAllRows(), count)
 			}
 
 			// Wait until we receive the expected row count.
-			for len(handler.getAllRows()) < count {
+			for handler.countAllRows() < count {
 				time.Sleep(300 * time.Millisecond)
 			}
 		} else if filter != "" {

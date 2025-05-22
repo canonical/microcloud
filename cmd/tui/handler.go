@@ -22,8 +22,7 @@ type InputHandler struct {
 	// testMode is set to true if the handler is initialized in test mode with PrepareTestAsker.
 	testMode bool
 
-	table   *selectableTable
-	tableMu sync.Mutex
+	table *selectableTable
 
 	activeMu sync.RWMutex
 	active   bool
@@ -54,17 +53,9 @@ func (i *InputHandler) isActive() bool {
 	return i.active
 }
 
-// getAllRows lists all filtered and unflitered rows from the current table.
-func (i *InputHandler) getAllRows() [][]string {
-	i.tableMu.Lock()
-	defer i.tableMu.Unlock()
-
-	allRows := make([][]string, len(i.table.rawRows))
-	for i, row := range i.table.rawRows {
-		copy(allRows[i], row)
-	}
-
-	return allRows
+// countAllRows returns the number of all filtered and unflitered rows from the current table.
+func (i *InputHandler) countAllRows() int {
+	return i.table.countRawRows()
 }
 
 // printWarning prints the given warning with "!" appended to the front of the message.
