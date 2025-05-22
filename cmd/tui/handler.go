@@ -61,6 +61,7 @@ func (i *InputHandler) getAllRows() [][]string {
 
 	allRows := make([][]string, len(i.table.rawRows))
 	for i, row := range i.table.rawRows {
+		allRows[i] = make([]string, len(row))
 		copy(allRows[i], row)
 	}
 
