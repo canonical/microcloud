@@ -83,6 +83,7 @@ update-gomod:
 	# Static pins
 	go get github.com/canonical/lxd@stable-5.21 # Stay on v2 dqlite and LXD LTS client
 	go get github.com/canonical/microcluster/v2@bd3a6b7d4f3011fef554a7d714ce1df1b3a6406f # v2.1.1 pre-release
+	go get github.com/olekukonko/tablewriter@v0.0.5 # Due to breaking API in later versions
 
 	go mod tidy -go=$(GOMIN)
 
