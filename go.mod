@@ -15,9 +15,9 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/mod v0.24.0
-	golang.org/x/net v0.40.0
-	golang.org/x/sync v0.14.0
+	golang.org/x/mod v0.25.0
+	golang.org/x/net v0.41.0
+	golang.org/x/sync v0.15.0
 	golang.org/x/sys v0.33.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -72,8 +72,8 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/crypto v0.38.0 // indirect
+	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/text v0.26.0 // indirect
 )
