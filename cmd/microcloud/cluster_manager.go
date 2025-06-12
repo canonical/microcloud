@@ -26,6 +26,14 @@ func (c *cmdClusterManager) Command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "cluster-manager"
 	cmd.Short = "Manage cluster manager connection"
+	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		// Skip the check if this is the root command itself
+		if cmd.Use == "cluster-manager" {
+			return nil
+		}
+
+		return checkInitialized(c.common.FlagMicroCloudDir, true, false)
+	}
 
 	// Join
 	clusterManagerJoinCmd := cmdClusterManagerJoin{common: c.common, alias: c}
