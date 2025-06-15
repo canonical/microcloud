@@ -46,6 +46,8 @@ These requirements are in addition to those listed in the General tab.
   - 1 member
 - Memory:
   - Minimum 8 GiB RAM per cluster member
+- Networking:
+  - It is possible to use a single network interface per cluster member. However, such a configuration is neither supported nor recommended. For details, see: {ref}`reference-requirements-network-interface-single`.
 - Storage:
   - If high availability is required, use distributed storage with:
     - a minimum of 3 cluster members
