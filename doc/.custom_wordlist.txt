@@ -39,6 +39,7 @@ MicroCloud's
 MicroOVN
 multicast
 NAT
+Netplan
 NIC
 NICs
 NVMe
