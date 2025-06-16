@@ -17,9 +17,11 @@ In case of error, see {ref}`howto-recover` for troubleshooting details.
 (howto-update-upgrade-running-instances)=
 ## Keep instances running during an update or upgrade
 
-You can update or upgrade MicroCloud and its dependency snaps on a cluster member while it is hosting running instances. However, when updating or upgrading the MicroCeph or MicroOVN snaps, storage and network services on that member might be briefly affected. For example, the instances might experience temporary packet loss.
+You can update or upgrade MicroCloud and its dependency snaps on a cluster member while it is hosting running instances. 
 
-To ensure that the update or upgrade does not affect workloads on running instances at all, use the following live-migration approach:
+For the LXD snap, this won't affect the running instances. However, for the MicroCeph or MicroOVN snaps, storage and network services might be briefly affected. For example, when MicroCeph is updated on a cluster member, instances on that machine might experience temporary packet loss.
+
+To avoid such possible effects entirely, use the live migration approach described below when updating or upgrading the MicroCeph and MicroOVN snaps.
 
 - Use virtual machines (VMs) instead of system containers for crucial workloads; in general, containers cannot be live-migrated.
 - Each VM must be pre-configured for live migration. See: {ref}`lxd:live-migration-vms` for information on the required configurations.
@@ -74,8 +76,11 @@ Again enter the following command on the first machine:
 
 Run the same command on the remaining machines, one after another, unless an error is encountered.
 
-Next, update LXD. The refresh will block until each of the LXD cluster members is updated, so make sure to perform the following
-command on all machines in parallel:
+Next, for LXD, we recommend running updates in parallel. When any cluster member's LXD snap version does not match the rest of its cluster, it's set to a blocked state. This means if you run the updates in sequence, one after another, cluster members that are updated earlier are in a blocked state until the final cluster member is updated.
+
+Furthermore, LXD might automatically update its snaps on cluster members if they remain out of sync for too long.
+
+On all cluster members, run _in parallel_:
 
     sudo snap refresh lxd --cohort="+"
 
@@ -140,8 +145,9 @@ Again, enter the following command on the first machine:
 
 Run the same command on the remaining machines, one after another, unless an error is encountered.
 
-Next, update LXD. The installer will block until each of the LXD cluster members is upgraded, so make sure to perform the following
-command on all machines in parallel:
+Next, for LXD, we recommend running upgrades in parallel. When any cluster member's LXD snap version does not match the rest of its cluster, it's set to a blocked state. This means if you run the upgrades in sequence, one after another, cluster members upgraded earlier are in a blocked state until the final cluster member is upgraded.
+
+On all cluster members, run _in parallel_:
 
     sudo snap refresh lxd --channel "5.21/stable" --cohort="+"
 
