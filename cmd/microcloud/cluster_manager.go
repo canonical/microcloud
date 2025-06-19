@@ -247,6 +247,12 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 		fmt.Printf("%s\n", clusterManager.StatusLastErrorTime)
 	case "status-last-error-response":
 		fmt.Printf("%s\n", clusterManager.StatusLastErrorResponse)
+	case "reverse-tunnel":
+		value, ok := clusterManager.Config[database.ReverseTunnelKey]
+		if ok {
+			fmt.Printf("%s\n", value)
+		}
+
 	default:
 		return errors.New("Invalid key")
 	}
@@ -266,7 +272,8 @@ func (c *cmdClusterManagerSet) command() *cobra.Command {
 	cmd.Short = "Set specific cluster manager configuration key."
 	cmd.Example = cli.FormatSection("", `microcloud cluster-manager set addresses example.com:8443
 microcloud cluster-manager set certificate-fingerprint abababababababababababababababababababababababababababababababab
-microcloud cluster-manager set update-interval-seconds 50`)
+microcloud cluster-manager set update-interval-seconds 50
+microcloud cluster-manager set reverse-tunnel true`)
 
 	cmd.RunE = c.run
 
@@ -295,6 +302,12 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 		payload.CertificateFingerprint = &value
 	case "update-interval-seconds":
 		payload.UpdateInterval = &value
+	case "reverse-tunnel":
+		if value != "true" && value != "false" {
+			return errors.New("Invalid value for reverse-tunnel, expected 'true' or 'false'")
+		}
+
+		payload.ReverseTunnel = &value
 	default:
 		return errors.New("Invalid key")
 	}
