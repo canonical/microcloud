@@ -124,6 +124,22 @@ html_context = {
 # slug (for example, "lxd") here.
 slug = "microcloud"
 
+#######################
+# Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
+#######################
+
+# Base URL of RTD hosted project
+
+html_baseurl = 'https://documentation.ubuntu.com/microcloud/'
+
+# Configures URL scheme for sphinx-sitemap to generate correct URLs
+# based on the version if built in RTD
+if 'READTHEDOCS_VERSION' in os.environ:
+    rtd_version = os.environ["READTHEDOCS_VERSION"]
+    sitemap_url_scheme = f'{rtd_version}/{{link}}'
+else:
+    sitemap_url_scheme = '{link}'
+
 ############################################################
 ### Redirects
 ############################################################
@@ -193,6 +209,7 @@ custom_extensions = [
     'canonical.terminal-output',
     'notfound.extension',
     'sphinx.ext.intersphinx',
+    'sphinx_sitemap',
     ]
 
 # Add custom required Python modules that must be added to the
@@ -202,7 +219,9 @@ custom_extensions = [
 # pyspelling, sphinx, sphinx-autobuild, sphinx-copybutton, sphinx-design,
 # sphinx-notfound-page, sphinx-reredirects, sphinx-tabs, sphinxcontrib-jquery,
 # sphinxext-opengraph
-custom_required_modules = []
+custom_required_modules = [
+    'sphinx-sitemap',
+]
 
 # Add files or directories that should be excluded from processing.
 custom_excludes = [
