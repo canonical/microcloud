@@ -1,38 +1,31 @@
 (howto-support)=
 # How to get support
 
-We recommend using the following channels for the snaps required to run MicroCloud:
+For information about supported and compatible releases of MicroCloud and its components, see: {ref}`ref-releases-matrix`.
 
-* For MicroCloud: `2/(stable|candidate|edge)`
-* For LXD: `5.21/(stable|candidate|edge)`
-* For MicroCeph: `squid/(stable|candidate|edge)`
-* For MicroOVN: `24.03/(stable|candidate|edge)`
+## Community support
 
-The LTS version of MicroCloud is available in the `2` track.
-It's recommended to use the `<track>/stable` channels for production deployments.
+You can seek support from the LXD developers as well as the wider community through the following channels.
 
-```{admonition} Users of the 1 track
-:class: important
-MicroCloud `1/(stable|candidate|edge)` reached {abbr}`EOL (End of Life)` at the end of April 2025.
-If you use this track, make sure to upgrade to the `2` LTS track. See the {ref}`howto-update-upgrade-upgrade` guide for more information.
-```
+### Forum
 
-## Support and community
+Ask questions or engage in discussions in our [Discourse forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
 
-The following channels are available for you to interact with the MicroCloud community:
+### Documentation
 
-- You can file bug reports and feature requests as [GitHub issues](https://github.com/canonical/microcloud/issues/new).
-- To ask questions, go to the MicroCloud section of our [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
+Access the [official documentation](https://documentation.ubuntu.com/microcloud/latest/).
+
+### Bug reports and feature requests
+
+To file a new bug or feature request, [submit an issue on GitHub](https://github.com/canonical/microcloud/issues/new).
+
+### Other community resources
+
+You can find additional resources on the [MicroCloud website](https://canonical.com/microcloud) and on [the LXD channel on YouTube](https://www.youtube.com/channel/UCuP6xPt0WTeZu32CkQPpbvA).
 
 ## Commercial support
 
-Commercial support for MicroCloud is available through [Ubuntu Pro](https://ubuntu.com/support) (Ubuntu Pro (Infra-only) or full Ubuntu Pro).
-The support will cover all LTS versions for five years starting from the day of the release.
+LTS releases of MicroCloud receive standard support for five years, which means they receive continuous updates. Commercial support for MicroCloud is provided as part of [Ubuntu Pro](https://ubuntu.com/pro) (both Infra-only and full Ubuntu Pro). See the [full service description](https://ubuntu.com/legal/ubuntu-pro-description) for details.
 
-See the full [Ubuntu Pro service description](https://ubuntu.com/legal/ubuntu-pro-description) for detailed information about what support Ubuntu Pro provides.
+Managed solutions and firefighting support are also available for MicroCloud deployments. See: [Managed services](https://ubuntu.com/managed).
 
-## Documentation
-
-See the [MicroCloud documentation](https://documentation.ubuntu.com/microcloud/latest/microcloud/) for official product documentation.
-
-You can find additional resources on the [website](https://canonical.com/microcloud) and in the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
