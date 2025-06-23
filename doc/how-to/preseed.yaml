@@ -101,7 +101,7 @@ storage:
       find_min: 1
       find_max: 2
       wipe: true
-    - find: size > 10GiB && size < 50GiB && type == hdd && partitioned == false && block_size == 512 && model == 'Samsung %'
+    - find: size > 10GiB && size < 50GiB && type == hdd && block_size == 512 && model == 'Samsung %'
       find_min: 3
       find_max: 8
       wipe: false
