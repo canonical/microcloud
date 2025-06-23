@@ -1,0 +1,3 @@
+# Maintain the substitutions below as the single sources of truth for current LTS and feature tracks:
+current_lts_track: "2"
+current_feature_track: "3"

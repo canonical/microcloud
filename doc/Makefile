@@ -112,5 +112,8 @@ serve: html
 serve-microcloud: microcloud
 	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
 
+install:
+	$(MAKE) -f Makefile.sp sp-install
+	
 %:
 	$(MAKE) -f Makefile.sp sp-$@
