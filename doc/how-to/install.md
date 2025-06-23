@@ -86,27 +86,73 @@ For detailed information, see: {ref}`reference-requirements`.
 ```{youtube} https://www.youtube.com/watch?v=M0y0hQ16YuE
 ```
 
-To install MicroCloud, install all required {ref}`snaps <reference-requirements-software-snaps>` on all machines that you want to include in your cluster.
+To install MicroCloud, install all required {ref}`snaps <reference-requirements-software-snaps>` on all machines that you want to include in your cluster. You can {ref}`optionally specify a channel <howto-install-specify-channel>` for each snap, but generally, you can leave out the channel to use the current recommended default. 
 
 To do so, enter the following commands on all machines:
 
-    sudo snap install lxd --channel=5.21/stable --cohort="+"
-    sudo snap install microceph --channel=squid/stable --cohort="+"
-    sudo snap install microovn --channel=24.03/stable --cohort="+"
-    sudo snap install microcloud --channel=2/stable --cohort="+"
-
-```{note}
-Make sure to install the same version of the snaps on all machines.
-See {ref}`howto-snap` for more information.
-
-If you don't want to use MicroCloud's full functionality, you can install only some of the snaps.
-However, this is not recommended.
+```bash
+sudo snap install lxd --cohort="+"
+sudo snap install microceph --cohort="+"
+sudo snap install microovn --cohort="+"
+sudo snap install microcloud --cohort="+"
 ```
 
-```{note}
-It's possible that a required snap is already installed on your machine. For example, it might be a version of Ubuntu that comes with LXD pre-installed.
-In this case, run `sudo snap refresh <snap> --channel=<track>/stable --cohort="+"` to refresh (update) the installed snap.
+The `--cohort` flag ensures that versions remain {ref}`synchronized during later updates <howto-update-sync>`.
+
+Following installation, make sure to {ref}`hold updates <howto-update-hold>`.
+
+### Previously installed snaps
+
+If a required snap is already installed on your machine, you will receive a message to that effect. In this case, check the version for the installed snap:
+
+```bash
+snap list <snap>
 ```
 
-After installing the snaps make sure to hold any automatic updates to keep the used snap versions across MicroCloud in sync.
-See {ref}`howto-snap-hold-updates` for more information.
+View the {ref}`matrix of compatible versions <ref-releases-matrix>` to determine whether you need to upgrade the snap to a different channel. Follow either the update or upgrade instructions below.
+
+#### Update
+
+If the installed snap is using a channel corresponding to a release that is compatible with the other snaps, update to the most recent stable version of the snap without changing the channel:
+
+```bash
+sudo snap refresh <snap> --cohort="+"
+```
+
+#### Upgrade
+
+If you need to upgrade the channel, run:
+
+```bash
+sudo snap refresh <snap> --cohort="+" --channel=<target channel>
+```
+
+Example:
+
+```bash
+sudo snap refresh microcloud --cohort="+" --channel=2/stable
+```
+
+(howto-install-specify-channel)=
+### Optionally specify a channel
+
+Channels correspond to different {ref}`releases <ref-releases-snaps>`. When unspecified, MicroCloud and its components' snaps use their respective recommended default channels.
+
+To specify a different channel, add the `--channel` flag at installation:
+
+```bash
+sudo snap install <snap> --cohort="+" --channel=<target channel>
+```
+
+For example, to use the `3/edge` channel for the MicroCloud snap, run:
+
+```bash
+sudo snap install microcloud --cohort="+" --channel=3/edge
+```
+
+For details about the MicroCloud snap channels, see: {ref}`ref-snaps-microcloud-channels`.
+
+(howto-install-hold-updates)=
+## Hold updates
+
+When a new release is published to a snap channel, installed snaps following that channel update automatically by default. This is undesired behavior for MicroCloud and its components, and you should override this default behavior by holding updates. See: {ref}`howto-update-hold`.
