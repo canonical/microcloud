@@ -146,4 +146,4 @@ To run MicroCloud, you must install the following snaps:
 - [MicroCeph snap](https://snapcraft.io/microceph)
 - [MicroOVN snap](https://snapcraft.io/microovn)
 
-See {ref}`howto-install` for installation instructions.
+See {ref}`howto-install` for installation instructions, as well as {ref}`ref-releases-snaps` for a {ref}`matrix of supported and compatible versions <ref-releases-matrix>`.
