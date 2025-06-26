@@ -111,7 +111,7 @@ func (*ColorErr) Write(p []byte) (n int, err error) {
 
 // PrintWarning calls Println but it appends "! Warning:" to the front of the message.
 func PrintWarning(s string) {
-	fmt.Printf("%s %s: %s\n", WarningSymbol(), WarningColor("Warning", true), s)
+	fmt.Println(WarningSymbol(), WarningColor("Warning:", true), WarningColor(s, false))
 }
 
 // Fmt represents the data supplied to ColorPrintf. In particular, it takes a color to apply to the text, and the text itself.
