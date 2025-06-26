@@ -37,7 +37,7 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 
 		// Print a warning in case a non-LTS version of LXD is used.
 		if semver.Compare(semver.MajorMinor(lxdVersion), semver.MajorMinor(expectedVersion)) == 1 {
-			fmt.Printf("%s Discovered non-LTS version %q of LXD\n", tui.WarningSymbol(), daemonVersion)
+			tui.PrintWarning(fmt.Sprintf("Discovered non-LTS version %q of LXD", daemonVersion))
 		}
 
 	case types.MicroOVN:
