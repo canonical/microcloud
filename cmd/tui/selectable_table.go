@@ -90,7 +90,7 @@ type selectableTable struct {
 func SummarizeResult(tmpl string, args ...any) string {
 	fmtArgs := []Fmt{}
 	for _, arg := range args {
-		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Color: Yellow, Bold: true})
+		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Bold: true})
 	}
 
 	return Printf(Fmt{Arg: " " + tmpl, Color: White}, fmtArgs...)
