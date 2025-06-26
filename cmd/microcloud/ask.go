@@ -83,7 +83,7 @@ func checkInitialized(stateDir string, expectInitialized bool, preseed bool) err
 
 // askUpdateProfile asks whether to update the existing profile configuration if it has changed.
 func (c *initConfig) askUpdateProfile(profile api.ProfilesPost, profiles []string, lxdClient lxd.InstanceServer) (*api.ProfilePut, error) {
-	if !shared.ValueInSlice(profile.Name, profiles) {
+	if !slices.Contains(profiles, profile.Name) {
 		return &profile.ProfilePut, nil
 	}
 
@@ -1578,7 +1578,7 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 				}
 
 				// Skip systems which aren't listed in the preseed.
-				if !shared.ValueInSlice(session.Intent.Name, expectedSystems) {
+				if !slices.Contains(expectedSystems, session.Intent.Name) {
 					continue
 				}
 
