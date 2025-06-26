@@ -80,7 +80,7 @@ func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acc
 
 // AskBoolWarn is the same as AskBool but it prints the given warning before asking.
 func (i *InputHandler) AskBoolWarn(warning string, question string, defaultAnswer bool) (bool, error) {
-	i.printWarning(warning)
+	PrintWarning(warning)
 	return i.AskBool(question, defaultAnswer)
 }
 
@@ -99,7 +99,7 @@ func (i *InputHandler) AskBool(question string, defaultAnswer bool) (bool, error
 
 // AskStringWarn is the same as AskString but it prints the given warning before asking.
 func (i *InputHandler) AskStringWarn(warning string, question string, defaultAnswer string, validator func(string) error) (string, error) {
-	i.printWarning(warning)
+	PrintWarning(warning)
 	return i.AskString(question, defaultAnswer, validator)
 }
 
