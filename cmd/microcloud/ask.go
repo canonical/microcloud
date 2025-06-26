@@ -1657,7 +1657,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 		fmt.Println(tui.SummarizeResult("Received confirmation from system %s", session.Intent.Name))
 		fmt.Println("")
 		fmt.Println(tui.Note(tui.Yellow, tui.WarningSymbol()+tui.SetColor(tui.Bright, " Do not exit out to keep the session alive", true)) + "\n")
-		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on %s ..."}, tui.Fmt{Arg: session.Intent.Name, Color: tui.Yellow, Bold: true}))
+		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on %s ..."}, tui.Fmt{Arg: session.Intent.Name, Bold: true}))
 	}
 
 	err = gw.ReceiveWithContext(gw.Context(), &session)
