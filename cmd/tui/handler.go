@@ -58,11 +58,6 @@ func (i *InputHandler) countAllRows() int {
 	return i.table.countRawRows()
 }
 
-// printWarning prints the given warning with "!" appended to the front of the message.
-func (i *InputHandler) printWarning(warning string) {
-	fmt.Printf("%s %s\n", WarningSymbol(), warning)
-}
-
 // formatQuestion enriches the plain question string with default and accepted answers.
 func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acceptedAnswers []string) string {
 	var acceptedAnswersBlock string
