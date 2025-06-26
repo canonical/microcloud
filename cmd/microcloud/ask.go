@@ -146,7 +146,7 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 				return err
 			}
 
-			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(err.Error(), true))
+			tui.PrintError(err.Error())
 			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
