@@ -114,9 +114,14 @@ func PrintWarning(s string) {
 	fmt.Println(WarningSymbol(), WarningColor("Warning:", true), WarningColor(s, false))
 }
 
+// SprintError crafts the error string without writing it to any output yet.
+func SprintError(s string) string {
+	return fmt.Sprintln(ErrorSymbol(), ErrorColor("Error:", true), ErrorColor(s, false))
+}
+
 // PrintError calls Println but it appends "⨯ Error:" to the front of the message.
 func PrintError(s string) {
-	fmt.Println(ErrorSymbol(), ErrorColor("Error:", true), ErrorColor(s, false))
+	fmt.Print(SprintError(s))
 }
 
 // Fmt represents the data supplied to ColorPrintf. In particular, it takes a color to apply to the text, and the text itself.
