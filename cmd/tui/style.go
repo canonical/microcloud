@@ -114,6 +114,11 @@ func PrintWarning(s string) {
 	fmt.Println(WarningSymbol(), WarningColor("Warning:", true), WarningColor(s, false))
 }
 
+// PrintError calls Println but it appends "⨯ Error:" to the front of the message.
+func PrintError(s string) {
+	fmt.Println(ErrorSymbol(), ErrorColor("Error:", true), ErrorColor(s, false))
+}
+
 // Fmt represents the data supplied to ColorPrintf. In particular, it takes a color to apply to the text, and the text itself.
 type Fmt struct {
 	Color lipgloss.TerminalColor
