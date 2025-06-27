@@ -1,4 +1,4 @@
-GOMIN=1.23.7
+GOMIN=1.24.4
 GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
@@ -81,9 +81,10 @@ update-gomod:
 	go get -t -v -u ./...
 
 	# Static pins
-	go get github.com/canonical/lxd@stable-5.21 # Stay on v2 dqlite and LXD LTS client
-	go get github.com/canonical/microceph@1200ba77f2320be2acec45939f4b96a8ac4f0722 # Right after releasing squid LTS.
-	go get github.com/canonical/microovn@branch-24.03 # 24.03 LTS.
+	go get github.com/canonical/lxd@8079534cf291bbc562aeffc26b671a03c322ae10 # 5.21 LTS.
+	go get github.com/canonical/microceph/microceph@64d02d9538a89be039707ecbf942ca1aeae29760 # squid LTS.
+	go get github.com/canonical/microovn/microovn@branch-24.03 # 24.03 LTS.
+	go get github.com/olekukonko/tablewriter@v0.0.5 # Due to breaking API in later versions
 
 	go mod tidy -go=$(GOMIN)
 
