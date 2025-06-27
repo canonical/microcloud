@@ -46,6 +46,7 @@ integrate:
 	git -C integration/microovn reset --hard $(MICROOVNVERSION)
 	# Create a directory for files to override in MicroCloud docs
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
+	mkdir -p integration/microceph/docs/.sphinx/_templates integration/microceph/docs/.sphinx/_static
 	# Copy the header HTML and CSS files for the doc sets
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microcloud/_static/
