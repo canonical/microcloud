@@ -7,7 +7,7 @@ You run the initialization on one of the machines, and it configures the require
 ## Pre-initialization requirements
 
 - Complete the steps in {ref}`howto-install` before initialization.
-- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/full-disk-encryption`.
+- If you intend to use full disk encryption (FDE) on any cluster member, that member must meet the prerequisites listed on this page: {doc}`microceph:explanation/security/full-disk-encryption`.
   - Follow only the instructions in the Prerequisites section on that page. Skip its Usage section; the MicroCloud initialization process handles the disk encryption.
 
 (howto-initialize-interactive)=
@@ -41,7 +41,7 @@ Complete the following steps to initialize MicroCloud:
 
    Additional machines can always be added at a later point in time.
    See {ref}`howto-add` for more information.
-1. Select the IP address that you want to use for MicroCloud's internal traffic (see {ref}`microcloud-networking-intracluster`).
+1. Select the IP address that you want to use for MicroCloud's internal traffic (see {ref}`reference-requirements-network-interfaces-intracluster`).
    MicroCloud automatically detects the available addresses (IPv4 and IPv6) on the existing network interfaces and displays them in a table.
 
    You must select exactly one address.
@@ -91,7 +91,7 @@ Complete the following steps to initialize MicroCloud:
       Encrypting a disk will store the encryption keys in the Ceph key ring inside the Ceph configuration folder.
 
       ```{warning}
-      Cluster members with disks to be encrypted require a kernel with `dm-crypt` enabled. The snap `dm-crypt` plug must also be connected. See the Prerequisites section of this page for more information: {doc}`microceph:explanation/full-disk-encryption`.
+      Cluster members with disks to be encrypted require a kernel with `dm-crypt` enabled. The snap `dm-crypt` plug must also be connected. See the Prerequisites section of this page for more information: {doc}`microceph:explanation/security/full-disk-encryption`.
 
       If you have not enabled and connected `dm-crypt` on any cluster member that you want to encrypt, do so now before you continue.
 
@@ -104,7 +104,7 @@ Complete the following steps to initialize MicroCloud:
 
    If you choose `yes`, configure the distributed networking:
 
-   1. Select the network interfaces that you want to use (see {ref}`microcloud-networking-uplink`).
+   1. Select the network interfaces that you want to use (see {ref}`reference-requirements-network-interfaces-uplink`).
 
       You must select one network interface per machine.
    1. If you want to use IPv4, specify the IPv4 gateway on the uplink network (in CIDR notation) and the first and last IPv4 address in the range that you want to use with LXD.

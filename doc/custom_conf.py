@@ -244,7 +244,7 @@ custom_tags = []
 if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     intersphinx_mapping = {
         'lxd': ('https://documentation.ubuntu.com/lxd/stable-5.21/', None),
-        'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/squid-stable/', None),
+        'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/v19.2.0-squid/', None),
         'microovn': ('https://canonical-microovn.readthedocs-hosted.com/en/latest/', None),
         'ceph': ('https://docs.ceph.com/en/latest/', None),
     }

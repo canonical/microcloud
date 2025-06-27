@@ -14,7 +14,7 @@ It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you do
 ```{tip}
    While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualization enabled. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
 
-   We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfill the {ref}`hardware-requirements`.
+   We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfill the {ref}`reference-requirements-hardware`.
 ```
 
 ## 1. Install and initialize LXD

@@ -43,7 +43,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ```{grid-item} [Reference](/reference/index)
 
-**Technical information** - Detailed [requirements](/reference/index)
+**Technical information** - Detailed [requirements](/reference/requirements)
 ```
 
 ```{grid-item} [Explanation](/explanation/index)

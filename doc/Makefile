@@ -9,10 +9,10 @@
 
 current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
-# Set the path prefix and MicroCloud component versions corresponding to each MicroCloud docs version
+# Set the path prefix and MicroCloud component versions corresponding to each MicroCloud docs version.
 PATH_PREFIX      = /microcloud/v2-edge/
 LXDVERSION       = origin/stable-5.21
-MICROCEPHVERSION = 1200ba77f2320be2acec45939f4b96a8ac4f0722 # origin/main right after squid LTS.
+MICROCEPHVERSION = 64d02d9538a89be039707ecbf942ca1aeae29760 # origin/main.
 MICROOVNVERSION  = origin/branch-24.03
 
 # Put it first so that "make" without argument is like "make help".
