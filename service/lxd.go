@@ -643,7 +643,7 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 	}
 
 	if len(data) == 0 {
-		fmt.Println(tui.WarningColor("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup", false))
+		tui.PrintWarning("No network interfaces found with IPs in the specified subnet. Skipping Ceph network setup")
 	}
 
 	return data, nil
