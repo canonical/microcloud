@@ -256,7 +256,7 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
    ```{note}
    The `--cohort="+"` flag in the command ensures that the same version of the snap is installed on all machines.
-   See {ref}`howto-snap-cluster` for more information.
+   See {ref}`howto-update-sync` for more information.
    ```
 
 1. Repeat these steps on all VMs.
