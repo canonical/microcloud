@@ -164,7 +164,9 @@ redirects = {
 # Links to ignore when checking links
 linkcheck_ignore = [
     'http://127.0.0.1:8000',
-    'http://localhost:8000'
+    'http://localhost:8000',
+    # These links may fail from time to time
+    'https://ceph.io',
     ]
 
 # Pages on which to ignore anchors
