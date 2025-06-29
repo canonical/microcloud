@@ -82,7 +82,7 @@ html: integrate
 	cd integration/lxd/doc/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/lxd
 	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
 	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
-	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(current_dir)/_build/microcloud
+	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(current_dir)/_build/microcloud ADDPREREQS='pyyaml'
 
 # `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
 # This target is used by the Read the Docs build.
@@ -90,7 +90,7 @@ html-rtd:
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
-	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
+	ADDPREREQS='pyyaml' PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
 
 # `spelling` checks only the MicroCloud docs.
 spelling: clean-doc microcloud
@@ -113,7 +113,7 @@ serve-microcloud: microcloud
 	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
 
 install:
-	$(MAKE) -f Makefile.sp sp-install
+	$(MAKE) -f Makefile.sp sp-install ADDPREREQS='pyyaml'
 	
 %:
 	$(MAKE) -f Makefile.sp sp-$@
