@@ -1,5 +1,6 @@
 import datetime
 import os
+import yaml
 
 # Custom configuration for the Sphinx documentation builder.
 # All configuration specific to your project should be done in this file.
@@ -163,7 +164,9 @@ redirects = {
 # Links to ignore when checking links
 linkcheck_ignore = [
     'http://127.0.0.1:8000',
-    'http://localhost:8000'
+    'http://localhost:8000',
+    # These links may fail from time to time
+    'https://ceph.io',
     ]
 
 # Pages on which to ignore anchors
@@ -221,6 +224,7 @@ custom_extensions = [
 # sphinxext-opengraph
 custom_required_modules = [
     'sphinx-sitemap',
+    'pyyaml',
 ]
 
 # Add files or directories that should be excluded from processing.
@@ -294,3 +298,8 @@ if not ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     custom_templates_path = ['integration/microcloud/_templates']
     redirects['../index'] = 'microcloud/'
     custom_tags.append('integrated')
+
+# Load substitutions from YAML file
+if os.path.exists('./substitutions.yaml'):
+    with open('./substitutions.yaml', 'r') as fd:
+        myst_substitutions = yaml.safe_load(fd.read())
