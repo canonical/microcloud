@@ -146,7 +146,7 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 				return err
 			}
 
-			fmt.Printf("%s %s\n", tui.ErrorSymbol(), tui.ErrorColor(err.Error(), true))
+			tui.PrintError(err.Error())
 			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
@@ -645,7 +645,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if availableDiskCount == 0 {
-			fmt.Println(tui.WarningColor("Warning: No disks available for distributed storage. Skipping configuration", false))
+			tui.PrintWarning("No disks available for distributed storage. Skipping configuration")
 
 			return nil
 		}
@@ -1125,7 +1125,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	canOVNUnderlay := true
 	for peer, system := range c.systems {
 		if len(c.state[system.ServerInfo.Name].AvailableOVNInterfaces) == 0 {
-			fmt.Println(tui.WarningColor(fmt.Sprintf("Not enough interfaces available on %s to create an underlay network, skipping", peer), false))
+			tui.PrintWarning(fmt.Sprintf("Not enough interfaces available on %s to create an underlay network. Skipping configuration", peer))
 			canOVNUnderlay = false
 			break
 		}
@@ -1323,7 +1323,7 @@ func (c *initConfig) askCephNetwork(sh *service.Handler) error {
 	availableCephNetworkInterfaces := map[string]map[string]service.DedicatedInterface{}
 	for name, state := range c.state {
 		if len(state.AvailableCephInterfaces) == 0 {
-			fmt.Println(tui.WarningColor(fmt.Sprintf("No network interfaces found with IPs on %q to set a dedicated Ceph network, skipping Ceph network setup", name), false))
+			tui.PrintWarning(fmt.Sprintf("No network interfaces found with IPs on %q to set up a dedicated Ceph network. Skipping Ceph network setup", name))
 
 			return nil
 		}
@@ -1657,7 +1657,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 		fmt.Println(tui.SummarizeResult("Received confirmation from system %s", session.Intent.Name))
 		fmt.Println("")
 		fmt.Println(tui.Note(tui.Yellow, tui.WarningSymbol()+tui.SetColor(tui.Bright, " Do not exit out to keep the session alive", true)) + "\n")
-		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on %s ..."}, tui.Fmt{Arg: session.Intent.Name, Color: tui.Yellow, Bold: true}))
+		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on %s ..."}, tui.Fmt{Arg: session.Intent.Name, Bold: true}))
 	}
 
 	err = gw.ReceiveWithContext(gw.Context(), &session)

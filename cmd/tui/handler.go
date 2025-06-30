@@ -4,15 +4,18 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
-	"github.com/canonical/lxd/shared/cmd"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // ContextError is the charmbracelet representation of a context cancellation error.
 var ContextError error = tea.ErrProgramKilled
+
+// InvalidInputError is used to indicate false input to an asked question.
+var InvalidInputError func() = func() { PrintError("Invalid input, try again") }
 
 // InputHandler handles input dialogs.
 type InputHandler struct {
@@ -58,11 +61,6 @@ func (i *InputHandler) countAllRows() int {
 	return i.table.countRawRows()
 }
 
-// printWarning prints the given warning with "!" appended to the front of the message.
-func (i *InputHandler) printWarning(warning string) {
-	fmt.Printf("%s %s\n", WarningSymbol(), warning)
-}
-
 // formatQuestion enriches the plain question string with default and accepted answers.
 func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acceptedAnswers []string) string {
 	var acceptedAnswersBlock string
@@ -78,9 +76,27 @@ func (i *InputHandler) formatQuestion(question string, defaultAnswer string, acc
 	return fmt.Sprintf("%s%s%s: ", question, acceptedAnswersBlock, defaultAnswerBlock)
 }
 
+// Ask a question on the output stream and read the answer from the input stream.
+func (i *InputHandler) askQuestion(question, defaultAnswer string) (string, error) {
+	fmt.Print(question)
+
+	return i.readAnswer(defaultAnswer)
+}
+
+// Read the user's answer from the input stream, trimming newline and providing a default.
+func (i *InputHandler) readAnswer(defaultAnswer string) (string, error) {
+	answer, err := bufio.NewReader(i.input).ReadString('\n')
+	answer = strings.TrimSpace(strings.TrimSuffix(answer, "\n"))
+	if answer == "" {
+		answer = defaultAnswer
+	}
+
+	return answer, err
+}
+
 // AskBoolWarn is the same as AskBool but it prints the given warning before asking.
 func (i *InputHandler) AskBoolWarn(warning string, question string, defaultAnswer bool) (bool, error) {
-	i.printWarning(warning)
+	PrintWarning(warning)
 	return i.AskBool(question, defaultAnswer)
 }
 
@@ -93,13 +109,25 @@ func (i *InputHandler) AskBool(question string, defaultAnswer bool) (bool, error
 		defaultAnswerStr = "yes"
 	}
 
-	asker := cmd.NewAsker(bufio.NewReader(i.input), nil)
-	return asker.AskBool(i.formatQuestion(question, defaultAnswerStr, []string{"yes", "no"}), defaultAnswerStr)
+	for {
+		answer, err := i.askQuestion(i.formatQuestion(question, defaultAnswerStr, []string{"yes", "no"}), defaultAnswerStr)
+		if err != nil {
+			return false, err
+		}
+
+		if slices.Contains([]string{"yes", "y"}, strings.ToLower(answer)) {
+			return true, nil
+		} else if slices.Contains([]string{"no", "n"}, strings.ToLower(answer)) {
+			return false, nil
+		}
+
+		InvalidInputError()
+	}
 }
 
 // AskStringWarn is the same as AskString but it prints the given warning before asking.
 func (i *InputHandler) AskStringWarn(warning string, question string, defaultAnswer string, validator func(string) error) (string, error) {
-	i.printWarning(warning)
+	PrintWarning(warning)
 	return i.AskString(question, defaultAnswer, validator)
 }
 
@@ -108,11 +136,26 @@ func (i *InputHandler) AskString(question string, defaultAnswer string, validato
 	i.setActive(true)
 	defer i.setActive(false)
 
-	asker := cmd.NewAsker(bufio.NewReader(i.input), nil)
-	result, err := asker.AskString(i.formatQuestion(question, defaultAnswer, nil), defaultAnswer, validator)
-	if err != nil {
-		return "", err
-	}
+	for {
+		answer, err := i.askQuestion(i.formatQuestion(question, defaultAnswer, nil), defaultAnswer)
+		if err != nil {
+			return "", err
+		}
 
-	return result, nil
+		if validator != nil {
+			err = validator(answer)
+			if err != nil {
+				InvalidInputError()
+				continue
+			}
+
+			return answer, err
+		}
+
+		if len(answer) != 0 {
+			return answer, err
+		}
+
+		InvalidInputError()
+	}
 }

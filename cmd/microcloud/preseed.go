@@ -24,6 +24,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -695,7 +696,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 		for serviceType, cluster := range existingClusters {
 			if len(cluster) > 0 {
-				fmt.Printf("Existing %s cluster is incompatible with MicroCloud, skipping %s setup\n", serviceType, serviceType)
+				tui.PrintWarning(fmt.Sprintf("Existing %s cluster is incompatible with MicroCloud. Skipping %s setup", serviceType, serviceType))
 
 				delete(s.Services, serviceType)
 			}
