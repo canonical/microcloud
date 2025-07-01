@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
-
-	"github.com/canonical/lxd/shared"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -141,7 +140,7 @@ func (s *Session) RegisterIntent(fingerprint string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if shared.ValueInSlice(fingerprint, s.joinIntentFingerprints) {
+	if slices.Contains(s.joinIntentFingerprints, fingerprint) {
 		return errors.New("Fingerprint already exists")
 	}
 
