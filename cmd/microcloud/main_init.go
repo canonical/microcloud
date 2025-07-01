@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -969,7 +970,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
-	if !shared.ValueInSlice(profile.Name, profiles) {
+	if !slices.Contains(profiles, profile.Name) {
 		err = lxdClient.CreateProfile(profile)
 		if err != nil {
 			return err

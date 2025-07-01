@@ -7,11 +7,11 @@ import (
 	"io"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/filter"
 	"github.com/canonical/lxd/shared/units"
@@ -385,7 +385,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 			directLocalCount++
 		}
 
-		if shared.ValueInSlice(system.Name, systemNames) {
+		if slices.Contains(systemNames, system.Name) {
 			return fmt.Errorf("Duplicate system name %q", system.Name)
 		}
 
@@ -647,7 +647,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			addressStrings = append(addressStrings, ipNet.IP.String())
 		}
 
-		if shared.ValueInSlice(c.address, addressStrings) {
+		if slices.Contains(addressStrings, c.address) {
 			c.lookupIface = &iface
 			break
 		}
