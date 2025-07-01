@@ -60,7 +60,7 @@ jobs:
           --output trivy-microcloud-repo-scan-results.sarif .
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        uses: github/codeql-action/upload-sarif@39edc492dbe16b1465b0cafca41432d857bdb31a # v3.29.1
         with:
           sarif_file: "trivy-microcloud-repo-scan-results.sarif"
           sha: ${{ github.sha }}
@@ -116,7 +116,7 @@ jobs:
           mv tmp.json snap-scan-results.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        uses: github/codeql-action/upload-sarif@39edc492dbe16b1465b0cafca41432d857bdb31a # v3.29.1
         with:
           sarif_file: "snap-scan-results.sarif"
           sha: ${{ github.sha }}
