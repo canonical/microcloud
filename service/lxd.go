@@ -8,11 +8,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v2/microcluster"
 	microTypes "github.com/canonical/microcluster/v2/rest/types"
@@ -513,7 +513,7 @@ func defaultNetworkInterfacesFilter(network api.Network, state *api.NetworkState
 // ovnNetworkInterfacesFilter filters a network based on OVN specific rules and returns whether it should be skipped.
 func ovnNetworkInterfacesFilter(network api.Network, state *api.NetworkState) bool {
 	// OpenVswitch only supports physical ethernet or VLAN interfaces, LXD also supports plugging in bridges.
-	if !shared.ValueInSlice(network.Type, []string{"physical", "bridge", "bond", "vlan"}) {
+	if !slices.Contains([]string{"physical", "bridge", "bond", "vlan"}, network.Type) {
 		return false
 	}
 
@@ -826,5 +826,5 @@ func (s LXDService) SupportsFeature(ctx context.Context, feature string) (bool, 
 		return false, errors.New("API extensions not available when checking for a LXD feature")
 	}
 
-	return shared.ValueInSlice(feature, server.APIExtensions), nil
+	return slices.Contains(server.APIExtensions, feature), nil
 }
