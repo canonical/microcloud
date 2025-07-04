@@ -360,4 +360,56 @@ EOF
       kill -9 "${p}"
     done
   fi
+
+  # Create a MicroCloud with an IPv6 only uplink.
+  reset_systems 3 2 1
+
+  preseed="$(cat << EOF
+lookup_subnet: ${lookup_gateway}
+initiator: micro01
+session_passphrase: foo
+systems:
+- name: micro01
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+- name: micro02
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+- name: micro03
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+ovn:
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: fd42:1:1234:1234::1
+ceph:
+  cephfs: true
+EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  for m in micro01 micro02 micro03 ; do
+    # Pass empty strings for the ipv4_gateway and ipv4_ranges as the uplink is IPv6 only.
+    validate_system_lxd ${m} 3 disk1 2 1 enp6s0 "" "" fd42:1:1234:1234::1/64 fd42:1:1234:1234::1
+    validate_system_microceph ${m} 1 disk2
+    validate_system_microovn ${m}
+  done
 }
