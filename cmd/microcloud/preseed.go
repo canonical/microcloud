@@ -366,6 +366,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 		if system.UplinkInterface != "" {
 			uplinkCount++
+
+			if p.OVN.IPv4Gateway == "" && p.OVN.IPv6Gateway == "" && bootstrap {
+				return errors.New("Either the IPv4 or IPv6 gateway has to be set on the uplink network")
+			}
 		}
 
 		if system.UnderlayIP != "" {
