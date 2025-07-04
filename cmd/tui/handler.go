@@ -15,7 +15,15 @@ import (
 var ContextError error = tea.ErrProgramKilled
 
 // InvalidInputError is used to indicate false input to an asked question.
-var InvalidInputError func() = func() { PrintError("Invalid input, try again") }
+var InvalidInputError func(err error) = func(err error) {
+	errorMsg := "Invalid input, try again"
+
+	if err != nil {
+		PrintError(fmt.Sprintf("%s: %s", errorMsg, err.Error()))
+	} else {
+		PrintError(errorMsg)
+	}
+}
 
 // InputHandler handles input dialogs.
 type InputHandler struct {
@@ -121,7 +129,7 @@ func (i *InputHandler) AskBool(question string, defaultAnswer bool) (bool, error
 			return false, nil
 		}
 
-		InvalidInputError()
+		InvalidInputError(nil)
 	}
 }
 
@@ -145,7 +153,7 @@ func (i *InputHandler) AskString(question string, defaultAnswer string, validato
 		if validator != nil {
 			err = validator(answer)
 			if err != nil {
-				InvalidInputError()
+				InvalidInputError(err)
 				continue
 			}
 
@@ -156,6 +164,6 @@ func (i *InputHandler) AskString(question string, defaultAnswer string, validato
 			return answer, err
 		}
 
-		InvalidInputError()
+		InvalidInputError(nil)
 	}
 }
