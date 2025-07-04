@@ -62,7 +62,6 @@ SVG
 TinyPNG
 uplink
 VLAN
-vlatest
 VM
 VMs
 VPC
