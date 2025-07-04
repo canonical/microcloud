@@ -1042,47 +1042,51 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 				return nil
 			}
 
-			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network (empty to skip %s)", ip, ip)
+			msg := fmt.Sprintf("Specify the %s gateway (CIDR) on the uplink network", ip)
 			gateway, err := c.asker.AskString(msg, "", validator)
 			if err != nil {
 				return err
 			}
 
-			if gateway != "" {
-				if ip == "IPv4" {
-					rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use on the uplink network", ip), "", validate.Required(validate.IsNetworkAddressV4))
-					if err != nil {
-						return err
-					}
-
-					rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use on the uplink network", ip), "", validate.Required(validate.IsNetworkAddressV4))
-					if err != nil {
-						return err
-					}
-
-					ipConfig[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
-				} else {
-					ipConfig[gateway] = ""
-				}
+			if gateway == "" {
+				continue
 			}
-		}
 
-		if len(ipConfig) > 0 {
-			gateways := []string{}
-			for gateway := range ipConfig {
-				gatewayAddr, _, err := net.ParseCIDR(gateway)
+			if ip == "IPv4" {
+				rangeStart, err := c.asker.AskString(fmt.Sprintf("Specify the first %s address in the range to use on the uplink network", ip), "", validate.Required(validate.IsNetworkAddressV4))
 				if err != nil {
 					return err
 				}
 
-				gateways = append(gateways, gatewayAddr.String())
-			}
+				rangeEnd, err := c.asker.AskString(fmt.Sprintf("Specify the last %s address in the range to use on the uplink network", ip), "", validate.Required(validate.IsNetworkAddressV4))
+				if err != nil {
+					return err
+				}
 
-			gatewayAddrs := strings.Join(gateways, ",")
-			dnsAddresses, err = c.asker.AskString("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network", gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
+				ipConfig[gateway] = fmt.Sprintf("%s-%s", rangeStart, rangeEnd)
+			} else {
+				ipConfig[gateway] = ""
+			}
+		}
+
+		if len(ipConfig) == 0 {
+			return errors.New("Either the IPv4 or IPv6 gateway has to be set on the uplink network")
+		}
+
+		gateways := []string{}
+		for gateway := range ipConfig {
+			gatewayAddr, _, err := net.ParseCIDR(gateway)
 			if err != nil {
 				return err
 			}
+
+			gateways = append(gateways, gatewayAddr.String())
+		}
+
+		gatewayAddrs := strings.Join(gateways, ",")
+		dnsAddresses, err = c.asker.AskString("Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network", gatewayAddrs, validate.Optional(validate.IsListOf(validate.IsNetworkAddress)))
+		if err != nil {
+			return err
 		}
 	}
 
