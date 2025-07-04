@@ -466,7 +466,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	}
 
 	if p.OVN.IPv6Gateway != "" {
-		_, _, err := net.ParseCIDR(p.OVN.IPv4Gateway)
+		_, _, err := net.ParseCIDR(p.OVN.IPv6Gateway)
 		if err != nil {
 			return err
 		}
