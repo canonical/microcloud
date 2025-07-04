@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -111,6 +112,11 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	// Exit early if no new systems got selected during the trust establishment session.
+	if len(cfg.systems) == 0 {
+		return errors.New("At least one new system has to be selected")
 	}
 
 	reverter := revert.New()
