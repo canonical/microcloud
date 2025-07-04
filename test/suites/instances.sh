@@ -187,6 +187,10 @@ systems:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
 EOF
   )"
 
