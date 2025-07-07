@@ -351,3 +351,15 @@ func ClustersConflict(systems map[string]SystemInformation, services map[types.S
 
 	return false, ""
 }
+
+// FormatDiskPath returns a disk's path representation.
+func FormatDiskPath(disk api.ResourcesStorageDisk) string {
+	devicePath := "/dev/" + disk.ID
+	if disk.DeviceID != "" {
+		devicePath = "/dev/disk/by-id/" + disk.DeviceID
+	} else if disk.DevicePath != "" {
+		devicePath = "/dev/disk/by-path/" + disk.DevicePath
+	}
+
+	return devicePath
+}

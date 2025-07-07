@@ -282,17 +282,6 @@ func (c *initConfig) askDisks(sh *service.Handler) error {
 	return nil
 }
 
-func parseDiskPath(disk api.ResourcesStorageDisk) string {
-	devicePath := "/dev/" + disk.ID
-	if disk.DeviceID != "" {
-		devicePath = "/dev/disk/by-id/" + disk.DeviceID
-	} else if disk.DevicePath != "" {
-		devicePath = "/dev/disk/by-path/" + disk.DevicePath
-	}
-
-	return devicePath
-}
-
 func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	useJoinConfig := false
 	askSystems := map[string]bool{}
