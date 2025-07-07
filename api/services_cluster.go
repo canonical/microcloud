@@ -116,7 +116,7 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		if s.Type() == types.MicroCeph {
 			cephService := ceph.(*service.CephService)
 
-			disks, err := cephService.GetDisks(r.Context(), "")
+			disks, err := cephService.GetDisks(r.Context(), "", nil)
 			if err != nil {
 				return err
 			}
