@@ -794,7 +794,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		cephService := s.Services[types.MicroCeph].(*service.CephService)
 
-		allDisks, err := cephService.GetDisks(context.Background(), s.Name)
+		allDisks, err := cephService.GetDisks(context.Background(), "", nil)
 		if err != nil {
 			return err
 		}
