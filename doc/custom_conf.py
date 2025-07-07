@@ -137,7 +137,7 @@ html_baseurl = 'https://documentation.ubuntu.com/microcloud/'
 # based on the version if built in RTD
 if 'READTHEDOCS_VERSION' in os.environ:
     rtd_version = os.environ["READTHEDOCS_VERSION"]
-    sitemap_url_scheme = f'{rtd_version}/{{link}}'
+    sitemap_url_scheme = f'{rtd_version}/microcloud/{{link}}'
 else:
     sitemap_url_scheme = '{link}'
 
