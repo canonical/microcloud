@@ -165,10 +165,25 @@ func (s CephService) GetServices(ctx context.Context, target string) (cephTypes.
 }
 
 // GetDisks returns the list of configured disks.
-func (s CephService) GetDisks(ctx context.Context, target string) (cephTypes.Disks, error) {
-	c, err := s.Client(target)
-	if err != nil {
-		return nil, err
+func (s CephService) GetDisks(ctx context.Context, target string, cert *x509.Certificate) (cephTypes.Disks, error) {
+	var c *client.Client
+	var err error
+
+	if target == "" {
+		c, err = s.Client("")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c, err = s.remoteClient(cert, target)
+		if err != nil {
+			return nil, err
+		}
+
+		c, err = cloudClient.UseAuthProxy(c, types.MicroCeph, cloudClient.AuthConfig{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	disks := cephTypes.Disks{}
