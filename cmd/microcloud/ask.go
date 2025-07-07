@@ -744,7 +744,6 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			insufficientDisks = !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
 
 			if insufficientDisks {
-				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
 				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
 			}
 
