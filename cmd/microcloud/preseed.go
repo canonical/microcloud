@@ -965,7 +965,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				system.MicroCephDisks = append(
 					system.MicroCephDisks,
 					cephTypes.DisksPost{
-						Path:    []string{parseDiskPath(disk)},
+						Path:    []string{service.FormatDiskPath(disk)},
 						Wipe:    filter.Wipe,
 						Encrypt: filter.Encrypt,
 					},
@@ -1040,12 +1040,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			if len(matched) > 0 {
 				zfsMachines[peer] = true
 				if c.bootstrap {
-					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, parseDiskPath(matched[0])))
+					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, service.FormatDiskPath(matched[0])))
 					if s.Name == peer {
 						system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
 					}
 				} else {
-					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, parseDiskPath(matched[0]))...)
+					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, service.FormatDiskPath(matched[0]))...)
 				}
 
 				zfsMatches[filter.Find] = zfsMatches[filter.Find] + 1
