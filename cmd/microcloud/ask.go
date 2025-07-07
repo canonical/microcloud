@@ -582,7 +582,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwor
 }
 
 func (c *initConfig) askRemotePool(sh *service.Handler) error {
-	// If MicroCeph is not installed, skip this block entirely.
+	// If MicroCeph is not installed or an existing Ceph cluster should not be added, skip this block entirely.
 	if sh.Services[types.MicroCeph] == nil {
 		return nil
 	}
