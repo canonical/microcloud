@@ -695,7 +695,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 		}
 
-		if availableDiskCount == 0 {
+		if availableDiskCount == 0 && len(existingClusterDisks) == 0 {
 			tui.PrintWarning("No disks available for distributed storage. Skipping configuration")
 
 			return nil
