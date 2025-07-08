@@ -114,7 +114,18 @@ func (*ColorErr) Write(p []byte) (n int, err error) {
 	// customized error prefix using tui styling.
 	withoutPrefixErr := strings.TrimPrefix(trimmedErr, "Error: ")
 
-	return os.Stderr.WriteString(SprintError(withoutPrefixErr))
+	// In all cases format the error using the standard error colors.
+	// But only append the error symbol in case the error prefix got set by the caller.
+	// When cobra calls the error's Write, it does it twice when crafting an unknown command's help message.
+	// The first line should yield our standard error using the symbol, but all of the following lines should
+	// not repeat the prefix using the symbol to keep the output clean.
+	if trimmedErr != withoutPrefixErr {
+		withoutPrefixErr = SprintError(withoutPrefixErr)
+	} else {
+		withoutPrefixErr = fmt.Sprintln(ErrorColor(withoutPrefixErr, false))
+	}
+
+	return os.Stderr.WriteString(withoutPrefixErr)
 }
 
 // PrintWarning calls Println but it appends "! Warning:" to the front of the message.
