@@ -625,9 +625,46 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	var selectedDisks map[string][]string
 	var wipeDisks map[string]map[string]bool
 	availableDiskCount := 0
+
 	if len(askSystemsRemote) != 0 {
+		totalExistingClusterDisks := 0
+		existingClusterDisks := map[string][]string{}
 		availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
+
 		for name, state := range c.state {
+			if state.ServiceClustered(types.MicroCeph) {
+				cephService := sh.Services[types.MicroCeph].(*service.CephService)
+				system, ok := c.systems[name]
+				if !ok {
+					return fmt.Errorf("Failed to find system %q", name)
+				}
+
+				var cert *x509.Certificate
+				var address string
+
+				// Use the temporary trust store certificate only in case we are not trying to request
+				// the disks from the local system itself.
+				if name != sh.Name {
+					cert = system.ServerInfo.Certificate
+					address = state.ClusterAddress
+				}
+
+				disks, err := cephService.GetDisks(context.TODO(), address, cert)
+				if err != nil {
+					return fmt.Errorf("Failed to get disks of existing %s cluster on %q: %w", types.MicroCeph, name, err)
+				}
+
+				// Fetching the disks from one of the existing MicroCeph cluster members is sufficient.
+				// As the disks are known cluster wide, each member should respond with the same number.
+				if totalExistingClusterDisks == 0 {
+					totalExistingClusterDisks = len(disks)
+					existingClusterDisks[name] = []string{}
+					for _, disk := range disks {
+						existingClusterDisks[disk.Location] = append(existingClusterDisks[disk.Location], disk.Path)
+					}
+				}
+			}
+
 			if askSystemsRemote[name] {
 				availableDisks[name] = state.AvailableDisks
 
