@@ -740,7 +740,6 @@ test_disk_mismatch() {
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
   export SETUP_CEPHFS="yes"
-  export CEPH_MISSING_DISKS="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="no"
