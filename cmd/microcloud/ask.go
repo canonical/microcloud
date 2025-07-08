@@ -624,10 +624,68 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	}
 	var selectedDisks map[string][]string
 	var wipeDisks map[string]map[string]bool
-	availableDiskCount := 0
+
 	if len(askSystemsRemote) != 0 {
+		// existingClusterDisks contains a slice of disks configured on each of the MicroCeph cluster members.
+		// That allows checking whether or not the configured disks meet the recommendations.
+		existingClusterDisks := map[string][]string{}
+
+		// availableDiskCount is the total amount of unconfigured disks across all of the remote systems.
+		availableDiskCount := 0
+
+		// availableDisks contains a map of unconfigured disks on each of the remote systems.
+		// Those disks aren't yet used for neither local nor remote storage.
 		availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
+
+		// Set to true after checking one of the existing MicroCeph cluster members for existing disks.
+		existingClusterDisksChecked := false
+
 		for name, state := range c.state {
+			// Collect list of already existing remote storage disks.
+			// This allows understanding which disks on which cluster members are already configured for remote storage.
+			// The information can then be yielded to the user and allows skipping the selection of additional disks
+			// in case the user only wants to configure distributed storage without adding additional disks to MicroCeph.
+			// That scenario is important when adding an existing MicroCeph cluster to MicroCloud.
+			if state.ServiceClustered(types.MicroCeph) && !existingClusterDisksChecked {
+				cephService := sh.Services[types.MicroCeph].(*service.CephService)
+				system, ok := c.systems[name]
+				if !ok {
+					return fmt.Errorf("Failed to find system %q", name)
+				}
+
+				var cert *x509.Certificate
+				var address string
+
+				// When asking for remote pool configuration the MicroCloud cluster isn't yet formed.
+				// But we have already established temporary trust with all of the remote systems.
+				// Use the temporary trust store certificate only in case we are not trying to request
+				// the disks from the local system itself.
+				if name != sh.Name {
+					cert = system.ServerInfo.Certificate
+					address = state.ClusterAddress
+				}
+
+				disks, err := cephService.GetDisks(context.TODO(), address, cert)
+				if err != nil {
+					return fmt.Errorf("Failed to get disks of existing %s cluster on %q: %w", types.MicroCeph, name, err)
+				}
+
+				// Only initialize the slice if there are existing disks on this MicroCeph cluster member.
+				// We consolidate the length of the map later to indicate whether or not there are already existing disks.
+				if len(disks) > 0 {
+					existingClusterDisks[name] = []string{}
+				}
+
+				// Fetching the disks from one of the existing MicroCeph cluster members is sufficient.
+				// As the disks are known cluster wide, each member should respond with the same number.
+				for _, disk := range disks {
+					existingClusterDisks[disk.Location] = append(existingClusterDisks[disk.Location], disk.Path)
+				}
+
+				// Skip checking every other MicroCeph cluster member as we have already collected the existing disks.
+				existingClusterDisksChecked = true
+			}
+
 			if askSystemsRemote[name] {
 				availableDisks[name] = state.AvailableDisks
 
