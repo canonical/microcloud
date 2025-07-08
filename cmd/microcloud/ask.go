@@ -302,15 +302,21 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for name, state := range c.state {
+		// Skip this system if it already has the local storage pool configured
+		// and isn't marked for disk selection.
+		// This ensures that when adding new systems to the cluster the existing ones
+		// don't have to show any disk because they are probably already used for either local or remote storage.
+		if !askSystems[name] {
+			continue
+		}
+
 		if len(state.AvailableDisks) == 0 {
 			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", name)
 
 			return nil
 		}
 
-		if askSystems[name] {
-			availableDisks[name] = state.AvailableDisks
-		}
+		availableDisks[name] = state.AvailableDisks
 	}
 
 	// Local storage is already set up on every system, or if not every system has a disk.
