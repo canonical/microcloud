@@ -29,3 +29,4 @@ matrix:
       - img
       - a.p-navigation__link
       - a.contributor
+      - a[title]
