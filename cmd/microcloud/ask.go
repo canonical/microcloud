@@ -303,9 +303,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for name, state := range c.state {
 		if len(state.AvailableDisks) == 0 {
-			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", name)
-
-			return nil
+			continue
 		}
 
 		if askSystems[name] {
