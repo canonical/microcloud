@@ -761,11 +761,14 @@ test_disk_mismatch() {
 }
 
 # services_validator: A basic validator of 3 systems with typical expected inputs.
+# An optional pool name can be provided which has to be present in the default profile's root device.
 services_validator() {
+  profile_pool="${1:-}"
+
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd ${m} 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
-    validate_system_microceph ${m} 1 disk2
-    validate_system_microovn ${m}
+    validate_system_lxd "${m}" 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8 "${profile_pool}"
+    validate_system_microceph "${m}" 1 disk2
+    validate_system_microovn "${m}"
   done
 }
 
