@@ -118,7 +118,7 @@ test_add_interactive() {
   done
 
   reset_systems 4 2 1
-  echo "Test growing a MicroCloud when storage & networks were not already set up"
+  echo "Test growing a MicroCloud when remote storage & networks were not already set up"
   unset_interactive_vars
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
