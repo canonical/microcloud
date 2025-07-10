@@ -990,16 +990,19 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		poolNames := []string{}
-		if len(system.TargetStoragePools) > 0 {
-			for _, pool := range system.TargetStoragePools {
-				poolNames = append(poolNames, pool.Name)
-			}
-		} else {
-			for _, cfg := range system.JoinConfig {
-				if cfg.Name == "local" || cfg.Name == "remote" {
-					if cfg.Entity == "storage-pool" && cfg.Key == "source" {
-						poolNames = append(poolNames, cfg.Name)
-					}
+
+		// In case any storage pools are marked for initial setup,
+		// add them to the list of available storage pool names.
+		for _, pool := range system.TargetStoragePools {
+			poolNames = append(poolNames, pool.Name)
+		}
+
+		// When joining the selected system, it can grow either the local or remote storage pool.
+		// In this case add the pool's name to the list of available storage pools.
+		for _, cfg := range system.JoinConfig {
+			if cfg.Name == "local" || cfg.Name == "remote" {
+				if cfg.Entity == "storage-pool" && cfg.Key == "source" {
+					poolNames = append(poolNames, cfg.Name)
 				}
 			}
 		}
