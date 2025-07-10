@@ -282,17 +282,6 @@ func (c *initConfig) askDisks(sh *service.Handler) error {
 	return nil
 }
 
-func parseDiskPath(disk api.ResourcesStorageDisk) string {
-	devicePath := "/dev/" + disk.ID
-	if disk.DeviceID != "" {
-		devicePath = "/dev/disk/by-id/" + disk.DeviceID
-	} else if disk.DevicePath != "" {
-		devicePath = "/dev/disk/by-path/" + disk.DevicePath
-	}
-
-	return devicePath
-}
-
 func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	useJoinConfig := false
 	askSystems := map[string]bool{}
@@ -313,15 +302,21 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for name, state := range c.state {
+		// Skip this system if it already has the local storage pool configured
+		// and isn't marked for disk selection.
+		// This ensures that when adding new systems to the cluster the existing ones
+		// don't have to show any disk because they are probably already used for either local or remote storage.
+		if !askSystems[name] {
+			continue
+		}
+
 		if len(state.AvailableDisks) == 0 {
 			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", name)
 
 			return nil
 		}
 
-		if askSystems[name] {
-			availableDisks[name] = state.AvailableDisks
-		}
+		availableDisks[name] = state.AvailableDisks
 	}
 
 	// Local storage is already set up on every system, or if not every system has a disk.
@@ -340,11 +335,11 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		sort.Slice(sortedDisks, func(i, j int) bool {
-			return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+			return service.FormatDiskPath(sortedDisks[i]) < service.FormatDiskPath(sortedDisks[j])
 		})
 
 		for _, disk := range sortedDisks {
-			devicePath := parseDiskPath(disk)
+			devicePath := service.FormatDiskPath(disk)
 			data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 		}
 	}
@@ -469,7 +464,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for target, path := range selectedDisks {
 		newAvailableDisks[target] = map[string]api.ResourcesStorageDisk{}
 		for id, disk := range availableDisks[target] {
-			if parseDiskPath(disk) != path {
+			if service.FormatDiskPath(disk) != path {
 				newAvailableDisks[target][id] = disk
 			}
 		}
@@ -683,12 +678,12 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 				// Ensure the list of disks is sorted by name.
 				sort.Slice(sortedDisks, func(i, j int) bool {
-					return parseDiskPath(sortedDisks[i]) < parseDiskPath(sortedDisks[j])
+					return service.FormatDiskPath(sortedDisks[i]) < service.FormatDiskPath(sortedDisks[j])
 				})
 
 				for _, disk := range sortedDisks {
 					// Skip any disks that have been reserved for the local storage pool.
-					devicePath := parseDiskPath(disk)
+					devicePath := service.FormatDiskPath(disk)
 					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 				}
 			}

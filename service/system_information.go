@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/canonical/lxd/shared/api"
+	cephTypes "github.com/canonical/microceph/microceph/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/multicast"
@@ -100,15 +101,46 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 		return nil, fmt.Errorf("Failed to get system resources of peer %q: %w", s.ClusterName, err)
 	}
 
+	var microceph *CephService
+
+	// Fetch disks which are already used for remote storage.
+	var usedCephDisks cephTypes.Disks
+	if len(s.ExistingServices[types.MicroCeph]) > 0 {
+		microceph = sh.Services[types.MicroCeph].(*CephService)
+
+		if localSystem {
+			usedCephDisks, err = microceph.GetDisks(ctx, "", nil)
+		} else {
+			usedCephDisks, err = microceph.GetDisks(ctx, s.ClusterAddress, connectInfo.Certificate)
+		}
+
+		if err != nil && !api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
+			return nil, fmt.Errorf("Failed to get Ceph disks on %q: %w", s.ClusterName, err)
+		}
+	}
+
 	if allResources != nil {
 		for _, disk := range allResources.Storage.Disks {
 			// Exclude non-pristine disks with partitions.
+			// Disks already used for local storage (zfs) contain a partition and are therefore excluded by this check.
 			if len(disk.Partitions) != 0 {
 				continue
 			}
 
 			// Exclude cdrom drives as viable storage disk.
 			if disk.Type == "cdrom" {
+				continue
+			}
+
+			// Exclude disks which are already used for remote storage.
+			diskUsed := false
+			for _, usedCephDisk := range usedCephDisks {
+				if usedCephDisk.Path == FormatDiskPath(disk) && usedCephDisk.Location == connectInfo.Name {
+					diskUsed = true
+				}
+			}
+
+			if diskUsed {
 				continue
 			}
 
@@ -167,8 +199,6 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	}
 
 	if len(s.ExistingServices[types.MicroCeph]) > 0 {
-		microceph := sh.Services[types.MicroCeph].(*CephService)
-
 		if localSystem {
 			s.CephConfig, err = microceph.ClusterConfig(ctx, "", nil)
 		} else {
@@ -350,4 +380,16 @@ func ClustersConflict(systems map[string]SystemInformation, services map[types.S
 	}
 
 	return false, ""
+}
+
+// FormatDiskPath returns a disk's path representation.
+func FormatDiskPath(disk api.ResourcesStorageDisk) string {
+	devicePath := "/dev/" + disk.ID
+	if disk.DeviceID != "" {
+		devicePath = "/dev/disk/by-id/" + disk.DeviceID
+	} else if disk.DevicePath != "" {
+		devicePath = "/dev/disk/by-path/" + disk.DevicePath
+	}
+
+	return devicePath
 }
