@@ -1099,7 +1099,9 @@ test_add_services() {
   unset SETUP_OVN
   export REPLACE_PROFILE="no"
   microcloud_interactive "service add" micro01
-  services_validator
+  # The initial cluster got setup with only local storage.
+  # Due to REPLACE_PROFILE="no" the default profile's device doesn't get replaced.
+  services_validator local
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
