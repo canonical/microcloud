@@ -667,6 +667,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
+	for _, pool := range system.StoragePools {
+		if pool.Driver == "ceph" || profile.Devices["root"] == nil {
+			profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
+		}
+	}
+
 	newProfile, err := c.askUpdateProfile(profile, profiles, lxdClient)
 	if err != nil {
 		return err
@@ -940,10 +946,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	cephFSPool := lxdAPI.StoragePoolsPost{}
 	for _, pool := range system.StoragePools {
-		if pool.Driver == "ceph" || profile.Devices["root"] == nil {
-			profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
-		}
-
 		// Ensure the cephfs pool is created after the ceph pool so we set up crush rules.
 		if pool.Driver == "cephfs" {
 			cephFSPool = pool
