@@ -180,6 +180,7 @@ EOF
   # Create a MicroCloud if we don't have MicroOVN or MicroCeph installed.
   lxc exec micro01 -- snap disable microceph
   lxc exec micro01 -- snap disable microovn
+  lxc exec micro01 -- snap restart microcloud
   sleep 1
 
   preseed="$(cat << EOF
