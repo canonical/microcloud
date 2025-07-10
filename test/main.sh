@@ -266,19 +266,11 @@ run_instances_tests() {
   run_test test_instances_launch "instances launch"
 }
 
-run_basic_tests() {
-  run_test test_reuse_cluster "reuse_cluster"
-  run_test test_add_services "add_services"
-  run_test test_remove_cluster_member "remove_cluster_member"
-  run_test test_non_ha "non_ha"
-}
-
-run_recover_tests() {
-  run_test test_recover "recover"
-}
-
 run_interactive_tests() {
   run_test test_interactive "interactive"
+}
+
+run_interactive_combinations_tests() {
   run_test test_interactive_combinations "interactive combinations"
 }
 
@@ -287,8 +279,28 @@ run_mismatch_tests() {
   run_test test_disk_mismatch "disk mismatch"
 }
 
+run_non_ha_tests() {
+  run_test test_non_ha "non_ha"
+}
+
 run_preseed_tests() {
   run_test test_preseed "preseed"
+}
+
+run_recover_tests() {
+  run_test test_recover "recover"
+}
+
+run_remove_cluster_tests() {
+  run_test test_remove_cluster_member "remove_cluster_member"
+}
+
+run_reuse_cluster_tests() {
+  run_test test_reuse_cluster "reuse_cluster"
+}
+
+run_service_tests() {
+  run_test test_add_services "add_services"
 }
 
 run_upgrade_tests() {
