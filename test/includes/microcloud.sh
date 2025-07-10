@@ -580,6 +580,7 @@ validate_system_lxd() {
     ipv4_ranges=${8:-}
     ipv6_gateway=${9:-}
     dns_namesersers=${10:-}
+    profile_pool=${11:-}
 
     echo "==> ${name} Validating LXD with ${num_peers} peers"
     echo "    ${name} Local Disk: {${local_disk}}, Remote Disks: {${remote_disks}}, OVN Iface: {${ovn_interface}}"
@@ -630,7 +631,9 @@ validate_system_lxd() {
     fi
 
     echo "    ${name} Validating Profiles"
-    if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
+    if [ -n "${profile_pool}" ]; then
+      lxc profile device get default root pool | grep -q "${profile_pool}"
+    elif [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
        lxc profile device get default root pool | grep -q "remote"
     elif [ -n "${local_disk}" ] ; then
        lxc profile device get default root pool | grep -q "local"
