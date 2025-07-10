@@ -149,15 +149,19 @@ jobs:
         # Define this first in the matrix so that it's readable
         # after GitHub as formed the name for the respective check.
         suite:
-          - "add"
+          - "add_interactive"
+          - "add_services"
+          - "cluster_manager"
           - "e2e"
           - "instances"
-          - "basic"
-          - "recover"
           - "interactive"
+          - "interactive_combinations"
           - "mismatch"
+          - "non_ha"
           - "preseed"
-          - "cluster-manager"
+          - "recover"
+          - "remove_cluster"
+          - "reuse_cluster"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
         microceph: ["latest/edge"]
