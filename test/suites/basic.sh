@@ -328,6 +328,7 @@ test_interactive() {
   lxc exec micro03 -- snap disable microcloud || true
   for m in micro01 micro02 ; do
     lxc exec "${m}" -- snap disable microovn
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   unset_interactive_vars
@@ -348,6 +349,7 @@ test_interactive() {
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 ; do
     lxc exec "${m}" -- snap enable microovn
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   lxc exec micro03 -- microovn cluster bootstrap
@@ -667,8 +669,10 @@ test_service_mismatch() {
   # Install the remaining services on the other systems.
   lxc exec micro02 -- snap enable microceph
   lxc exec micro02 -- snap enable microovn
+  lxc exec micro02 -- snap restart microcloud
   lxc exec micro03 -- snap enable microceph
   lxc exec micro03 -- snap enable microovn
+  lxc exec micro03 -- snap restart microcloud
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
@@ -968,6 +972,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   echo "Create a MicroCloud and remove a node from all services"
   join_session init micro01 micro02 micro03
 
@@ -990,6 +995,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   echo "Create a MicroCloud and remove a node from all services, but manually remove it from the MicroCloud daemon first"
   join_session init micro01 micro02 micro03
 
@@ -1021,6 +1027,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   echo "Create a MicroCloud and fail to remove a non-existent member"
   join_session init micro01 micro02 micro03
 
@@ -1076,10 +1083,12 @@ test_add_services() {
   set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage without updating the profile.
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   unset SETUP_CEPH
   export SKIP_SERVICE="yes"
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1094,6 +1103,7 @@ test_add_services() {
   set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage.
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   unset SETUP_CEPH
   unset REPLACE_PROFILE
   unset SKIP_LOOKUP
@@ -1103,6 +1113,7 @@ test_add_services() {
   export SETUP_OVN="yes"
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1118,11 +1129,13 @@ test_add_services() {
 
   echo Add MicroOVN to MicroCloud that was set up without it, and setup ovn network
   lxc exec micro01 -- snap disable microovn
+  lxc exec micro01 -- snap restart microcloud
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_OVN="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1138,6 +1151,7 @@ test_add_services() {
   echo Add both MicroOVN and MicroCeph to a MicroCloud that was set up without it
   lxc exec micro01 -- snap disable microovn
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
@@ -1145,6 +1159,7 @@ test_add_services() {
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_OVN="yes"
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
@@ -1159,6 +1174,7 @@ test_add_services() {
 
   echo Reuse a MicroCeph that was set up on one node of the MicroCloud
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   bootstrap_microceph micro02
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
@@ -1166,6 +1182,7 @@ test_add_services() {
   unset SKIP_LOOKUP
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="yes"
   export SETUP_CEPH="yes"

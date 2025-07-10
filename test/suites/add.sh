@@ -91,6 +91,7 @@ test_add_interactive() {
   for m in micro01 micro02 micro03 ; do
     lxc exec "${m}" -- snap disable microovn || true
     lxc exec "${m}" -- snap disable microceph || true
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   lxc exec micro04 -- snap disable microcloud
