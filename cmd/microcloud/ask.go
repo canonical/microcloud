@@ -288,7 +288,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	for _, info := range c.state {
 		hasPool, supportsPool := info.SupportsLocalPool()
 		if !supportsPool {
-			fmt.Println("Skipping local storage pool setup, some systems don't support it")
+			tui.PrintWarning("Skipping local storage pool setup. Some systems don't support it")
 
 			return nil
 		}
@@ -311,9 +311,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		if len(state.AvailableDisks) == 0 {
-			logger.Infof("Skipping local storage pool creation, peer %q has too few disks", name)
-
-			return nil
+			continue
 		}
 
 		availableDisks[name] = state.AvailableDisks
@@ -321,7 +319,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	// Local storage is already set up on every system, or if not every system has a disk.
 	if len(askSystems) == 0 || len(availableDisks) != len(askSystems) {
-		fmt.Println("No disks available for local storage. Skipping configuration")
+		tui.PrintWarning("No disks available for local storage. Skipping configuration")
 
 		return nil
 	}
