@@ -222,10 +222,25 @@ $(true)                                 # workaround for set -e
     set -x
   fi
 
-
   # Spawn joiner child processes, and capture the exit code.
   for member in ${joiners}; do
-    lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out" <<< "${setup}" &
+    tmux new-session -d -s "${member}" lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out"
+
+    retries=0
+
+    # Wait until CLI is in testing mode.
+    while [[ ! "$(tmux capture-pane -t "${member}" -pS -)" =~ "MicroCloud CLI is in testing mode" ]]; do
+      if [ "${retries}" -gt 30 ]; then
+        echo "Failed waiting for test console on ${member} to become ready"
+        exit 1
+      fi
+
+      retries="$((retries+1))"
+      sleep 1
+    done
+
+    # Send the interactive test inputs, a newline and EOF.
+    tmux send-keys -t "${member}" "${setup}" Enter C-d
   done
 
   # Set up microcloud with the initiator.
