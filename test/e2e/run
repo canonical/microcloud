@@ -202,7 +202,7 @@ setup
 SUCCESFUL_EVACUATIONS=0
 connectivity
 for i in $(seq "${EVACUATION_COUNTS}"); do
-    echo "Evacuation test (${i}/$((EVACUATION_COUNTS - 1)))"
+    echo "Evacuation test (${i}/${EVACUATION_COUNTS})"
     evacuation
     connectivity
     SUCCESFUL_EVACUATIONS=$((SUCCESFUL_EVACUATIONS + 1))
