@@ -246,13 +246,12 @@ $(true)                                 # workaround for set -e
   microcloud_interactive "${mode}" "${initiator}"
   code="$?"
 
-  # Kill the childs if they are still running.
-  child_processes="$(jobs -pr)"
-  if [ -n "${child_processes}" ]; then
-    for p in ${child_processes}; do
-      kill -9 "${p}"
-    done
-  fi
+  # Kill the tmux sessions if they are still running.
+  # The '#S' filter returns only the session's names.
+  # Suppress errors in case the list of sessions is empty.
+  for session in $(tmux list-sessions -F '#S' 2>/dev/null); do
+    tmux kill-session -t "${session}"
+  done
 
   for joiner in ${joiners} ; do
     [ "$(lxc file pull "${joiner}"/root/code -)" = "${code}" ]
