@@ -50,7 +50,7 @@ copyright = '%s, %s' % (datetime.date.today().year, author)
 # don't know yet)
 # NOTE: If no ogp_* variable is defined (e.g. if you remove this section) the
 # sphinxext.opengraph extension will be disabled.
-ogp_site_url = 'https://canonical-microcloud.readthedocs-hosted.com/en/latest/'
+ogp_site_url = 'https://documentation.ubuntu.com/microcloud/'
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
 # The URL of an image or logo that is used in the preview
@@ -122,7 +122,23 @@ html_context = {
 
 # If your project is on documentation.ubuntu.com, specify the project
 # slug (for example, "lxd") here.
-slug = ""
+slug = "microcloud"
+
+#######################
+# Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
+#######################
+
+# Base URL of RTD hosted project
+
+html_baseurl = 'https://documentation.ubuntu.com/microcloud/'
+
+# Configures URL scheme for sphinx-sitemap to generate correct URLs
+# based on the version if built in RTD
+if 'READTHEDOCS_VERSION' in os.environ:
+    rtd_version = os.environ["READTHEDOCS_VERSION"]
+    sitemap_url_scheme = f'{rtd_version}/microcloud/{{link}}'
+else:
+    sitemap_url_scheme = '{link}'
 
 ############################################################
 ### Redirects
@@ -197,6 +213,7 @@ custom_extensions = [
     'canonical.terminal-output',
     'notfound.extension',
     'sphinx.ext.intersphinx',
+    'sphinx_sitemap',
     ]
 
 # Add custom required Python modules that must be added to the
@@ -206,7 +223,9 @@ custom_extensions = [
 # pyspelling, sphinx, sphinx-autobuild, sphinx-copybutton, sphinx-design,
 # sphinx-notfound-page, sphinx-reredirects, sphinx-tabs, sphinxcontrib-jquery,
 # sphinxext-opengraph
-custom_required_modules = []
+custom_required_modules = [
+    'sphinx-sitemap',
+]
 
 # Add files or directories that should be excluded from processing.
 custom_excludes = [
