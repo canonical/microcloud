@@ -207,7 +207,6 @@ join_session(){
     LOOKUP_IFACE="enp5s0"
   fi
 
-
   # Select the first usable address and enter the passphrase.
   setup="$([ -n "${LOOKUP_IFACE}" ] && printf "table:filter %s" "${LOOKUP_IFACE}")          # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
@@ -254,7 +253,6 @@ $(true)                                 # workaround for set -e
       kill -9 "${p}"
     done
   fi
-
 
   for joiner in ${joiners} ; do
     [ "$(lxc file pull "${joiner}"/root/code -)" = "${code}" ]
