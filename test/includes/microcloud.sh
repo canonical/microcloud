@@ -207,7 +207,6 @@ join_session(){
     LOOKUP_IFACE="enp5s0"
   fi
 
-
   # Select the first usable address and enter the passphrase.
   setup="$([ -n "${LOOKUP_IFACE}" ] && printf "table:filter %s" "${LOOKUP_IFACE}")          # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
@@ -222,24 +221,37 @@ $(true)                                 # workaround for set -e
     set -x
   fi
 
-
   # Spawn joiner child processes, and capture the exit code.
   for member in ${joiners}; do
-    lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out" <<< "${setup}" &
+    tmux new-session -d -s "${member}" lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out"
+
+    retries=0
+
+    # Wait until CLI is in testing mode.
+    while [[ ! "$(tmux capture-pane -t "${member}" -pS -)" =~ "MicroCloud CLI is in testing mode" ]]; do
+      if [ "${retries}" -gt 30 ]; then
+        echo "Failed waiting for test console on ${member} to become ready"
+        exit 1
+      fi
+
+      retries="$((retries+1))"
+      sleep 1
+    done
+
+    # Send the interactive test inputs, a newline and EOF.
+    tmux send-keys -t "${member}" "${setup}" Enter C-d
   done
 
   # Set up microcloud with the initiator.
   microcloud_interactive "${mode}" "${initiator}"
   code="$?"
 
-  # Kill the childs if they are still running.
-  child_processes="$(jobs -pr)"
-  if [ -n "${child_processes}" ]; then
-    for p in ${child_processes}; do
-      kill -9 "${p}"
-    done
-  fi
-
+  # Kill the tmux sessions if they are still running.
+  # The '#S' filter returns only the session's names.
+  # Suppress errors in case the list of sessions is empty.
+  for session in $(tmux list-sessions -F '#S' 2>/dev/null); do
+    tmux kill-session -t "${session}"
+  done
 
   for joiner in ${joiners} ; do
     [ "$(lxc file pull "${joiner}"/root/code -)" = "${code}" ]
