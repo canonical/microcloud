@@ -885,7 +885,7 @@ test_reuse_cluster() {
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
 }
 
-test_remove_cluster_member() {
+test_remove_cluster() {
   unset_interactive_vars
 
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
