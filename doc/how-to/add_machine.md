@@ -11,7 +11,6 @@ On the new machine use the {command}`microcloud join` command:
     sudo microcloud join
 
 Answer the prompts on both sides to add the machine.
-You can also add the `--wipe` flag to automatically wipe any disks you add to the cluster.
 
 ## Non-interactive configuration
 
