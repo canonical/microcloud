@@ -779,7 +779,29 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 					return errors.New("No disks were selected")
 				}
 
-				insufficientDisks = !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
+				mergedDisks := map[string][]string{}
+
+				// Merge both the already existing disks and the new selected ones.
+				// This allows identifying if the selection follows the recommendations.
+				for target, disks := range existingClusterDisks {
+					_, ok := mergedDisks[target]
+					if !ok {
+						mergedDisks[target] = []string{}
+					}
+
+					mergedDisks[target] = append(mergedDisks[target], disks...)
+				}
+
+				for target, disks := range selectedDisks {
+					_, ok := mergedDisks[target]
+					if !ok {
+						mergedDisks[target] = []string{}
+					}
+
+					mergedDisks[target] = append(mergedDisks[target], disks...)
+				}
+
+				insufficientDisks = !useJoinConfigRemote && len(mergedDisks) < RecommendedOSDHosts
 
 				if insufficientDisks {
 					return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
