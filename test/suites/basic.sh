@@ -740,7 +740,6 @@ test_disk_mismatch() {
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
   export SETUP_CEPHFS="yes"
-  export CEPH_MISSING_DISKS="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="no"
@@ -886,6 +885,43 @@ test_reuse_cluster() {
   bootstrap_microceph micro03
   ! join_session init micro01 micro02 micro03 || false
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
+
+  reset_systems 3 2 3
+  echo "Create a MicroCloud that re-uses an existing MicroCeph with disks already setup to configure distributed storage"
+  unset_interactive_vars
+
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export REUSE_EXISTING_COUNT=1
+  export REUSE_EXISTING="yes"
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export SKIP_CEPH_DISKS="yes"
+  export SETUP_CEPHFS="yes"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export OVN_UNDERLAY_NETWORK="no"
+
+  bootstrap_microceph micro01
+  for m in micro02 micro03; do
+    token="$(lxc exec micro01 -- microceph cluster add "${m}")"
+    lxc exec "${m}" -- microceph cluster join "${token}"
+  done
+
+  for m in micro01 micro02 micro03; do
+    lxc exec "${m}" -- microceph disk add /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+  done
+
+  join_session init micro01 micro02 micro03
+  services_validator
 }
 
 test_remove_cluster() {

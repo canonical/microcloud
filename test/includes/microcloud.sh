@@ -4,7 +4,7 @@
 unset_interactive_vars() {
   unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
+    SETUP_CEPH CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
     REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
 }
@@ -34,9 +34,9 @@ microcloud_interactive() {
   SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
   ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
   ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating Ceph storage pool setup.
+  SKIP_CEPH_DISKS=${SKIP_CEPH_DISKS:-}           # (yes/no) input to skip adding additional Ceph disks and only reuse the existing cluster and its disks.
   SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_MISSING_DISKS=${CEPH_MISSING_DISKS:-}     # (yes/no) input for warning about eligible disk detection.
   CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
   CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
   CEPH_RETRY_HA=${CEPH_RETRY_HA:-}                     # (yes/no) input for warning setup is not HA.
@@ -104,19 +104,26 @@ fi
 if [ -n "${SETUP_CEPH}" ]; then
   setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
-${CEPH_MISSING_DISKS}                                   # continue with some peers missing disks? (yes/no)
-$([ "${SETUP_CEPH}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+"
+  if [ "${SKIP_CEPH_DISKS}" != "yes" ]; then
+    setup="${setup}
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:wait 300ms")       # wait for the table to populate
 $([ -n "${CEPH_FILTER}" ] && printf "table:filter %s" "${CEPH_FILTER}")          # filter ceph disks
-$([ "${SETUP_CEPH}" = "yes" ] && printf "table:select-all")   # select all disk matching the filter
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:select-all")       # select all disk matching the filter
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
-$([ "${CEPH_WIPE}"  = "yes" ] && printf "table:select-all")   # wipe all disks
+$([ "${CEPH_WIPE}"  = "yes" ] && printf "table:select-all")       # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_RETRY_HA}" ) # allow ceph setup without 3 systems supplying disks.
-${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
+$(true)                                                           # workaround for set -e
+"
+  fi
+
+  setup="${setup}
+${CEPH_ENCRYPT}                                                          # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_CLUSTER_NETWORK}" ) # set ceph cluster network
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_PUBLIC_NETWORK}" )  # set ceph public network
-$(true)                                                 # workaround for set -e
+$(true)                                                                  # workaround for set -e
 "
 fi
 
