@@ -582,7 +582,7 @@ func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwor
 }
 
 func (c *initConfig) askRemotePool(sh *service.Handler) error {
-	// If MicroCeph is not installed, skip this block entirely.
+	// If MicroCeph is not installed or an existing Ceph cluster should not be added, skip this block entirely.
 	if sh.Services[types.MicroCeph] == nil {
 		return nil
 	}
@@ -624,10 +624,68 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	}
 	var selectedDisks map[string][]string
 	var wipeDisks map[string]map[string]bool
-	availableDiskCount := 0
+
 	if len(askSystemsRemote) != 0 {
+		// existingClusterDisks contains a slice of disks configured on each of the MicroCeph cluster members.
+		// That allows checking whether or not the configured disks meet the recommendations.
+		existingClusterDisks := map[string][]string{}
+
+		// availableDiskCount is the total amount of unconfigured disks across all of the remote systems.
+		availableDiskCount := 0
+
+		// availableDisks contains a map of unconfigured disks on each of the remote systems.
+		// Those disks aren't yet used for neither local nor remote storage.
 		availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
+
+		// Set to true after checking one of the existing MicroCeph cluster members for existing disks.
+		existingClusterDisksChecked := false
+
 		for name, state := range c.state {
+			// Collect list of already existing remote storage disks.
+			// This allows understanding which disks on which cluster members are already configured for remote storage.
+			// The information can then be yielded to the user and allows skipping the selection of additional disks
+			// in case the user only wants to configure distributed storage without adding additional disks to MicroCeph.
+			// That scenario is important when adding an existing MicroCeph cluster to MicroCloud.
+			if state.ServiceClustered(types.MicroCeph) && !existingClusterDisksChecked {
+				cephService := sh.Services[types.MicroCeph].(*service.CephService)
+				system, ok := c.systems[name]
+				if !ok {
+					return fmt.Errorf("Failed to find system %q", name)
+				}
+
+				var cert *x509.Certificate
+				var address string
+
+				// When asking for remote pool configuration the MicroCloud cluster isn't yet formed.
+				// But we have already established temporary trust with all of the remote systems.
+				// Use the temporary trust store certificate only in case we are not trying to request
+				// the disks from the local system itself.
+				if name != sh.Name {
+					cert = system.ServerInfo.Certificate
+					address = state.ClusterAddress
+				}
+
+				disks, err := cephService.GetDisks(context.TODO(), address, cert)
+				if err != nil {
+					return fmt.Errorf("Failed to get disks of existing %s cluster on %q: %w", types.MicroCeph, name, err)
+				}
+
+				// Only initialize the slice if there are existing disks on this MicroCeph cluster member.
+				// We consolidate the length of the map later to indicate whether or not there are already existing disks.
+				if len(disks) > 0 {
+					existingClusterDisks[name] = []string{}
+				}
+
+				// Fetching the disks from one of the existing MicroCeph cluster members is sufficient.
+				// As the disks are known cluster wide, each member should respond with the same number.
+				for _, disk := range disks {
+					existingClusterDisks[disk.Location] = append(existingClusterDisks[disk.Location], disk.Path)
+				}
+
+				// Skip checking every other MicroCeph cluster member as we have already collected the existing disks.
+				existingClusterDisksChecked = true
+			}
+
 			if askSystemsRemote[name] {
 				availableDisks[name] = state.AvailableDisks
 
@@ -637,7 +695,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			}
 		}
 
-		if availableDiskCount == 0 {
+		if availableDiskCount == 0 && len(existingClusterDisks) == 0 {
 			tui.PrintWarning("No disks available for distributed storage. Skipping configuration")
 
 			return nil
@@ -648,116 +706,146 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 			return err
 		}
 
-		// Ask if the user is okay with fully remote ceph on some systems.
-		if len(askSystemsRemote) != availableDiskCount && wantsDisks {
-			warning := "Unable to find disks on some systems"
-			question := "Continue anyway?"
-			wantsDisks, err = c.asker.AskBoolWarn(warning, question, true)
-			if err != nil {
-				return err
-			}
-		}
+		if len(existingClusterDisks) > 0 && wantsDisks {
+			fmt.Println()
 
-		if !wantsDisks {
-			return nil
+			for target, disks := range existingClusterDisks {
+				if len(disks) > 0 {
+					fmt.Println(tui.SummarizeResult("Using %d disk(s) already setup on %s for remote storage pool", len(disks), target))
+				}
+			}
+
+			fmt.Println()
 		}
 
 		var insufficientDisks bool
-		err = c.askRetry("Change disk selection?", func() error {
-			selectedDisks = map[string][]string{}
-			wipeDisks = map[string]map[string]bool{}
-			header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-			data := [][]string{}
-			for peer, disks := range availableDisks {
-				sortedDisks := []api.ResourcesStorageDisk{}
-				for _, disk := range disks {
-					sortedDisks = append(sortedDisks, disk)
-				}
 
-				// Ensure the list of disks is sorted by name.
-				sort.Slice(sortedDisks, func(i, j int) bool {
-					return service.FormatDiskPath(sortedDisks[i]) < service.FormatDiskPath(sortedDisks[j])
-				})
+		if availableDiskCount > 0 && wantsDisks {
+			err = c.askRetry("Change disk selection?", func() error {
+				selectedDisks = map[string][]string{}
+				wipeDisks = map[string]map[string]bool{}
+				header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
+				data := [][]string{}
+				for peer, disks := range availableDisks {
+					sortedDisks := []api.ResourcesStorageDisk{}
+					for _, disk := range disks {
+						sortedDisks = append(sortedDisks, disk)
+					}
 
-				for _, disk := range sortedDisks {
-					// Skip any disks that have been reserved for the local storage pool.
-					devicePath := service.FormatDiskPath(disk)
-					data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
-				}
-			}
+					// Ensure the list of disks is sorted by name.
+					sort.Slice(sortedDisks, func(i, j int) bool {
+						return service.FormatDiskPath(sortedDisks[i]) < service.FormatDiskPath(sortedDisks[j])
+					})
 
-			if len(data) == 0 {
-				return errors.New("Invalid disk configuration. Found no available disks")
-			}
-
-			sort.Sort(cli.SortColumnsNaturally(data))
-			var toWipe []map[string]string
-			table := tui.NewSelectableTable(header, data)
-			selected, err := table.Render(context.Background(), c.asker, "Select from the available unpartitioned disks:")
-			if err != nil {
-				return err
-			}
-
-			if len(selected) > 0 {
-				newRows := make([][]string, len(selected))
-				for row := range selected {
-					newRows[row] = make([]string, len(header))
-					for j, h := range header {
-						newRows[row][j] = selected[row][h]
+					for _, disk := range sortedDisks {
+						// Skip any disks that have been reserved for the local storage pool.
+						devicePath := service.FormatDiskPath(disk)
+						data = append(data, []string{peer, disk.Model, units.GetByteSizeStringIEC(int64(disk.Size), 2), disk.Type, devicePath})
 					}
 				}
 
-				toWipe, err = table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
+				if len(data) == 0 {
+					return errors.New("Invalid disk configuration. Found no available disks")
+				}
+
+				sort.Sort(cli.SortColumnsNaturally(data))
+				var toWipe []map[string]string
+				table := tui.NewSelectableTable(header, data)
+				selected, err := table.Render(context.Background(), c.asker, "Select from the available unpartitioned disks:")
 				if err != nil {
 					return err
 				}
-			}
 
-			targetDisks := map[string][]string{}
-			for _, entry := range selected {
-				target := entry["LOCATION"]
-				path := entry["PATH"]
-				if targetDisks[target] == nil {
-					targetDisks[target] = []string{}
+				if len(selected) > 0 {
+					newRows := make([][]string, len(selected))
+					for row := range selected {
+						newRows[row] = make([]string, len(header))
+						for j, h := range header {
+							newRows[row][j] = selected[row][h]
+						}
+					}
+
+					toWipe, err = table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
+					if err != nil {
+						return err
+					}
 				}
 
-				targetDisks[target] = append(targetDisks[target], path)
-			}
+				targetDisks := map[string][]string{}
+				for _, entry := range selected {
+					target := entry["LOCATION"]
+					path := entry["PATH"]
+					if targetDisks[target] == nil {
+						targetDisks[target] = []string{}
+					}
 
-			wipeDisks = map[string]map[string]bool{}
-			for _, entry := range toWipe {
-				target := entry["LOCATION"]
-				path := entry["PATH"]
-				if wipeDisks[target] == nil {
-					wipeDisks[target] = map[string]bool{}
+					targetDisks[target] = append(targetDisks[target], path)
 				}
 
-				wipeDisks[target][path] = true
+				wipeDisks = map[string]map[string]bool{}
+				for _, entry := range toWipe {
+					target := entry["LOCATION"]
+					path := entry["PATH"]
+					if wipeDisks[target] == nil {
+						wipeDisks[target] = map[string]bool{}
+					}
+
+					wipeDisks[target][path] = true
+				}
+
+				selectedDisks = targetDisks
+
+				// Error in case no disks were selected or there isn't an existing Ceph cluster with disks configured.
+				if len(targetDisks) == 0 && len(existingClusterDisks) == 0 {
+					return errors.New("No disks were selected")
+				}
+
+				mergedDisks := map[string][]string{}
+
+				// Merge both the already existing disks and the new selected ones.
+				// This allows identifying if the selection follows the recommendations.
+				for clusterMember, disks := range existingClusterDisks {
+					_, ok := mergedDisks[clusterMember]
+					if !ok {
+						mergedDisks[clusterMember] = []string{}
+					}
+
+					mergedDisks[clusterMember] = append(mergedDisks[clusterMember], disks...)
+				}
+
+				for clusterMember, disks := range selectedDisks {
+					_, ok := mergedDisks[clusterMember]
+					if !ok {
+						mergedDisks[clusterMember] = []string{}
+					}
+
+					mergedDisks[clusterMember] = append(mergedDisks[clusterMember], disks...)
+				}
+
+				insufficientDisks = !useJoinConfigRemote && len(mergedDisks) < RecommendedOSDHosts
+
+				if insufficientDisks {
+					return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
+				}
+
+				return nil
+			})
+			if err != nil {
+				return err
 			}
-
-			selectedDisks = targetDisks
-
-			if len(targetDisks) == 0 {
-				return errors.New("No disks were selected")
-			}
-
-			insufficientDisks = !useJoinConfigRemote && len(targetDisks) < RecommendedOSDHosts
-
-			if insufficientDisks {
-				// This error will be printed to STDOUT as a normal message, so it includes a new-line for readability.
-				return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
 		}
 
-		if len(selectedDisks) == 0 {
+		if len(selectedDisks) == 0 && len(existingClusterDisks) == 0 {
+			// Skip distributed storage if there are neither disks selected nor is there an existing cluster with disks configured.
 			return nil
-		} else {
-			fmt.Println()
+		} else if len(selectedDisks) > 0 {
+			// Print the newline only in case we haven't printed the notification about
+			// already existing disks for the remote storage pool.
+			// If we are reusing disks and also adding new ones, the two sections
+			// should only be separated by a single new line.
+			if len(existingClusterDisks) == 0 {
+				fmt.Println()
+			}
 
 			for target, disks := range selectedDisks {
 				if len(disks) > 0 {
