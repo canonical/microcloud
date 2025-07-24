@@ -1,5 +1,7 @@
-(howto-shutdown)=
-# How to shut down a machine
+(howto-member-shutdown)=
+# How to shut down a MicroCloud cluster member
+
+This guide provides instructions to safely shut down a MicroCloud cluster member. This includes how to deal with LXD instances running on the cluster member, as well as the order in which to shut down and restart the component services. 
 
 ## Stop or live-migrate all instances on the cluster member
 
@@ -7,7 +9,7 @@ To shut down a machine that is a MicroCloud cluster member, first ensure that it
 
 You can stop all instances on a cluster member using the command:
 
-```
+```bash
 lxc stop --all
 ```
 
@@ -21,7 +23,7 @@ During the shutdown process of a MicroCloud cluster member, the LXD service must
 
 To enforce this shutdown and restart order, create a configuration file in each cluster member's `/etc/systemd/system/snap.lxd.daemon.service.d` directory to override the behavior of `snap.lxd.daemon.service`. To simplify creating the directory and configuration file, you can copy and paste the following commands into each cluster member:
 
-```
+```bash
 # Create the directory if it doesn't exist
 sudo mkdir -p /etc/systemd/system/snap.lxd.daemon.service.d
 
