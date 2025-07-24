@@ -11,9 +11,7 @@ Initialize MicroCloud </how-to/initialize>
 Configure Ceph networking </how-to/ceph_networking>
 Configure OVN underlay </how-to/ovn_underlay>
 Work with MicroCloud </how-to/commands>
-Add a machine </how-to/add_machine>
-Remove a machine </how-to/remove_machine>
-Shut down a machine </how-to/shutdown_machine>
+Manage cluster members <members_manage>
 Update and upgrade </how-to/update_upgrade>
 Manage the snaps </how-to/snaps>
 Recover MicroCloud </how-to/recover>
