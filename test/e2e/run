@@ -144,7 +144,11 @@ checkConnectivity() {
 
     echo -n " ● ${src} => ${dst} (${dstIPv4}):"
     # Using bash /dev/tcp to check for connectivity as it is available in every Ubuntu images even the minimal ones.
-    if lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"; then
+    # Define the probe inside a function to not cause issues passing the space separated arguments to retry().
+    probe() { lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"; }
+
+    # Use the retry function in case the target isn't yet reachable.
+    if retry probe; then
         echo " ✅"
     else
         echo " ❌"
@@ -180,7 +184,7 @@ evacuation() {
         else
             echo "Please reboot ${member} and wait for it to come back online."
             echo "Once online, run the following on ${member} to confirm readiness:"
-            echo " sudo lxd waitready"
+            echo " sudo microcloud waitready"
             echo
             read -rp "Press enter to continue with the evacuation test"
         fi
