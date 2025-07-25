@@ -139,6 +139,14 @@ func (s CephService) AddDisk(ctx context.Context, data cephTypes.DisksPost, targ
 		return response, err
 	}
 
+	var cancel context.CancelFunc
+
+	// Allow MicroCeph time to bootstrap the new OSDs.
+	// In case we are adding a lot of disks, the request might run for a while.
+	// By default the underlying Microcluster client sets a default deadline of 30 seconds.
+	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
 	err = c.Query(ctx, "POST", types.APIVersion, api.NewURL().Path("disks"), data, &response)
 	if err != nil {
 		return response, fmt.Errorf("Failed to request disk addition: %w", err)
