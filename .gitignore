@@ -1,1 +1,4 @@
 *.snap
+.terraform*
+terraform.tfstate*
+terraform.tfvars
