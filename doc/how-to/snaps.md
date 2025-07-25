@@ -3,7 +3,7 @@
 
 Manage MicroCloud and its components (LXD, MicroCeph, and MicroOVN) through their snap packages.
 
-For the installation guide, see: {ref}`howto-install`. For details about the snaps, including {ref}`supported and compatible releases <ref-releases-matrix>`, {ref}`tracks <ref-snaps-microcloud-tracks>`, and {ref}`release processes <ref-releases-microcloud>`, see: {ref}`ref-releases-snap`.
+For the installation guide, see: {ref}`howto-install`. For details about the snaps, including {ref}`supported and compatible releases <ref-releases-matrix>`, {ref}`tracks <ref-snaps-microcloud-tracks>`, and {ref}`release processes <ref-releases-microcloud>`, see: {ref}`ref-releases-snaps`.
 
 (howto-snap-info)=
 ## View snap information
