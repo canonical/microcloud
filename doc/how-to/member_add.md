@@ -36,7 +36,7 @@ The preseed YAML file must use the following syntax:
 
 ```{literalinclude} preseed.yaml
 :language: YAML
-:emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-87
+:emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-88
 ```
 
 ### Minimal preseed using multicast discovery
