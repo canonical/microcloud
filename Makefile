@@ -66,7 +66,7 @@ check-system:
 .PHONY: check-static
 check-static:
 ifeq ($(shell command -v golangci-lint 2> /dev/null),)
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$HOME/go/bin v2.0.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$HOME/go/bin v2.1.6
 endif
 ifeq ($(shell command -v revive 2> /dev/null),)
 	go install github.com/mgechev/revive@latest

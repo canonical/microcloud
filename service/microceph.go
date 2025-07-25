@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -86,7 +87,7 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Timed out waiting for MicroCeph cluster to initialize")
+			return errors.New("Timed out waiting for MicroCeph cluster to initialize")
 		default:
 			names, err := s.ClusterMembers(ctx)
 			if err != nil {
@@ -138,6 +139,14 @@ func (s CephService) AddDisk(ctx context.Context, data cephTypes.DisksPost, targ
 		return response, err
 	}
 
+	var cancel context.CancelFunc
+
+	// Allow MicroCeph time to bootstrap the new OSDs.
+	// In case we are adding a lot of disks, the request might run for a while.
+	// By default the underlying Microcluster client sets a default deadline of 30 seconds.
+	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
 	err = c.Query(ctx, "POST", types.APIVersion, api.NewURL().Path("disks"), data, &response)
 	if err != nil {
 		return response, fmt.Errorf("Failed to request disk addition: %w", err)
@@ -164,10 +173,25 @@ func (s CephService) GetServices(ctx context.Context, target string) (cephTypes.
 }
 
 // GetDisks returns the list of configured disks.
-func (s CephService) GetDisks(ctx context.Context, target string) (cephTypes.Disks, error) {
-	c, err := s.Client(target)
-	if err != nil {
-		return nil, err
+func (s CephService) GetDisks(ctx context.Context, target string, cert *x509.Certificate) (cephTypes.Disks, error) {
+	var c *client.Client
+	var err error
+
+	if target == "" {
+		c, err = s.Client("")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c, err = s.remoteClient(cert, target)
+		if err != nil {
+			return nil, err
+		}
+
+		c, err = cloudClient.UseAuthProxy(c, types.MicroCeph, cloudClient.AuthConfig{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	disks := cephTypes.Disks{}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,6 +24,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -241,11 +243,11 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	}
 
 	if !status.Ready && !c.bootstrap && initiator {
-		return fmt.Errorf("MicroCloud isn't yet initialized and cannot be the initiator")
+		return errors.New("MicroCloud isn't yet initialized and cannot be the initiator")
 	}
 
 	if status.Ready && !initiator {
-		return fmt.Errorf("MicroCloud is already initialized and can only be the initiator")
+		return errors.New("MicroCloud is already initialized and can only be the initiator")
 	}
 
 	systems, err := config.Parse(s, c, services)
@@ -321,29 +323,29 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	localInit := false
 
 	if len(p.Systems) < 1 {
-		return fmt.Errorf("No systems given")
+		return errors.New("No systems given")
 	}
 
 	if p.Initiator == "" && p.InitiatorAddress == "" {
-		return fmt.Errorf("Missing initiator's name or address")
+		return errors.New("Missing initiator's name or address")
 	}
 
 	if p.Initiator != "" && p.InitiatorAddress != "" {
-		return fmt.Errorf("Cannot provide both the initiator's name and address")
+		return errors.New("Cannot provide both the initiator's name and address")
 	}
 
 	if p.InitiatorAddress != "" && p.LookupSubnet != "" {
-		return fmt.Errorf("Cannot provide both the initiator's address and lookup subnet")
+		return errors.New("Cannot provide both the initiator's address and lookup subnet")
 	}
 
 	if len(p.Systems) > 1 && p.SessionPassphrase == "" {
-		return fmt.Errorf("Missing session passphrase")
+		return errors.New("Missing session passphrase")
 	}
 
 	systemNames := make([]string, 0, len(p.Systems))
 	for _, system := range p.Systems {
 		if system.Name == "" {
-			return fmt.Errorf("Missing system name")
+			return errors.New("Missing system name")
 		}
 
 		if system.Address != "" && p.LookupSubnet != "" {
@@ -364,6 +366,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 		if system.UplinkInterface != "" {
 			uplinkCount++
+
+			if p.OVN.IPv4Gateway == "" && p.OVN.IPv6Gateway == "" && bootstrap {
+				return errors.New("Either the IPv4 or IPv6 gateway has to be set on the uplink network")
+			}
 		}
 
 		if system.UnderlayIP != "" {
@@ -391,7 +397,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	}
 
 	if bootstrap && !localInit {
-		return fmt.Errorf("Local MicroCloud must be included in the list of systems when initializing")
+		return errors.New("Local MicroCloud must be included in the list of systems when initializing")
 	}
 
 	containsUplinks := false
@@ -399,23 +405,23 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	containsCephStorage := false
 	containsUplinks = uplinkCount > 0
 	if containsUplinks && uplinkCount < len(p.Systems) {
-		return fmt.Errorf("Some systems are missing an uplink interface")
+		return errors.New("Some systems are missing an uplink interface")
 	}
 
 	containsUnderlay := underlayCount > 0
 	if containsUnderlay && underlayCount < len(p.Systems) {
-		return fmt.Errorf("Some systems are missing an underlay interface")
+		return errors.New("Some systems are missing an underlay interface")
 	}
 
 	containsLocalStorage = directLocalCount > 0
 	if containsLocalStorage && directLocalCount < len(p.Systems) && len(p.Storage.Local) == 0 {
-		return fmt.Errorf("Some systems are missing local storage disks")
+		return errors.New("Some systems are missing local storage disks")
 	}
 
 	containsCephStorage = directCephCount > 0 || len(p.Storage.Ceph) > 0
 	usingCephPublicNetwork := p.Ceph.PublicNetwork != ""
 	if !containsCephStorage && usingCephPublicNetwork {
-		return fmt.Errorf("Cannot specify a Ceph public network without Ceph storage disks")
+		return errors.New("Cannot specify a Ceph public network without Ceph storage disks")
 	}
 
 	if usingCephPublicNetwork {
@@ -427,7 +433,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 	usingCephInternalNetwork := p.Ceph.InternalNetwork != ""
 	if !containsCephStorage && usingCephInternalNetwork {
-		return fmt.Errorf("Cannot specify a Ceph internal network without Ceph storage disks")
+		return errors.New("Cannot specify a Ceph internal network without Ceph storage disks")
 	}
 
 	if usingCephInternalNetwork {
@@ -438,7 +444,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	}
 
 	if p.OVN.IPv4Gateway == "" && p.OVN.IPv4Range != "" {
-		return fmt.Errorf("Cannot specify IPv4 range without IPv4 gateway")
+		return errors.New("Cannot specify IPv4 range without IPv4 gateway")
 	}
 
 	if p.OVN.IPv4Gateway != "" {
@@ -448,19 +454,19 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		}
 
 		if p.OVN.IPv4Range == "" {
-			return fmt.Errorf("Cannot specify IPv4 range without IPv4 gateway")
+			return errors.New("Cannot specify IPv4 range without IPv4 gateway")
 		}
 
 		start, end, ok := strings.Cut(p.OVN.IPv4Range, "-")
 		startIP := net.ParseIP(start)
 		endIP := net.ParseIP(end)
 		if !ok || startIP == nil || endIP == nil {
-			return fmt.Errorf("Invalid IPv4 range (must be of the form <ip>-<ip>)")
+			return errors.New("Invalid IPv4 range (must be of the form <ip>-<ip>)")
 		}
 	}
 
 	if p.OVN.IPv6Gateway != "" {
-		_, _, err := net.ParseCIDR(p.OVN.IPv4Gateway)
+		_, _, err := net.ParseCIDR(p.OVN.IPv6Gateway)
 		if err != nil {
 			return err
 		}
@@ -468,7 +474,7 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 	for _, filter := range p.Storage.Ceph {
 		if filter.Find == "" {
-			return fmt.Errorf("Received empty remote disk filter")
+			return errors.New("Received empty remote disk filter")
 		}
 
 		if filter.FindMax > 0 {
@@ -479,13 +485,13 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 		// For distributed storage, the minimum match count must be defined so that we don't have a default configuration that can be non-HA.
 		if filter.FindMin < 1 {
-			return fmt.Errorf("Remote storage filter cannot be defined with find_min less than 1")
+			return errors.New("Remote storage filter cannot be defined with find_min less than 1")
 		}
 	}
 
 	for i, filter := range p.Storage.Local {
 		if filter.Find == "" {
-			return fmt.Errorf("Received empty local disk filter")
+			return errors.New("Received empty local disk filter")
 		}
 
 		if filter.FindMax > 0 {
@@ -572,7 +578,7 @@ func (p *Preseed) address(name string) (string, error) {
 // Match matches the devices to the given filter, and returns the result.
 func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.ResourcesStorageDisk, error) {
 	if d.Find == "" {
-		return nil, fmt.Errorf("Received empty filter")
+		return nil, errors.New("Received empty filter")
 	}
 
 	clauses, err := filter.Parse(d.Find, DiskOperatorSet())
@@ -694,7 +700,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 		for serviceType, cluster := range existingClusters {
 			if len(cluster) > 0 {
-				fmt.Printf("Existing %s cluster is incompatible with MicroCloud, skipping %s setup\n", serviceType, serviceType)
+				tui.PrintWarning(fmt.Sprintf("Existing %s cluster is incompatible with MicroCloud. Skipping %s setup", serviceType, serviceType))
 
 				delete(s.Services, serviceType)
 			}
@@ -908,11 +914,11 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	}
 
 	if len(checkFilterCeph) == 0 && len(p.Storage.Ceph) > 0 {
-		return nil, fmt.Errorf("Ceph disk filter cannot be used. All systems have explicitly specified disks")
+		return nil, errors.New("Ceph disk filter cannot be used. All systems have explicitly specified disks")
 	}
 
 	if len(checkFilterZFS) == 0 && len(p.Storage.Local) > 0 {
-		return nil, fmt.Errorf("Local disk filter cannot be used. All systems have explicitly specified a disk")
+		return nil, errors.New("Local disk filter cannot be used. All systems have explicitly specified a disk")
 	}
 
 	allResourcesZFS := map[string]*lxdAPI.Resources{}
@@ -959,7 +965,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				system.MicroCephDisks = append(
 					system.MicroCephDisks,
 					cephTypes.DisksPost{
-						Path:    []string{parseDiskPath(disk)},
+						Path:    []string{service.FormatDiskPath(disk)},
 						Wipe:    filter.Wipe,
 						Encrypt: filter.Encrypt,
 					},
@@ -1034,12 +1040,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			if len(matched) > 0 {
 				zfsMachines[peer] = true
 				if c.bootstrap {
-					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, parseDiskPath(matched[0])))
+					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, service.FormatDiskPath(matched[0])))
 					if s.Name == peer {
 						system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
 					}
 				} else {
-					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, parseDiskPath(matched[0]))...)
+					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, service.FormatDiskPath(matched[0]))...)
 				}
 
 				zfsMatches[filter.Find] = zfsMatches[filter.Find] + 1
@@ -1168,7 +1174,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	}
 
 	if c.bootstrap && len(zfsMachines)+len(directZFSMatches) > 0 && len(zfsMachines)+len(directZFSMatches) < len(c.systems) {
-		return nil, fmt.Errorf("Failed to find at least 1 disk on each machine for local storage pool configuration")
+		return nil, errors.New("Failed to find at least 1 disk on each machine for local storage pool configuration")
 	}
 
 	// If disks where selected for Ceph make sure to create the respective Ceph storage pool on all cluster members.

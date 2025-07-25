@@ -33,19 +33,18 @@ check_instance_connectivity() {
     "
   done
 
-  echo "Test connectivity to lxdbr0"
+  echo "Test connectivity to lxdbr0 via DNS, IPv4 and IPv6"
   IPV4_GW="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
   IPV6_GW="$(lxc network get lxdbr0 ipv6.address | cut -d/ -f1)"
   for m in "${instance_1}" "${instance_2}" ; do
-    lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -4 "${IPV4_GW}"
-    lxc exec micro01 -- lxc exec "${m}" -- ping -nc1 -w5 -6 "${IPV6_GW}"
+    lxc exec micro01 -- lxc exec "${m}" -- timeout 5 bash -cex "for dst in _gateway ${IPV4_GW} ${IPV6_GW}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
   done
 
-  echo "Test connectivity between instances"
-  lxc exec micro01 -- lxc exec "${instance_1}" -- ping -nc1 -w5 -4 "${instance_2}"
-  lxc exec micro01 -- lxc exec "${instance_1}" -- ping -nc1 -w5 -6 "${instance_2}"
-  lxc exec micro01 -- lxc exec "${instance_2}" -- ping -nc1 -w5 -4 "${instance_1}"
-  lxc exec micro01 -- lxc exec "${instance_2}" -- ping -nc1 -w5 -6 "${instance_1}"
+  echo "Test connectivity between instances via DNS, IPv4 and IPv6"
+  INSTANCE1_IPS="$(lxc exec micro01 -- lxc exec "${instance_1}" -- hostname -i)"
+  INSTANCE2_IPS="$(lxc exec micro01 -- lxc exec "${instance_2}" -- hostname -i)"
+  lxc exec micro01 -- lxc exec "${instance_1}" -- timeout 5 bash -cex "for dst in ${instance_2} ${INSTANCE2_IPS}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
+  lxc exec micro01 -- lxc exec "${instance_2}" -- timeout 5 bash -cex "for dst in ${instance_1} ${INSTANCE1_IPS}; do grep -qm1 ^SSH- < /dev/tcp/\$dst/22; done"
 }
 
 
@@ -53,7 +52,7 @@ test_instances_config() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -98,7 +97,7 @@ EOF
   reset_systems 3 3 2
 
   # Create a MicroCloud with ceph and ovn setup.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -164,7 +163,7 @@ test_instances_launch() {
   reset_systems 3 3 2
 
   # Setup a MicroCloud with 3 systems, ZFS storage, and a FAN network.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -188,6 +187,10 @@ systems:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
 EOF
   )"
 
@@ -211,8 +214,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -255,7 +256,7 @@ EOF
   reset_systems 3 3 2
 
   # Create a MicroCloud with ceph and ovn setup.
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -310,8 +311,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -405,8 +404,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -503,8 +500,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -613,8 +608,6 @@ EOF
 config:
   cloud-init.user-data: |
     #cloud-config
-    packages:
-    - iputils-ping
     write_files:
       - content: |
           #!/bin/sh
@@ -670,7 +663,7 @@ EOF
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c3 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro01
   lxc exec micro01 -- lxc launch ubuntu-minimal-daily:22.04 c4 -c limits.memory=512MiB -d root,size=2GiB -s remote -n default --target micro04
 
-  # Let cloud-init finish its job of installing required packages (i.e: iputils-ping).
+  # Let cloud-init finish its job.
   for m in c3 c4; do
     echo -n "Waiting up to 5 mins for ${m} to start "
     lxc exec micro01 -- sh -ceu "

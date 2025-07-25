@@ -2,7 +2,7 @@ package multicast
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -54,7 +54,7 @@ func (m *multicastSuite) Test_Lookup() {
 		{
 			desc:        "Cannot lookup system if invalid interface is given",
 			lookupIface: "invalid-interface",
-			lookupErr:   fmt.Errorf(`Failed to resolve lookup interface "invalid-interface": route ip+net: no such network interface`),
+			lookupErr:   errors.New(`Failed to resolve lookup interface "invalid-interface": route ip+net: no such network interface`),
 		},
 		{
 			desc:          "Cannot lookup system if the responder is offline",
@@ -70,7 +70,7 @@ func (m *multicastSuite) Test_Lookup() {
 			modifier: func(server *Discovery) {
 				_ = server.StopResponder()
 			},
-			lookupErr: fmt.Errorf("Failed to read from multicast network endpoint: Timeout exceeded"),
+			lookupErr: errors.New("Failed to read from multicast network endpoint: Timeout exceeded"),
 		},
 		{
 			desc:          "Cannot lookup system if the responder uses a different version",
@@ -83,7 +83,7 @@ func (m *multicastSuite) Test_Lookup() {
 				Address: "1.2.3.4",
 			},
 			lookupTimeout: 500 * time.Microsecond,
-			lookupErr:     fmt.Errorf("Failed to read from multicast network endpoint: Timeout exceeded"),
+			lookupErr:     errors.New("Failed to read from multicast network endpoint: Timeout exceeded"),
 		},
 	}
 
@@ -105,7 +105,7 @@ func (m *multicastSuite) Test_Lookup() {
 		ctx := context.Background()
 		var cancel context.CancelFunc
 		if c.lookupTimeout > 0 {
-			ctx, cancel = context.WithTimeoutCause(ctx, c.lookupTimeout, fmt.Errorf("Timeout exceeded"))
+			ctx, cancel = context.WithTimeoutCause(ctx, c.lookupTimeout, errors.New("Timeout exceeded"))
 		}
 
 		receivedInfo, err := testDiscovery.Lookup(ctx, c.lookupVersion)

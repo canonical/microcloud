@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -113,13 +114,37 @@ func lxdHandler(s state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
+	// Special case for metrics endpoint, that is not responding with JSON.
+	if r.URL.Path == "/1.0/metrics" {
+		return response.ManualResponse(func(w http.ResponseWriter) error {
+			// Copy headers from upstream response
+			for key, values := range resp.Header {
+				for _, value := range values {
+					w.Header().Add(key, value)
+				}
+			}
+
+			// Set status code
+			w.WriteHeader(resp.StatusCode)
+
+			// Stream response body
+			defer resp.Body.Close()
+			_, err := io.Copy(w, resp.Body)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+	}
+
 	return NewResponse(resp)
 }
 
 // microHandler forwards a request made to /1.0/services/<microcluster-service>/<rest> to /1.0/<rest> on the service unix socket.
 func microHandler(service string, stateDir string) func(state.State, *http.Request) response.Response {
 	return func(s state.State, r *http.Request) response.Response {
-		_, path, ok := strings.Cut(r.URL.Path, fmt.Sprintf("/1.0/services/%s", service))
+		_, path, ok := strings.Cut(r.URL.Path, "/1.0/services/"+service)
 		if !ok {
 			return response.SmartError(fmt.Errorf("Invalid path %q", r.URL.Path))
 		}

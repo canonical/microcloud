@@ -2,9 +2,11 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,6 +37,7 @@ const defaultTableSize = 10
 
 type selectableTable struct {
 	table   *table.Table
+	tableMu sync.Mutex
 	program *tea.Program
 
 	// size is the number of rows that will be displayed at once.
@@ -87,10 +90,10 @@ type selectableTable struct {
 func SummarizeResult(tmpl string, args ...any) string {
 	fmtArgs := []Fmt{}
 	for _, arg := range args {
-		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Color: Yellow, Bold: true})
+		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Bold: true})
 	}
 
-	return Printf(Fmt{Arg: fmt.Sprintf(" %s", tmpl), Color: White}, fmtArgs...)
+	return Printf(Fmt{Arg: " " + tmpl, Color: White}, fmtArgs...)
 }
 
 // NewSelectableTable takes a slice of structs and adds table rows for them.
@@ -108,10 +111,10 @@ func NewSelectableTable(header []string, rows [][]string) *selectableTable {
 // Optionally takes a set of rows to replace the initial set.
 func (s *selectableTable) Render(ctx context.Context, handler *InputHandler, title string, newRows ...[]string) ([]map[string]string, error) {
 	if s.active || handler.table.active {
-		return nil, fmt.Errorf("Cannot render table while another is already active")
+		return nil, errors.New("Cannot render table while another is already active")
 	}
 
-	handler.tableMu.Lock()
+	s.tableMu.Lock()
 	s.active = true
 	s.title = title
 	s.testMode = handler.testMode
@@ -122,7 +125,7 @@ func (s *selectableTable) Render(ctx context.Context, handler *InputHandler, tit
 
 	// record the table in the handler for testing.
 	handler.table = s
-	handler.tableMu.Unlock()
+	s.tableMu.Unlock()
 
 	handler.setActive(true)
 	defer func() {
@@ -145,7 +148,7 @@ func (s *selectableTable) Render(ctx context.Context, handler *InputHandler, tit
 
 	table, ok := result.(*selectableTable)
 	if !ok {
-		return nil, fmt.Errorf("Unexpected result type")
+		return nil, errors.New("Unexpected result type")
 	}
 
 	resultMap := make([]map[string]string, 0, len(table.rawRows))
@@ -350,6 +353,9 @@ func (s *selectableTable) updateTableRows() {
 }
 
 func (s *selectableTable) handleRemoveEvent(remove RemoveMsg) (tea.Model, tea.Cmd) {
+	s.tableMu.Lock()
+	defer s.tableMu.Unlock()
+
 	newRows := make([][]string, 0, len(s.rawRows)-1)
 	for i, row := range s.rawRows {
 		if i == int(remove) {
@@ -371,6 +377,9 @@ func (s *selectableTable) handleRemoveEvent(remove RemoveMsg) (tea.Model, tea.Cm
 }
 
 func (s *selectableTable) handleInsertEvent(insert InsertMsg) (tea.Model, tea.Cmd) {
+	s.tableMu.Lock()
+	defer s.tableMu.Unlock()
+
 	s.rawRows = append(s.rawRows, insert)
 	s.filterRows(false)
 
@@ -378,6 +387,9 @@ func (s *selectableTable) handleInsertEvent(insert InsertMsg) (tea.Model, tea.Cm
 }
 
 func (s *selectableTable) handleDisableEvent(disable DisableMsg) (tea.Model, tea.Cmd) {
+	s.tableMu.Lock()
+	defer s.tableMu.Unlock()
+
 	// indexes to disable should always be absolute indexes and do not need to go through s.filterMap.
 	delete(s.activeRows, int(disable))
 	s.disabledRows[int(disable)] = true
@@ -386,6 +398,9 @@ func (s *selectableTable) handleDisableEvent(disable DisableMsg) (tea.Model, tea
 }
 
 func (s *selectableTable) handleEnableEvent(enable EnableMsg) (tea.Model, tea.Cmd) {
+	s.tableMu.Lock()
+	defer s.tableMu.Unlock()
+
 	// indexes to enable should always be absolute indexes and do not need to go through s.filterMap.
 	delete(s.disabledRows, int(enable))
 
@@ -393,6 +408,9 @@ func (s *selectableTable) handleEnableEvent(enable EnableMsg) (tea.Model, tea.Cm
 }
 
 func (s *selectableTable) handleKeyEvent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	s.tableMu.Lock()
+	defer s.tableMu.Unlock()
+
 	switch key.Type {
 	case tea.KeyEsc:
 		fallthrough
@@ -460,7 +478,7 @@ func (s *selectableTable) handleKeyEvent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.activeRows = map[int]bool{}
 		s.active = false
 		if s.err != nil {
-			s.err = fmt.Errorf("Input cancelled")
+			s.err = errors.New("Input cancelled")
 		}
 
 		return s, tea.Quit
@@ -493,4 +511,11 @@ func (s *selectableTable) rowStyle(row int) {
 
 		s.formatRows[row][col] = textStyle.String()
 	}
+}
+
+func (s *selectableTable) countRawRows() int {
+	s.tableMu.Lock()
+	defer s.tableMu.Unlock()
+
+	return len(s.rawRows)
 }

@@ -667,6 +667,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 	}
 
+	for _, pool := range system.StoragePools {
+		if pool.Driver == "ceph" || profile.Devices["root"] == nil {
+			profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
+		}
+	}
+
 	newProfile, err := c.askUpdateProfile(profile, profiles, lxdClient)
 	if err != nil {
 		return err
@@ -794,7 +800,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		cephService := s.Services[types.MicroCeph].(*service.CephService)
 
-		allDisks, err := cephService.GetDisks(context.Background(), s.Name)
+		allDisks, err := cephService.GetDisks(context.Background(), "", nil)
 		if err != nil {
 			return err
 		}
@@ -861,7 +867,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 					addr = clusterMap[service.Location]
 				}
 
-				conns = append(conns, fmt.Sprintf("ssl:%s", util.CanonicalNetworkAddress(addr, 6641)))
+				conns = append(conns, "ssl:"+util.CanonicalNetworkAddress(addr, 6641))
 			}
 		}
 
@@ -940,10 +946,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	cephFSPool := lxdAPI.StoragePoolsPost{}
 	for _, pool := range system.StoragePools {
-		if pool.Driver == "ceph" || profile.Devices["root"] == nil {
-			profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
-		}
-
 		// Ensure the cephfs pool is created after the ceph pool so we set up crush rules.
 		if pool.Driver == "cephfs" {
 			cephFSPool = pool
@@ -990,16 +992,19 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		poolNames := []string{}
-		if len(system.TargetStoragePools) > 0 {
-			for _, pool := range system.TargetStoragePools {
-				poolNames = append(poolNames, pool.Name)
-			}
-		} else {
-			for _, cfg := range system.JoinConfig {
-				if cfg.Name == "local" || cfg.Name == "remote" {
-					if cfg.Entity == "storage-pool" && cfg.Key == "source" {
-						poolNames = append(poolNames, cfg.Name)
-					}
+
+		// In case any storage pools are marked for initial setup,
+		// add them to the list of available storage pool names.
+		for _, pool := range system.TargetStoragePools {
+			poolNames = append(poolNames, pool.Name)
+		}
+
+		// When joining the selected system, it can grow either the local or remote storage pool.
+		// In this case add the pool's name to the list of available storage pools.
+		for _, cfg := range system.JoinConfig {
+			if cfg.Name == "local" || cfg.Name == "remote" {
+				if cfg.Entity == "storage-pool" && cfg.Key == "source" {
+					poolNames = append(poolNames, cfg.Name)
 				}
 			}
 		}

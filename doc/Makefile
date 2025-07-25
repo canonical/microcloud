@@ -46,13 +46,14 @@ integrate:
 	git -C integration/microovn reset --hard $(MICROOVNVERSION)
 	# Create a directory for files to override in MicroCloud docs
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
-	# Copy the header HTML and CSS files for the doc sets
+	mkdir -p integration/microceph/docs/.sphinx/_templates integration/microceph/docs/.sphinx/_static
+	# Copy the header HTML and CSS files for the doc sets  
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microcloud/_static/
 	cp .sphinx/_integration/lxd.html integration/lxd/doc/.sphinx/_templates/header.html
 	cp .sphinx/_integration/header.css integration/lxd/doc/.sphinx/_static/
 	cp .sphinx/_integration/microceph.html integration/microceph/docs/.sphinx/_templates/header.html
-	cp .sphinx/_integration/header.css integration/microceph/docs/.sphinx/_static/
+	cp .sphinx/_integration/override-header.css integration/microceph/docs/.sphinx/_static/
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
 	# Copy the search JavaScript file
@@ -62,7 +63,7 @@ integrate:
 	cp .sphinx/_integration/rtd-search.js integration/microovn/docs/.sphinx/_static/
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/custom_conf.py
-	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/custom_conf.py
+	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microovn/docs/custom_conf.py
 	# Override the MicroOVN tag with the circle of friends one (for consistency)
 	cp .sphinx/_integration/tag.png integration/microovn/docs/.sphinx/_static/microovn.png
@@ -81,7 +82,7 @@ html: integrate
 	cd integration/lxd/doc/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/lxd
 	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
 	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
-	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(current_dir)/_build/microcloud
+	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(current_dir)/_build/microcloud ADDPREREQS='pyyaml'
 
 # `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
 # This target is used by the Read the Docs build.
@@ -89,7 +90,7 @@ html-rtd:
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
-	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
+	ADDPREREQS='pyyaml' PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
 
 # `spelling` checks only the MicroCloud docs.
 spelling: clean-doc microcloud
@@ -111,5 +112,8 @@ serve: html
 serve-microcloud: microcloud
 	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
 
+install:
+	$(MAKE) -f Makefile.sp sp-install ADDPREREQS='pyyaml'
+	
 %:
 	$(MAKE) -f Makefile.sp sp-$@

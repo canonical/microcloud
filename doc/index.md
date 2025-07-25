@@ -33,7 +33,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ```{grid-item} [How-to guides](/how-to/index)
 
-**Step-by-step guides** covering key operations and common tasks such as [installing MicroCloud](/how-to/install/) and [adding](/how-to/add_machine) and [removing](/how-to/remove_machine) machines
+**Step-by-step guides** covering key operations and common tasks such as {ref}`installing MicroCloud <howto-install>` and {ref}`adding <howto-member-add>` and {ref}`removing <howto-member-remove>` cluster members
 ```
 
 ````
@@ -64,7 +64,7 @@ For convenience, this site provides not only MicroCloud's documentation but also
 ```{note}
 The components' documentation sets are written for a general audience that might not be using MicroCloud. Thus, not all the information in these sets are relevant to MicroCloud users. For example, since MicroCloud automates the installation of its components, you can ignore the manual installation instructions in the components' documentation.
 
-Also, while each component's documentation includes instructions for removing cluster members, you should not remove members from only one component. Use MicroCloud instead to remove cluster members (see {ref}`howto-remove`).
+Also, while each component's documentation includes instructions for removing cluster members, you should not remove members from only one component. Use MicroCloud instead to remove cluster members (see {ref}`howto-member-remove`).
 ```
 
 ---

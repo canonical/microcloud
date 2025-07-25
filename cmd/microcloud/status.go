@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -124,7 +125,7 @@ func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if !status.Ready {
-		return fmt.Errorf("MicroCloud is uninitialized, run 'microcloud init' first")
+		return errors.New("MicroCloud is uninitialized, run 'microcloud init' first")
 	}
 
 	cfg := initConfig{

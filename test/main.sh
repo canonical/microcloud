@@ -95,8 +95,12 @@ cleanup() {
     fi
     echo
 
-    echo -n "${name} MicroCloud daemon log:"
-    lxc exec "${name}" -- snap logs microcloud -n 200
+    for service in microcloud microceph microovn lxd; do
+      echo "${name} ${service} daemon log:"
+      lxc exec "${name}" -- snap logs "${service}" -n 200
+      # Print a newline to separate the log from the next one.
+      echo ""
+    done
   done
 
   if [ ${enable_xtrace} = 1 ]; then
@@ -244,71 +248,29 @@ collect_go_cover_files() {
 	fi
 }
 
-# test groups
-run_add_tests() {
-  run_test test_add_interactive "add interactive"
-}
-
-run_instances_tests() {
-  run_test test_instances_config "instances config"
-  run_test test_instances_launch "instances launch"
-}
-
-run_basic_tests() {
-  run_test test_reuse_cluster "reuse_cluster"
-  run_test test_add_services "add_services"
-  run_test test_remove_cluster_member "remove_cluster_member"
-  run_test test_non_ha "non_ha"
-}
-
-run_recover_tests() {
-  run_test test_recover "recover"
-}
-
-run_interactive_tests() {
-  run_test test_interactive "interactive"
-  run_test test_interactive_combinations "interactive combinations"
-}
-
-run_mismatch_tests() {
-  run_test test_service_mismatch "service mismatch"
-  run_test test_disk_mismatch "disk mismatch"
-}
-
-run_preseed_tests() {
-  run_test test_preseed "preseed"
-}
-
-run_upgrade_tests() {
-  run_test test_upgrade "upgrade"
-}
-
 # allow for running a specific set of tests
 if [ "${1:-"all"}" = "all" ]; then
-  run_add_tests
-  run_instances_tests
-  run_basic_tests
-  run_recover_tests
-  run_interactive_tests
-  run_mismatch_tests
-  run_preseed_tests
-  run_upgrade_tests
-elif [ "${1}" = "add" ]; then
-  run_add_tests
+  run_test test_add_interactive
+  run_test test_add_services
+  run_test test_e2e
+  run_test test_instances_config
+  run_test test_instances_launch
+  run_test test_interactive
+  run_test test_interactive_combinations
+  run_test test_service_mismatch
+  run_test test_disk_mismatch
+  run_test test_non_ha
+  run_test test_preseed
+  run_test test_recover
+  run_test test_remove_cluster
+  run_test test_reuse_cluster
+  run_test test_upgrade
 elif [ "${1}" = "instances" ]; then
-  run_instances_tests
-elif [ "${1}" = "basic" ]; then
-  run_basic_tests
-elif [ "${1}" = "recover" ]; then
-  run_recover_tests
-elif [ "${1}" = "interactive" ]; then
-  run_interactive_tests
+  run_test test_instances_config
+  run_test test_instances_launch
 elif [ "${1}" = "mismatch" ]; then
-  run_mismatch_tests
-elif [ "${1}" = "preseed" ]; then
-  run_preseed_tests
-elif [ "${1}" = "upgrade" ]; then
-  run_upgrade_tests
+  run_test test_service_mismatch
+  run_test test_disk_mismatch
 elif [ "${1}" = "setup" ]; then
   testbed_setup
 else

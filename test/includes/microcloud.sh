@@ -4,7 +4,7 @@
 unset_interactive_vars() {
   unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
-    SETUP_CEPH CEPH_MISSING_DISKS CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
+    SETUP_CEPH CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
     REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
 }
@@ -34,9 +34,9 @@ microcloud_interactive() {
   SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
   ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
   ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
-  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating CEPH storage pool setup.
+  SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating Ceph storage pool setup.
+  SKIP_CEPH_DISKS=${SKIP_CEPH_DISKS:-}           # (yes/no) input to skip adding additional Ceph disks and only reuse the existing cluster and its disks.
   SETUP_CEPHFS=${SETUP_CEPHFS:-}                 # (yes/no) input for initialising CephFS storage pool setup.
-  CEPH_MISSING_DISKS=${CEPH_MISSING_DISKS:-}     # (yes/no) input for warning about eligible disk detection.
   CEPH_FILTER=${CEPH_FILTER:-}                   # filter string for CEPH disks.
   CEPH_WIPE=${CEPH_WIPE:-}                       # (yes/no) to wipe all disks.
   CEPH_RETRY_HA=${CEPH_RETRY_HA:-}                     # (yes/no) input for warning setup is not HA.
@@ -104,19 +104,26 @@ fi
 if [ -n "${SETUP_CEPH}" ]; then
   setup="${setup}
 ${SETUP_CEPH}                                           # add remote disks (yes/no)
-${CEPH_MISSING_DISKS}                                   # continue with some peers missing disks? (yes/no)
-$([ "${SETUP_CEPH}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+"
+  if [ "${SKIP_CEPH_DISKS}" != "yes" ]; then
+    setup="${setup}
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:wait 300ms")       # wait for the table to populate
 $([ -n "${CEPH_FILTER}" ] && printf "table:filter %s" "${CEPH_FILTER}")          # filter ceph disks
-$([ "${SETUP_CEPH}" = "yes" ] && printf "table:select-all")   # select all disk matching the filter
+$([ "${SETUP_CEPH}" = "yes" ] && printf "table:select-all")       # select all disk matching the filter
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
-$([ "${CEPH_WIPE}"  = "yes" ] && printf "table:select-all")   # wipe all disks
+$([ "${CEPH_WIPE}"  = "yes" ] && printf "table:select-all")       # wipe all disks
 $([ "${SETUP_CEPH}" = "yes" ] && printf -- "table:done")
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_RETRY_HA}" ) # allow ceph setup without 3 systems supplying disks.
-${CEPH_ENCRYPT}                                         # encrypt disks? (yes/no)
+$(true)                                                           # workaround for set -e
+"
+  fi
+
+  setup="${setup}
+${CEPH_ENCRYPT}                                                          # encrypt disks? (yes/no)
 ${SETUP_CEPHFS}
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_CLUSTER_NETWORK}" ) # set ceph cluster network
 $([ "${SETUP_CEPH}" = "yes" ] && printf "%s" "${CEPH_PUBLIC_NETWORK}" )  # set ceph public network
-$(true)                                                 # workaround for set -e
+$(true)                                                                  # workaround for set -e
 "
 fi
 
@@ -207,7 +214,6 @@ join_session(){
     LOOKUP_IFACE="enp5s0"
   fi
 
-
   # Select the first usable address and enter the passphrase.
   setup="$([ -n "${LOOKUP_IFACE}" ] && printf "table:filter %s" "${LOOKUP_IFACE}")          # filter the lookup interface
 $([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
@@ -222,31 +228,40 @@ $(true)                                 # workaround for set -e
     set -x
   fi
 
-
   # Spawn joiner child processes, and capture the exit code.
   for member in ${joiners}; do
-    lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out" <<< "${setup}" &
+    tmux new-session -d -s "${member}" lxc exec "${member}" -- sh -c "tee in | (microcloud join 2>&1 3>debug; echo \$? > code) | tee out"
+
+    retries=0
+
+    # Wait until CLI is in testing mode.
+    while [[ ! "$(tmux capture-pane -t "${member}" -pS -)" =~ "MicroCloud CLI is in testing mode" ]]; do
+      if [ "${retries}" -gt 30 ]; then
+        echo "Failed waiting for test console on ${member} to become ready"
+        exit 1
+      fi
+
+      retries="$((retries+1))"
+      sleep 1
+    done
+
+    # Send the interactive test inputs, a newline and EOF.
+    tmux send-keys -t "${member}" "${setup}" Enter C-d
   done
 
   # Set up microcloud with the initiator.
   microcloud_interactive "${mode}" "${initiator}"
   code="$?"
 
-  # Kill the childs if they are still running.
-  child_processes="$(jobs -pr)"
-  if [ -n "${child_processes}" ]; then
-    for p in ${child_processes}; do
-      kill -9 "${p}"
-    done
-  fi
-
+  # Kill the tmux sessions if they are still running.
+  # The '#S' filter returns only the session's names.
+  # Suppress errors in case the list of sessions is empty.
+  for session in $(tmux list-sessions -F '#S' 2>/dev/null); do
+    tmux kill-session -t "${session}"
+  done
 
   for joiner in ${joiners} ; do
-    if [ "${code}" = 0 ]; then
-      [ "$(lxc exec "${joiner}" -- cat code)" = "0" ]
-    else
-      ! [ "$(lxc exec "${joiner}" -- cat code)" = "0" ] || false
-    fi
+    [ "$(lxc file pull "${joiner}"/root/code -)" = "${code}" ]
   done
 
   return "${code}"
@@ -572,6 +587,7 @@ validate_system_lxd() {
     ipv4_ranges=${8:-}
     ipv6_gateway=${9:-}
     dns_namesersers=${10:-}
+    profile_pool=${11:-}
 
     echo "==> ${name} Validating LXD with ${num_peers} peers"
     echo "    ${name} Local Disk: {${local_disk}}, Remote Disks: {${remote_disks}}, OVN Iface: {${ovn_interface}}"
@@ -622,18 +638,20 @@ validate_system_lxd() {
     fi
 
     echo "    ${name} Validating Profiles"
-    if [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
-       lxc profile device get default root pool | grep -q "remote"
+    if [ -n "${profile_pool}" ]; then
+      lxc profile device get default root pool | grep -q "${profile_pool}"
+    elif [ "${has_microceph}" = 1 ] && [ "${remote_disks}" -gt 0 ] ; then
+      lxc profile device get default root pool | grep -q "remote"
     elif [ -n "${local_disk}" ] ; then
-       lxc profile device get default root pool | grep -q "local"
+      lxc profile device get default root pool | grep -q "local"
     else
-       ! lxc profile device list default | grep -q "root" || false
+      ! lxc profile device list default | grep -q "root" || false
     fi
 
     if [ "${has_microovn}" = 1 ] && [ -n "${ovn_interface}" ] ; then
-       lxc profile device get default eth0 network | grep -q "default"
+      lxc profile device get default eth0 network | grep -q "default"
     else
-       lxc profile device get default eth0 network | grep -q "lxdfan0"
+      lxc profile device get default eth0 network | grep -q "lxdfan0"
     fi
 
     # Only check these if MicroCloud is at least > 2.1.0.
@@ -745,6 +763,10 @@ reset_snaps() {
     lxc exec "${name}" -- lxd waitready
 
     set_debug_binaries "${name}"
+
+    echo "Wait for all snaps in ${name} to settle"
+    # No networks and storage pools are setup yet but the command will still wait for both MicroCloud and LXD to be ready.
+    lxc exec "${name}" --env TEST_CONSOLE=0 -- microcloud waitready > /dev/null 2>&1 || true
   )
 }
 
@@ -1287,7 +1309,7 @@ setup_system() {
   )
 
   # let boot/cloud-init finish its job
-  lxc exec "${name}" -- systemctl is-system-running --wait || lxc exec "${name}" -- systemctl --failed || true
+  waitInstanceBooted "${name}" || lxc exec "${name}" -- systemctl --failed || true
 
   # Create a snapshot so we can restore to this point.
   if [ "${SNAPSHOT_RESTORE}" = 1 ]; then
@@ -1460,3 +1482,52 @@ set_cluster_subnet() {
     lxc exec "${name}" -- ip addr add "${cluster_ip}" dev "${iface}"
   done
 }
+
+# waitInstanceReady: waits for the instance to be ready (processes count > 1).
+waitInstanceReady() (
+  { set +x; } 2>/dev/null
+  maxWait="${MAX_WAIT_SECONDS:-120}"
+  instName="${1}"
+
+  # Wait for the instance to report more than one process.
+  processes=0
+  for _ in $(seq "${maxWait}"); do
+      processes="$(lxc info "${instName}" | awk '{if ($1 == "Processes:") print $2}')"
+      if [ "${processes:-0}" -ge "${MIN_PROC_COUNT:-2}" ]; then
+          return 0 # Success.
+      fi
+      sleep 1
+  done
+
+  echo "Instance ${instName} not ready after ${maxWait}s"
+  return 1 # Failed.
+)
+
+# waitInstanceBooted: waits for the instance to be ready and fully booted.
+waitInstanceBooted() (
+  { set +x; } 2>/dev/null
+  prefix="${WARNING_PREFIX:-::warning::}"
+  maxWait=90
+  instName="$1"
+
+  # Wait for the instance to be ready
+  waitInstanceReady "${instName}"
+
+  # Then wait for the boot sequence to complete.
+  sleep 1
+  rc=0
+  state="$(lxc exec "${instName}" -- timeout "${maxWait}" systemctl is-system-running --wait)" || rc="$?"
+
+  # rc=124 is when `timeout` is hit.
+  # Other rc values are ignored as it doesn't matter if the system is fully
+  # operational (`running`) as it is booted.
+  if [ "${rc}" -eq 124 ]; then
+    echo "${prefix}Instance ${instName} not booted after ${maxWait}s"
+    lxc list "${instName}"
+    return 1 # Failed.
+  elif [ "${state}" != "running" ]; then
+    echo "${prefix}Instance ${instName} booted but not fully operational: ${state} != running"
+  fi
+
+  return 0 # Success.
+)
