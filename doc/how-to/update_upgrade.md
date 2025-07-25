@@ -49,7 +49,7 @@ Update the same component's snap on all cluster members before moving to the nex
 (howto-update-sync)=
 ## Synchronize updates using the cohort flag
 
-Even with manual snap updates, versions can fall out of sync; see {ref}`ref-snap-updates` for details.
+Even with manual snap updates, versions can fall out of sync; see {ref}`ref-snaps-updates` for details.
 
 To ensure synchronized updates, the `--cohort="+"` flag must be set on all cluster members. You only need to set this flag once per snap on each cluster member, either during {ref}`installation <howto-install>`, or the first time you {ref}`perform a manual update <howto-update>`.
 

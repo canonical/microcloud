@@ -92,7 +92,7 @@ MicroCloud LTS tracks use the format _x.y_, corresponding to the major and minor
 (ref-snaps-microcloud-track-feature)=
 #### Feature track
 
-The MicroCloud feature track uses the major number of the current {ref}`feature release <ref-releases-feature>` series. Feature releases within the same major version are published to the same track, replacing the previous release. This simplifies updates, as you don't need to switch channels to access new feature releases within the same major version.
+The MicroCloud feature track uses the major number of the current {ref}`feature release <ref-releases-microcloud-feature>` series. Feature releases within the same major version are published to the same track, replacing the previous release. This simplifies updates, as you don't need to switch channels to access new feature releases within the same major version.
 
 The current feature track is {{current_feature_track}}. No feature release has yet been published to this track. The most recent development updates can be found in the {{current_feature_track}}/`edge` channel, for testing purposes only.
 
