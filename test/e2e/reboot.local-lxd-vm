@@ -33,3 +33,14 @@ lxc exec "${MEMBER}" -- timeout 90 systemctl is-system-running --wait --quiet ||
 sleep 5
 lxc exec "${MEMBER}" --env TEST_CONSOLE=0 -- microcloud waitready --timeout=90 || true
 echo " DONE"
+
+# Temporary fix to deal with https://github.com/canonical/microovn/pull/249.
+#
+# First try to find the cluster member which joined last and restart its ovn-northd service.
+# We can identify it based on its appearance in Microcluster's `core_cluster_members` table.
+# The CLI's `microovn cluster list` cannot be used as the result is sorted.
+# MicroCloud doesn't guarantee any order in which members are joined and doesn't sort them by name (as they are internally stored inside a map).
+last_member="$(lxc exec "${MEMBER}" -- microovn cluster sql 'SELECT name FROM core_cluster_members ORDER BY ID DESC LIMIT 1' | awk -F" " '/micro/ { print $2 }')"
+
+# Second restart ovn-northd on this member.
+lxc exec "${last_member}" -- systemctl restart snap.microovn.ovn-northd.service
