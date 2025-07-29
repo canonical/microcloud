@@ -46,6 +46,8 @@ These requirements are in addition to those listed in the General tab.
   - 1 member
 - Memory:
   - Minimum 8 GiB RAM per cluster member
+- Networking:
+  - It is possible to use a single network interface per cluster member. However, such a configuration is neither supported nor recommended. For details, see: {ref}`reference-requirements-network-interface-single`.
 - Storage:
   - If high availability is required, use distributed storage with:
     - a minimum of 3 cluster members
@@ -99,6 +101,11 @@ See {ref}`howto-snap` for more information.
 
 If you don't want to use MicroCloud's full functionality, you can install only some of the snaps.
 However, this is not recommended.
+```
+
+```{note}
+It's possible that a required snap is already installed on your machine. For example, it might be a version of Ubuntu that comes with LXD pre-installed.
+In this case, run `sudo snap refresh <snap> --channel=<track>/stable --cohort="+"` to refresh (update) the installed snap.
 ```
 
 After installing the snaps make sure to hold any automatic updates to keep the used snap versions across MicroCloud in sync.

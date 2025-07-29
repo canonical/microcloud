@@ -141,7 +141,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	}
 
 	if currentCluster.Enabled {
-		return fmt.Errorf("This LXD server is already clustered")
+		return errors.New("This LXD server is already clustered")
 	}
 
 	cluster := api.ClusterPut{
@@ -166,7 +166,7 @@ func (s LXDService) Bootstrap(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("Timed out waiting for LXD cluster to initialize")
+			return errors.New("Timed out waiting for LXD cluster to initialize")
 		default:
 			names, err := client.GetClusterMemberNames()
 			if err != nil {
@@ -614,7 +614,7 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 
 	ones, bits := subnet.Mask.Size()
 	if bits-ones == 0 {
-		return nil, fmt.Errorf("Invalid Ceph network subnet (must have more than one address)")
+		return nil, errors.New("Invalid Ceph network subnet (must have more than one address)")
 	}
 
 	data := make(map[string][][]string)
@@ -643,7 +643,7 @@ func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInt
 	}
 
 	if len(data) == 0 {
-		fmt.Println(tui.WarningColor("No network interfaces found with IPs in the specified subnet, skipping Ceph network setup", false))
+		tui.PrintWarning("No network interfaces found with IPs in the specified subnet. Skipping Ceph network setup")
 	}
 
 	return data, nil
@@ -676,7 +676,7 @@ func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	err = s.waitReady(ctx, c)
+	err = s.WaitReady(ctx, c, false, false)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
 	}
@@ -713,10 +713,11 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 	return len(pools) != 0, nil
 }
 
-// waitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
+// WaitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
 // Waits up to a minute for LXD to start, before failing.
 // Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
-func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error {
+// Furthermore the caller can wait for both network and storage to be ready.
+func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, network bool, storage bool) error {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
 	defer timeoutCancel()
 
@@ -729,7 +730,16 @@ func (s *LXDService) waitReady(ctx context.Context, c lxd.InstanceServer) error 
 	var errLast error
 	go func() {
 		for ctx.Err() == nil {
-			_, _, err := c.RawQuery("GET", "/internal/ready", nil, "")
+			url := api.NewURL().Path("internal", "ready")
+			if network {
+				url.WithQuery("network", "1")
+			}
+
+			if storage {
+				url.WithQuery("storage", "1")
+			}
+
+			_, _, err := c.RawQuery("GET", url.String(), nil, "")
 			if err != nil {
 				if api.StatusErrorCheck(err, http.StatusNotFound) {
 					if unixCtx.Err() != nil {
@@ -771,7 +781,7 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 	}
 
 	if !available {
-		return nil, "", fmt.Errorf("No default IPv4 gateway available")
+		return nil, "", errors.New("No default IPv4 gateway available")
 	}
 
 	iface, err := net.InterfaceByName(ifaceName)
@@ -797,14 +807,14 @@ func (s LXDService) defaultGatewaySubnetV4() (*net.IPNet, string, error) {
 		}
 
 		if subnet != nil {
-			return nil, "", fmt.Errorf("More than one IPv4 subnet on default interface")
+			return nil, "", errors.New("More than one IPv4 subnet on default interface")
 		}
 
 		subnet = addrNet
 	}
 
 	if subnet == nil {
-		return nil, "", fmt.Errorf("No IPv4 subnet on default interface")
+		return nil, "", errors.New("No IPv4 subnet on default interface")
 	}
 
 	return subnet, ifaceName, nil
@@ -823,7 +833,7 @@ func (s LXDService) SupportsFeature(ctx context.Context, feature string) (bool, 
 	}
 
 	if server.APIExtensions == nil {
-		return false, fmt.Errorf("API extensions not available when checking for a LXD feature")
+		return false, errors.New("API extensions not available when checking for a LXD feature")
 	}
 
 	return slices.Contains(server.APIExtensions, feature), nil

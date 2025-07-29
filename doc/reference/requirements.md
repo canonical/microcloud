@@ -44,6 +44,8 @@ Also see Ceph's {ref}`ceph:hardware-recommendations`.
 
 Local storage is fast and convenient. It is commonly used in production and is typically sufficient on its own for testing and development. To use local storage, each cluster member requires at least one local disk.
 
+The default file system type for local storage is ZFS.
+
 (reference-requirements-storage-distributed)=
 ### Distributed storage
 
@@ -75,7 +77,7 @@ For further information, see the Prerequisites section of this page: {doc}`micro
 (reference-requirements-network-interfaces)=
 ### Required network interfaces
 
-For networking, each machine in the MicroCloud cluster requires at least two dedicated network interfaces: one for intra-cluster communication and one for external connectivity. These can be connected to the same network, or different networks.
+For networking, use at least two dedicated network interfaces for each machine in a MicroCloud cluster: one for intra-cluster communication and one for external connectivity. These can be connected to the same network, or different networks.
 
 In production environments, we recommend dual-port network cards with a minimum 10 GiB capacity, or higher if low latency is essential.
 
@@ -95,6 +97,13 @@ Network interface to connect to the uplink network
 
    You can specify a different interface to be used as the uplink interface for each cluster member.
    MicroCloud requires that all uplink interfaces are connected to the uplink network, using the gateway and IP address range information that you provide during the MicroCloud initialization process.
+
+(reference-requirements-network-interface-single)=
+### Single network interface configuration
+
+For testing or development environments, it is possible to use a single network interface per cluster member, with a bridge in front of each for external connectivity to the uplink network. An OVS bridge is preferable to a native bridge to avoid an extra hop for OVN uplink traffic.
+
+However, this configuration is neither supported nor recommended, because it prevents traffic segregation of intra-cluster and uplink traffic. If you wish to experiment with this setup, you can find basic examples of bridge configuration using Netplan in the [Netplan documentation](https://netplan.readthedocs.io/en/stable/examples/#how-to-configure-network-bridges). Note that this is a general reference and does not cover the use of OVS or MicroCloud. You must determine the appropriate configuration for your environment.
 
 (reference-requirements-network-nics-optional)=
 ### Optional network interfaces

@@ -328,6 +328,7 @@ test_interactive() {
   lxc exec micro03 -- snap disable microcloud || true
   for m in micro01 micro02 ; do
     lxc exec "${m}" -- snap disable microovn
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   unset_interactive_vars
@@ -348,6 +349,7 @@ test_interactive() {
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   for m in micro01 micro02 ; do
     lxc exec "${m}" -- snap enable microovn
+    lxc exec "${m}" -- snap restart microcloud
   done
 
   lxc exec micro03 -- microovn cluster bootstrap
@@ -667,8 +669,10 @@ test_service_mismatch() {
   # Install the remaining services on the other systems.
   lxc exec micro02 -- snap enable microceph
   lxc exec micro02 -- snap enable microovn
+  lxc exec micro02 -- snap restart microcloud
   lxc exec micro03 -- snap enable microceph
   lxc exec micro03 -- snap enable microovn
+  lxc exec micro03 -- snap restart microcloud
 
   # Init should now work.
   echo "Creating a MicroCloud with MicroCeph and MicroOVN, but without their LXD devices"
@@ -736,7 +740,6 @@ test_disk_mismatch() {
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
   export SETUP_CEPHFS="yes"
-  export CEPH_MISSING_DISKS="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
   export SETUP_OVN="no"
@@ -757,11 +760,14 @@ test_disk_mismatch() {
 }
 
 # services_validator: A basic validator of 3 systems with typical expected inputs.
+# An optional pool name can be provided which has to be present in the default profile's root device.
 services_validator() {
+  profile_pool="${1:-}"
+
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd ${m} 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
-    validate_system_microceph ${m} 1 disk2
-    validate_system_microovn ${m}
+    validate_system_lxd "${m}" 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8 "${profile_pool}"
+    validate_system_microceph "${m}" 1 disk2
+    validate_system_microovn "${m}"
   done
 }
 
@@ -879,9 +885,46 @@ test_reuse_cluster() {
   bootstrap_microceph micro03
   ! join_session init micro01 micro02 micro03 || false
   lxc exec micro01 -- tail -1 out | grep "Some systems are already part of different MicroCeph clusters. Aborting initialization" -q
+
+  reset_systems 3 2 3
+  echo "Create a MicroCloud that re-uses an existing MicroCeph with disks already setup to configure distributed storage"
+  unset_interactive_vars
+
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export REUSE_EXISTING_COUNT=1
+  export REUSE_EXISTING="yes"
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export SKIP_CEPH_DISKS="yes"
+  export SETUP_CEPHFS="yes"
+  export SETUP_OVN="yes"
+  export OVN_FILTER="enp6s0"
+  export IPV4_SUBNET="10.1.123.1/24"
+  export IPV4_START="10.1.123.100"
+  export IPV4_END="10.1.123.254"
+  export DNS_ADDRESSES="10.1.123.1,8.8.8.8"
+  export IPV6_SUBNET="fd42:1:1234:1234::1/64"
+  export OVN_UNDERLAY_NETWORK="no"
+
+  bootstrap_microceph micro01
+  for m in micro02 micro03; do
+    token="$(lxc exec micro01 -- microceph cluster add "${m}")"
+    lxc exec "${m}" -- microceph cluster join "${token}"
+  done
+
+  for m in micro01 micro02 micro03; do
+    lxc exec "${m}" -- microceph disk add /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+  done
+
+  join_session init micro01 micro02 micro03
+  services_validator
 }
 
-test_remove_cluster_member() {
+test_remove_cluster() {
   unset_interactive_vars
 
   microcloud_internal_net_addr="$(ip_config_to_netaddr lxdbr0)"
@@ -968,6 +1011,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   echo "Create a MicroCloud and remove a node from all services"
   join_session init micro01 micro02 micro03
 
@@ -990,6 +1034,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   echo "Create a MicroCloud and remove a node from all services, but manually remove it from the MicroCloud daemon first"
   join_session init micro01 micro02 micro03
 
@@ -1021,6 +1066,7 @@ test_remove_cluster_member() {
 
   reset_systems 3 3 3
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   echo "Create a MicroCloud and fail to remove a non-existent member"
   join_session init micro01 micro02 micro03
 
@@ -1076,10 +1122,12 @@ test_add_services() {
   set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage without updating the profile.
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   unset SETUP_CEPH
   export SKIP_SERVICE="yes"
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1087,13 +1135,16 @@ test_add_services() {
   unset SETUP_OVN
   export REPLACE_PROFILE="no"
   microcloud_interactive "service add" micro01
-  services_validator
+  # The initial cluster got setup with only local storage.
+  # Due to REPLACE_PROFILE="no" the default profile's device doesn't get replaced.
+  services_validator local
 
   reset_systems 3 3 3
   set_cluster_subnet 3  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
   set_cluster_subnet 3  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
   echo Add MicroCeph to MicroCloud that was set up without it, and setup remote storage.
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   unset SETUP_CEPH
   unset REPLACE_PROFILE
   unset SKIP_LOOKUP
@@ -1103,6 +1154,7 @@ test_add_services() {
   export SETUP_OVN="yes"
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1118,11 +1170,13 @@ test_add_services() {
 
   echo Add MicroOVN to MicroCloud that was set up without it, and setup ovn network
   lxc exec micro01 -- snap disable microovn
+  lxc exec micro01 -- snap restart microcloud
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_OVN="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1138,6 +1192,7 @@ test_add_services() {
   echo Add both MicroOVN and MicroCeph to a MicroCloud that was set up without it
   lxc exec micro01 -- snap disable microovn
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
@@ -1145,6 +1200,7 @@ test_add_services() {
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export SETUP_OVN="yes"
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
@@ -1159,6 +1215,7 @@ test_add_services() {
 
   echo Reuse a MicroCeph that was set up on one node of the MicroCloud
   lxc exec micro01 -- snap disable microceph
+  lxc exec micro01 -- snap restart microcloud
   bootstrap_microceph micro02
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
@@ -1166,6 +1223,7 @@ test_add_services() {
   unset SKIP_LOOKUP
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
+  lxc exec micro01 -- snap restart microcloud
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="yes"
   export SETUP_CEPH="yes"
@@ -1291,7 +1349,7 @@ test_non_ha() {
 
   reset_systems 2 3 3
   echo "Creating a MicroCloud with 1 system and growing it to 3, using preseed"
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -1321,7 +1379,7 @@ EOF
   validate_system_microceph "micro01" 1 "disk2" "disk3"
   validate_system_microovn "micro01"
 
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01
@@ -1351,7 +1409,7 @@ EOF
 
   reset_systems 2 3 3
   echo "Creating a MicroCloud with 2 systems with Ceph storage using preseed"
-  addr=$(lxc ls micro01 -f csv -c4 | grep enp5s0 | cut -d' ' -f1)
+  addr=$(lxc ls micro01 -f csv -c4 | awk '/enp5s0/ {print $1}')
   preseed="$(cat << EOF
 lookup_subnet: ${addr}/24
 initiator: micro01

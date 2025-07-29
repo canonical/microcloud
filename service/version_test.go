@@ -58,7 +58,7 @@ func (s *versionSuite) Test_validateVersions() {
 		},
 		{
 			desc:      "Valid LXD with different patch version",
-			version:   fmt.Sprintf("%s.999", lxdMinVersion),
+			version:   lxdMinVersion + ".999",
 			service:   types.LXD,
 			expectErr: false,
 		},
@@ -75,10 +75,10 @@ func (s *versionSuite) Test_validateVersions() {
 			expectErr: false,
 		},
 		{
-			desc:      "Unsupported LXD with different minor version",
-			version:   fmt.Sprintf("%s.999", strings.Split(lxdMinVersion, ".")[0]),
+			desc:      "Supported LXD with higher minor version",
+			version:   strings.Split(lxdMinVersion, ".")[0] + ".999",
 			service:   types.LXD,
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			desc:      "Unsupported MicroCeph with larger minor version",
@@ -93,14 +93,20 @@ func (s *versionSuite) Test_validateVersions() {
 			expectErr: true,
 		},
 		{
-			desc:      "Unsupported LXD with larger major version",
+			desc:      "Supported LXD with larger major version",
 			version:   "999.0",
 			service:   types.LXD,
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			desc:      "Unsupported LXD with smaller major version",
 			version:   "1.0",
+			service:   types.LXD,
+			expectErr: true,
+		},
+		{
+			desc:      "Unsupported LXD with smaller minor version",
+			version:   "5.20",
 			service:   types.LXD,
 			expectErr: true,
 		},

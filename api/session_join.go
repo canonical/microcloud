@@ -81,7 +81,7 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 			case session.IntentCh() <- req:
 				return nil
 			case <-ctx.Done():
-				return fmt.Errorf("Timeout waiting for an active consumer of the join intent")
+				return errors.New("Timeout waiting for an active consumer of the join intent")
 			}
 		})
 

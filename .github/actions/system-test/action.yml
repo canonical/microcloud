@@ -1,9 +1,4 @@
 name: System test
-inputs:
-  github_runner:
-    description: Whether or not this test is executed on a GitHub runner.
-    required: true
-    default: true
 runs:
   using: composite
   steps:
@@ -17,7 +12,7 @@ runs:
       uses: canonical/lxd/.github/actions/reclaim-memory@main
 
     - name: Disable Docker (GitHub runners)
-      if: inputs.github_runner == 'true'
+      if: ${{ runner.environment == 'github-hosted' }}
       uses: canonical/lxd/.github/actions/disable-docker@main
 
     - name: "Disable br_netfilter"
@@ -36,13 +31,6 @@ runs:
       uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
       with:
         go-version-file: 'go.mod'
-
-    - name: Install dependencies
-      shell: bash
-      run: |
-        sudo add-apt-repository ppa:dqlite/dev -y --no-update
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config net-tools
 
     - name: Download system test dependencies
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
@@ -143,6 +131,12 @@ runs:
         echo "MICROCEPH_SNAP_CHANNEL=${MICROCEPH_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
         echo "MICROOVN_SNAP_CHANNEL=${MICROOVN_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
         echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+
+    - name: Setup Terraform
+      if: ${{ matrix.suite == 'e2e' }}
+      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      with:
+        terraform_wrapper: false
 
     - name: "Run system tests (${{ matrix.suite }})"
       shell: bash

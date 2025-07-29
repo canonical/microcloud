@@ -32,7 +32,7 @@ defaults:
 jobs:
   changes:
     name: Changes
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       except_docs: ${{ steps.check.outputs.changes }}
     steps:
@@ -149,27 +149,36 @@ jobs:
         # Define this first in the matrix so that it's readable
         # after GitHub as formed the name for the respective check.
         suite:
-          - "add"
+          - "add_interactive"
+          - "add_services"
+          - "e2e"
           - "instances"
-          - "basic"
-          - "recover"
           - "interactive"
+          - "interactive_combinations"
           - "mismatch"
+          - "non_ha"
           - "preseed"
+          - "recover"
+          - "remove_cluster"
+          - "reuse_cluster"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
         microceph: ["latest/edge"]
         microovn: ["latest/edge"]
-        lxd: ["5.21/edge"]
+        lxd:
+          # Both LXD 5.21 and 6 are supported.
+          - "5.21/edge"
+          - "6/edge"
         microcloud: ["latest/edge"]
+        exclude:
+          # Exclude LXD 6 for regular development pipelines to speed up the result cycle.
+          - lxd: ${{ github.event_name != 'schedule' && '6/edge' }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: System test
         uses: ./.github/actions/system-test
-        with:
-          github_runner: true
 
   system-tests-upgrade:
     env:
@@ -198,8 +207,6 @@ jobs:
 
       - name: System test
         uses: ./.github/actions/system-test
-        with:
-          github_runner: true
 
   system-tests-canonical:
     env:
@@ -228,8 +235,6 @@ jobs:
 
       - name: System test
         uses: ./.github/actions/system-test
-        with:
-          github_runner: false
 
   tics:
     name: Tiobe TICS
@@ -294,7 +299,7 @@ jobs:
         with:
           mode: qserver
           project: microcloud
-          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=GoProjects
           branchdir: ${{ github.workspace }}
           ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
           installTics: true
@@ -310,7 +315,7 @@ jobs:
 
   snap:
     name: Trigger snap edge build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
     if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:

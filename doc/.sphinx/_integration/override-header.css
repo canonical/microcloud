@@ -1,0 +1,20 @@
+/* This CSS file overrides the default header.css injected by the canonical-sphinx
+   theme extension used by docs sets that use the sphinx-starter-pack.
+*/
+
+body ul.p-navigation__links {
+  max-width: none;
+}
+
+body ul.p-navigation__links li {
+  padding-left: 20px;
+}
+
+ul.p-navigation__links li.active {
+    background-color: #E95420;
+}
+
+body ul.p-navigation__links li a:hover,
+body ul.p-navigation__links li a:visited:hover {
+  text-decoration: none;
+}

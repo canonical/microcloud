@@ -40,7 +40,7 @@ Complete the following steps to initialize MicroCloud:
    It will skip the {ref}`trust-establishment-session` if no more machines should be part of the MicroCloud.
 
    Additional machines can always be added at a later point in time.
-   See {ref}`howto-add` for more information.
+   See {ref}`howto-member-add` for more information.
 1. Select the IP address that you want to use for MicroCloud's internal traffic (see {ref}`reference-requirements-network-interfaces-intracluster`).
    MicroCloud automatically detects the available addresses (IPv4 and IPv6) on the existing network interfaces and displays them in a table.
 

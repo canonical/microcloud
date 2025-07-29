@@ -160,7 +160,7 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 		return nil, nil, nil, err
 	}
 
-	disks, err := cephService.GetDisks(ctx, "")
+	disks, err := cephService.GetDisks(ctx, "", nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}

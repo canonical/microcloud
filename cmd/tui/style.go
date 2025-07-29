@@ -106,12 +106,41 @@ type ColorErr struct{}
 
 // Write colors the given error red and sends it to os.Stderr.
 func (*ColorErr) Write(p []byte) (n int, err error) {
-	return os.Stderr.WriteString(ErrorColor(strings.TrimSpace(string(p)), false) + "\n")
+	trimmedErr := strings.TrimSpace(string(p))
+
+	// Cobra allows setting the error prefix using SetErrPrefix() func but
+	// it ignores the setting when assigning an empty string.
+	// Therefore we can only trim the prefix to be able to set our own
+	// customized error prefix using tui styling.
+	withoutPrefixErr := strings.TrimPrefix(trimmedErr, "Error: ")
+
+	// In all cases format the error using the standard error colors.
+	// But only append the error symbol in case the error prefix got set by the caller.
+	// When cobra calls the error's Write, it does it twice when crafting an unknown command's help message.
+	// The first line should yield our standard error using the symbol, but all of the following lines should
+	// not repeat the prefix using the symbol to keep the output clean.
+	if trimmedErr != withoutPrefixErr {
+		withoutPrefixErr = SprintError(withoutPrefixErr)
+	} else {
+		withoutPrefixErr = fmt.Sprintln(ErrorColor(withoutPrefixErr, false))
+	}
+
+	return os.Stderr.WriteString(withoutPrefixErr)
 }
 
 // PrintWarning calls Println but it appends "! Warning:" to the front of the message.
 func PrintWarning(s string) {
-	fmt.Printf("%s %s: %s\n", WarningSymbol(), WarningColor("Warning", true), s)
+	fmt.Println(WarningSymbol(), WarningColor("Warning:", true), WarningColor(s, false))
+}
+
+// SprintError crafts the error string without writing it to any output yet.
+func SprintError(s string) string {
+	return fmt.Sprintln(ErrorSymbol(), ErrorColor("Error:", true), ErrorColor(s, false))
+}
+
+// PrintError calls Println but it appends "⨯ Error:" to the front of the message.
+func PrintError(s string) {
+	fmt.Print(SprintError(s))
 }
 
 // Fmt represents the data supplied to ColorPrintf. In particular, it takes a color to apply to the text, and the text itself.

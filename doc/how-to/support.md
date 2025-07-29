@@ -8,15 +8,13 @@ We recommend using the following channels for the snaps required to run MicroClo
 * For MicroCeph: `squid/(stable|candidate|edge)`
 * For MicroOVN: `24.03/(stable|candidate|edge)`
 
-```{note}
 The LTS version of MicroCloud is available in the `2` track.
 It's recommended to use the `<track>/stable` channels for production deployments.
-```
 
-```{important}
-MicroCloud `1/(stable|candidate|edge)` reaches {abbr}`EOL (End of Life)` at the end of April 2025.
-Make sure to upgrade to the `2` LTS track before this date.
-See the {ref}`howto-update-upgrade-upgrade` guide for more information.
+```{admonition} Users of the 1 track
+:class: important
+MicroCloud `1/(stable|candidate|edge)` reached {abbr}`EOL (End of Life)` at the end of April 2025.
+If you use this track, make sure to upgrade to the `2` LTS track. See the {ref}`howto-update-upgrade-upgrade` guide for more information.
 ```
 
 ## Support and community
@@ -35,6 +33,6 @@ See the full [Ubuntu Pro service description](https://ubuntu.com/legal/ubuntu-pr
 
 ## Documentation
 
-See the [MicroCloud documentation](https://canonical-microcloud.readthedocs-hosted.com/) for official product documentation.
+See the [MicroCloud documentation](https://documentation.ubuntu.com/microcloud/latest/microcloud/) for official product documentation.
 
 You can find additional resources on the [website](https://canonical.com/microcloud) and in the [discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).

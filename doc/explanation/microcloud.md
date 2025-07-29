@@ -34,6 +34,11 @@ Local storage is faster, but less flexible and not fail-safe.
 To use local storage, each machine in the cluster requires a local disk.
 Disk sizes can vary.
 
+```{note}
+MicroCloud enables cluster-wide live migration on LXD.
+When using local storage, consider the constraints listed in {ref}`lxd:storage-attach-volume`.
+```
+
 For distributed storage, MicroCloud uses MicroCeph, which is a lightweight way of deploying a Ceph cluster.
 To use distributed storage, you must have at least three disks (attached to at least three different machines).
 

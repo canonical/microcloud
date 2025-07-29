@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"time"
 
@@ -122,13 +123,13 @@ Verify the fingerprint %s is displayed on joining systems.
 	}
 
 	if !session.Accepted {
-		return fmt.Errorf("Join confirmations didn't get accepted on all systems")
+		return errors.New("Join confirmations didn't get accepted on all systems")
 	}
 
 	for _, joinIntent := range confirmedIntents {
 		certBlock, _ := pem.Decode([]byte(joinIntent.Certificate))
 		if certBlock == nil {
-			return fmt.Errorf("Invalid certificate file")
+			return errors.New("Invalid certificate file")
 		}
 
 		remoteCert, err := x509.ParseCertificate(certBlock.Bytes)
@@ -200,8 +201,8 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 		fmt.Printf("\n%s %s\n\n", tmpl, fingerprintArg)
 
 		tmplArg := tui.Fmt{Arg: "Select %s on %s to let it join the cluster"}
-		localArg := tui.Fmt{Arg: sh.Name, Color: tui.Yellow, Bold: true}
-		remoteArg := tui.Fmt{Arg: session.InitiatorName, Color: tui.Yellow, Bold: true}
+		localArg := tui.Fmt{Arg: sh.Name, Bold: true}
+		remoteArg := tui.Fmt{Arg: session.InitiatorName, Bold: true}
 		fmt.Println(tui.Printf(tmplArg, localArg, remoteArg))
 	}
 

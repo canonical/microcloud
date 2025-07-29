@@ -18,7 +18,7 @@ resource "lxd_profile" "e2e" {
   # Configuration
   config = {
     "limits.cpu"    = 1
-    "limits.memory" = "1GiB"
+    "limits.memory" = "384MiB"
   }
 
   # Devices
@@ -90,6 +90,11 @@ resource "lxd_instance" "e2e-vm" {
   profiles         = [lxd_profile.e2e.name]
   image            = lxd_cached_image.vm[0].fingerprint
   wait_for_network = true
+  allow_restart    = true
+
+  config = {
+    "migration.stateful" = "true"
+  }
 }
 
 # Locals
@@ -107,7 +112,7 @@ locals {
   vms = flatten([
     for index, cluster_member_name in local.cluster_member_names : [
       for i in range(var.vms_per_host) : {
-        instance = "vm${format("%02d", var.vms_per_host * index + i + 1)}"
+        instance = "v${format("%02d", var.vms_per_host * index + i + 1)}"
         target   = cluster_member_name
       }
     ]
