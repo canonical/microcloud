@@ -31,6 +31,7 @@ defaults:
 
 jobs:
   changes:
+    if: ${{ github.repository == 'canonical/microcloud' }}
     name: Changes
     runs-on: ubuntu-24.04
     outputs:
@@ -48,10 +49,10 @@ jobs:
           glob: ":!doc/*"
 
   code-tests:
+    if: ${{ needs.changes.outputs.except_docs == 'true' && github.repository == 'canonical/microcloud' }}
     name: Code
     runs-on: ubuntu-22.04
     needs: [changes]
-    if: ${{ needs.changes.outputs.except_docs == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -139,6 +140,7 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
+    if: ${{ github.repository == 'canonical/microcloud' }}
     name: System (core)
     runs-on: ubuntu-22.04
     needs: code-tests
@@ -186,6 +188,7 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
+    if: ${{ github.repository == 'canonical/microcloud' }}
     name: System (upgrade)
     runs-on: ubuntu-22.04
     needs: code-tests
@@ -214,11 +217,11 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
+    # Run the tests on the Canonical runners only when scheduled.
+    if: ${{ github.event_name == 'schedule' && github.repository == 'canonical/microcloud' }}
     name: System (Canonical)
     runs-on: self-hosted-linux-amd64-jammy-large
     needs: code-tests
-    # Run the tests on the Canonical runners only when scheduled.
-    if: ${{ github.event_name == 'schedule' }}
     strategy:
       fail-fast: false
       matrix:
