@@ -1,5 +1,7 @@
 import datetime
 import os
+import yaml
+from redirects import redirects
 
 # Custom configuration for the Sphinx documentation builder.
 # All configuration specific to your project should be done in this file.
@@ -150,11 +152,7 @@ else:
 # (see https://docs.readthedocs.io/en/stable/guides/redirects.html).
 # NOTE: If this variable is not defined, set to None, or the dictionary is empty,
 # the sphinx_reredirects extension will be disabled.
-redirects = {
-    'tutorial/index': 'get_started/',
-    'explanation/initialisation': '../initialization',
-    'how-to/initialise': '../initialize'
-}
+# minae: Redirects is imported from redirects.py
 
 ############################################################
 ### Link checker
@@ -225,6 +223,7 @@ custom_extensions = [
 # sphinxext-opengraph
 custom_required_modules = [
     'sphinx-sitemap',
+    'pyyaml',
 ]
 
 # Add files or directories that should be excluded from processing.
@@ -301,3 +300,8 @@ if not ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     custom_templates_path = ['integration/microcloud/_templates']
     redirects['../index'] = 'microcloud/'
     custom_tags.append('integrated')
+
+# Load substitutions from YAML file
+if os.path.exists('./substitutions.yaml'):
+    with open('./substitutions.yaml', 'r') as fd:
+        myst_substitutions = yaml.safe_load(fd.read())

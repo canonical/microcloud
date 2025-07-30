@@ -5,6 +5,8 @@ AGPLv
 backend
 backporting
 balancers
+bugfix
+bugfixes
 CCLA
 Ceph
 Ceph's
@@ -29,6 +31,7 @@ intra
 IOV
 IPs
 IPv
+lifecycle
 LTS
 LXD
 LXD's
@@ -61,6 +64,7 @@ subnets
 SVG
 TinyPNG
 uplink
+upstream's
 VLAN
 VM
 VMs
