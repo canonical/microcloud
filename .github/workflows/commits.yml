@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   commits:
+    if: ${{ github.repository == 'canonical/microcloud' }}
     name: Branch target and CLA
     runs-on: ubuntu-latest
     steps:
