@@ -17,7 +17,7 @@
 
 The releases above are currently under standard support, meaning they receive bugfixes and security updates. An [Ubuntu Pro](https://ubuntu.com/pro) subscription can provide additional support.
 
-The snaps for MicroCloud, LXD, MicroCeph, and MicroOVN must be installed on all members of the same MicroCloud cluster along. The versions installed by each snap must be compatible with one another, and the same version of each snap must be installed on all cluster members.
+The snaps for MicroCloud, LXD, MicroCeph, and MicroOVN must be installed on all members of the same MicroCloud cluster. The versions installed by each snap must be compatible with one another, and the same version of each snap must be installed on all cluster members.
 
 Also see: {ref}`howto-update-upgrade` and {ref}`howto-snap`.
 
