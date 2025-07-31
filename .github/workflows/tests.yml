@@ -49,7 +49,7 @@ jobs:
           glob: ":!doc/*"
 
   code-tests:
-    if: ${{ needs.changes.outputs.except_docs == 'true' && github.repository == 'canonical/microcloud' }}
+    if: ${{ (needs.changes.outputs.except_docs == 'true' || github.event_name == 'schedule') && github.repository == 'canonical/microcloud' }}
     name: Code
     runs-on: ubuntu-22.04
     needs: [changes]
