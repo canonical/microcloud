@@ -27,6 +27,7 @@ GbE
 GiB
 HA
 HWE
+init
 intra
 IOV
 IPs
@@ -62,6 +63,7 @@ snapd
 subnet
 subnets
 SVG
+Terraform
 TinyPNG
 uplink
 upstream's

@@ -8,6 +8,7 @@ These MicroCloud how-to guides cover key operations and processes, including ins
 
 Install MicroCloud </how-to/install>
 Initialize MicroCloud </how-to/initialize>
+Automate a test deployment with Terraform </how-to/terraform_automation>
 Configure Ceph networking </how-to/ceph_networking>
 Configure OVN underlay </how-to/ovn_underlay>
 Work with MicroCloud </how-to/commands>
