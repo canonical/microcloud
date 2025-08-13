@@ -1310,3 +1310,6 @@ zucchini`
 
 // Wordlist is a slice of words from [wordlist] used for generating passphrases.
 var Wordlist []string = strings.Split(wordlist, "\n")
+
+// PassphraseWordCount is the number of words in a passphrase.
+const PassphraseWordCount uint8 = 4
