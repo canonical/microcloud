@@ -1689,7 +1689,7 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 
 	fmt.Println(tui.Printf(tui.Fmt{Arg: "Verify the fingerprint %s is displayed on the other system."}, tui.Fmt{Arg: fingerprint, Color: tui.Green, Bold: true}))
 	msg := "Specify the passphrase for joining the system"
-	password, err := c.asker.AskString(msg, "", validator)
+	password, err := c.asker.AskPassphrase(msg, service.Wordlist, validator, service.PassphraseWordCount)
 	if err != nil {
 		return "", err
 	}
