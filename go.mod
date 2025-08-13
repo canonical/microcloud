@@ -7,6 +7,7 @@ require (
 	github.com/canonical/microceph/microceph v0.0.0-20250620092923-64d02d9538a8
 	github.com/canonical/microcluster/v2 v2.2.1
 	github.com/canonical/microovn/microovn v0.0.0-20250924092345-05c7063f87a8
+	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.10.2
@@ -26,6 +27,7 @@ require (
 require (
 	github.com/Rican7/retry v0.3.1 // indirect
 	github.com/armon/go-proxyproto v0.1.0 // indirect
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/canonical/go-dqlite/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.3.2 // indirect
