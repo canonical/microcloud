@@ -2,6 +2,10 @@
 
 package service
 
+import (
+	"strings"
+)
+
 // Provided by the EFF under the Creative Commons Attribution License.
 // License: http://creativecommons.org/licenses/by/3.0/us/
 // Source: https://www.eff.org/files/2016/09/08/eff_short_wordlist_2_0.txt
@@ -1303,3 +1307,6 @@ zodiac
 zombie
 zookeeper
 zucchini`
+
+// Wordlist is a slice of words from [wordlist] used for generating passphrases.
+var Wordlist []string = strings.Split(wordlist, "\n")
