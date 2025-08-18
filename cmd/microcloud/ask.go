@@ -510,30 +510,51 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	return nil
 }
 
-func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) error {
+// validateCephInterfacesForSubnet validates ceph network interfaces for a subnet.
+// It returns a map of [NetworkInterfaceInfo] structs for each cluster member.
+func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) (validatedCephInterfaces map[string][]NetworkInterfaceInfo, err error) {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// List the detected network interfaces
-	if !c.autoSetup {
-		for _, interfaces := range validatedCephInterfacesData {
-			for _, iface := range interfaces {
-				fmt.Printf("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0])
+	_, internalCephNet, err := net.ParseCIDR(askedCephSubnet)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse the internal Ceph network: %w", err)
+	}
+
+	validatedCephInterfaces = make(map[string][]NetworkInterfaceInfo, len(validatedCephInterfacesData))
+	var cephPeerIP net.IP
+
+	// Validate IP addresses and list detected ceph network interfaces.
+	for peer, interfaces := range validatedCephInterfacesData {
+		networkInterfaces := make([]NetworkInterfaceInfo, 0, len(interfaces))
+		for _, iface := range interfaces {
+			if !c.autoSetup {
+				fmt.Printf("\n%s\n\n", tui.SummarizeResult("Interface %q (%q) detected on cluster member %q\n", iface[1], iface[2], iface[0]))
 			}
+
+			// Attempt to parse the IP address as a CIDR.
+			cephPeerIP, _, err = net.ParseCIDR(iface[2])
+			if err != nil {
+				return nil, fmt.Errorf("Invalid Ceph peer IP (CIDR): %q: %w", iface[2], err)
+			}
+
+			networkInterfaces = append(networkInterfaces, NetworkInterfaceInfo{Interface: net.Interface{Name: iface[1]}, Subnet: internalCephNet, IP: cephPeerIP})
 		}
+
+		validatedCephInterfaces[peer] = networkInterfaces
 	}
 
 	// Even though not all the cluster members might have OSDs,
 	// we check that all the machines have at least one interface to sustain the Ceph network
 	for systemName := range c.systems {
 		if len(validatedCephInterfacesData[systemName]) == 0 {
-			return fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
+			return nil, fmt.Errorf("Not enough network interfaces found with an IP within the given CIDR subnet on %q.\nYou need at least one interface per cluster member.", systemName)
 		}
 	}
 
-	return nil
+	return validatedCephInterfaces, nil
 }
 
 // getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
