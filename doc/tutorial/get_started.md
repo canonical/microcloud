@@ -1079,9 +1079,4 @@ Now that your MicroCloud is up and running, you can start using it!
 
 If you're already familiar with LXD, see {ref}`howto-commands` for a reference of the most common commands.
 
-If you're new to LXD, check out the {ref}`LXD tutorials <lxd:tutorials>` to familiarize yourself with what you can do in LXD:
-
-- {ref}`lxd:tutorial-ui` guides you through common operations in LXD, using the UI.
-- {ref}`lxd:first-steps` goes through the same functionality, but using the CLI.
-
-In both tutorials, you can skip the first section about installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.
+If you're new to LXD, check out the {ref}`LXD tutorial <lxd:tutorial-first-steps>` to familiarize yourself with what you can do in LXD. It guides you through common initial operations in LXD, using either the CLI or a web-based graphical UI. Skip the first section about installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.
