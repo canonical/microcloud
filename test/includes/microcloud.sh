@@ -219,6 +219,7 @@ join_session(){
 $([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "table:done")
 a a a a                                 # the test passphrase
+$(printf "ctrl:m")						# autocomplete model requires carriage return
 $(true)                                 # workaround for set -e
 "
 
