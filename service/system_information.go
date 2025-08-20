@@ -37,6 +37,9 @@ type SystemInformation struct {
 	// AvailableOVNInterfaces is the list of networks that can be used for an OVN underlay network.
 	AvailableOVNInterfaces map[string]DedicatedInterface
 
+	// AvailableMicroCloudInterfaces is the list of networks that can be used for a MicroCloud internal network.
+	AvailableMicroCloudInterfaces map[string]DedicatedInterface
+
 	// LXDLocalConfig is the local configuration of LXD on this system.
 	LXDLocalConfig map[string]any
 
@@ -74,13 +77,14 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	localSystem := sh.Name == connectInfo.Name
 
 	s := &SystemInformation{
-		ExistingServices:          map[types.ServiceType]map[string]string{},
-		ClusterName:               connectInfo.Name,
-		ClusterAddress:            connectInfo.Address,
-		AvailableDisks:            map[string]api.ResourcesStorageDisk{},
-		AvailableUplinkInterfaces: map[string]api.Network{},
-		AvailableCephInterfaces:   map[string]DedicatedInterface{},
-		AvailableOVNInterfaces:    map[string]DedicatedInterface{},
+		ExistingServices:              map[types.ServiceType]map[string]string{},
+		ClusterName:                   connectInfo.Name,
+		ClusterAddress:                connectInfo.Address,
+		AvailableDisks:                map[string]api.ResourcesStorageDisk{},
+		AvailableUplinkInterfaces:     map[string]api.Network{},
+		AvailableCephInterfaces:       map[string]DedicatedInterface{},
+		AvailableOVNInterfaces:        map[string]DedicatedInterface{},
+		AvailableMicroCloudInterfaces: map[string]DedicatedInterface{},
 	}
 
 	var err error
@@ -157,6 +161,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 	s.AvailableUplinkInterfaces = uplinkInterfaces
 	s.AvailableCephInterfaces = dedicatedInterfaces
 	s.AvailableOVNInterfaces = dedicatedInterfaces
+	s.AvailableMicroCloudInterfaces = dedicatedInterfaces
 
 	for _, network := range allNets {
 		if network.Name == DefaultFANNetwork {
