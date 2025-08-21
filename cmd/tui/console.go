@@ -119,7 +119,7 @@ func (c *testConsole) parseInput(handler *InputHandler) error {
 		action = ansi.CUF1
 	case "table:select":
 		action = " "
-	case "table:done":
+	case "table:done", "ctrl:m":
 		action = "\r"
 	default:
 		_, wait, _ := strings.Cut(input, "table:wait ")
