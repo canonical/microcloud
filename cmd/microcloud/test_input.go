@@ -36,8 +36,9 @@ table:wait <time.Duration>  # waits before the next instruction
 table:expect <count>        # waits until exactly <count> peers are available, and errors out if more are found
 table:filter <text>         # applies filtering text to the table output
 table:done                  # confirms the table selection and exits the table
+ctrl:m						# carriage return, used to submit text input
 
-# anything not prefixed with 'table:' will be treated as a raw string. This is used for text entry for individual questions
+# anything not prefixed with 'table:' or 'ctrl:' will be treated as a raw string. This is used for text entry for individual questions
 EOF`)
 
 	// This fd is used for debugging what the CLI sees for each question.
