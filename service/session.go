@@ -36,22 +36,14 @@ type Session struct {
 // generatePassphrase returns four random words chosen from wordlist.
 // The words are separated by space.
 func generatePassphrase() (string, error) {
-	splitWordlist := strings.Split(wordlist, "\n")
-	wordlistLength := int64(len(splitWordlist))
-
-	var randomWords = make([]string, 4)
-	for i := 0; i < 4; i++ {
-		randomNumber, err := rand.Int(rand.Reader, big.NewInt(wordlistLength))
+	var randomWords = make([]string, PassphraseWordCount)
+	for i := range PassphraseWordCount {
+		randomNumber, err := rand.Int(rand.Reader, big.NewInt(int64(len(Wordlist))))
 		if err != nil {
 			return "", fmt.Errorf("Failed to get random number: %w", err)
 		}
 
-		splitLine := strings.SplitN(splitWordlist[randomNumber.Int64()], "\t", 3)
-		if len(splitLine) != 2 {
-			return "", fmt.Errorf("Invalid wordlist line: %q", splitWordlist[randomNumber.Int64()])
-		}
-
-		randomWords[i] = splitLine[1]
+		randomWords[i] = Wordlist[randomNumber.Int64()]
 	}
 
 	return strings.Join(randomWords, " "), nil
