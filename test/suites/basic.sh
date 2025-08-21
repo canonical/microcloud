@@ -426,6 +426,41 @@ test_interactive() {
   ! join_session add micro01 micro04 || false
   lxc exec micro01 -- tail -1 out | grep "User aborted" -q
   lxc exec micro04 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
+
+  echo "Try to initiate a MicroCloud with left over networking resources and check it fails to configure OVN"
+  reset_systems 3 2 1
+
+  unset_interactive_vars
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="yes"
+  export CEPH_FILTER="lxd_disk2"
+  export CEPH_WIPE="yes"
+  export CEPH_ENCRYPT="yes"
+  export SETUP_CEPHFS="yes"
+  export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
+  export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
+  export OVN_WARNING="yes" # causes fallback to FAN networking
+
+  # Fake left over UPLINK network.
+  lxc exec micro01 -- ip link add UPLINK type bridge
+
+  join_session init micro01 micro02 micro03
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  # Check MicroCloud observed the left over UPLINK network.
+  lxc exec micro01 -- grep -q "Warning: System \"micro01\" is ineligible for distributed networking. Make sure there aren't any conflicting networks from previous installations" out
+
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd "${m}" 3 disk1 1 1
+    validate_system_microceph "${m}" 1 disk2
+  done
 }
 
 _test_case() {
