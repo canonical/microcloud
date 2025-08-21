@@ -306,10 +306,18 @@ func (s *SystemInformation) SupportsRemoteFSPool() (hasPool bool, supportsPool b
 // SupportsOVNNetwork checks if the SystemInformation supports MicroCloud configured default and UPLINK networks.
 // Additionally returns whether such networks already exist.
 func (s *SystemInformation) SupportsOVNNetwork() (hasNet bool, supportsNet bool) {
+	// If both the default OVN network and the uplink network aren't present, we can be sure that OVN wasn't yet configured.
 	if s.existingOVNNetwork == nil && s.existingUplinkNetwork == nil {
 		return false, true
 	}
 
+	// If either the default OVN network or the uplink network is missing, this looks to be an incomplete configuration.
+	// In this case we neither have a functioning OVN network nor do we support it as we cannot anymore configure it from scratch.
+	if s.existingOVNNetwork == nil || s.existingUplinkNetwork == nil {
+		return false, false
+	}
+
+	// If both the default OVN network and the uplink network are matching our requirments, we indicate this to the caller.
 	if s.existingOVNNetwork.Type == "ovn" && s.existingOVNNetwork.Status == "Created" && s.existingUplinkNetwork.Type == "physical" && s.existingUplinkNetwork.Status == "Created" {
 		return true, true
 	}

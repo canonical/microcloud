@@ -995,13 +995,17 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 	useOVNJoinConfig := false
 	askSystems := map[string]bool{}
-	allSystemsEligible := true
+	warningMessage := ""
 	for _, state := range c.state {
 		hasOVN, supportsOVN := state.SupportsOVNNetwork()
-		if !supportsOVN || len(state.AvailableUplinkInterfaces) == 0 {
-			allSystemsEligible = false
+		if !supportsOVN {
+			warningMessage = fmt.Sprintf("System %q is ineligible for distributed networking. Make sure there aren't any conflicting networks from previous installations", state.ClusterName)
+			break
+		}
 
-			continue
+		if len(state.AvailableUplinkInterfaces) == 0 {
+			warningMessage = fmt.Sprintf("System %q is ineligible for distributed networking. At least one interface in state UP with no IPs assigned or a bridge is required", state.ClusterName)
+			break
 		}
 
 		if hasOVN {
@@ -1011,10 +1015,17 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		}
 	}
 
-	if len(askSystems) == 0 || !allSystemsEligible {
-		warning := "Some systems are ineligible for distributed networking. At least one interface in state UP with no IPs assigned or a bridge is required"
+	if len(askSystems) == 0 {
+		// In case we already have the networks on all systems, this indicates an error as we would want to ask for the to be used uplink interface.
+		// Check whether or not we already have a warning message set to not hide the underlying problem.
+		if warningMessage == "" {
+			warningMessage = "None of the systems is missing the distributed networking setup. Make sure there aren't any leftover networks from previous installations"
+		}
+	}
+
+	if warningMessage != "" {
 		question := "Continue anyway?"
-		wantsContinue, err := c.asker.AskBoolWarn(warning, question, true)
+		wantsContinue, err := c.asker.AskBoolWarn(warningMessage, question, true)
 		if err != nil {
 			return err
 		}
