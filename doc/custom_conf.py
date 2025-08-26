@@ -166,6 +166,8 @@ linkcheck_ignore = [
     'https://ceph.io',
     # Cloudflare protection on SourceForge domains often block linkcheck
     r"https://.*\.sourceforge\.net/.*",
+    # Wikipedia may return 403 possibly due to too many requests
+    r"https://en\.wikipedia\.org/.*",
     ]
 
 # Pages on which to ignore anchors
