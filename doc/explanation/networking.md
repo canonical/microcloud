@@ -1,5 +1,5 @@
 ---
-relatedlinks: https://docs.ovn.org,https://ubuntu.com/blog/data-centre-networking-what-is-ovn,https://en.wikipedia.org/wiki/Virtual_private_cloud
+relatedlinks: "[OVN&#32;Documentation](https://docs.ovn.org),[Ubuntu&#32;blog&#32;-&#32;Data&#32;centre&#32;networking:&#32;What&#32;is&#32;OVN?](https://ubuntu.com/blog/data-centre-networking-what-is-ovn),[Wikipedia&#32;-&#32;Virtual&#32;private&#32;cloud](https://en.wikipedia.org/wiki/Virtual_private_cloud)"
 ---
 
 (exp-networking)=
