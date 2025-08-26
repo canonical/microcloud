@@ -1,5 +1,5 @@
 ---
-relatedlinks: https://en.wikipedia.org/wiki/Multicast_DNS
+relatedlinks: "[Wikipedia&#32;-&#32;Multicast&#32;DNS](https://en.wikipedia.org/wiki/Multicast_DNS)"
 ---
 
 (explanation-initialization)=
