@@ -1,7 +1,3 @@
----
-relatedlinks: https://documentation.ubuntu.com/lxd/
----
-
 (explanation-microcloud)=
 # About MicroCloud
 
