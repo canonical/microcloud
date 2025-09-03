@@ -200,7 +200,7 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 		fingerprintArg := tui.SetColor(tui.Green, fingerprint, true)
 		fmt.Printf("\n%s %s\n\n", tmpl, fingerprintArg)
 
-		tmplArg := tui.Fmt{Arg: "Select %s on %s to let it join the cluster"}
+		tmplArg := tui.Fmt{Arg: "Select system %s on %s to let it join the cluster."}
 		localArg := tui.Fmt{Arg: sh.Name, Bold: true}
 		remoteArg := tui.Fmt{Arg: session.InitiatorName, Bold: true}
 		fmt.Println(tui.Printf(tmplArg, localArg, remoteArg))
