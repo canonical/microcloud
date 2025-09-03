@@ -66,6 +66,13 @@ DESTROY=no ./run mc
 DESTROY=yes ./run mc
 ```
 
+If for some reason, the environment only needs to be destroyed, setting `DESTROY=only` will do:
+
+```sh
+# Only destroy the environment
+DESTROY=only ./run mc
+```
+
 ```{important}
 The client credentials used during tests are not removed from the tested MicroCloud environment at the end. This part of the cleanup needs to be done manually.
 ```
