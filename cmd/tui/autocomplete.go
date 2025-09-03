@@ -23,7 +23,6 @@ func autocompleteModel(prompt string, suggestions []string, maxTokens uint8, tes
 	ti := textinput.New()
 	ti.Prompt = prompt + ": "
 	ti.Cursor.Style = lipgloss.NewStyle().Foreground(Bright)
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(Bright)
 	ti.ShowSuggestions = true
 
 	ti.Focus()
