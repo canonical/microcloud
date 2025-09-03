@@ -46,6 +46,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter, tea.KeyCtrlC, tea.KeyEsc:
+			m.textInput.Blur()
 			return m, tea.Quit
 
 		case tea.KeyTab:
@@ -81,7 +82,6 @@ func (m model) refreshTokenSuggestions(maxTokens uint8) model {
 
 	if len(strings.Fields(v)) >= int(maxTokens) && strings.HasSuffix(v, " ") {
 		m.textInput.SetSuggestions(nil)
-		m.textInput.Blur()
 		return m
 	}
 
