@@ -1676,18 +1676,6 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 		return err
 	}
 
-	cloud := s.Services[types.MicroCloud].(*service.CloudService)
-	cert, err := cloud.ServerCert()
-	if err != nil {
-		return "", err
-	}
-
-	fingerprint, err := c.shortFingerprint(cert.Fingerprint())
-	if err != nil {
-		return "", fmt.Errorf("Failed to shorten fingerprint: %w", err)
-	}
-
-	fmt.Println(tui.Printf(tui.Fmt{Arg: "Verify the fingerprint %s is displayed on the other system."}, tui.Fmt{Arg: fingerprint, Color: tui.Green, Bold: true}))
 	msg := "Specify the passphrase for joining the system"
 	password, err := c.asker.AskPassphrase(msg, service.Wordlist, validator, service.PassphraseWordCount)
 	if err != nil {
