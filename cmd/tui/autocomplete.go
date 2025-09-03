@@ -71,7 +71,7 @@ func (m model) View() string {
 		return m.textInput.Prompt + m.textInput.Value()
 	}
 
-	return m.textInput.View() + "\n\n"
+	return m.textInput.View() + "\n"
 }
 
 // refreshTokenSuggestions builds full-line suggestions by replacing only the last token.
