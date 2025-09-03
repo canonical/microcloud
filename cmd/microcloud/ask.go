@@ -1652,7 +1652,7 @@ func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 	return fingerprint[0:12], nil
 }
 
-func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
+func (c *initConfig) askPassphrase() (string, error) {
 	format := func(password string) (string, error) {
 		passwordSplit := strings.Split(password, " ")
 
