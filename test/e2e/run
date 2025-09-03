@@ -200,6 +200,14 @@ evacuation() {
     echo " DONE"
 }
 
+
+if [ "${DESTROY}" = "only" ]; then
+    DESTROY=yes
+    destroy
+    echo "Done"
+    exit
+fi
+
 init
 setup
 
