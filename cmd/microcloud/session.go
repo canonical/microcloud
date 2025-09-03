@@ -204,6 +204,21 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 		localArg := tui.Fmt{Arg: sh.Name, Bold: true}
 		remoteArg := tui.Fmt{Arg: session.InitiatorName, Bold: true}
 		fmt.Println(tui.Printf(tmplArg, localArg, remoteArg))
+
+		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		cert, err := cloud.ServerCert()
+		if err != nil {
+			return err
+		}
+
+		ourFingerprint, err := c.shortFingerprint(cert.Fingerprint())
+		if err != nil {
+			return fmt.Errorf("Failed to shorten fingerprint: %w", err)
+		}
+
+		tmplArg = tui.Fmt{Arg: "Verify the fingerprint %s is displayed on system %s."}
+		ourFingerprintArg := tui.Fmt{Arg: ourFingerprint, Color: tui.Green, Bold: true}
+		fmt.Println(tui.Printf(tmplArg, ourFingerprintArg, remoteArg))
 	}
 
 	return c.askJoinConfirmation(gw, services)
