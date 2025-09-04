@@ -1641,7 +1641,7 @@ func (c *initConfig) shortFingerprint(fingerprint string) (string, error) {
 	return fingerprint[0:12], nil
 }
 
-func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
+func (c *initConfig) askPassphrase() (string, error) {
 	format := func(password string) (string, error) {
 		passwordSplit := strings.Split(password, " ")
 
@@ -1665,18 +1665,6 @@ func (c *initConfig) askPassphrase(s *service.Handler) (string, error) {
 		return err
 	}
 
-	cloud := s.Services[types.MicroCloud].(*service.CloudService)
-	cert, err := cloud.ServerCert()
-	if err != nil {
-		return "", err
-	}
-
-	fingerprint, err := c.shortFingerprint(cert.Fingerprint())
-	if err != nil {
-		return "", fmt.Errorf("Failed to shorten fingerprint: %w", err)
-	}
-
-	fmt.Println(tui.Printf(tui.Fmt{Arg: "Verify the fingerprint %s is displayed on the other system."}, tui.Fmt{Arg: fingerprint, Color: tui.Green, Bold: true}))
 	msg := "Specify the passphrase for joining the system"
 	password, err := c.asker.AskPassphrase(msg, service.Wordlist, validator, service.PassphraseWordCount)
 	if err != nil {
@@ -1818,7 +1806,7 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 		fmt.Println(tui.SummarizeResult("Received confirmation from system %s", session.Intent.Name))
 		fmt.Println("")
 		fmt.Println(tui.Note(tui.Yellow, tui.WarningSymbol()+tui.SetColor(tui.Bright, " Do not exit out to keep the session alive", true)) + "\n")
-		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on %s ..."}, tui.Fmt{Arg: session.Intent.Name, Bold: true}))
+		fmt.Println(tui.Printf(tui.Fmt{Arg: "Complete the remaining configuration on system %s ..."}, tui.Fmt{Arg: session.Intent.Name, Bold: true}))
 	}
 
 	err = gw.ReceiveWithContext(gw.Context(), &session)

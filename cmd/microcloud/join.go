@@ -108,7 +108,7 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		services[s.Type()] = version
 	}
 
-	passphrase, err := cfg.askPassphrase(s)
+	passphrase, err := cfg.askPassphrase()
 	if err != nil {
 		return err
 	}

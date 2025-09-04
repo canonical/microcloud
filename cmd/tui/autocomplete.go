@@ -23,7 +23,6 @@ func autocompleteModel(prompt string, suggestions []string, maxTokens uint8, tes
 	ti := textinput.New()
 	ti.Prompt = prompt + ": "
 	ti.Cursor.Style = lipgloss.NewStyle().Foreground(Bright)
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(Bright)
 	ti.ShowSuggestions = true
 
 	ti.Focus()
@@ -47,6 +46,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter, tea.KeyCtrlC, tea.KeyEsc:
+			m.textInput.Blur()
 			return m, tea.Quit
 
 		case tea.KeyTab:
@@ -72,7 +72,7 @@ func (m model) View() string {
 		return m.textInput.Prompt + m.textInput.Value()
 	}
 
-	return m.textInput.View() + "\n\n"
+	return m.textInput.View() + "\n"
 }
 
 // refreshTokenSuggestions builds full-line suggestions by replacing only the last token.
@@ -82,7 +82,6 @@ func (m model) refreshTokenSuggestions(maxTokens uint8) model {
 
 	if len(strings.Fields(v)) >= int(maxTokens) && strings.HasSuffix(v, " ") {
 		m.textInput.SetSuggestions(nil)
-		m.textInput.Blur()
 		return m
 	}
 
