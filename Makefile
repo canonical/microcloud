@@ -2,7 +2,7 @@ GOMIN=1.24.4
 GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
-DQLITE_BRANCH=master
+DQLITE_BRANCH=lts-1.17.x
 
 .PHONY: default
 default: build
