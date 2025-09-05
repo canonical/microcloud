@@ -164,6 +164,7 @@ jobs:
           - "recover"
           - "remove_cluster"
           - "reuse_cluster"
+          - "terraform_demo"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
         microceph: ["latest/edge"]
@@ -182,6 +183,9 @@ jobs:
 
       - name: System test
         uses: ./.github/actions/system-test
+        with:
+          setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
+          setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
 
   system-tests-upgrade:
     env:
