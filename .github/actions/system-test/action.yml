@@ -1,4 +1,13 @@
 name: System test
+inputs:
+  setup_testbed:
+    description: 'Set up the testbed infrastructure (VMs, networks, etc.)'
+    required: false
+    default: 'true'
+  setup_terraform:
+    description: 'Set up Terraform for tests that require it'
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -123,8 +132,11 @@ runs:
         export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
 
         cd test
-        sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
-
+        if [ "${{ inputs.setup_testbed }}" = "false" ]; then
+          echo "Skipping testbed setup"
+        else
+          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
+        fi
         echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
         echo "BASE_OS=${BASE_OS}" >> "${GITHUB_ENV}"
         echo "LXD_SNAP_CHANNEL=${LXD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
@@ -133,7 +145,7 @@ runs:
         echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
 
     - name: Setup Terraform
-      if: ${{ matrix.suite == 'e2e' }}
+      if: ${{ inputs.setup_terraform == 'true' }}
       uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       with:
         terraform_wrapper: false
