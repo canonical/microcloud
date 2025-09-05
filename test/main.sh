@@ -266,6 +266,7 @@ if [ "${1:-"all"}" = "all" ]; then
   run_test test_remove_cluster
   run_test test_reuse_cluster
   run_test test_upgrade
+  run_test test_terraform_demo
 elif [ "${1}" = "instances" ]; then
   run_test test_instances_config
   run_test test_instances_launch
@@ -274,6 +275,9 @@ elif [ "${1}" = "mismatch" ]; then
   run_test test_disk_mismatch
 elif [ "${1}" = "setup" ]; then
   testbed_setup
+elif [ "${1}" = "terraform_demo" ]; then
+  TESTBED_READY=1
+  run_test "test_${1}"
 else
   run_test "test_${1}"
 fi
