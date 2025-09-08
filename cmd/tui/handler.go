@@ -180,6 +180,10 @@ func (i *InputHandler) AskPassphrase(question string, suggestions []string, vali
 		p := tea.NewProgram(m, tea.WithInput(i.input), tea.WithOutput(i.output))
 		result, err := p.Run()
 		if err != nil {
+			if errors.Is(err, tea.ErrInterrupted) {
+				os.Exit(1)
+			}
+
 			return "", err
 		}
 
