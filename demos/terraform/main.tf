@@ -85,6 +85,10 @@ resource "lxd_instance" "microcloud" {
   type             = "virtual-machine"
   wait_for_network = true
 
+  timeouts = {
+    create = var.instance_create_timeout
+  }
+
   config = {
     "security.secureboot" = "false"
     "cloud-init.user-data" = templatefile("${path.module}/cloud-init.yaml.tpl", {
@@ -180,7 +184,6 @@ resource "lxd_instance" "microcloud" {
       trigger       = "on_start"
       record_output = true
       fail_on_error = true
-      timeout       = "15m"
     }
 
     "02_wait_cloud_init" = {
@@ -188,7 +191,6 @@ resource "lxd_instance" "microcloud" {
       trigger       = "on_start"
       record_output = false # Suppress progress dots for cleaner output
       fail_on_error = true
-      timeout       = "15m"
     }
 
     "03_microcloud_status" = {
@@ -196,7 +198,6 @@ resource "lxd_instance" "microcloud" {
       trigger       = "on_start"
       record_output = true
       fail_on_error = true
-      timeout       = "5m"
     }
   } : {}
 
