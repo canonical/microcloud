@@ -196,3 +196,9 @@ variable "ovn_uplink_interface" {
   type        = string
   default     = "enp6s0"
 }
+
+variable "instance_create_timeout" {
+  description = "Timeout for instance creation"
+  type        = string
+  default     = "15m"
+}
