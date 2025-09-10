@@ -44,11 +44,19 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEnter, tea.KeyCtrlC, tea.KeyEsc:
+		// Auto-submit on paste.
+		if msg.Paste {
+			m.textInput.SetValue(m.textInput.Value() + strings.TrimSpace(string(msg.Runes)))
 			m.textInput.Blur()
 			return m, tea.Quit
+		}
 
+		switch msg.Type {
+		case tea.KeyEnter, tea.KeyCtrlJ:
+			m.textInput.Blur()
+			return m, tea.Quit
+		case tea.KeyCtrlC, tea.KeyEsc:
+			return m, tea.Interrupt
 		case tea.KeyTab:
 			m = m.refreshTokenSuggestions(m.maxTokens)
 		}
