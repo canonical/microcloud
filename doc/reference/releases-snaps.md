@@ -136,7 +136,7 @@ Every two years, the March version of OVN becomes an LTS version, such as the `2
 
 For more information, see the MicroOVN documentation:
 
-- {doc}`microovn:developers/release-process`
+- {doc}`microovn:reference/release-process`
 - {ref}`microovn:snap channels`
 
 (ref-snaps-updates)=
