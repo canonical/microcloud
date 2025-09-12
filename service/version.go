@@ -41,6 +41,29 @@ func cleanVersion(version string) string {
 	return strings.Join(versionCleaned, ".")
 }
 
+func compareVersion(presentVersion string, minVersion string, serviceType types.ServiceType) error {
+	canonicalPresentVersion := semver.Canonical("v" + cleanVersion(presentVersion))
+	canonicalMinVersion := semver.Canonical("v" + cleanVersion(minVersion))
+
+	// semver.Compare returns
+	// * 0 in case presentVersion == minVersion
+	// * 1 in case presentVersion > minVersion
+	// * -1 in case presentVersion < minVersion
+	comparison := semver.Compare(semver.MajorMinor(canonicalPresentVersion), semver.MajorMinor(canonicalMinVersion))
+
+	// Only if the present version is lower than the expected version MicroCloud should error out.
+	if comparison == -1 {
+		return fmt.Errorf("%s version %q is not supported", serviceType, presentVersion)
+	}
+
+	// Print a warning in case a non-LTS (higher than the min) version is used.
+	if comparison == 1 {
+		tui.PrintWarning(fmt.Sprintf("Discovered non-LTS version %q of %s", presentVersion, serviceType))
+	}
+
+	return nil
+}
+
 // validateVersion checks that the daemon version for the given service is at a supported version for this version of MicroCloud.
 func validateVersion(serviceType types.ServiceType, daemonVersion string) error {
 	switch serviceType {
