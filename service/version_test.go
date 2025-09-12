@@ -124,10 +124,16 @@ func (s *versionSuite) Test_validateVersions() {
 		},
 
 		{
-			desc:      "Unsupported MicroOVN (direct string comparison)",
-			version:   microOVNMinVersion + ".0",
+			desc:      "Unsupported MicroOVN with lower minor",
+			version:   "24.02",
 			service:   types.MicroOVN,
 			expectErr: true,
+		},
+		{
+			desc:      "Supported MicroOVN with larger major version",
+			version:   "25.09",
+			service:   types.MicroOVN,
+			expectErr: false,
 		},
 	}
 
