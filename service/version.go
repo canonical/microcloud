@@ -74,8 +74,9 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 		}
 
 	case types.MicroOVN:
-		if daemonVersion != microOVNMinVersion {
-			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
+		err := compareVersion(daemonVersion, microOVNMinVersion, serviceType)
+		if err != nil {
+			return err
 		}
 
 	case types.MicroCeph:
