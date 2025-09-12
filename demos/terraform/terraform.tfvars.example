@@ -19,6 +19,7 @@ lxd_channel = "5.21/stable"
 # Timeouts
 session_timeout = 300
 lookup_timeout = 300
+instance_create_timeout = "15m"
 
 # VM Configuration
 vm_count = 4
