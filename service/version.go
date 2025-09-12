@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"golang.org/x/mod/semver"
 
@@ -20,6 +21,25 @@ const (
 	// microOVNMinVersion is the minimum version of MicroOVN that fully supports all MicroCloud features.
 	microOVNMinVersion = "24.03"
 )
+
+func cleanVersion(version string) string {
+	// Account for semantic version with major, minor and patch number.
+	versionCleaned := make([]string, 0, 3)
+
+	// Remove leading zeros.
+	// 24.03 will result in 24.3
+	// 25.09 will result in 25.9
+	// 25.0 will stay 25.0
+	for part := range strings.SplitSeq(version, ".") {
+		if part != "0" {
+			part = strings.TrimLeft(part, "0")
+		}
+
+		versionCleaned = append(versionCleaned, part)
+	}
+
+	return strings.Join(versionCleaned, ".")
+}
 
 // validateVersion checks that the daemon version for the given service is at a supported version for this version of MicroCloud.
 func validateVersion(serviceType types.ServiceType, daemonVersion string) error {
