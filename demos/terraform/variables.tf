@@ -124,16 +124,10 @@ variable "ceph_disk_size" {
   default     = "20GiB"
 }
 
-variable "local_disk_device" {
-  description = "Local disk device path"
+variable "disk_device_base" {
+  description = "Base path for disk device identification"
   type        = string
-  default     = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_local"
-}
-
-variable "ceph_disk_device" {
-  description = "Ceph disk device path"
-  type        = string
-  default     = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_remote"
+  default     = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_"
 }
 
 variable "lookup_interface" {
