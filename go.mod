@@ -8,7 +8,7 @@ require (
 	github.com/canonical/microcluster/v2 v2.2.0
 	github.com/canonical/microovn/microovn v0.0.0-20250625161438-d8aacbe55fe2
 	github.com/charmbracelet/bubbles v0.21.0
-	github.com/charmbracelet/bubbletea v1.3.7
+	github.com/charmbracelet/bubbletea v1.3.9
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/gorilla/mux v1.8.1
