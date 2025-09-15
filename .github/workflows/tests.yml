@@ -163,13 +163,13 @@ jobs:
           - "reuse_cluster"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
-        microceph: ["latest/edge"]
-        microovn: ["latest/edge"]
+        microceph: ["squid/edge"]
+        microovn: ["24.03/edge"]
         lxd:
           # Both LXD 5.21 and 6 are supported.
           - "5.21/edge"
           - "6/edge"
-        microcloud: ["latest/edge"]
+        microcloud: ["2/edge"]
         exclude:
           # Exclude LXD 6 for regular development pipelines to speed up the result cycle.
           - lxd: ${{ github.event_name != 'schedule' && '6/edge' }}
