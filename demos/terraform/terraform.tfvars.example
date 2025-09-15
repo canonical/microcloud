@@ -37,8 +37,7 @@ lookup_bridge = "lxdbr0"
 # Storage Configuration
 local_disk_size = "10GiB"
 ceph_disk_size = "20GiB"
-local_disk_device = "/dev/sdb"
-ceph_disk_device = "/dev/sdc"
+disk_device_base = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_"
 
 # IP Configuration
 ip_base_offset = 10
