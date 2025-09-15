@@ -40,8 +40,8 @@ output "storage_layout" {
   description = "Storage configuration for each VM"
   value = {
     for i, system in local.systems : system.name => {
-      local_disk = var.local_disk_device
-      ceph_disk  = system.has_ceph ? var.ceph_disk_device : null
+      local_disk = "${var.disk_device_base}${lxd_volume.local_disk[i].name}"
+      ceph_disk  = system.has_ceph ? "${var.disk_device_base}${lxd_volume.ceph_disk[local.ceph_disk_mapping[i]].name}" : null
     }
   }
 }
