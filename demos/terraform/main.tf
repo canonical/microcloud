@@ -160,8 +160,8 @@ resource "lxd_instance" "microcloud" {
       ovn_ipv4_range        = var.ovn_ipv4_range
       ovn_ipv6_gateway      = var.ovn_ipv6_gateway
       ovn_dns_servers       = var.ovn_dns_servers
-      local_disk_device     = "${var.disk_device_base}${lxd_volume.local_disk[count.index].name}"
-      ceph_disk_device      = local.systems[count.index].has_ceph ? "${var.disk_device_base}${lxd_volume.ceph_disk[local.ceph_disk_mapping[count.index]].name}" : ""
+      local_disk_device     = "${var.disk_device_base}${var.local_disk_name_prefix}"
+      ceph_disk_device      = local.systems[count.index].has_ceph ? "${var.disk_device_base}${var.ceph_disk_name_prefix}" : ""
       uplink_device_name    = var.uplink_device_name
       initiator             = var.initiator
       ovn_uplink_interface  = var.ovn_uplink_interface
