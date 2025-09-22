@@ -10,8 +10,9 @@ CEPH_EXCLUDED_VM="micro4"
 OVN_INTERFACE="enp6s0"
 OVN_IPV4_GATEWAY="192.0.2.1/24"
 OVN_IPV4_RANGE="192.0.2.100-192.0.2.254"
-LOCAL_DISKS="local1,local2,local3,local4"
-CEPH_DISKS="remote1,remote2,remote3"
+LOCAL_DISKS_PREFIX="local"
+CEPH_DISKS_PREFIX="remote"
+DNS_SERVERS="192.0.2.1,2001:db8:d:200::1"
 
 terraform_demo_cleanup() {
   echo "==> Terraform demo cleanup starting"
@@ -101,7 +102,7 @@ test_terraform_demo() {
     echo "  -> Validating LXD configuration for ${m}"
     # Validate LXD configuration using variables
     # Parameters: name, num_peers, local_disk, remote_disks, cephfs, ovn_interface, ipv4_gateway, ipv4_ranges, ipv6_gateway, dns_nameservers, profile_pool
-    if ! validate_system_lxd "${m}" "${VM_COUNT}" "${LOCAL_DISKS}" 3 0 "${OVN_INTERFACE}" "${OVN_IPV4_GATEWAY}" "${OVN_IPV4_RANGE}" "" "" "${STORAGE_POOL}"; then
+    if ! validate_system_lxd "${m}" "${VM_COUNT}" "${LOCAL_DISKS_PREFIX}" 3 0 "${OVN_INTERFACE}" "${OVN_IPV4_GATEWAY}" "${OVN_IPV4_RANGE}" "" "${DNS_SERVERS}" "${STORAGE_POOL}"; then
       echo "ERROR: LXD validation failed for ${m}"
       exit 1
     fi
@@ -111,7 +112,7 @@ test_terraform_demo() {
     # Parameters: name, cephfs, encrypt, cluster_subnet, public_subnet, disks
     if [ "${m}" != "${CEPH_EXCLUDED_VM}" ]; then
       echo "  -> Validating MicroCeph configuration for ${m}"
-      if ! validate_system_microceph "${m}" 0 0 "" "" "${CEPH_DISKS}"; then
+      if ! validate_system_microceph "${m}" "${CEPH_DISKS_PREFIX}"; then
         echo "ERROR: MicroCeph validation failed for ${m}"
         exit 1
       fi
