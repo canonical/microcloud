@@ -202,7 +202,7 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.Clus
 		}
 
 		result.MemoryTotalAmount += int64(memberState.SysInfo.TotalRAM)
-		result.MemoryUsage += int64(memberState.SysInfo.TotalRAM - memberState.SysInfo.FreeRAM)
+		result.MemoryUsage += int64(memberState.SysInfo.TotalRAM - memberState.SysInfo.FreeRAM - memberState.SysInfo.BufferRAM)
 
 		cpuLoad1 += memberState.SysInfo.LoadAverages[0]
 		cpuLoad5 += memberState.SysInfo.LoadAverages[1]
