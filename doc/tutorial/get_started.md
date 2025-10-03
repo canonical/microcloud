@@ -28,6 +28,8 @@ MicroCloud requires LXD version 5.21:
 
       ```{terminal}
       :input: snap version
+      :user: ubuntu
+      :host: lxd-host
 
       snap    2.59.4
       snapd   2.59.4
@@ -118,8 +120,8 @@ Complete the following steps to create the required disks in a LXD storage pool:
 
    ```{terminal}
    :input: lxc storage volume list disks
-   :user: root
-   :host: micro1
+   :user: ubuntu
+   :host: lxd-host
 
    +--------+---------+-------------+--------------+---------+
    |  TYPE  |  NAME   | DESCRIPTION | CONTENT-TYPE | USED BY |
@@ -478,7 +480,7 @@ See the full process here for one of the joining sides (`micro2`):
 ```{terminal}
 :input: microcloud join
 :user: root
-:host: micro1
+:host: micro2
 :scroll:
 
 Select an address for MicroCloud's internal traffic:
