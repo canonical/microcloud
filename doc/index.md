@@ -26,9 +26,9 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ````{grid} 1 1 2 2
 
-```{grid-item} [Tutorial](/tutorial/get_started)
+```{grid-item} [Tutorials](/tutorial/index)
 
-**Start here**: a hands-on [introduction to MicroCloud](/tutorial/get_started) for new users
+**Start here**: hands-on {ref}`introductions to MicroCloud <get-started>` for new users
 ```
 
 ```{grid-item} [How-to guides](/how-to/index)
@@ -84,7 +84,7 @@ MicroCloud is a member of the Ubuntu family. It’s an open source project that 
 :maxdepth: 2
 
 self
-Tutorial </tutorial/get_started>
+Tutorials </tutorial/index>
 /how-to/index
 /reference/index
 /explanation/index

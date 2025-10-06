@@ -67,6 +67,7 @@ Terraform
 TinyPNG
 uplink
 upstream's
+virtualized
 VLAN
 VM
 VMs
