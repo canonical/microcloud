@@ -12,6 +12,7 @@ Ceph
 Ceph's
 CephFS
 CIDR
+Cloudflare
 CMS
 cryptographically
 DCO
@@ -60,6 +61,7 @@ roadmap
 scalable
 SDN
 snapd
+SSD
 subnet
 subnets
 SVG
