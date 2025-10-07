@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Terraform demo configuration 
+# Terraform demo configuration
 VMS="micro1 micro2 micro3 micro4"
+INITIATOR="micro1"
 NETWORK="microbr0"
 VOLUMES="local1 local2 local3 local4 remote1 remote2 remote3"
 STORAGE_POOL="default"
@@ -14,9 +15,65 @@ LOCAL_DISKS_PREFIX="local"
 CEPH_DISKS_PREFIX="remote"
 DNS_SERVERS="192.0.2.1,2001:db8:d:200::1"
 
-terraform_demo_cleanup() {
-  echo "==> Terraform demo cleanup starting"
+# Print logs directly to stdout for immediate visibility
+print_logs() {
+  echo "==> Printing diagnostic logs from all VMs"
   
+  # Collect logs from each VM
+  for vm in ${VMS}; do
+    if ! lxc info "${vm}" >/dev/null 2>&1; then
+      echo "ERROR: VM ${vm} is not accessible, skipping logs"
+      continue
+    fi
+    
+    echo ""
+    echo "==================== LOGS FROM ${vm} ===================="
+    
+    # Print cloud-init logs
+    echo ""
+    echo "--- ${vm}: CLOUD-INIT LOG ---"
+    lxc exec "${vm}" -- cat /var/log/cloud-init.log 2>/dev/null || echo "cloud-init.log not available on ${vm}"
+    
+    echo ""
+    echo "--- ${vm}: CLOUD-INIT OUTPUT LOG ---"
+    lxc exec "${vm}" -- cat /var/log/cloud-init-output.log 2>/dev/null || echo "cloud-init-output.log not available on ${vm}"
+    
+    # Print snap logs
+    echo ""
+    echo "--- ${vm}: MICROCLOUD SNAP LOGS ---"
+    lxc exec "${vm}" -- snap logs microcloud -n=all 2>/dev/null || echo "microcloud snap logs not available on ${vm}"
+    
+    echo ""
+    echo "--- ${vm}: LXD SNAP LOGS ---"
+    lxc exec "${vm}" -- snap logs lxd -n=all 2>/dev/null || echo "lxd snap logs not available on ${vm}"
+    
+    echo ""
+    echo "--- ${vm}: MICROCEPH SNAP LOGS ---"
+    lxc exec "${vm}" -- snap logs microceph -n=all 2>/dev/null || echo "microceph snap logs not available on ${vm}"
+    
+    echo ""
+    echo "--- ${vm}: MICROOVN SNAP LOGS ---"
+    lxc exec "${vm}" -- snap logs microovn -n=all 2>/dev/null || echo "microovn snap logs not available on ${vm}"
+    
+    echo ""
+    echo "==================== END ${vm} LOGS ===================="
+  done
+
+  echo ""
+  echo "==> End of diagnostic logs"
+}
+
+
+terraform_demo_cleanup() {
+  # Print logs only on failure 
+  if [ "$?" -ne 0 ]; then
+    echo "Test failed, collecting diagnostic logs..."
+    print_logs
+  else
+    echo "Test completed successfully, skipping log collection"
+  fi
+
+  echo "==> Terraform demo cleanup starting"
   lxc remote switch local || true
   
   # Try to destroy terraform resources if terraform directory exists
@@ -93,7 +150,7 @@ test_terraform_demo() {
   fi
   
   echo "==> Validating MicroCloud cluster health and configuration"
-  if ! lxc exec micro1 -- microcloud status | grep -q "HEALTHY"; then
+  if ! lxc exec "${INITIATOR}" -- microcloud status | grep -q "HEALTHY"; then
     echo "ERROR: MicroCloud cluster is not healthy"
     exit 1
   fi
@@ -132,21 +189,21 @@ test_terraform_demo() {
   
   # Test basic cluster functionality by creating and managing a container
   echo "==> Testing basic cluster functionality"
-  if ! lxc exec micro1 -- lxc launch ubuntu-minimal-daily:24.04 test-container; then
+  if ! lxc exec "${INITIATOR}" -- lxc launch ubuntu-minimal-daily:24.04 test-container; then
     echo "ERROR: Failed to launch test container"
     exit 1
   fi
   echo "  -> Test container launched successfully"
 
   # Wait for container to be ready and then delete it
-  if ! lxc exec micro1 -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady test-container"; then
+  if ! lxc exec "${INITIATOR}" -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady test-container"; then
     echo "ERROR: Test container failed to become ready"
-    lxc exec micro1 -- lxc delete test-container --force || true
+    lxc exec "${INITIATOR}" -- lxc delete test-container --force || true
     exit 1
   fi
   echo "  -> Test container is ready"
   
-  if ! lxc exec micro1 -- lxc delete test-container --force; then
+  if ! lxc exec "${INITIATOR}" -- lxc delete test-container --force; then
     echo "ERROR: Failed to delete test container"
     exit 1
   fi
