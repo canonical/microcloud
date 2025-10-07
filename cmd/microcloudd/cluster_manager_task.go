@@ -198,7 +198,9 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.Clus
 		statusFrequencies[member.Status]++
 		memberState, _, err := lxdClient.GetClusterMemberState(member.ServerName)
 		if err != nil {
-			return err
+			// If we can't get the state of a member, skip it but continue with others.
+			logger.Warn("Failed to get LXD cluster member state", logger.Ctx{"member": member.ServerName, "err": err})
+			continue
 		}
 
 		result.MemoryTotalAmount += int64(memberState.SysInfo.TotalRAM)
