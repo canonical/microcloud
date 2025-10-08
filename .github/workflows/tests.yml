@@ -186,6 +186,7 @@ jobs:
         with:
           setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
           setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
+          collect_coverage: ${{ matrix.suite != 'terraform_demo' }}
 
   system-tests-upgrade:
     env:
