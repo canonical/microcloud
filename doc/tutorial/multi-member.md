@@ -1,14 +1,10 @@
-(get-started)=
-# Get started with MicroCloud
+(tutorial-multi)=
+# MicroCloud tutorial using multiple virtualized cluster members
 
-MicroCloud is quick to set up.
-Once {ref}`installed <howto-install>`, you can start using MicroCloud in the same way as a regular LXD cluster.
-
-This tutorial guides you through installing and initializing MicroCloud in a confined environment, then starting some instances to see what you can do with MicroCloud.
-It uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow the tutorial.
+This tutorial guides you through installing and initializing MicroCloud in a confined environment, including storage and networking. You'll then start some instances to see what you can do with MicroCloud. This tutorial uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow it.
 
 ```{tip}
-   While VMs are used as cluster members for this tutorial, we recommend that you use physical machines in a production environment. You can use VMs as cluster members in testing or development environments. To do so, your host machine must have nested virtualization enabled. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
+   Only use physical machines in a production environment. Use VMs as cluster members only in testing or development environments, such as this tutorial. For this, nested virtualization must be enabled on your host machine. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
 
    We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfill the {ref}`reference-requirements-hardware`.
 ```
@@ -1075,10 +1071,11 @@ See {ref}`lxd:access-ui` for more information.
    Instances view in the LXD UI
    ```
 
+(tutorial-multi-next)=
 ## Next steps
 
-Now that your MicroCloud is up and running, you can start using it!
-
-If you're already familiar with LXD, see {ref}`howto-commands` for a reference of the most common commands.
+Now that your MicroCloud is up and running, you can start using it! If you're already familiar with LXD, see {ref}`howto-commands` for a reference of the most common commands.
 
 If you're new to LXD, check out the {ref}`LXD tutorial <lxd:tutorial-first-steps>` to familiarize yourself with what you can do in LXD. It guides you through common initial operations in LXD, using either the CLI or a web-based graphical UI. Skip the first section about installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.
+
+Keep in mind that the MicroCloud cluster you created using virtual machines as cluster members in this tutorial is not intended for production use. Follow {ref}`tutorial-multi` if you want to try setting up MicroCloud on a physical machine.
