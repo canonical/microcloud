@@ -270,7 +270,7 @@ if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     intersphinx_mapping = {
         'lxd': ('https://documentation.ubuntu.com/lxd/stable-5.21/', None),
         'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/v19.2.0-squid/', None),
-        'microovn': ('https://canonical-microovn.readthedocs-hosted.com/en/latest/', None),
+        'microovn': ('https://documentation.ubuntu.com/microcloud/v2-edge/microovn/', None),
         'ceph': ('https://docs.ceph.com/en/latest/', None),
     }
 elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
