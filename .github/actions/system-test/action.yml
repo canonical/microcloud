@@ -8,6 +8,10 @@ inputs:
     description: 'Set up Terraform for tests that require it'
     required: false
     default: 'false'
+  collect_coverage:
+    description: 'Whether to collect Go coverage data for this test'
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -155,6 +159,13 @@ runs:
       run: |
         set -eux
         chmod +x ~
+        
+        # Handle coverage collection based on input
+        if [ "${{ inputs.collect_coverage }}" = "false" ]; then
+          echo "Coverage collection disabled for this test"
+          export GOCOVERDIR=''
+        fi
+        
         cd test
         sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
         echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
