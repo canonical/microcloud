@@ -27,6 +27,7 @@ frontend
 GbE
 GiB
 HA
+HMAC
 HWE
 init
 intra
@@ -42,6 +43,7 @@ MicroCeph
 MicroCloud
 MicroCloud's
 MicroOVN
+mTLS
 multicast
 NAT
 Netplan
@@ -67,6 +69,7 @@ subnets
 SVG
 Terraform
 TinyPNG
+TLS
 uplink
 upstream's
 virtualized
