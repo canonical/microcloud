@@ -39,7 +39,7 @@ You could also decide to put both types of traffic on the same high throughput a
 
 To use a fully or partially disaggregated Ceph networking setup with your MicroCloud, specify the corresponding subnets during the MicroCloud initialization process.
 
-The following instructions build on the {ref}`get-started` tutorial and show how you can test setting up a MicroCloud with disaggregated Ceph networking inside a LXD setup.
+The following instructions build on our {ref}`multi-member tutorial <tutorial-multi>` and show how you can test setting up a MicroCloud with disaggregated Ceph networking inside a LXD setup.
 
 1. Create the dedicated networks for Ceph:
 
