@@ -12,7 +12,7 @@ You can choose to skip this question (just hit `Enter`). MicroCloud then uses it
 You could also choose to configure a dedicated underlay network for OVN by typing `yes`. A list of available network interfaces with an IP address will be displayed.
 You can then select one network interface per cluster member to be used as the interfaces for the underlay network of OVN.
 
-The following instructions build on the {ref}`get-started` tutorial and show how you can test setting up a MicroCloud with an OVN underlay network.
+The following instructions build on our {ref}`multi-member tutorial <tutorial-multi>` and show how you can test setting up a MicroCloud with an OVN underlay network.
 
 1. Create the dedicated network for the OVN underlay:
 
