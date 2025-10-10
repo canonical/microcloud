@@ -1,13 +1,13 @@
 (howto-terraform-automation)=
 # How to automate a MicroCloud test deployment with Terraform
 
-This guide shows you how to automatically deploy a MicroCloud test environment using Terraform and the LXD provider. The Terraform configuration replicates the same setup as in the {ref}`get-started` tutorial, which uses four VMs on a single physical machine for the MicroCloud cluster members. It automates all the manual steps from that tutorial, including VM creation, disk provisioning, network configuration, and MicroCloud initialization.
+This guide shows you how to automatically deploy a MicroCloud test environment using Terraform and the LXD provider. The Terraform configuration replicates the same setup as in our {ref}`multi-member tutorial <tutorial-multi>`, which uses four VMs on a single physical machine for the MicroCloud cluster members. It automates all the manual steps from that tutorial, including VM creation, disk provisioning, network configuration, and MicroCloud initialization.
 
 For production deployments, use physical machines instead of VMs and review the {ref}`reference-requirements` for proper hardware specifications.
 
 <!-- Include start rename-terraform-resources-note -->
 ```{note}
-This Terraform configuration creates the same infrastructure as the manual {ref}`get-started` tutorial. If you have already followed that tutorial, you may encounter naming conflicts with existing resources (VMs, networks, storage volumes). Either clean up the existing resources first or modify the variable names in the Terraform configuration.
+This Terraform configuration creates the same infrastructure as the manual {ref}`multi-member tutorial <tutorial-multi>`. If you have already followed that tutorial, you may encounter naming conflicts with existing resources (VMs, networks, storage volumes). Either clean up the existing resources first or modify the variable names in the Terraform configuration.
 ```
 <!-- Include end rename-terraform-resources-note -->
 
@@ -16,14 +16,14 @@ This Terraform configuration creates the same infrastructure as the manual {ref}
 Before using this Terraform configuration, ensure you have:
 
 - **Terraform installed** (version 1.0 or later)
-- **LXD installed and initialized** on your host machine (see {ref}`get-started` step 1)
-- **Sufficient storage space** as described in the {ref}`get-started` tutorial (step 2)
+- **LXD installed and initialized** on your host machine (see the {ref}`multi-member tutorial <tutorial-multi>` step 1)
+- **Sufficient storage space** as described in the {ref}`multi-member tutorial <tutorial-multi>` (step 2)
 - **Network connectivity** for downloading Ubuntu images and snaps
-- **Nested virtualization enabled** as mentioned in the {ref}`get-started` tutorial introduction
+- **Nested virtualization enabled** as mentioned in the {ref}`multi-member tutorial <tutorial-multi>` introduction
 
 The host LXD should have:
-- A storage pool that meets the requirements described in {ref}`get-started` step 2
-- A bridge network for VM connectivity (configured during LXD initialization in {ref}`get-started` step 1)
+- A storage pool that meets the requirements described in the {ref}`multi-member tutorial <tutorial-multi>` step 2
+- A bridge network for VM connectivity (configured during LXD initialization in the {ref}`multi-member tutorial <tutorial-multi>` step 1)
 
 ## Configuration overview
 
@@ -35,7 +35,7 @@ The Terraform configuration automates the entire MicroCloud setup process:
 - **Service installation**: Installs MicroCloud, LXD, MicroCeph, and MicroOVN snaps via cloud-init
 - **Cluster initialization**: Uses preseed configuration to automatically initialize the MicroCloud cluster
 
-The resulting setup matches the {ref}`get-started` tutorial:
+The resulting setup matches the {ref}`multi-member tutorial <tutorial-multi>`:
 - **4 VMs**: `micro1` (initiator), `micro2`, `micro3`, `micro4`
 - **Storage**: Local storage on all VMs, Ceph storage on first 3 VMs
 - **Networking**: OVN distributed networking with uplink connectivity
