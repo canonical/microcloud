@@ -14,8 +14,8 @@ import (
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/rest"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microcloud/microcloud/api/types"

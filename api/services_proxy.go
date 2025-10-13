@@ -11,9 +11,9 @@ import (
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/ws"
-	"github.com/canonical/microcluster/v2/microcluster"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster"
+	"github.com/canonical/microcluster/v3/rest"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )
