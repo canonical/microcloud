@@ -14,8 +14,8 @@ import (
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v2/microcluster"
-	microTypes "github.com/canonical/microcluster/v2/rest/types"
+	"github.com/canonical/microcluster/v3/microcluster"
+	microTypes "github.com/canonical/microcluster/v3/rest/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
