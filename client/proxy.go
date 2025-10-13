@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared"
-	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v3/client"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 )
