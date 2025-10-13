@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microTypes "github.com/canonical/microcluster/v2/rest/types"
+	microTypes "github.com/canonical/microcluster/v3/rest/types"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
