@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v3/rest"
+	"github.com/canonical/microcluster/v3/rest/response"
 	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
