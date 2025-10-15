@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -133,7 +134,7 @@ func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*htt
 
 	// fetch remote cert and pick the first address that succeeds a connection
 	for _, address = range addresses {
-		remoteCert, err = shared.GetRemoteCertificate("https://"+address, version.UserAgent)
+		remoteCert, err = shared.GetRemoteCertificate(context.TODO(), "https://"+address, version.UserAgent)
 		// found a succeeding address, exit loop
 		if err == nil {
 			break

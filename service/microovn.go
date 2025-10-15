@@ -14,8 +14,8 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/client"
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/client"
+	"github.com/canonical/microcluster/v3/microcluster"
 	ovnTypes "github.com/canonical/microovn/microovn/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"

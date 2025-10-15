@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 )
 
 // ClusterManagerDefaultName is the default name for the cluster manager.

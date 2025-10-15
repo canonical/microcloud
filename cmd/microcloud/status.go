@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/canonical/microcluster/v2/microcluster"
-	microTypes "github.com/canonical/microcluster/v2/rest/types"
+	"github.com/canonical/microcluster/v3/microcluster"
+	microTypes "github.com/canonical/microcluster/v3/rest/types"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"

@@ -17,7 +17,7 @@ import (
 	"github.com/canonical/lxd/shared/units"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -805,7 +805,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		// TODO: call `s.Services[types.MicroOVN].(*service.OVNService).SupportsFeature(context.Background(), "custom_encapsulation_ip")`
-		// when MicroCloud will be updated with microcluster/v2
+		// when MicroCloud will be updated with microcluster/v3
 		// Check the preseed underlay network configuration against the available ifaces.
 		if ovnUnderlayNeeded {
 			assignedSystems := map[string]bool{}

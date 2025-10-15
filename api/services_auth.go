@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/trust"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/rest/response"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )

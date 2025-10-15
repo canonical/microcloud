@@ -13,8 +13,8 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microClient "github.com/canonical/microcluster/v2/client"
-	"github.com/canonical/microcluster/v2/microcluster"
+	microClient "github.com/canonical/microcluster/v3/client"
+	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
