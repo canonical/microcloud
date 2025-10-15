@@ -200,6 +200,13 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 		}
 	}
 
+	if args.ReverseTunnel != nil {
+		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.ReverseTunnelKey, *args.ReverseTunnel)
+		if err != nil {
+			return response.SmartError(err)
+		}
+	}
+
 	return response.SyncResponse(true, nil)
 }
 
