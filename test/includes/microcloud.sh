@@ -1448,31 +1448,28 @@ lxd_wait_vm() {
   return 1
 }
 
-# ip_prefix_by_netmask: Returns the prefix length of the given netmask.
-ip_prefix_by_netmask () {
-  # shellcheck disable=SC2048,SC2086
-  c=0 x=0$( printf '%o' ${1//./ } )
-  # shellcheck disable=SC2048,SC2086
-  while [ $x -gt 0 ]; do
-    (( c += x % 2, x >>= 1 ))
-  done
-
-  echo /$c ;
-}
-
 # ip_config_to_netaddr: Returns the IPv4 network address of the given interface.
 # e.g: ip_config_to_netaddr lxdbr0 (with inet: 10.233.6.X/24)-> 10.233.6.0/24
 ip_config_to_netaddr () {
-	local line ip mask net_addr
-  line=$(ifconfig -a "$1" | grep netmask | tr -s " ")
-  ip=$(echo "$line" | cut -f 3 -d " ")
-  mask=$(echo "$line" | cut -f 5 -d " ")
+  local ip ip_dec cidr mask net net_dec
+  IFS=/ read -r ip cidr < <(ip -4 addr show dev "${1}" | awk '{if ($1 == "inet") print $2}')
 
-	IFS=. read -r io1 io2 io3 io4 <<< "$ip"
-	IFS=. read -r mo1 mo2 mo3 mo4 <<< "$mask"
-	net_addr="$((io1 & mo1)).$((io2 & mo2)).$((io3 & mo3)).$((io4 & mo4))"
+  # Convert IP to a 32-bit integer (decimal)
+  ip_dec="$(awk -F'.' '{printf "%d", (($1*256+$2)*256+$3)*256+$4}' <<< "${ip}")"
 
-	echo "${net_addr}$(ip_prefix_by_netmask "${mask}")"
+  # Calculate the network mask (32-bit integer)
+  # Network Mask = (2^mask_len - 1) shifted left by (32 - mask_len)
+  # A simpler way: (0xFFFFFFFF << (32 - mask_len)) & 0xFFFFFFFF
+  mask="$(( (0xFFFFFFFF << (32 - cidr)) & 0xFFFFFFFF ))"
+
+  # Calculate the network address (bit-wise AND)
+  net_dec="$(( ip_dec & mask ))"
+
+  # Convert the resulting 32-bit integer back to dotted-decimal format (network address)
+  net="$(( (net_dec >> 24) & 0xFF )).$(( (net_dec >> 16) & 0xFF )).$(( (net_dec >> 8) & 0xFF )).$(( net_dec & 0xFF ))"
+
+  # Output the final network address in CIDR format
+  echo "${net}/${cidr}"
 }
 
 set_cluster_subnet() {
