@@ -17,7 +17,19 @@ DNS_SERVERS="192.0.2.1,2001:db8:d:200::1"
 
 # Print logs directly to stdout for immediate visibility
 print_logs() {
-  echo "==> Printing diagnostic logs from all VMs"
+  echo "==> Printing diagnostic logs from host and all VMs"
+  
+  echo ""
+  echo "==================== HOST LXD LOGS ===================="
+  echo "--- HOST: LXD DAEMON LOGS ---"
+  journalctl -u snap.lxd.daemon --no-pager || echo "LXD daemon logs not available"
+  
+  echo ""
+  echo "--- HOST: LXD IMAGE FINGERPRINTS ---"
+  lxc image list 2>/dev/null || echo "lxc image list not available"
+  
+  echo ""
+  echo "==================== END HOST LOGS ===================="
   
   # Collect logs from each VM
   for vm in ${VMS}; do
@@ -54,6 +66,14 @@ print_logs() {
     echo ""
     echo "--- ${vm}: MICROOVN SNAP LOGS ---"
     lxc exec "${vm}" -- snap logs microovn -n=all 2>/dev/null || echo "microovn snap logs not available on ${vm}"
+    
+    echo ""
+    echo "--- ${vm}: INSTALLED SNAPS ---"
+    lxc exec "${vm}" -- snap list --all 2>/dev/null || echo "snap list not available on ${vm}"
+    
+    echo ""
+    echo "--- ${vm}: LXD IMAGE FINGERPRINTS ---"
+    lxc exec "${vm}" -- lxc image list 2>/dev/null || echo "lxc image list not available on ${vm}"
     
     echo ""
     echo "==================== END ${vm} LOGS ===================="
