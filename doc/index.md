@@ -48,7 +48,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ```{grid-item} [Explanation](/explanation/index)
 
-**Discussion and clarification** of key topics such as {ref}`networking <explanation-networking>` and the [initialization process](/explanation/initialization/)
+**Discussion and clarification** of key topics such as {ref}`networking <exp-networking>` and the [initialization process](/explanation/initialization/)
 ```
 
 ````
