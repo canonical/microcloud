@@ -15,7 +15,6 @@ MicroCloud sets up a LXD cluster. You can use the {command}`microcloud cluster` 
 
 Apart from that, you can use LXD commands to manage the cluster. In the LXD documentation, see {ref}`lxd:clustering` for how-to guides on cluster management, or {ref}`lxd:exp-clusters` for an explanation of LXD clusters.
 
-(explanation-networking)=
 (exp-microcloud-microovn)=
 ## MicroOVN networking
 
