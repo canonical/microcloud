@@ -35,7 +35,7 @@ test_add_interactive() {
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -63,7 +63,7 @@ test_add_interactive() {
   export SETUP_CEPH="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_IMPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export OVN_UNDERLAY_NETWORK="no"
   join_session add micro01 micro04
@@ -85,7 +85,7 @@ test_add_interactive() {
   export EXPECT_PEERS=2
   export SETUP_ZFS="no"
   export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
 
   # Disable optional services on the initial cluster only.
   for m in micro01 micro02 micro03 ; do
@@ -126,7 +126,7 @@ test_add_interactive() {
   export EXPECT_PEERS=2
   export SETUP_ZFS="no"
   export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
 
   lxc exec micro04 -- snap disable microcloud
   join_session init micro01 micro02 micro03
@@ -147,7 +147,7 @@ test_add_interactive() {
   export SETUP_CEPHFS="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -180,7 +180,7 @@ test_add_interactive() {
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -207,7 +207,7 @@ test_add_interactive() {
   export SETUP_CEPHFS="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_IMPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export OVN_UNDERLAY_NETWORK="no"
   export REPLACE_PROFILE="yes"

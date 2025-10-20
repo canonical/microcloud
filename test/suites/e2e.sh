@@ -21,7 +21,7 @@ test_e2e() {
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"

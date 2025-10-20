@@ -11,7 +11,7 @@ test_interactive() {
   export EXPECT_PEERS=2
   export SETUP_ZFS="no"
   export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   join_session init micro01 micro02 micro03
@@ -43,7 +43,7 @@ test_interactive() {
   export ZFS_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
-  unset SETUP_CEPH SETUP_OVN
+  unset SETUP_CEPH SETUP_OVN_EXPLICIT
   join_session init micro01 micro02 micro03
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
@@ -91,7 +91,7 @@ test_interactive() {
 
   # This will avoid to setup the cluster if no IPv4 overlay networking is available.
   export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
   export PROCEED_WITH_NO_OVERLAY_NETWORKING="no"
 
   echo "Creating a MicroCloud with ZFS storage and no IPv4 support"
@@ -102,7 +102,7 @@ test_interactive() {
 
   # Set the IPv4 address back to the original value.
   lxc network set lxdbr0 ipv4.address "${gw_net_addr}"
-  unset PROCEED_WITH_NO_OVERLAY_NETWORKING SKIP_LOOKUP SETUP_CEPH SETUP_OVN
+  unset PROCEED_WITH_NO_OVERLAY_NETWORKING SKIP_LOOKUP SETUP_CEPH SETUP_OVN_EXPLICIT
 
   export MULTI_NODE="yes"
   export LOOKUP_IFACE="enp5s0"
@@ -146,7 +146,7 @@ test_interactive() {
   echo "Creating a MicroCloud with ZFS storage and OVN network"
   unset SETUP_CEPH CEPH_FILTER CEPH_WIPE SETUP_CEPHFS
 
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -223,7 +223,7 @@ test_interactive() {
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   export CEPH_PUBLIC_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -263,7 +263,7 @@ test_interactive() {
   export CEPH_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${ceph_cluster_subnet_prefix}.0/24"
   export CEPH_PUBLIC_NETWORK="${ceph_public_subnet_prefix}.0/24"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -341,7 +341,7 @@ test_interactive() {
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
 
   # Run a 2 nodes MicroCloud without MicroOVN first.
   join_session init micro01 micro02
@@ -365,7 +365,7 @@ test_interactive() {
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export OVN_UNDERLAY_NETWORK="yes"
   export OVN_UNDERLAY_FILTER="${ovn_underlay_subnet_prefix}"
@@ -557,7 +557,7 @@ _test_case() {
 
     if [ "${num_ifaces}" -gt 0 ] ; then
       if [ -z "${force_no_ovn}" ] ; then
-        export SETUP_OVN="yes"
+        export SETUP_OVN_EXPLICIT="yes"
 
         # Always pick the first available interface.
         export OVN_FILTER="enp6s0"
@@ -569,7 +569,7 @@ _test_case() {
 
         expected_ovn_iface="enp6s0"
       else
-        export SETUP_OVN="no"
+        export SETUP_OVN_EXPLICIT="no"
       fi
     else
       export OVN_WARNING="yes"
@@ -674,7 +674,7 @@ test_service_mismatch() {
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
 
   # Restore the snapshots from the previous test.
   reset_systems 3 3 1
@@ -741,7 +741,7 @@ test_service_mismatch() {
   lxc exec micro01 -- snap restart microcloud
 
   SKIP_SERVICE="yes"
-  unset SETUP_CEPH SETUP_OVN
+  unset SETUP_CEPH SETUP_OVN_EXPLICIT
   # Init from the minimal system should work, but not set up any services it doesn't have.
   echo "Creating a MicroCloud without setting up MicroOVN and MicroCeph on peers"
   join_session init micro01 micro02 micro03
@@ -777,7 +777,7 @@ test_disk_mismatch() {
   export SETUP_CEPHFS="yes"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="no"
+  export SETUP_OVN_EXPLICIT="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   join_session init micro01 micro02 micro03 micro04
@@ -845,7 +845,7 @@ test_reuse_cluster() {
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -936,7 +936,7 @@ test_reuse_cluster() {
   export SETUP_CEPH="yes"
   export SKIP_CEPH_DISKS="yes"
   export SETUP_CEPHFS="yes"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -978,7 +978,7 @@ test_remove_cluster() {
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -1141,7 +1141,7 @@ test_add_services() {
   export CEPH_ENCRYPT="no"
   export CEPH_FILTER="lxd_disk2"
   export CEPH_WIPE="yes"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
   export IPV4_START="10.1.123.100"
@@ -1167,7 +1167,7 @@ test_add_services() {
   export SKIP_LOOKUP=1
   unset MULTI_NODE
   unset SETUP_ZFS
-  unset SETUP_OVN
+  unset SETUP_OVN_EXPLICIT
   export REPLACE_PROFILE="no"
   microcloud_interactive "service add" micro01
   # The initial cluster got setup with only local storage.
@@ -1186,7 +1186,7 @@ test_add_services() {
   export MULTI_NODE="yes"
   export SKIP_SERVICE="yes"
   export SETUP_ZFS="yes"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microceph
   lxc exec micro01 -- snap restart microcloud
@@ -1194,7 +1194,7 @@ test_add_services() {
   export SKIP_LOOKUP=1
   unset MULTI_NODE
   unset SETUP_ZFS
-  unset SETUP_OVN
+  unset SETUP_OVN_EXPLICIT
   export REPLACE_PROFILE="yes"
   microcloud_interactive "service add" micro01
   services_validator
@@ -1212,7 +1212,7 @@ test_add_services() {
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
   lxc exec micro01 -- snap restart microcloud
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
   unset SETUP_ZFS
@@ -1231,12 +1231,12 @@ test_add_services() {
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
   unset SKIP_LOOKUP
-  unset SETUP_OVN
+  unset SETUP_OVN_EXPLICIT
   join_session init micro01 micro02 micro03
   lxc exec micro01 -- snap enable microovn
   lxc exec micro01 -- snap enable microceph
   lxc exec micro01 -- snap restart microcloud
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export SETUP_CEPH="yes"
   export SKIP_LOOKUP=1
   unset MULTI_NODE
@@ -1265,7 +1265,7 @@ test_add_services() {
   export SKIP_LOOKUP=1
   unset MULTI_NODE
   unset SETUP_ZFS
-  unset SETUP_OVN
+  unset SETUP_OVN_EXPLICIT
   unset CEPH_CLUSTER_NETWORK
   unset CEPH_PUBLIC_NETWORK
   microcloud_interactive "service add" micro01
@@ -1278,7 +1278,7 @@ test_add_services() {
   echo Fail to add any services if they have been set up
   export MULTI_NODE="yes"
   export SETUP_ZFS="yes"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   unset REUSE_EXISTING
   unset REUSE_EXISTING_COUNT
   unset SKIP_LOOKUP
@@ -1307,7 +1307,7 @@ test_non_ha() {
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_ENCRYPT="no"
   export CEPH_RETRY_HA="no"
-  export SETUP_OVN="yes"
+  export SETUP_OVN_EXPLICIT="yes"
   export OVN_UNDERLAY_NETWORK="no"
   export OVN_FILTER="enp6s0"
   export IPV4_SUBNET="10.1.123.1/24"
@@ -1372,9 +1372,11 @@ test_non_ha() {
   unset CEPH_CLUSTER_NETWORK
   unset CEPH_PUBLIC_NETWORK
   unset CEPH_RETRY_HA
+  unset SETUP_OVN_EXPLICIT
   unset IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
   unset SETUP_CEPHFS
   export EXPECT_PEERS=2
+  export SETUP_OVN_IMPLICIT="yes"
   join_session add micro01 micro02 micro03
   for m in micro1 micro2 micro3 ; do
     validate_system_lxd "micro01" 3 "disk1" 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8
