@@ -5,7 +5,7 @@ unset_interactive_vars() {
   unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
     SETUP_ZFS ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
-    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
+    PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN_EXPLICIT SETUP_OVN_IMPLICIT OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
     REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
 }
 
@@ -44,7 +44,8 @@ microcloud_interactive() {
   CEPH_CLUSTER_NETWORK=${CEPH_CLUSTER_NETWORK:-} # (default: MicroCloud internal subnet) input for setting up a cluster network.
   CEPH_PUBLIC_NETWORK=${CEPH_PUBLIC_NETWORK:-}   # (default: MicroCloud internal subnet or Ceph internal network if specified previously) input for setting up a public network.
   PROCEED_WITH_NO_OVERLAY_NETWORKING=${PROCEED_WITH_NO_OVERLAY_NETWORKING:-} # (yes/no) input for proceeding without overlay networking.
-  SETUP_OVN=${SETUP_OVN:-}                        # (yes/no) input for initiating OVN network setup.
+  SETUP_OVN_EXPLICIT=${SETUP_OVN_EXPLICIT:-}      # (yes/no) input for explicitly initiating OVN network setup during bootstrap.
+  SETUP_OVN_IMPLICIT=${SETUP_OVN_IMPLICIT:-}      # (yes/no) input for implicitly initiating OVN network setup during join as it doesn't anymore ask to configure distributed networking.
   OVN_WARNING=${OVN_WARNING:-}                    # (yes/no) input for warning about eligible interface detection.
   OVN_FILTER=${OVN_FILTER:-}                      # filter string for OVN interfaces.
   IPV4_SUBNET=${IPV4_SUBNET:-}                    # OVN ipv4 gateway subnet.
@@ -141,13 +142,18 @@ $(true)                                                 # workaround for set -e
 "
 fi
 
-if [ -n "${SETUP_OVN}" ]; then
+if [ -n "${SETUP_OVN_EXPLICIT}" ] || [ -n "${SETUP_OVN_IMPLICIT}" ]; then
+  if [ -n "${SETUP_OVN_EXPLICIT}" ]; then
+      setup="${setup}
+${SETUP_OVN_EXPLICIT}  # agree to explicitly setup OVN
+"
+  fi
+
   setup="${setup}
-${SETUP_OVN}                                           # agree to setup OVN
-$([ "${SETUP_OVN}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
+$([ "${SETUP_OVN_EXPLICIT}" = "yes" ] || [ "${SETUP_OVN_IMPLICIT}" = "yes" ] && printf "table:wait 300ms")   # wait for the table to populate
 $([ -n "${OVN_FILTER}" ] && printf "table:filter %s" "${OVN_FILTER}")          # filter interfaces
-$([ "${SETUP_OVN}" = "yes" ] && printf "table:select-all")   # select all interfaces matching the filter
-$([ "${SETUP_OVN}" = "yes" ] && printf -- "table:done")
+$([ "${SETUP_OVN_EXPLICIT}" = "yes" ] || [ "${SETUP_OVN_IMPLICIT}" = "yes" ] && printf "table:select-all")   # select all interfaces matching the filter
+$([ "${SETUP_OVN_EXPLICIT}" = "yes" ] || [ "${SETUP_OVN_IMPLICIT}" = "yes" ] && printf -- "table:done")
 ${IPV4_SUBNET}                                         # setup ipv4/ipv6 gateways and ranges
 ${IPV4_START}
 ${IPV4_END}
