@@ -139,13 +139,19 @@ getIPv4() {
 checkConnectivity() {
     local src="${1}"
     local dst="${2}"
-    local dstIPv4
-    dstIPv4="$(getIPv4 "${dst}")"
 
-    echo -n " ● ${src} => ${dst} (${dstIPv4}):"
     # Using bash /dev/tcp to check for connectivity as it is available in every Ubuntu images even the minimal ones.
     # Define the probe inside a function to not cause issues passing the space separated arguments to retry().
-    probe() { lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"; }
+    probe() {
+        local dstIPv4
+
+        # Try to obtain the instances address in every iteration.
+        # This allows the instance more time to receive its address after starting up.
+        dstIPv4="$(getIPv4 "${dst}")"
+
+        echo -n " ● ${src} => ${dst} (${dstIPv4}):"
+        lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"
+    }
 
     # Use the retry function in case the target isn't yet reachable.
     if retry probe; then
