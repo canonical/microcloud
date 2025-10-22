@@ -1037,10 +1037,21 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 		return errors.New("User aborted")
 	}
 
-	// Ask the user if they want OVN.
-	wantsOVN, err := c.asker.AskBool("Configure distributed networking?", true)
-	if err != nil {
-		return err
+	wantsOVN := false
+
+	// When adding a new member it's important to check whether or not the existing cluster already
+	// has distributed networking configured.
+	// If the current system is marked to use an OVN join config and isn't bootstrapping, we can assume distributed networking.
+	if useOVNJoinConfig && !c.bootstrap {
+		wantsOVN = true
+	} else {
+		var err error
+
+		// Ask the user if they want OVN.
+		wantsOVN, err = c.asker.AskBool("Configure distributed networking?", true)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !wantsOVN {
@@ -1061,7 +1072,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	var selectedIfaces map[string]string
-	err = c.askRetry("Retry selecting uplink interfaces?", func() error {
+	err := c.askRetry("Retry selecting uplink interfaces?", func() error {
 		table := tui.NewSelectableTable(header, data)
 		answers, err := table.Render(context.Background(), c.asker, "Select an available interface per system to provide external connectivity for distributed network(s):")
 		if err != nil {
