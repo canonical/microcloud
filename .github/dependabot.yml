@@ -2,6 +2,9 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     labels: []
     schedule:
       interval: "weekly"
@@ -15,7 +18,9 @@ updates:
     target-branch: "main"
 
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     labels: []
     schedule:
       interval: "weekly"
