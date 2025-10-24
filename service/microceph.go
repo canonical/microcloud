@@ -144,7 +144,10 @@ func (s CephService) AddDisk(ctx context.Context, data cephTypes.DisksPost, targ
 	// Allow MicroCeph time to bootstrap the new OSDs.
 	// In case we are adding a lot of disks, the request might run for a while.
 	// By default the underlying Microcluster client sets a default deadline of 30 seconds.
-	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	// In the pipeline runners we often see runtimes > 1 minute.
+	// To prevent any issues with slow environments set a more forgiving upper limit.
+	// As long as the MicroCeph API doesn't return an error, the process is still running and we have to wait for it.
+	ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	err = c.Query(ctx, "POST", types.APIVersion, api.NewURL().Path("disks"), data, &response)
