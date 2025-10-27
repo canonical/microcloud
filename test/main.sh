@@ -72,6 +72,9 @@ cleanup() {
   fi
 
   for name in $(lxc list -c n -f csv micro); do
+    echo "${name} disks by id:"
+    lxc exec "${name}" -- ls -la /dev/disk/by-id
+
     echo -n "${name} CLI stdout:"
     if ! lxc exec "${name}" -- test -e out; then
         echo " was not found"
