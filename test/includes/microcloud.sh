@@ -280,13 +280,13 @@ set_debug_binaries() {
 
   if [ -n "${MICROOVN_SNAP_PATH}" ]; then
     echo "==> Add local build of MicroOVN snap."
-    lxc file push "${MICROOVN_SNAP_PATH}" "${name}/root/microovn.snap"
+    lxc file push --quiet "${MICROOVN_SNAP_PATH}" "${name}/root/microovn.snap"
     lxc exec "${name}" -- snap install --dangerous "/root/microovn.snap"
   fi
 
   if [ -n "${MICROCEPH_SNAP_PATH}" ]; then
     echo "==> Add local build of MicroCeph snap."
-    lxc file push "${MICROCEPH_SNAP_PATH}" "${name}/root/microceph.snap"
+    lxc file push --quiet "${MICROCEPH_SNAP_PATH}" "${name}/root/microceph.snap"
     lxc exec "${name}" -- snap install --dangerous "/root/microceph.snap"
   fi
 
