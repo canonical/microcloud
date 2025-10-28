@@ -292,8 +292,7 @@ set_debug_binaries() {
 
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
+    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug /var/snap/microcloud/common/microcloud.debug
 
     lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug --mode 0755
     lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug --mode 0755
