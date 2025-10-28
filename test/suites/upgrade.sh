@@ -172,7 +172,7 @@ ovn:
       retries=0
       while true; do
         if [ "${retries}" -gt 60 ]; then
-          echo "LXD member ${m} failed to come up after upgrade"
+          echo "MicroCloud member ${m} failed to come up after upgrade"
           exit 1
         fi
 
