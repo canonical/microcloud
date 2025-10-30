@@ -292,12 +292,19 @@ set_debug_binaries() {
 
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
+
+    # Before injecting the binaries ensure the daemon is stopped.
+    # As the other cluster members might already have the new version, this member's version
+    # might still be behind after the snap refresh so the daemon enters a restart loop yielding "This node's version is behind, please upgrade."
+    # Therefore shut it down to exit the loop and ensure it can cleanly come up (with the right version) after injecting the binaries.
+    lxc exec "${name}" -- systemctl stop snap.microcloud.daemon || true
+
     lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug /var/snap/microcloud/common/microcloud.debug
 
     lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug --mode 0755
     lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug --mode 0755
 
-    lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
+    lxc exec "${name}" -- systemctl start snap.microcloud.daemon || true
   fi
 
   if [ -n "${LXD_DEBUG_PATH}" ]; then
