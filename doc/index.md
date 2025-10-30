@@ -6,6 +6,14 @@ relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store
 (home)=
 # MicroCloud
 
+Do not merge. Test to see if [{spellexception}`HPE Alletra` link](https://www.hpe.com/emea_europe/en/hpe-alletra.html) {spellexception}`linkcheck` still fails with different {spellexception}`linkcheck` configurations.
+
+Also test:
+- [Dell](https://www.dell.com/)
+- [Gnu](https://www.gnu.org/licenses/agpl-3.0.en.html)
+- [Ceph](https://ceph.io)
+- [{spellexception}`Schlachter`](https://www.schlachter.tech/solutions/pongo2-template-engine/)
+
 Deploy a scalable, low-touch cloud platform in minutes with MicroCloud.
 
 MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for {ref}`reproducible, scalable deployments <exp-microcloud-scale>`.

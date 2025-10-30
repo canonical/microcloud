@@ -158,6 +158,15 @@ else:
 ### Link checker
 ############################################################
 
+# From LXD:
+    # 'https://www.dell.com/',
+    # 'https://www.dell.com/en-us/shop/powerflex/sf/powerflex',
+    # 'https://www.gnu.org/licenses/agpl-3.0.en.html',
+    # r"https://ceph\.io(/.*)?",
+    # # Blocked from GH runners
+    # 'https://www.schlachter.tech/solutions/pongo2-template-engine/',
+
+
 # Links to ignore when checking links
 linkcheck_ignore = [
     'http://127.0.0.1:8000',
@@ -167,6 +176,15 @@ linkcheck_ignore = [
     # Cloudflare protection on SourceForge domains often block linkcheck
     r"https://.*\.sourceforge\.net/.*",
     ]
+
+# Links to check in local linkcheck only due to site restrictions against requests from GitHub CI
+if os.environ.get("CI") == "true":
+    linkcheck_ignore.extend([
+        r"https://www\.hpe\.com/.*",
+        r"https://www\.schlachter\.tech.*",
+        r"https://www\.dell\.com.*",
+        r"https://www.\.gnu\.org.*",
+    ])
 
 # Pages on which to ignore anchors
 # (This list will be appended to linkcheck_anchors_ignore_for_url)
