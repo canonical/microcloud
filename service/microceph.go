@@ -231,6 +231,10 @@ func (s CephService) PoolSetReplicationFactor(ctx context.Context, data cephType
 		return err
 	}
 
+	// Allow MicroCeph time to set the replication factor.
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
 	err = c.Query(ctx, "PUT", types.APIVersion, api.NewURL().Path("pools-op"), data, nil)
 	if err != nil {
 		return fmt.Errorf("Failed setting replication factor: %w", err)

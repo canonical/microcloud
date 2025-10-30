@@ -714,11 +714,11 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 }
 
 // WaitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
-// Waits up to a minute for LXD to start, before failing.
+// Waits up to two minutes for LXD to start, before failing.
 // Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
 // Furthermore the caller can wait for both network and storage to be ready.
 func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, network bool, storage bool) error {
-	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer timeoutCancel()
 
 	ctx, cancel := context.WithCancelCause(timeoutCtx)
