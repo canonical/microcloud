@@ -116,8 +116,8 @@ type cmdPreseed struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for unattended cluster initialization.
-func (c *cmdPreseed) Command() *cobra.Command {
+// command returns the subcommand for unattended cluster initialization.
+func (c *cmdPreseed) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preseed",
 		Short: "Initialize and extend a MicroCloud cluster unattended",

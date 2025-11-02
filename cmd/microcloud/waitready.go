@@ -17,8 +17,8 @@ type cmdWaitready struct {
 	flagTimeout int
 }
 
-// Command returns the subcommand for waiting on the daemon to be ready.
-func (c *cmdWaitready) Command() *cobra.Command {
+// command returns the subcommand for waiting on the daemon to be ready.
+func (c *cmdWaitready) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "waitready",
 		Short: "Wait for MicroCloud to be ready to process requests",

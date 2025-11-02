@@ -16,8 +16,8 @@ type cmdSecrets struct {
 	common *CmdControl
 }
 
-// Command returns the tokens subcommand.
-func (c *cmdSecrets) Command() *cobra.Command {
+// command returns the tokens subcommand.
+func (c *cmdSecrets) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tokens",
 		Short: "Manage join tokens",
@@ -25,10 +25,10 @@ func (c *cmdSecrets) Command() *cobra.Command {
 	}
 
 	var cmdList = cmdTokensList{common: c.common}
-	cmd.AddCommand(cmdList.Command())
+	cmd.AddCommand(cmdList.command())
 
 	var cmdRevoke = cmdTokensRevoke{common: c.common}
-	cmd.AddCommand(cmdRevoke.Command())
+	cmd.AddCommand(cmdRevoke.command())
 
 	return cmd
 }
@@ -43,8 +43,8 @@ type cmdTokensList struct {
 	flagFormat string
 }
 
-// Command returns the subcommand for listing tokens.
-func (c *cmdTokensList) Command() *cobra.Command {
+// command returns the subcommand for listing tokens.
+func (c *cmdTokensList) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List join tokens available for use",
@@ -100,8 +100,8 @@ type cmdTokensRevoke struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for revoking tokens by name.
-func (c *cmdTokensRevoke) Command() *cobra.Command {
+// command returns the subcommand for revoking tokens by name.
+func (c *cmdTokensRevoke) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke <name>",
 		Short: "Revoke the specified join token",

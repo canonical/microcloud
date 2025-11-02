@@ -26,8 +26,8 @@ type cmdAdd struct {
 	flagSessionTimeout int64
 }
 
-// Command returns the subcommand to add new systems to MicroCloud.
-func (c *cmdAdd) Command() *cobra.Command {
+// command returns the subcommand to add new systems to MicroCloud.
+func (c *cmdAdd) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add new systems to an existing MicroCloud cluster",

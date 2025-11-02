@@ -48,8 +48,8 @@ type cmdClusterMembers struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to manage cluster members.
-func (c *cmdClusterMembers) Command() *cobra.Command {
+// command returns the subcommand to manage cluster members.
+func (c *cmdClusterMembers) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cluster",
 		Short: "Manage cluster members",
@@ -57,10 +57,10 @@ func (c *cmdClusterMembers) Command() *cobra.Command {
 	}
 
 	var cmdRemove = cmdClusterMemberRemove{common: c.common}
-	cmd.AddCommand(cmdRemove.Command())
+	cmd.AddCommand(cmdRemove.command())
 
 	var cmdList = cmdClusterMembersList{common: c.common}
-	cmd.AddCommand(cmdList.Command())
+	cmd.AddCommand(cmdList.command())
 
 	var cmdEdit = cmdClusterRecover{common: c.common}
 	cmd.AddCommand(cmdEdit.command())
@@ -80,8 +80,8 @@ type cmdClusterMembersList struct {
 	flagLocal  bool
 }
 
-// Command returns the subcommand to list cluster members.
-func (c *cmdClusterMembersList) Command() *cobra.Command {
+// command returns the subcommand to list cluster members.
+func (c *cmdClusterMembersList) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <address>",
 		Short: "List cluster members locally, or remotely if an address is specified",
@@ -187,8 +187,8 @@ type cmdClusterMemberRemove struct {
 	flagForce bool
 }
 
-// Command returns the subcommand to remove a cluster member.
-func (c *cmdClusterMemberRemove) Command() *cobra.Command {
+// command returns the subcommand to remove a cluster member.
+func (c *cmdClusterMemberRemove) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <name>",
 		Short: "Remove the specified cluster member",

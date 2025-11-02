@@ -22,8 +22,8 @@ type cmdJoin struct {
 	flagInitiatorAddress string
 }
 
-// Command returns the subcommand for joining a MicroCloud.
-func (c *cmdJoin) Command() *cobra.Command {
+// command returns the subcommand for joining a MicroCloud.
+func (c *cmdJoin) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "join",
 		Short: "Join an existing MicroCloud cluster",

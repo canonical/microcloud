@@ -12,8 +12,8 @@ type cmdShutdown struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for shutting down the MicroCloud daemon.
-func (c *cmdShutdown) Command() *cobra.Command {
+// command returns the subcommand for shutting down the MicroCloud daemon.
+func (c *cmdShutdown) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shutdown",
 		Short: "Shut down the MicroCloud daemon",
