@@ -127,8 +127,8 @@ type cmdInit struct {
 	flagSessionTimeout int64
 }
 
-// Command returns the subcommand for initializing a MicroCloud.
-func (c *cmdInit) Command() *cobra.Command {
+// command returns the subcommand for initializing a MicroCloud.
+func (c *cmdInit) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"bootstrap"},
