@@ -142,7 +142,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository == 'canonical/microcloud' }}
     name: System (core)
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted-linux-amd64-noble-large
     needs: code-tests
     strategy:
       fail-fast: false
@@ -195,7 +195,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository == 'canonical/microcloud' }}
     name: System (upgrade)
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted-linux-amd64-noble-large
     needs: code-tests
     strategy:
       fail-fast: false
