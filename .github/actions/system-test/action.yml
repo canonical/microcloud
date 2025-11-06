@@ -150,22 +150,24 @@ runs:
 
     - name: Setup Terraform
       if: ${{ inputs.setup_terraform == 'true' }}
-      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-      with:
-        terraform_wrapper: false
+      shell: bash
+      run: |
+        set -eux
+
+        sudo snap install terraform --classic
 
     - name: "Run system tests (${{ matrix.suite }})"
       shell: bash
       run: |
         set -eux
         chmod +x ~
-        
+
         # Handle coverage collection based on input
         if [ "${{ inputs.collect_coverage }}" = "false" ]; then
           echo "Coverage collection disabled for this test"
           export GOCOVERDIR=''
         fi
-        
+
         cd test
         sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
         echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
