@@ -142,7 +142,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository == 'canonical/microcloud' }}
     name: System (core)
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted-linux-amd64-noble-large
     needs: code-tests
     strategy:
       fail-fast: false
@@ -195,7 +195,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository == 'canonical/microcloud' }}
     name: System (upgrade)
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted-linux-amd64-noble-large
     needs: code-tests
     strategy:
       fail-fast: false
@@ -210,34 +210,6 @@ jobs:
         microovn: ["22.03/stable"]
         lxd: ["5.21/stable"]
         microcloud: ["1/candidate"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: System test
-        uses: ./.github/actions/system-test
-
-  system-tests-canonical:
-    env:
-      DEBUG: "1"
-      SKIP_VM_LAUNCH: "1"
-      SNAPSHOT_RESTORE: "1"
-    # Run the tests on the Canonical runners only when scheduled.
-    if: ${{ github.event_name == 'schedule' && github.repository == 'canonical/microcloud' }}
-    name: System (Canonical)
-    runs-on: self-hosted-linux-amd64-jammy-large
-    needs: code-tests
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: ["instances"]
-        os:
-          - "22.04"
-          - "24.04"
-        microceph: ["latest/edge"]
-        microovn: ["latest/edge"]
-        lxd: ["5.21/edge"]
-        microcloud: ["latest/edge"]
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
