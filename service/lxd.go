@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/client"
@@ -676,7 +677,7 @@ func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	err = s.WaitReady(ctx, c, false, false)
+	err = s.WaitReady(ctx, c, false, false, 5)
 	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
 		return false, fmt.Errorf("Unix socket not found. Check if %s is installed", s.Type())
 	}
@@ -715,17 +716,13 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 
 // WaitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
 // Waits up to a minute for LXD to start, before failing.
-// Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
 // Furthermore the caller can wait for both network and storage to be ready.
-func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, network bool, storage bool) error {
+func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, network bool, storage bool, apiTimeoutSeconds int) error {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
 	defer timeoutCancel()
 
 	ctx, cancel := context.WithCancelCause(timeoutCtx)
 	defer cancel(context.Canceled)
-
-	unixCtx, unixCancel := context.WithTimeout(ctx, time.Second*5)
-	defer unixCancel()
 
 	var errLast error
 	go func() {
@@ -739,14 +736,15 @@ func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, networ
 				url.WithQuery("storage", "1")
 			}
 
+			url.WithQuery("timeout", strconv.Itoa(apiTimeoutSeconds))
+
 			_, _, err := c.RawQuery("GET", url.String(), nil, "")
 			if err != nil {
-				if api.StatusErrorCheck(err, http.StatusNotFound) {
-					if unixCtx.Err() != nil {
-						cancel(err)
-
-						return
-					}
+				// LXD is reachable but is internally reporting as not ready after the specified timeout.
+				if api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
+					errLast = fmt.Errorf("%s after %ds timeout", err.Error(), apiTimeoutSeconds)
+					time.Sleep(500 * time.Millisecond)
+					continue
 				}
 
 				errLast = err

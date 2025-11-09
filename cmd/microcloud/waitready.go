@@ -71,7 +71,7 @@ func (c *cmdWaitready) Run(cmd *cobra.Command, args []string) error {
 		// Wait for all networks and storage pools to be ready in LXD.
 		// If no remote storage was configured, wait for the local pool.
 		// If no distributed networking was configured, wait for the FAN network.
-		err = lxdService.WaitReady(ctx, client, true, true)
+		err = lxdService.WaitReady(ctx, client, true, true, 5)
 		if err != nil {
 			return fmt.Errorf("Failed waiting for the LXD daemon: %w", err)
 		}
