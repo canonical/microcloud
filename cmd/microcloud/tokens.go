@@ -16,25 +16,25 @@ type cmdSecrets struct {
 	common *CmdControl
 }
 
-// Command returns the tokens subcommand.
-func (c *cmdSecrets) Command() *cobra.Command {
+// command returns the tokens subcommand.
+func (c *cmdSecrets) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tokens",
 		Short: "Manage join tokens",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	var cmdList = cmdTokensList{common: c.common}
-	cmd.AddCommand(cmdList.Command())
+	cmd.AddCommand(cmdList.command())
 
 	var cmdRevoke = cmdTokensRevoke{common: c.common}
-	cmd.AddCommand(cmdRevoke.Command())
+	cmd.AddCommand(cmdRevoke.command())
 
 	return cmd
 }
 
-// Run runs the tokens subcommand.
-func (c *cmdSecrets) Run(cmd *cobra.Command, args []string) error {
+// run runs the tokens subcommand.
+func (c *cmdSecrets) run(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
 }
 
@@ -43,12 +43,12 @@ type cmdTokensList struct {
 	flagFormat string
 }
 
-// Command returns the subcommand for listing tokens.
-func (c *cmdTokensList) Command() *cobra.Command {
+// command returns the subcommand for listing tokens.
+func (c *cmdTokensList) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List join tokens available for use",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", tui.TableFormatTable, "Format (csv|json|table|yaml|compact)")
@@ -56,8 +56,8 @@ func (c *cmdTokensList) Command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand for listing tokens.
-func (c *cmdTokensList) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for listing tokens.
+func (c *cmdTokensList) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -100,19 +100,19 @@ type cmdTokensRevoke struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for revoking tokens by name.
-func (c *cmdTokensRevoke) Command() *cobra.Command {
+// command returns the subcommand for revoking tokens by name.
+func (c *cmdTokensRevoke) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke <name>",
 		Short: "Revoke the specified join token",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for revoking tokens by name.
-func (c *cmdTokensRevoke) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for revoking tokens by name.
+func (c *cmdTokensRevoke) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return cmd.Help()
 	}

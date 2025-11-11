@@ -92,19 +92,19 @@ type cmdStatus struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for the deployment status.
-func (c *cmdStatus) Command() *cobra.Command {
+// command returns the subcommand for the deployment status.
+func (c *cmdStatus) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Deployment status with configuration warnings",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for the deployment status.
-func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for the deployment status.
+func (c *cmdStatus) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}

@@ -27,8 +27,8 @@ type cmdServices struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to manage MicroCloud services.
-func (c *cmdServices) Command() *cobra.Command {
+// command returns the subcommand to manage MicroCloud services.
+func (c *cmdServices) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "service",
 		Short: "Manage MicroCloud services",
@@ -36,10 +36,10 @@ func (c *cmdServices) Command() *cobra.Command {
 	}
 
 	var cmdServiceList = cmdServiceList{common: c.common}
-	cmd.AddCommand(cmdServiceList.Command())
+	cmd.AddCommand(cmdServiceList.command())
 
 	var cmdServiceAdd = cmdServiceAdd{common: c.common}
-	cmd.AddCommand(cmdServiceAdd.Command())
+	cmd.AddCommand(cmdServiceAdd.command())
 
 	return cmd
 }
@@ -48,19 +48,19 @@ type cmdServiceList struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to list MicroCloud services.
-func (c *cmdServiceList) Command() *cobra.Command {
+// command returns the subcommand to list MicroCloud services.
+func (c *cmdServiceList) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List MicroCloud services and their cluster members",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand to list MicroCloud services.
-func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to list MicroCloud services.
+func (c *cmdServiceList) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -199,19 +199,19 @@ type cmdServiceAdd struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to add services to MicroCloud.
-func (c *cmdServiceAdd) Command() *cobra.Command {
+// command returns the subcommand to add services to MicroCloud.
+func (c *cmdServiceAdd) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add new services to the existing MicroCloud",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand to add services to MicroCloud.
-func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to add services to MicroCloud.
+func (c *cmdServiceAdd) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}

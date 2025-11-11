@@ -21,8 +21,8 @@ type cmdClusterManager struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand to manage cluster manager configuration.
-func (c *cmdClusterManager) Command() *cobra.Command {
+// command returns the subcommand to manage cluster manager configuration.
+func (c *cmdClusterManager) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "cluster-manager"
 	cmd.Short = "Manage cluster manager connection"

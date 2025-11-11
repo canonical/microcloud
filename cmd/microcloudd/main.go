@@ -52,21 +52,21 @@ type cmdDaemon struct {
 	flagHeartbeatInterval time.Duration
 }
 
-// Command returns the main microcloudd command.
-func (c *cmdDaemon) Command() *cobra.Command {
+// command returns the main microcloudd command.
+func (c *cmdDaemon) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "microcloudd",
 		Short:   "MicroCloud daemon",
 		Version: version.Version(),
 	}
 
-	cmd.RunE = c.Run
+	cmd.RunE = c.run
 
 	return cmd
 }
 
-// Run runs the main microcloudd command.
-func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
+// run runs the main microcloudd command.
+func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -268,7 +268,7 @@ func main() {
 	}
 
 	daemonCmd := cmdDaemon{global: &cmdGlobal{}}
-	app := daemonCmd.Command()
+	app := daemonCmd.command()
 	app.SilenceUsage = true
 	app.CompletionOptions = cobra.CompletionOptions{DisableDefaultCmd: true}
 
