@@ -22,7 +22,7 @@ func (c *cmdWaitready) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "waitready",
 		Short: "Wait for MicroCloud to be ready to process requests",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().IntVarP(&c.flagTimeout, "timeout", "t", 0, "Number of seconds to wait before giving up"+"``")
@@ -30,8 +30,8 @@ func (c *cmdWaitready) command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand for waiting on the daemon to be ready.
-func (c *cmdWaitready) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for waiting on the daemon to be ready.
+func (c *cmdWaitready) run(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return cmd.Help()
 	}

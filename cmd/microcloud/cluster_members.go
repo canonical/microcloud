@@ -53,7 +53,7 @@ func (c *cmdClusterMembers) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cluster",
 		Short: "Manage cluster members",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	var cmdRemove = cmdClusterMemberRemove{common: c.common}
@@ -68,8 +68,8 @@ func (c *cmdClusterMembers) command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand to manage cluster members.
-func (c *cmdClusterMembers) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to manage cluster members.
+func (c *cmdClusterMembers) run(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
 }
 
@@ -85,7 +85,7 @@ func (c *cmdClusterMembersList) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <address>",
 		Short: "List cluster members locally, or remotely if an address is specified",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", tui.TableFormatTable, "Format (csv|json|table|yaml|compact)")
@@ -94,8 +94,8 @@ func (c *cmdClusterMembersList) command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand to list cluster members.
-func (c *cmdClusterMembersList) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to list cluster members.
+func (c *cmdClusterMembersList) run(cmd *cobra.Command, args []string) error {
 	if len(args) > 1 {
 		return cmd.Help()
 	}
@@ -192,7 +192,7 @@ func (c *cmdClusterMemberRemove) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <name>",
 		Short: "Remove the specified cluster member",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().BoolVarP(&c.flagForce, "force", "f", false, "Forcibly remove the cluster member")
@@ -200,8 +200,8 @@ func (c *cmdClusterMemberRemove) command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand to remove a cluster member.
-func (c *cmdClusterMemberRemove) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to remove a cluster member.
+func (c *cmdClusterMemberRemove) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return cmd.Help()
 	}

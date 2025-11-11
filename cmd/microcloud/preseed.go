@@ -121,14 +121,14 @@ func (c *cmdPreseed) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preseed",
 		Short: "Initialize and extend a MicroCloud cluster unattended",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for unattended cluster initialization.
-func (c *cmdPreseed) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for unattended cluster initialization.
+func (c *cmdPreseed) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}

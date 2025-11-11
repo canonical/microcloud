@@ -27,7 +27,7 @@ func (c *cmdJoin) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "join",
 		Short: "Join an existing MicroCloud cluster",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait when finding systems on the network. Defaults: 60s")
@@ -37,8 +37,8 @@ func (c *cmdJoin) command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand for joining a MicroCloud.
-func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for joining a MicroCloud.
+func (c *cmdJoin) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
