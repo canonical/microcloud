@@ -133,7 +133,7 @@ func (c *cmdInit) command() *cobra.Command {
 		Use:     "init",
 		Aliases: []string{"bootstrap"},
 		Short:   "Initialize MicroCloud and create a new cluster",
-		RunE:    c.Run,
+		RunE:    c.run,
 	}
 
 	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
@@ -141,8 +141,8 @@ func (c *cmdInit) command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand for initializing a MicroCloud.
-func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for initializing a MicroCloud.
+func (c *cmdInit) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -161,11 +161,11 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
 	}
 
-	return cfg.RunInteractive(cmd, args)
+	return cfg.runInteractive(cmd, args)
 }
 
-// RunInteractive runs the interactive subcommand for initializing a MicroCloud.
-func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
+// runInteractive runs the interactive subcommand for initializing a MicroCloud.
+func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 	fmt.Println("Waiting for services to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
 	if err != nil {

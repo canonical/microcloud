@@ -17,14 +17,14 @@ func (c *cmdShutdown) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shutdown",
 		Short: "Shut down the MicroCloud daemon",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for shutting down the MicroCloud daemon.
-func (c *cmdShutdown) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for shutting down the MicroCloud daemon.
+func (c *cmdShutdown) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}

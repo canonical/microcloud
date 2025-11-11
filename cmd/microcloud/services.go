@@ -53,14 +53,14 @@ func (c *cmdServiceList) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List MicroCloud services and their cluster members",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand to list MicroCloud services.
-func (c *cmdServiceList) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to list MicroCloud services.
+func (c *cmdServiceList) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -204,14 +204,14 @@ func (c *cmdServiceAdd) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add new services to the existing MicroCloud",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand to add services to MicroCloud.
-func (c *cmdServiceAdd) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to add services to MicroCloud.
+func (c *cmdServiceAdd) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
