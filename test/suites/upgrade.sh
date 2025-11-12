@@ -105,7 +105,9 @@ ovn:
         sleep 1
         retries=$((retries+1))
       done
+    done
 
+    for m in micro01 micro02 micro03; do
       # There was no encryption neither dedicated Ceph networks and CephFS in MicroCloud 1.
       validate_system_microceph "${m}" 0 0 disk2
     done
@@ -130,7 +132,9 @@ ovn:
         sleep 1
         retries=$((retries+1))
       done
+    done
 
+    for m in micro01 micro02 micro03; do
       # There was no explicit OVN underlay subnet configuration in MicroCloud 1.
       validate_system_microovn "${m}"
     done
@@ -157,7 +161,10 @@ ovn:
         sleep 1
         retries=$((retries+1))
       done
+    done
 
+    # Test LXD only after all the cluster members have stabilized after upgrade.
+    for m in micro01 micro02 micro03; do
       # Don't test for DNS nameservers on the OVN network as those weren't yet added in MicroCloud 1.
       validate_system_lxd "${m}" 3 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
     done
