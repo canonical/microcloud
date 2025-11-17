@@ -29,6 +29,9 @@ import (
 // heartbeat to 0.
 const MinimumHeartbeatInterval = time.Millisecond * 200
 
+// LXDInitializationTimeout is the time limit for LXD initialization for microcloud daemon.
+const LXDInitializationTimeout time.Duration = 1 * time.Minute
+
 // Debug indicates whether to log debug messages or not.
 var Debug bool
 
@@ -201,7 +204,12 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 					return nil
 				}
 
-				initialized, err := s.Services[types.LXD].IsInitialized(context.Background())
+				// Create initialization context with timeout defined in LXDInitializationTimeout.
+				initializationCtx, cancel := context.WithTimeout(ctx, LXDInitializationTimeout)
+				defer cancel()
+
+				// Check if LXD is initialized using initializationCtx.
+				initialized, err := s.Services[types.LXD].IsInitialized(initializationCtx)
 				if err != nil {
 					return err
 				}
