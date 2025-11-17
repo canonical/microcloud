@@ -201,7 +201,12 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 					return nil
 				}
 
-				initialized, err := s.Services[types.LXD].IsInitialized(context.Background())
+				// Create initialization context with 60 secs timeout.
+				initializationCtx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+				defer cancel()
+
+				// Check if LXD is initialized using initializationCtx.
+				initialized, err := s.Services[types.LXD].IsInitialized(initializationCtx)
 				if err != nil {
 					return err
 				}
