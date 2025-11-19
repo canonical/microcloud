@@ -58,6 +58,12 @@ init() {
     fi
 }
 
+info() {
+    set -x
+    lxc cluster list "${REMOTE}:"
+    set +x
+}
+
 retry() {
     local cmd="$*"
     local i
@@ -234,6 +240,8 @@ else
     echo "Evacuation test failed: ${SUCCESFUL_EVACUATIONS} successful evacuations out of the ${EVACUATION_COUNTS} expected"
     exit 1
 fi
+
+info
 
 destroy
 echo "Done"
