@@ -229,7 +229,7 @@ done
 if [ "${EVACUATION_COUNTS}" = "0" ]; then
     echo "Evacuation test skipped"
 elif [ "${SUCCESFUL_EVACUATIONS}" = "${EVACUATION_COUNTS}" ]; then
-    echo "Ecuation test passed after ${SUCCESFUL_EVACUATIONS} successful evacuations"
+    echo "Evacuation test passed after ${SUCCESFUL_EVACUATIONS} successful evacuations"
 else
     echo "Evacuation test failed: ${SUCCESFUL_EVACUATIONS} successful evacuations out of the ${EVACUATION_COUNTS} expected"
     exit 1
