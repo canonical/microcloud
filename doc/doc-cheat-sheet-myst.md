@@ -19,7 +19,7 @@ myst:
 This file contains the syntax for commonly used Markdown and MyST markup.
 Open it in your text editor to quickly copy and paste the markup you need.
 
-See the [MyST syntax guide](https://canonical-starter-pack.readthedocs-hosted.com/latest/reference/myst-syntax-reference/) for detailed information and conventions.
+See the [MyST syntax guide](https://canonical-starter-pack.readthedocs-hosted.com/stable/reference/myst-syntax-reference/) for detailed information and conventions.
 
 Also see the [MyST documentation](https://myst-parser.readthedocs.io/en/latest/index.html) for detailed information on MyST, and the [Canonical Documentation Style Guide](https://docs.ubuntu.com/styleguide/en) for general style conventions.
 
