@@ -1002,7 +1002,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			return err
 		}
 	} else {
-		err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		op, err := lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		if err != nil {
+			return err
+		}
+
+		err = op.Wait()
 		if err != nil {
 			return err
 		}
@@ -1043,16 +1048,33 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 				reverter.Add(func() {
 					_ = targetClient.UpdateServer(server.Writable(), "")
-					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "images")
-					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+					op, err := targetClient.DeleteStoragePoolVolume("local", "custom", "images")
+					if err == nil {
+						_ = op.Wait()
+					}
+
+					op, err = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+					if err == nil {
+						_ = op.Wait()
+					}
 				})
 
-				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
+				op, err := targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
 				if err != nil {
 					return err
 				}
 
-				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				err = op.Wait()
+				if err != nil {
+					return err
+				}
+
+				op, err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				if err != nil {
+					return err
+				}
+
+				err = op.Wait()
 				if err != nil {
 					return err
 				}
