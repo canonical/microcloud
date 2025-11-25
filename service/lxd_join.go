@@ -22,17 +22,7 @@ func (s *LXDService) configFromToken(token string) (*api.ClusterPut, error) {
 	config := &api.ClusterPut{
 		Cluster:       api.Cluster{ServerName: s.name, Enabled: true},
 		ServerAddress: util.CanonicalNetworkAddress(s.address, s.port),
-	}
-
-	ok, err := s.HasExtension(context.Background(), s.Name(), s.Address(), nil, "explicit_trust_token")
-	if err != nil {
-		return nil, err
-	}
-
-	if ok {
-		config.ClusterToken = token
-	} else {
-		config.ClusterPassword = token
+		ClusterToken:  token,
 	}
 
 	// Attempt to find a working cluster member to use for joining by retrieving the
