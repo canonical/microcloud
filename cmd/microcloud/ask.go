@@ -56,7 +56,12 @@ func checkInitialized(stateDir string, expectInitialized bool, preseed bool) err
 	}
 
 	return s.RunConcurrent("", "", func(s service.Service) error {
-		initialized, err := s.IsInitialized(context.Background())
+		// Create initialization context with timeout defined in LXDInitializationTimeout.
+		initializationCtx, cancel := context.WithTimeout(context.Background(), LXDInitializationTimeout)
+		defer cancel()
+
+		// Check if the service is initialized using initializationCtx.
+		initialized, err := s.IsInitialized(initializationCtx)
 		if err != nil {
 			return err
 		}

@@ -43,6 +43,9 @@ const DefaultAutoSessionTimeout time.Duration = 10 * time.Minute
 // DefaultSessionTimeout is the default time limit for the trust establishment session.
 const DefaultSessionTimeout time.Duration = 60 * time.Minute
 
+// LXDInitializationTimeout is the time limit for LXD initialization for microcloud.
+const LXDInitializationTimeout time.Duration = 1 * time.Minute
+
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
 	// ServerInfo contains the data reported about this system.

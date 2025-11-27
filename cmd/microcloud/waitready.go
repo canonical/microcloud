@@ -42,7 +42,10 @@ func (c *cmdWaitready) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx := context.Background()
+	// Default context timeout for waiting on the daemon.
+	ctx, cancel := context.WithTimeout(context.Background(), LXDInitializationTimeout)
+	defer cancel()
+
 	if c.flagTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Second*time.Duration(c.flagTimeout))
