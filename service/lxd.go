@@ -669,7 +669,8 @@ func (s LXDService) GetVersion(ctx context.Context) (string, error) {
 	return server.Environment.ServerVersion, nil
 }
 
-// IsInitialized returns whether the service is initialized.
+// IsInitialized returns whether the service is initialized for a given context timeout.
+// If LXD is not reachable for given context timeout, an error is returned.
 func (s LXDService) IsInitialized(ctx context.Context) (bool, error) {
 	c, err := s.Client(ctx)
 	if err != nil {
@@ -713,61 +714,31 @@ func (s *LXDService) isInitialized(c lxd.InstanceServer) (bool, error) {
 	return len(pools) != 0, nil
 }
 
-// WaitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given timeout.
-// Waits up to a minute for LXD to start, before failing.
-// Additionally, it waits up to 5s to detect the LXD unix socket, and exits prematurely if not found in that time.
+// WaitReady repeatedly (500ms intervals) asks LXD if it is ready, up to the given context timeout.
+// It waits up to ctx timeout for LXD to start, before failing.
 // Furthermore the caller can wait for both network and storage to be ready.
 func (s *LXDService) WaitReady(ctx context.Context, c lxd.InstanceServer, network bool, storage bool) error {
-	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Minute)
-	defer timeoutCancel()
+	url := api.NewURL().Path("internal", "ready")
+	if network {
+		url.WithQuery("network", "1")
+	}
 
-	ctx, cancel := context.WithCancelCause(timeoutCtx)
-	defer cancel(context.Canceled)
+	if storage {
+		url.WithQuery("storage", "1")
+	}
 
-	unixCtx, unixCancel := context.WithTimeout(ctx, time.Second*5)
-	defer unixCancel()
-
-	var errLast error
-	go func() {
-		for ctx.Err() == nil {
-			url := api.NewURL().Path("internal", "ready")
-			if network {
-				url.WithQuery("network", "1")
-			}
-
-			if storage {
-				url.WithQuery("storage", "1")
-			}
-
-			_, _, err := c.RawQuery("GET", url.String(), nil, "")
-			if err != nil {
-				if api.StatusErrorCheck(err, http.StatusNotFound) {
-					if unixCtx.Err() != nil {
-						cancel(err)
-
-						return
-					}
-				}
-
-				errLast = err
+	for {
+		_, _, err := c.RawQuery("GET", url.String(), nil, "")
+		if err != nil {
+			if ctx.Err() == nil {
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
 
-			cancel(context.Canceled)
-
-			return
-		}
-	}()
-
-	<-ctx.Done()
-
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) || !errors.Is(context.Cause(ctx), context.Canceled) {
-		if errLast == nil {
-			errLast = context.Cause(ctx)
+			return fmt.Errorf("Failed waiting for LXD to start: %w", err)
 		}
 
-		return fmt.Errorf("Timed out waiting for LXD to start: %w", errLast)
+		break
 	}
 
 	return nil
