@@ -2,7 +2,7 @@ package types
 
 import (
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microTypes "github.com/canonical/microcluster/v3/rest/types"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	ovnTypes "github.com/canonical/microovn/microovn/api/types"
 )
 

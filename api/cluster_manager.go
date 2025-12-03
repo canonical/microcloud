@@ -13,12 +13,12 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v3/rest"
-	"github.com/canonical/microcluster/v3/rest/response"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
-	"github.com/canonical/microcloud/microcloud/api/types"
+	apiTypes "github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/database"
 	"github.com/canonical/microcloud/microcloud/service"
@@ -63,7 +63,7 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 		config[configPair.Key] = configPair.Value
 	}
 
-	resp := types.ClusterManager{
+	resp := apiTypes.ClusterManager{
 		Addresses:               []string{clusterManager.Addresses},
 		CertificateFingerprint:  clusterManager.CertificateFingerprint,
 		StatusLastSuccessTime:   clusterManager.StatusLastSuccessTime,
@@ -78,7 +78,7 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 // clusterManagerPost creates a new cluster manager configuration from a token.
 func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
 	return func(state state.State, r *http.Request) response.Response {
-		args := types.ClusterManagersPost{}
+		args := apiTypes.ClusterManagersPost{}
 		err := json.NewDecoder(r.Body).Decode(&args)
 		if err != nil {
 			return response.BadRequest(err)
@@ -117,7 +117,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 			CertificateFingerprint: joinToken.Fingerprint,
 		}
 
-		cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+		cloud := sh.Services[apiTypes.MicroCloud].(*service.CloudService)
 		clusterCert, err := cloud.ClusterCert()
 		if err != nil {
 			return response.SmartError(err)
@@ -170,7 +170,7 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
-	args := types.ClusterManagerPut{}
+	args := apiTypes.ClusterManagerPut{}
 	err = json.NewDecoder(r.Body).Decode(&args)
 	if err != nil {
 		return response.BadRequest(err)
@@ -211,7 +211,7 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 			return response.SmartError(err)
 		}
 
-		args := types.ClusterManagerDelete{}
+		args := apiTypes.ClusterManagerDelete{}
 		err = json.NewDecoder(r.Body).Decode(&args)
 		if err != nil {
 			return response.SmartError(err)
@@ -223,7 +223,7 @@ func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.R
 		}
 
 		if !args.Force {
-			cloud := sh.Services[types.MicroCloud].(*service.CloudService)
+			cloud := sh.Services[apiTypes.MicroCloud].(*service.CloudService)
 			clusterCert, err := cloud.ClusterCert()
 			if err != nil {
 				return response.SmartError(err)
