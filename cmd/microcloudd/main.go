@@ -157,9 +157,12 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	err = logger.InitLogger("", "", c.global.flagLogVerbose, c.global.flagLogDebug, nil)
+	if err != nil {
+		return err
+	}
+
 	dargs := microcluster.DaemonArgs{
-		Verbose:           c.global.flagLogVerbose,
-		Debug:             c.global.flagLogDebug,
 		Version:           version.RawVersion,
 		HeartbeatInterval: c.flagHeartbeatInterval,
 
