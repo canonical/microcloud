@@ -12,46 +12,46 @@ import (
 
 	"github.com/canonical/lxd/lxd/db/query"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v3/cluster"
+	"github.com/canonical/microcluster/v3/microcluster/db"
 )
 
 var _ = api.ServerEnvironment{}
 
-var clusterManagerObjects = cluster.RegisterStmt(`
+var clusterManagerObjects = db.RegisterStmt(`
 SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.certificate_fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response
   FROM cluster_manager
   ORDER BY cluster_manager.id
 `)
 
-var clusterManagerObjectsByID = cluster.RegisterStmt(`
+var clusterManagerObjectsByID = db.RegisterStmt(`
 SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.certificate_fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response
   FROM cluster_manager
   WHERE ( cluster_manager.id = ? )
   ORDER BY cluster_manager.id
 `)
 
-var clusterManagerObjectsByName = cluster.RegisterStmt(`
+var clusterManagerObjectsByName = db.RegisterStmt(`
 SELECT cluster_manager.id, cluster_manager.addresses, cluster_manager.certificate_fingerprint, cluster_manager.name, cluster_manager.status_last_success_time, cluster_manager.status_last_error_time, cluster_manager.status_last_error_response
   FROM cluster_manager
   WHERE ( cluster_manager.name = ? )
   ORDER BY cluster_manager.id
 `)
 
-var clusterManagerID = cluster.RegisterStmt(`
+var clusterManagerID = db.RegisterStmt(`
 SELECT cluster_manager.id FROM cluster_manager
   WHERE cluster_manager.id = ?
 `)
 
-var clusterManagerDeleteByID = cluster.RegisterStmt(`
+var clusterManagerDeleteByID = db.RegisterStmt(`
 DELETE FROM cluster_manager WHERE id = ?
 `)
 
-var clusterManagerCreate = cluster.RegisterStmt(`
+var clusterManagerCreate = db.RegisterStmt(`
 INSERT INTO cluster_manager (addresses, certificate_fingerprint, name, status_last_success_time, status_last_error_time, status_last_error_response)
   VALUES (?, ?, ?, ?, ?, ?)
 `)
 
-var clusterManagerUpdate = cluster.RegisterStmt(`
+var clusterManagerUpdate = db.RegisterStmt(`
 UPDATE cluster_manager
   SET addresses = ?, certificate_fingerprint = ?, name = ?, status_last_success_time = ?, status_last_error_time = ?, status_last_error_response = ?
  WHERE id = ?
@@ -125,7 +125,7 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 	queryParts := [2]string{}
 
 	if len(filters) == 0 {
-		sqlStmt, err = cluster.Stmt(tx, clusterManagerObjects)
+		sqlStmt, err = db.Stmt(tx, clusterManagerObjects)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get \"clusterManagerObjects\" prepared statement: %w", err)
 		}
@@ -135,7 +135,7 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 		if filter.Name != nil && filter.ID == nil {
 			args = append(args, []any{filter.Name}...)
 			if len(filters) == 1 {
-				sqlStmt, err = cluster.Stmt(tx, clusterManagerObjectsByName)
+				sqlStmt, err = db.Stmt(tx, clusterManagerObjectsByName)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to get \"clusterManagerObjectsByName\" prepared statement: %w", err)
 				}
@@ -143,7 +143,7 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 				break
 			}
 
-			query, err := cluster.StmtString(clusterManagerObjectsByName)
+			query, err := db.StmtString(clusterManagerObjectsByName)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get \"clusterManagerObjects\" prepared statement: %w", err)
 			}
@@ -159,7 +159,7 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 		} else if filter.ID != nil && filter.Name == nil {
 			args = append(args, []any{filter.ID}...)
 			if len(filters) == 1 {
-				sqlStmt, err = cluster.Stmt(tx, clusterManagerObjectsByID)
+				sqlStmt, err = db.Stmt(tx, clusterManagerObjectsByID)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to get \"clusterManagerObjectsByID\" prepared statement: %w", err)
 				}
@@ -167,7 +167,7 @@ func GetClusterManagers(ctx context.Context, tx *sql.Tx, filters ...ClusterManag
 				break
 			}
 
-			query, err := cluster.StmtString(clusterManagerObjectsByID)
+			query, err := db.StmtString(clusterManagerObjectsByID)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get \"clusterManagerObjects\" prepared statement: %w", err)
 			}
@@ -226,7 +226,7 @@ func GetClusterManager(ctx context.Context, tx *sql.Tx, id int64) (*ClusterManag
 // GetClusterManagerID return the ID of the ClusterManager with the given key.
 // generator: ClusterManager ID
 func GetClusterManagerID(ctx context.Context, tx *sql.Tx, id int64) (int64, error) {
-	stmt, err := cluster.Stmt(tx, clusterManagerID)
+	stmt, err := db.Stmt(tx, clusterManagerID)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to get \"clusterManagerID\" prepared statement: %w", err)
 	}
@@ -283,7 +283,7 @@ func CreateClusterManager(ctx context.Context, tx *sql.Tx, object ClusterManager
 	args[5] = object.StatusLastErrorResponse
 
 	// Prepared statement to use.
-	stmt, err := cluster.Stmt(tx, clusterManagerCreate)
+	stmt, err := db.Stmt(tx, clusterManagerCreate)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to get \"clusterManagerCreate\" prepared statement: %w", err)
 	}
@@ -310,7 +310,7 @@ func UpdateClusterManager(ctx context.Context, tx *sql.Tx, id int64, object Clus
 		return err
 	}
 
-	stmt, err := cluster.Stmt(tx, clusterManagerUpdate)
+	stmt, err := db.Stmt(tx, clusterManagerUpdate)
 	if err != nil {
 		return fmt.Errorf("Failed to get \"clusterManagerUpdate\" prepared statement: %w", err)
 	}
@@ -335,7 +335,7 @@ func UpdateClusterManager(ctx context.Context, tx *sql.Tx, id int64, object Clus
 // DeleteClusterManager deletes the ClusterManager matching the given key parameters.
 // generator: ClusterManager DeleteOne-by-ID
 func DeleteClusterManager(ctx context.Context, tx *sql.Tx, id int64) error {
-	stmt, err := cluster.Stmt(tx, clusterManagerDeleteByID)
+	stmt, err := db.Stmt(tx, clusterManagerDeleteByID)
 	if err != nil {
 		return fmt.Errorf("Failed to get \"clusterManagerDeleteByID\" prepared statement: %w", err)
 	}
@@ -359,48 +359,48 @@ func DeleteClusterManager(ctx context.Context, tx *sql.Tx, id int64) error {
 	return nil
 }
 
-var clusterManagerConfigObjects = cluster.RegisterStmt(`
+var clusterManagerConfigObjects = db.RegisterStmt(`
 SELECT cluster_manager_config.id, cluster_manager_config.cluster_manager_id, cluster_manager_config.key, cluster_manager_config.value
   FROM cluster_manager_config
   ORDER BY cluster_manager_config.id
 `)
 
-var clusterManagerConfigObjectsByID = cluster.RegisterStmt(`
+var clusterManagerConfigObjectsByID = db.RegisterStmt(`
 SELECT cluster_manager_config.id, cluster_manager_config.cluster_manager_id, cluster_manager_config.key, cluster_manager_config.value
   FROM cluster_manager_config
   WHERE ( cluster_manager_config.id = ? )
   ORDER BY cluster_manager_config.id
 `)
 
-var clusterManagerConfigObjectsByClusterManagerID = cluster.RegisterStmt(`
+var clusterManagerConfigObjectsByClusterManagerID = db.RegisterStmt(`
 SELECT cluster_manager_config.id, cluster_manager_config.cluster_manager_id, cluster_manager_config.key, cluster_manager_config.value
   FROM cluster_manager_config
   WHERE ( cluster_manager_config.cluster_manager_id = ? )
   ORDER BY cluster_manager_config.id
 `)
 
-var clusterManagerConfigObjectsByClusterManagerIDAndKey = cluster.RegisterStmt(`
+var clusterManagerConfigObjectsByClusterManagerIDAndKey = db.RegisterStmt(`
 SELECT cluster_manager_config.id, cluster_manager_config.cluster_manager_id, cluster_manager_config.key, cluster_manager_config.value
   FROM cluster_manager_config
   WHERE ( cluster_manager_config.cluster_manager_id = ? AND cluster_manager_config.key = ? )
   ORDER BY cluster_manager_config.id
 `)
 
-var clusterManagerConfigID = cluster.RegisterStmt(`
+var clusterManagerConfigID = db.RegisterStmt(`
 SELECT cluster_manager_config.id FROM cluster_manager_config
   WHERE cluster_manager_config.id = ?
 `)
 
-var clusterManagerConfigDeleteByID = cluster.RegisterStmt(`
+var clusterManagerConfigDeleteByID = db.RegisterStmt(`
 DELETE FROM cluster_manager_config WHERE id = ?
 `)
 
-var clusterManagerConfigCreate = cluster.RegisterStmt(`
+var clusterManagerConfigCreate = db.RegisterStmt(`
 INSERT INTO cluster_manager_config (cluster_manager_id, key, value)
   VALUES (?, ?, ?)
 `)
 
-var clusterManagerConfigUpdate = cluster.RegisterStmt(`
+var clusterManagerConfigUpdate = db.RegisterStmt(`
 UPDATE cluster_manager_config
   SET cluster_manager_id = ?, key = ?, value = ?
  WHERE id = ?
@@ -474,7 +474,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 	queryParts := [2]string{}
 
 	if len(filters) == 0 {
-		sqlStmt, err = cluster.Stmt(tx, clusterManagerConfigObjects)
+		sqlStmt, err = db.Stmt(tx, clusterManagerConfigObjects)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjects\" prepared statement: %w", err)
 		}
@@ -484,7 +484,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 		if filter.ClusterManagerID != nil && filter.Key != nil && filter.ID == nil {
 			args = append(args, []any{filter.ClusterManagerID, filter.Key}...)
 			if len(filters) == 1 {
-				sqlStmt, err = cluster.Stmt(tx, clusterManagerConfigObjectsByClusterManagerIDAndKey)
+				sqlStmt, err = db.Stmt(tx, clusterManagerConfigObjectsByClusterManagerIDAndKey)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjectsByClusterManagerIDAndKey\" prepared statement: %w", err)
 				}
@@ -492,7 +492,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 				break
 			}
 
-			query, err := cluster.StmtString(clusterManagerConfigObjectsByClusterManagerIDAndKey)
+			query, err := db.StmtString(clusterManagerConfigObjectsByClusterManagerIDAndKey)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjects\" prepared statement: %w", err)
 			}
@@ -508,7 +508,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 		} else if filter.ID != nil && filter.ClusterManagerID == nil && filter.Key == nil {
 			args = append(args, []any{filter.ID}...)
 			if len(filters) == 1 {
-				sqlStmt, err = cluster.Stmt(tx, clusterManagerConfigObjectsByID)
+				sqlStmt, err = db.Stmt(tx, clusterManagerConfigObjectsByID)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjectsByID\" prepared statement: %w", err)
 				}
@@ -516,7 +516,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 				break
 			}
 
-			query, err := cluster.StmtString(clusterManagerConfigObjectsByID)
+			query, err := db.StmtString(clusterManagerConfigObjectsByID)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjects\" prepared statement: %w", err)
 			}
@@ -532,7 +532,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 		} else if filter.ClusterManagerID != nil && filter.ID == nil && filter.Key == nil {
 			args = append(args, []any{filter.ClusterManagerID}...)
 			if len(filters) == 1 {
-				sqlStmt, err = cluster.Stmt(tx, clusterManagerConfigObjectsByClusterManagerID)
+				sqlStmt, err = db.Stmt(tx, clusterManagerConfigObjectsByClusterManagerID)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjectsByClusterManagerID\" prepared statement: %w", err)
 				}
@@ -540,7 +540,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 				break
 			}
 
-			query, err := cluster.StmtString(clusterManagerConfigObjectsByClusterManagerID)
+			query, err := db.StmtString(clusterManagerConfigObjectsByClusterManagerID)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to get \"clusterManagerConfigObjects\" prepared statement: %w", err)
 			}
@@ -578,7 +578,7 @@ func GetClusterManagerConfig(ctx context.Context, tx *sql.Tx, filters ...Cluster
 // GetClusterManagerConfigID return the ID of the ClusterManagerConfig with the given key.
 // generator: ClusterManagerConfig ID
 func GetClusterManagerConfigID(ctx context.Context, tx *sql.Tx, id int64) (int64, error) {
-	stmt, err := cluster.Stmt(tx, clusterManagerConfigID)
+	stmt, err := db.Stmt(tx, clusterManagerConfigID)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to get \"clusterManagerConfigID\" prepared statement: %w", err)
 	}
@@ -632,7 +632,7 @@ func CreateClusterManagerConfig(ctx context.Context, tx *sql.Tx, object ClusterM
 	args[2] = object.Value
 
 	// Prepared statement to use.
-	stmt, err := cluster.Stmt(tx, clusterManagerConfigCreate)
+	stmt, err := db.Stmt(tx, clusterManagerConfigCreate)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to get \"clusterManagerConfigCreate\" prepared statement: %w", err)
 	}
@@ -659,7 +659,7 @@ func UpdateClusterManagerConfig(ctx context.Context, tx *sql.Tx, id int64, objec
 		return err
 	}
 
-	stmt, err := cluster.Stmt(tx, clusterManagerConfigUpdate)
+	stmt, err := db.Stmt(tx, clusterManagerConfigUpdate)
 	if err != nil {
 		return fmt.Errorf("Failed to get \"clusterManagerConfigUpdate\" prepared statement: %w", err)
 	}
@@ -684,7 +684,7 @@ func UpdateClusterManagerConfig(ctx context.Context, tx *sql.Tx, id int64, objec
 // DeleteClusterManagerConfig deletes the ClusterManagerConfig matching the given key parameters.
 // generator: ClusterManagerConfig DeleteOne-by-ID
 func DeleteClusterManagerConfig(ctx context.Context, tx *sql.Tx, id int64) error {
-	stmt, err := cluster.Stmt(tx, clusterManagerConfigDeleteByID)
+	stmt, err := db.Stmt(tx, clusterManagerConfigDeleteByID)
 	if err != nil {
 		return fmt.Errorf("Failed to get \"clusterManagerConfigDeleteByID\" prepared statement: %w", err)
 	}
