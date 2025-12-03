@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/canonical/microcluster/v3/microcluster"
-	microTypes "github.com/canonical/microcluster/v3/rest/types"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
