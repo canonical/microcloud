@@ -261,7 +261,7 @@ func (s *OVNService) GetServices(ctx context.Context) (ovnTypes.Services, error)
 
 	services := ovnTypes.Services{}
 
-	err = client.Query(ctx, "GET", types.APIVersion, api.NewURL().Path("services"), nil, &services)
+	err = client.Query(ctx, "GET", types.APIVersion, &api.NewURL().Path("services").URL, nil, &services)
 	if err != nil {
 		return nil, fmt.Errorf("Failed listing services: %w", err)
 	}
