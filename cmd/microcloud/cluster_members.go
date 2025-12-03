@@ -14,8 +14,8 @@ import (
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/termios"
 	"github.com/canonical/microcluster/v3/client"
-	"github.com/canonical/microcluster/v3/cluster"
 	"github.com/canonical/microcluster/v3/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 	"gopkg.in/yaml.v2"
@@ -279,7 +279,7 @@ func (c *cmdClusterRecover) run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	newMembers := []cluster.DqliteMember{}
+	newMembers := []types.DqliteMember{}
 	err = yaml.Unmarshal(content, &newMembers)
 	if err != nil {
 		return err
