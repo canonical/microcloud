@@ -13,8 +13,8 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v3/microcluster"
-	"github.com/canonical/microcluster/v3/rest"
-	microTypes "github.com/canonical/microcluster/v3/rest/types"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/canonical/microcluster/v3/state"
 	"github.com/spf13/cobra"
 
