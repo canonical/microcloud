@@ -11,7 +11,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v3/client"
-	"github.com/canonical/microcluster/v3/rest/response"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -23,7 +23,7 @@ func GetStatus(ctx context.Context, c *client.Client) ([]types.Status, error) {
 	defer cancel()
 
 	var statuses []types.Status
-	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("status"), nil, &statuses)
+	err := c.Query(queryCtx, "GET", types.APIVersion, &api.NewURL().Path("status").URL, nil, &statuses)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func StartSession(ctx context.Context, c *client.Client, role string, sessionTim
 	defer cancel()
 
 	url := api.NewURL().Path("session", role).WithQuery("timeout", sessionTimeout.String())
-	conn, err := c.Websocket(queryCtx, types.APIVersion, url)
+	conn, err := c.Websocket(queryCtx, types.APIVersion, &url.URL)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to start session websocket: %w", err)
 	}
@@ -51,7 +51,7 @@ func StopSession(ctx context.Context, c *client.Client, stopMsg string) error {
 	defer cancel()
 
 	data := types.SessionStopPut{Reason: stopMsg}
-	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("session", "stop"), data, nil)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, &api.NewURL().Path("session", "stop").URL, data, nil)
 	if err != nil {
 		return fmt.Errorf("Failed to stop joiner session: %w", err)
 	}
@@ -64,7 +64,7 @@ func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut)
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("services"), data, nil)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, &api.NewURL().Path("services").URL, data, nil)
 	if err != nil {
 		return fmt.Errorf("Failed to update cluster status of services: %w", err)
 	}
@@ -92,7 +92,7 @@ func JoinIntent(ctx context.Context, c *client.Client, data types.SessionJoinPos
 	path := api.NewURL().Path("session", "join")
 
 	// We can pass a reader to indicate to the query functions the body is already marshalled.
-	resp, err := c.QueryRaw(queryCtx, "POST", types.APIVersion, path, bytes.NewBuffer(dataBytes))
+	resp, err := c.QueryRaw(queryCtx, "POST", types.APIVersion, &path.URL, bytes.NewBuffer(dataBytes))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to send join intent: %w", err)
 	}
@@ -116,7 +116,7 @@ func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.S
 	defer cancel()
 
 	var token string
-	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("services", string(serviceType), "tokens"), data, &token)
+	err := c.Query(queryCtx, "POST", types.APIVersion, &api.NewURL().Path("services", string(serviceType), "tokens").URL, data, &token)
 	if err != nil {
 		return "", fmt.Errorf("Failed to issue remote token: %w", err)
 	}
@@ -134,5 +134,5 @@ func DeleteClusterMember(ctx context.Context, c *client.Client, memberName strin
 		path = path.WithQuery("force", "1")
 	}
 
-	return c.Query(queryCtx, "DELETE", types.APIVersion, path, nil, nil)
+	return c.Query(queryCtx, "DELETE", types.APIVersion, &path.URL, nil, nil)
 }
