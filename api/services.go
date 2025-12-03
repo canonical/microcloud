@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/microcluster/v3/rest"
-	"github.com/canonical/microcluster/v3/rest/response"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -50,7 +50,7 @@ func servicesPut(state state.State, r *http.Request) response.Response {
 		addr = req.Address
 	}
 
-	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir, services...)
+	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir(), services...)
 	if err != nil {
 		return response.SmartError(err)
 	}

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/canonical/microcluster/v3/rest"
-	"github.com/canonical/microcluster/v3/rest/response"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
@@ -43,7 +43,7 @@ func serviceTokensPost(s state.State, r *http.Request) response.Response {
 		return response.BadRequest(err)
 	}
 
-	sh, err := service.NewHandler(s.Name(), req.ClusterAddress, s.FileSystem().StateDir, types.ServiceType(serviceType))
+	sh, err := service.NewHandler(s.Name(), req.ClusterAddress, s.FileSystem().StateDir(), types.ServiceType(serviceType))
 	if err != nil {
 		return response.SmartError(err)
 	}
