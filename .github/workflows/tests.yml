@@ -33,7 +33,7 @@ jobs:
   changes:
     if: ${{ github.repository == 'canonical/microcloud' }}
     name: Changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     outputs:
       except_docs: ${{ steps.check.outputs.changes }}
     steps:
