@@ -1,4 +1,17 @@
 name: System test
+inputs:
+  setup_testbed:
+    description: 'Set up the testbed infrastructure (VMs, networks, etc.)'
+    required: false
+    default: 'true'
+  setup_terraform:
+    description: 'Set up Terraform for tests that require it'
+    required: false
+    default: 'false'
+  collect_coverage:
+    description: 'Whether to collect Go coverage data for this test'
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -123,8 +136,11 @@ runs:
         export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
 
         cd test
-        sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
-
+        if [ "${{ inputs.setup_testbed }}" = "false" ]; then
+          echo "Skipping testbed setup"
+        else
+          sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
+        fi
         echo "TESTBED_READY=1" >> "${GITHUB_ENV}"
         echo "BASE_OS=${BASE_OS}" >> "${GITHUB_ENV}"
         echo "LXD_SNAP_CHANNEL=${LXD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
@@ -133,16 +149,25 @@ runs:
         echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
 
     - name: Setup Terraform
-      if: ${{ matrix.suite == 'e2e' }}
-      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-      with:
-        terraform_wrapper: false
+      if: ${{ inputs.setup_terraform == 'true' }}
+      shell: bash
+      run: |
+        set -eux
+
+        sudo snap install terraform --classic
 
     - name: "Run system tests (${{ matrix.suite }})"
       shell: bash
       run: |
         set -eux
         chmod +x ~
+
+        # Handle coverage collection based on input
+        if [ "${{ inputs.collect_coverage }}" = "false" ]; then
+          echo "Coverage collection disabled for this test"
+          export GOCOVERDIR=''
+        fi
+
         cd test
         sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
         echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"

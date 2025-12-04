@@ -1,0 +1,52 @@
+# Basic VM configuration
+memory_per_instance = 2
+cpu_per_instance = 2
+storage_pool = "default"
+ubuntu_image = "ubuntu:24.04"
+
+# OVN configuration
+ovn_ipv4_gateway = "192.0.2.1/24"
+ovn_ipv4_range = "192.0.2.100-192.0.2.254"
+ovn_ipv6_gateway = "2001:db8:d:200::1/64"
+ovn_dns_servers = "192.0.2.1,2001:db8:d:200::1"
+
+# Snap channels
+microceph_channel = "squid/stable"
+microovn_channel = "24.03/stable"
+microcloud_channel = "2/stable"
+lxd_channel = "5.21/stable"
+
+# Timeouts
+session_timeout = 300
+lookup_timeout = 300
+instance_create_timeout = "15m"
+
+# VM Configuration
+vm_count = 4
+vm_names = ["micro1", "micro2", "micro3", "micro4"]
+ceph_nodes = ["micro1", "micro2", "micro3"]
+
+# Network Configuration
+network_name = "microbr0"
+network_ipv4_address = "192.0.2.1/24"
+network_ipv6_address = "2001:db8:d:200::1/64"
+lookup_interface = "eth0"
+uplink_device_name = "eth1"
+lookup_bridge = "lxdbr0"
+
+# Storage Configuration
+local_disk_size = "10GiB"
+ceph_disk_size = "20GiB"
+disk_device_base = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_"
+
+# IP Configuration
+ip_base_offset = 10
+ip_increment = 10
+
+# Disk Name Configuration
+local_disk_name_prefix = "local"
+ceph_disk_name_prefix = "remote"
+
+# MicroCloud Configuration
+initiator = "micro1"
+ovn_uplink_interface = "enp6s0"
