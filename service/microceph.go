@@ -150,7 +150,7 @@ func (s CephService) AddDisk(ctx context.Context, data cephTypes.DisksPost, targ
 	ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	err = c.Query(ctx, "POST", types.APIVersion, api.NewURL().Path("disks"), data, &response)
+	err = c.Query(ctx, "POST", types.APIVersion, &api.NewURL().Path("disks").URL, data, &response)
 	if err != nil {
 		return response, fmt.Errorf("Failed to request disk addition: %w", err)
 	}
@@ -167,7 +167,7 @@ func (s CephService) GetServices(ctx context.Context, target string) (cephTypes.
 
 	services := cephTypes.Services{}
 
-	err = c.Query(ctx, "GET", types.APIVersion, api.NewURL().Path("services"), nil, &services)
+	err = c.Query(ctx, "GET", types.APIVersion, &api.NewURL().Path("services").URL, nil, &services)
 	if err != nil {
 		return nil, fmt.Errorf("Failed listing services: %w", err)
 	}
@@ -199,7 +199,7 @@ func (s CephService) GetDisks(ctx context.Context, target string, cert *x509.Cer
 
 	disks := cephTypes.Disks{}
 
-	err = c.Query(ctx, "GET", types.APIVersion, api.NewURL().Path("disks"), nil, &disks)
+	err = c.Query(ctx, "GET", types.APIVersion, &api.NewURL().Path("disks").URL, nil, &disks)
 	if err != nil {
 		return nil, fmt.Errorf("Failed listing disks: %w", err)
 	}
@@ -216,7 +216,7 @@ func (s CephService) GetPools(ctx context.Context, target string) ([]cephTypes.P
 
 	var pools []cephTypes.Pool
 
-	err = c.Query(ctx, "GET", types.APIVersion, api.NewURL().Path("pools"), nil, &pools)
+	err = c.Query(ctx, "GET", types.APIVersion, &api.NewURL().Path("pools").URL, nil, &pools)
 	if err != nil {
 		return nil, fmt.Errorf("Failed listing OSD pools: %w", err)
 	}
@@ -231,7 +231,7 @@ func (s CephService) PoolSetReplicationFactor(ctx context.Context, data cephType
 		return err
 	}
 
-	err = c.Query(ctx, "PUT", types.APIVersion, api.NewURL().Path("pools-op"), data, nil)
+	err = c.Query(ctx, "PUT", types.APIVersion, &api.NewURL().Path("pools-op").URL, data, nil)
 	if err != nil {
 		return fmt.Errorf("Failed setting replication factor: %w", err)
 	}
@@ -266,7 +266,7 @@ func (s CephService) GetConfig(ctx context.Context, data cephTypes.Config, targe
 
 	configs := cephTypes.Configs{}
 
-	err = c.Query(ctx, "GET", types.APIVersion, api.NewURL().Path("configs"), data, &configs)
+	err = c.Query(ctx, "GET", types.APIVersion, &api.NewURL().Path("configs").URL, data, &configs)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to fetch cluster config key %q: %w", data.Key, err)
 	}

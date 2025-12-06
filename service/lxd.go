@@ -15,7 +15,7 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v3/microcluster"
-	microTypes "github.com/canonical/microcluster/v3/rest/types"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -56,7 +56,7 @@ func (s LXDService) Client(ctx context.Context) (lxd.InstanceServer, error) {
 		return nil, err
 	}
 
-	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().URL.Host, &lxd.ConnectionArgs{
+	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().Host, &lxd.ConnectionArgs{
 		HTTPClient:    c.Client.Client,
 		SkipGetServer: true,
 		Proxy:         cloudClient.AuthProxy("", types.LXD),
