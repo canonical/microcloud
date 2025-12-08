@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: Find out how to initialize MicroCloud after installation, using either interactive or preseed configuration.
+---
+
 (howto-initialize)=
 # How to initialize MicroCloud
 

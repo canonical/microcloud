@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: How-to guides for key MicroCloud operations, including installation, initialization, UI access, configuration, cluster management, updates, and more.
+---
+
 (howto)=
 # How-to guides
 
