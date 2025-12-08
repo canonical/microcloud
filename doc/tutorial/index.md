@@ -3,7 +3,7 @@
 (tutorial)=
 # Get started with MicroCloud
 
-MicroCloud is quick to set up. Once initialized, you can start using MicroCloud in the same way as a regular LXD cluster. The tutorials in this section provide you with an introduction to MicroCloud concepts and use, including its installation and initialization.
+MicroCloud is quick to set up. Once initialized, you can start using MicroCloud in the same way as a regular LXD cluster. The tutorials in this section provide you with an introduction to MicroCloud concepts and use, including its installation and initialization, and use of its graphical UI.
 
 A production MicroCloud should use at least three physical machines as cluster members. However, when first learning about MicroCloud, it's common to only have a single machine available. Thus, we offer two approaches for learning about MicroCloud that both use one physical machine:
 
