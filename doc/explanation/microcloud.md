@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: 
+    description: An overview of MicroCloud including its component snaps of LXD, MicroCeph, and MicroOVN, and its major features.
 ---
 
 (exp-microcloud)=

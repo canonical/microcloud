@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: MicroCloud CLI command reference, a cheat sheet of essential MicroCloud/LXD commands for managing instances, storage, networks, and cluster operations.
+---
+
 (howto-commands)=
 # How to work with MicroCloud via the CLI (command cheat sheet)
 
