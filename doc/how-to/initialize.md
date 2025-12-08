@@ -124,6 +124,8 @@ Complete the following steps to initialize MicroCloud:
 
 See an example of the full initialization process in the {ref}`Get started with MicroCloud <initialization-process>` tutorial.
 
+Once you have initialized MicroCloud, you can interact with it through CLI commands, API requests, or its {ref}`graphical UI <howto-ui>`.
+
 ### Excluding MicroCeph or MicroOVN from MicroCloud
 
 If the MicroOVN or MicroCeph snap is not installed on the system that runs {command}`microcloud init`, you will be prompted with the following question:

@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: 
+---
+
 (exp-microcloud)=
 (explanation-microcloud)=
 # About MicroCloud
@@ -40,6 +46,18 @@ When using local storage, consider the constraints listed in {ref}`lxd:storage-a
 
 For distributed storage, MicroCloud uses MicroCeph, which is a lightweight way of deploying a Ceph cluster.
 To use distributed storage, you must have at least three disks (attached to at least three different machines).
+
+(exp-microcloud-ui)=
+## The MicroCloud UI
+
+You can securely access a browser-based graphical UI for managing your MicroCloud deployment.
+
+For details, see: {ref}`howto-ui`.
+
+```{admonition} Other client interfaces
+:class: tip
+You can also manage MicroCloud through the {ref}`command line <howto-commands>` or LXD's {ref}`lxd:rest-api`.
+```
 
 (exp-microcloud-scale)=
 ## Replicable at scale

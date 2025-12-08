@@ -1,14 +1,15 @@
 (howto-commands)=
-# How to work with MicroCloud (command cheat sheet)
+# How to work with MicroCloud via the CLI (command cheat sheet)
 
-This guide lists the commands you need to know to do common operations in MicroCloud.
-This command list is not meant to be exhaustive, but it gives a general overview and serves as an entry point to working with MicroCloud.
+This guide lists CLI commands for common operations in MicroCloud.
+This command list is not meant to be exhaustive, but it gives a general overview and serves as an entry point to working with MicroCloud through the CLI. 
 
-Make sure to also check the {doc}`LXD documentation <lxd:index>`.
-Most commands you use in MicroCloud are actually LXD client commands and are documented in more detail in the LXD documentation.
-There, you can also find the {ref}`man pages <lxd:lxc.md>` for the {command}`lxc` command.
+```{admonition} GUI
+:class: tip
+To use a graphical interface instead, see {ref}`howto-ui`.
+```
 
-The sections of the command list provide direct links to specific pages containing more information about the respective topics.
+Most commands you use in MicroCloud are actually LXD client commands. Find detailed information about them in the LXD documentation, including {ref}`lxd:howtos` as well as the {ref}`man pages <lxd:lxc.md>` for the {command}`lxc` command. Each section of the command list below includes links to relevant pages in the LXD documentation.
 
 ## Create and manage instances
 
@@ -241,18 +242,8 @@ See {ref}`lxd:server-configure`.
     ```{tip}
     See {ref}`lxd:server` for all available server options.
     ```
-* - Enable GUI access to the LXD cluster
-  - {command}`lxc config set core.https_address :8443`
-
-    Then enable the UI on the snap and reload the snap:
-
-        snap set lxd ui.enable=true
-        sudo systemctl reload snap.lxd.daemon
-
-    ```{tip}
-    See {ref}`lxd:access-ui` for detailed information.
-    ```
 ```
+
 ## Manage the MicroCloud cluster
 
 See {ref}`lxd:cluster-manage-instance` and {ref}`lxd:cluster-evacuate`.
