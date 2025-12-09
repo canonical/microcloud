@@ -131,7 +131,7 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		}
 
 		// store cluster manager configuration in local database
-		err = state.Database().Transaction(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = state.Database().Transaction(r.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			clusterManagerId, err := database.CreateClusterManager(ctx, tx, clusterManager)
 			if err != nil {
 				return err
