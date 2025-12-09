@@ -73,6 +73,7 @@ SVG
 Terraform
 TinyPNG
 TLS
+UI's
 uplink
 upstream's
 virtualized

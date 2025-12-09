@@ -1,4 +1,7 @@
 ---
+myst:
+  html_meta:
+    description: MicroCloud is a lightweight, open source cloud platform built on LXD, MicroCeph, and MicroOVN, ideal for private cloud, edge computing, and test labs.
 discourse: lxc:[Introducing&#32;MicroCloud](15871)
 relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store](https://snapcraft.io/microcloud)"
 ---
@@ -6,11 +9,11 @@ relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store
 (home)=
 # MicroCloud
 
-Deploy a scalable, low-touch cloud platform in minutes with MicroCloud.
+Deploy a low-touch, open source cloud platform in minutes with MicroCloud.
 
-MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for {ref}`reproducible, scalable deployments <exp-microcloud-scale>`.
+MicroCloud creates a lightweight cluster of machines that operates as a scalable private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for {ref}`reproducible, scalable deployments <exp-microcloud-scale>`.
 
-With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from {ref}`high availability <exp-microcloud-ha>`, {ref}`streamlined security updates <ref-releases-snaps>`, and {ref}`fine-grained access control for multi-tenancy <exp-microcloud-access-control>`. Cluster members can run {ref}`full virtual machines or lightweight system containers <exp-microcloud-vms-containers>` with bare-metal performance.
+With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from {ref}`high availability <exp-microcloud-ha>`, {ref}`streamlined security updates <ref-releases-snaps>`, and {ref}`fine-grained access control for multi-tenancy <exp-microcloud-access-control>`. Cluster members can run {ref}`full virtual machines or lightweight system containers <exp-microcloud-vms-containers>` with bare-metal performance. Manage it through your choice of client interfaces, including a {ref}`graphical UI <howto-ui>` and {ref}`CLI <howto-commands>`.
 
 MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
 
@@ -33,7 +36,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ```{grid-item} [How-to guides](/how-to/index)
 
-**Step-by-step guides** covering key operations and common tasks such as {ref}`installing MicroCloud <howto-install>` and {ref}`adding <howto-member-add>` and {ref}`removing <howto-member-remove>` cluster members
+**Step-by-step guides** covering key operations and common tasks such as {ref}`installing MicroCloud <howto-install>`, {ref}`adding <howto-member-add>` and {ref}`removing <howto-member-remove>` cluster members, and {ref}`accessing the UI <howto-ui>`
 ```
 
 ````

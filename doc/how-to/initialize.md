@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: Find out how to initialize MicroCloud after installation, using either interactive or preseed configuration.
+---
+
 (howto-initialize)=
 # How to initialize MicroCloud
 
@@ -123,6 +129,8 @@ Complete the following steps to initialize MicroCloud:
    Once the initialization process is complete, you can start using MicroCloud.
 
 See an example of the full initialization process in the {ref}`Get started with MicroCloud <initialization-process>` tutorial.
+
+Once you have initialized MicroCloud, you can interact with it through CLI commands, API requests, or its {ref}`graphical UI <howto-ui>`.
 
 ### Excluding MicroCeph or MicroOVN from MicroCloud
 
