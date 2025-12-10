@@ -29,6 +29,16 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
+// askRetryWarningError can be returned from the askRetry callback to indicate the returned error should be printed as a warning.
+type askRetryWarningError struct {
+	Msg string
+}
+
+// Error returns the error's message.
+func (a askRetryWarningError) Error() string {
+	return a.Msg
+}
+
 func checkInitialized(stateDir string, expectInitialized bool, preseed bool) error {
 	cfg := initConfig{autoSetup: true}
 
