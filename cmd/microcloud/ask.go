@@ -161,7 +161,13 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 				return err
 			}
 
-			tui.PrintError(err.Error())
+			var askRetryWarningErr askRetryWarningError
+			if errors.As(err, &askRetryWarningErr) {
+				tui.PrintWarning(err.Error())
+			} else {
+				tui.PrintError(err.Error())
+			}
+
 			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
