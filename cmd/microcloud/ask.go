@@ -29,6 +29,16 @@ import (
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
+// askRetryWarningError can be returned from the askRetry callback to indicate the returned error should be printed as a warning.
+type askRetryWarningError struct {
+	Msg string
+}
+
+// Error returns the error's message.
+func (a askRetryWarningError) Error() string {
+	return a.Msg
+}
+
 func checkInitialized(stateDir string, expectInitialized bool, preseed bool) error {
 	cfg := initConfig{autoSetup: true}
 
@@ -151,7 +161,13 @@ func (c *initConfig) askRetry(question string, f func() error) error {
 				return err
 			}
 
-			tui.PrintError(err.Error())
+			var askRetryWarningErr askRetryWarningError
+			if errors.As(err, &askRetryWarningErr) {
+				tui.PrintWarning(err.Error())
+			} else {
+				tui.PrintError(err.Error())
+			}
+
 			retry, err = c.asker.AskBool(question, true)
 			if err != nil {
 				return err
@@ -855,10 +871,12 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 					mergedDisks[clusterMember] = append(mergedDisks[clusterMember], disks...)
 				}
 
-				insufficientDisks = !useJoinConfigRemote && len(mergedDisks) < RecommendedOSDHosts
+				systemsWithDisks := len(mergedDisks)
+				insufficientDisks = !useJoinConfigRemote && systemsWithDisks < RecommendedOSDHosts
 
 				if insufficientDisks {
-					return fmt.Errorf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
+					errMsg := fmt.Sprintf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks (%d currently supplying). Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts, systemsWithDisks)
+					return askRetryWarningError{errMsg}
 				}
 
 				return nil
