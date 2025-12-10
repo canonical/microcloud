@@ -13,8 +13,8 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v3/microcluster"
-	"github.com/canonical/microcluster/v3/rest"
-	microTypes "github.com/canonical/microcluster/v3/rest/types"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/canonical/microcluster/v3/state"
 	"github.com/spf13/cobra"
 
@@ -157,9 +157,12 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	err = logger.InitLogger("", "", c.global.flagLogVerbose, c.global.flagLogDebug, nil)
+	if err != nil {
+		return err
+	}
+
 	dargs := microcluster.DaemonArgs{
-		Verbose:           c.global.flagLogVerbose,
-		Debug:             c.global.flagLogDebug,
 		Version:           version.RawVersion,
 		HeartbeatInterval: c.flagHeartbeatInterval,
 

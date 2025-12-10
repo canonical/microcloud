@@ -9,8 +9,8 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/canonical/microcluster/v3/rest"
-	"github.com/canonical/microcluster/v3/rest/response"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
@@ -55,7 +55,7 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		return response.SmartError(fmt.Errorf("State address %q is invalid: %w", state.Address().String(), err))
 	}
 
-	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir, existingServices...)
+	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir(), existingServices...)
 	if err != nil {
 		return response.SmartError(err)
 	}

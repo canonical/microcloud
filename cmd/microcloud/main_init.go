@@ -1002,9 +1002,14 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			return err
 		}
 	} else {
-		err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		op, err := lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to update profile %q: %w", profile.Name, err)
+		}
+
+		err = op.Wait()
+		if err != nil {
+			return fmt.Errorf("Failed to wait for profile %q to update: %w", profile.Name, err)
 		}
 	}
 
@@ -1043,19 +1048,41 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 				reverter.Add(func() {
 					_ = targetClient.UpdateServer(server.Writable(), "")
-					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "images")
-					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
 				})
 
-				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
+				op, err := targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
 				if err != nil {
-					return err
+					return fmt.Errorf("Failed to create volume %q on pool %q: %w", "images", "local", err)
 				}
 
-				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				err = op.Wait()
 				if err != nil {
-					return err
+					return fmt.Errorf("Failed to wait for volume %q on pool %q: %w", "images", "local", err)
 				}
+
+				reverter.Add(func() {
+					op, err := targetClient.DeleteStoragePoolVolume("local", "custom", "images")
+					if err == nil {
+						_ = op.Wait()
+					}
+				})
+
+				op, err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				if err != nil {
+					return fmt.Errorf("Failed to create volume %q on pool %q: %w", "backups", "local", err)
+				}
+
+				err = op.Wait()
+				if err != nil {
+					return fmt.Errorf("Failed to wait for volume %q on pool %q: %w", "backups", "local", err)
+				}
+
+				reverter.Add(func() {
+					op, err = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+					if err == nil {
+						_ = op.Wait()
+					}
+				})
 
 				newServer := server.Writable()
 				newServer.Config["storage.backups_volume"] = "local/backups"
