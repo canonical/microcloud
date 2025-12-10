@@ -871,10 +871,11 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 					mergedDisks[clusterMember] = append(mergedDisks[clusterMember], disks...)
 				}
 
-				insufficientDisks = !useJoinConfigRemote && len(mergedDisks) < RecommendedOSDHosts
+				systemsWithDisks := len(mergedDisks)
+				insufficientDisks = !useJoinConfigRemote && systemsWithDisks < RecommendedOSDHosts
 
 				if insufficientDisks {
-					errMsg := fmt.Sprintf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts)
+					errMsg := fmt.Sprintf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks (%d currently supplying). Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts, systemsWithDisks)
 					return askRetryWarningError{errMsg}
 				}
 
