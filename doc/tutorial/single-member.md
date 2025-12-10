@@ -143,7 +143,7 @@ MicroCloud will again ask you to select which disks to wipe. If the disk you cho
 You'll see the following error message, and you'll be asked if you want to change the disk selection. Do not accept the default this time. Enter `no`:
 
 ```{terminal}
-⨯ Error: Disk configuration does not meet recommendations for fault tolerance. At least 3 systems must supply disks. Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure
+! Warning: Disk configuration does not meet recommendations for fault tolerance. At least 3 systems must supply disks (1 currently supplying). Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure
 Change disk selection? (yes/no) [default=yes]: no
 ```
 
