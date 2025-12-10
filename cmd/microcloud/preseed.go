@@ -614,6 +614,36 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 	return matches, nil
 }
 
+// findInterfaceAndNetworkForAddress expects an address without CIDR and returns the respective interface and network.
+func (p *Preseed) findInterfaceAndNetworkForAddress(address string) (*net.Interface, *net.IPNet, error) {
+	ip := net.ParseIP(address)
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range ifaces {
+		addresses, err := iface.Addrs()
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to get addresses of interface %q: %w", iface.Name, err)
+		}
+
+		for _, address := range addresses {
+			ipNet, ok := address.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if ipNet.IP.Equal(ip) {
+				return &iface, ipNet, nil
+			}
+		}
+	}
+
+	return nil, nil, fmt.Errorf("No interface found for address %q", address)
+}
+
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
 func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map[types.ServiceType]string) (map[string]InitSystem, error) {
 	c.systems = make(map[string]InitSystem, len(p.Systems))
@@ -630,34 +660,9 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		expectedSystems = append(expectedSystems, system.Name)
 	}
 
-	ifaces, err := net.Interfaces()
+	var err error
+	c.lookupIface, c.lookupSubnet, err = p.findInterfaceAndNetworkForAddress(c.address)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
-	}
-
-	for _, iface := range ifaces {
-		addresses, err := iface.Addrs()
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get addresses of interface %q: %w", iface.Name, err)
-		}
-
-		addressStrings := make([]string, 0, len(addresses))
-		for _, address := range addresses {
-			ipNet, ok := address.(*net.IPNet)
-			if !ok {
-				continue
-			}
-
-			addressStrings = append(addressStrings, ipNet.IP.String())
-		}
-
-		if slices.Contains(addressStrings, c.address) {
-			c.lookupIface = &iface
-			break
-		}
-	}
-
-	if c.lookupIface == nil {
 		return nil, fmt.Errorf("Failed to find lookup interface for address %q", c.address)
 	}
 
