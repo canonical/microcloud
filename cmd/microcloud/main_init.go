@@ -1048,15 +1048,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 				reverter.Add(func() {
 					_ = targetClient.UpdateServer(server.Writable(), "")
-					op, err := targetClient.DeleteStoragePoolVolume("local", "custom", "images")
-					if err == nil {
-						_ = op.Wait()
-					}
-
-					op, err = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
-					if err == nil {
-						_ = op.Wait()
-					}
 				})
 
 				op, err := targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
@@ -1069,6 +1060,13 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 					return fmt.Errorf("Failed to wait for volume %q on pool %q: %w", "images", "local", err)
 				}
 
+				reverter.Add(func() {
+					op, err := targetClient.DeleteStoragePoolVolume("local", "custom", "images")
+					if err == nil {
+						_ = op.Wait()
+					}
+				})
+
 				op, err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
 				if err != nil {
 					return fmt.Errorf("Failed to create volume %q on pool %q: %w", "backups", "local", err)
@@ -1078,6 +1076,13 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 				if err != nil {
 					return fmt.Errorf("Failed to wait for volume %q on pool %q: %w", "backups", "local", err)
 				}
+
+				reverter.Add(func() {
+					op, err = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+					if err == nil {
+						_ = op.Wait()
+					}
+				})
 
 				newServer := server.Writable()
 				newServer.Config["storage.backups_volume"] = "local/backups"
