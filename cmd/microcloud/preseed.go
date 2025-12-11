@@ -334,6 +334,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return errors.New("Cannot provide both the initiator's name and address")
 	}
 
+	if p.Initiator != "" && p.LookupSubnet == "" {
+		return errors.New("Missing lookup subnet")
+	}
+
 	if p.InitiatorAddress != "" && p.LookupSubnet != "" {
 		return errors.New("Cannot provide both the initiator's address and lookup subnet")
 	}
