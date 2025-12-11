@@ -587,6 +587,7 @@ func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDServ
 
 // getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
 // If the system passed as an argument is nil, we will fetch the local Ceph network configuration.
+// In case either the public or internal network is not set in the configuration, a nil IP network is returned.
 func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwork *net.IPNet, internalCephNetwork *net.IPNet, err error) {
 	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
 	if microCephService == nil {
