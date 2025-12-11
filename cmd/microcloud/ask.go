@@ -543,7 +543,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) (validatedCephInterfaces map[string][]NetworkInterfaceInfo, err error) {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to validate Ceph interfaces for subnet %q: %w", askedCephSubnet, err)
 	}
 
 	_, internalCephNet, err := net.ParseCIDR(askedCephSubnet)
@@ -587,6 +587,7 @@ func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDServ
 
 // getTargetCephNetworks fetches the Ceph network configuration from the existing Ceph cluster.
 // If the system passed as an argument is nil, we will fetch the local Ceph network configuration.
+// In case either the public or internal network is not set in the configuration, a nil IP network is returned.
 func getTargetCephNetworks(sh *service.Handler, s *InitSystem) (publicCephNetwork *net.IPNet, internalCephNetwork *net.IPNet, err error) {
 	microCephService := sh.Services[types.MicroCeph].(*service.CephService)
 	if microCephService == nil {
