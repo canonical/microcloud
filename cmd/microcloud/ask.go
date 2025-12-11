@@ -543,7 +543,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 func (c *initConfig) validateCephInterfacesForSubnet(lxdService *service.LXDService, availableCephNetworkInterfaces map[string]map[string]service.DedicatedInterface, askedCephSubnet string) (validatedCephInterfaces map[string][]NetworkInterfaceInfo, err error) {
 	validatedCephInterfacesData, err := lxdService.ValidateCephInterfaces(askedCephSubnet, availableCephNetworkInterfaces)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to validate Ceph interfaces for subnet %q: %w", askedCephSubnet, err)
 	}
 
 	_, internalCephNet, err := net.ParseCIDR(askedCephSubnet)
