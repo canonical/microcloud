@@ -609,7 +609,7 @@ func (s LXDService) GetNetworkInterfaces(ctx context.Context, name string, addre
 func (s *LXDService) ValidateCephInterfaces(cephNetworkSubnetStr string, peerInterfaces map[string]map[string]DedicatedInterface) (map[string][][]string, error) {
 	_, subnet, err := net.ParseCIDR(cephNetworkSubnetStr)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid CIDR subnet: %v", err)
+		return nil, fmt.Errorf("Invalid CIDR subnet %q: %w", cephNetworkSubnetStr, err)
 	}
 
 	ones, bits := subnet.Mask.Size()

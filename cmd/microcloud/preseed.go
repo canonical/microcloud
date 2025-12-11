@@ -1142,7 +1142,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		if internalCephNetwork != "" {
 			internalCephNetworkValidatedInterfaces, err := c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, internalCephNetwork)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph internal network: %w", err)
 			}
 
 			// Update systems with their internal Ceph network representation.
@@ -1173,7 +1173,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		if publicCephNetwork != "" {
 			publicCephNetworkValidatedInterfaces, err := c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, publicCephNetwork)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph public network: %w", err)
 			}
 
 			// Update systems with their public Ceph network representation.
@@ -1202,14 +1202,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != c.lookupSubnet.String() {
 			_, err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localInternalCephNetwork.String())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph internal network: %w", err)
 			}
 		}
 
 		if localPublicCephNetwork.String() != "" && localPublicCephNetwork.String() != c.lookupSubnet.String() {
 			_, err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localPublicCephNetwork.String())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph public network: %w", err)
 			}
 		}
 	}
