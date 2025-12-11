@@ -43,6 +43,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				Initiator:         "n1",
+				LookupSubnet:      "10.0.1.0/24",
 				Systems:           []System{{Name: "n1"}, {Name: "n1"}},
 			},
 			addErr: true,
@@ -51,9 +52,10 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc: "Single node preseed",
 			preseed: Preseed{
-				Initiator: "n1",
-				Systems:   []System{{Name: "n1", UplinkInterface: "eth0", Storage: InitStorage{}}},
-				OVN:       InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
+				Initiator:    "n1",
+				LookupSubnet: "10.0.1.0/24",
+				Systems:      []System{{Name: "n1", UplinkInterface: "eth0", Storage: InitStorage{}}},
+				OVN:          InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 1, FindMax: 3, Wipe: false}},
@@ -65,8 +67,9 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc: "Missing session passphrase",
 			preseed: Preseed{
-				Initiator: "n1",
-				Systems:   []System{{Name: "n1"}, {Name: "n2"}},
+				Initiator:    "n1",
+				LookupSubnet: "10.0.1.0/24",
+				Systems:      []System{{Name: "n1"}, {Name: "n2"}},
 			},
 			addErr: true,
 			err:    errors.New(`Missing session passphrase`),
@@ -112,11 +115,10 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc: "Missing initiator address if one system has an address",
 			preseed: Preseed{
-				Initiator: "n1",
-				Systems:   []System{{Name: "n1", Address: "1.0.0.1"}},
+				Systems: []System{{Name: "n1", Address: "1.0.0.1"}},
 			},
 			addErr: true,
-			err:    errors.New(`Missing the initiator's address as system "n1" has an address`),
+			err:    errors.New("Missing initiator's name or address"),
 		},
 		{
 			desc: "Missing listen address",
