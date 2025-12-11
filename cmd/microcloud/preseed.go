@@ -544,10 +544,18 @@ func (p *Preseed) isBootstrap() bool {
 // address either returns the address specified for the respective system
 // or the first address found on the system within the provided lookup subnet.
 func (p *Preseed) address(name string) (string, error) {
+	// In unicast mode return the address matching the given name.
 	for _, system := range p.Systems {
 		if system.Name == name && system.Address != "" {
 			return system.Address, nil
 		}
+	}
+
+	// If we are in unicast but weren't able to return the address, it's likely
+	// that the provided name (hostname) doesn't exist in the preseed file.
+	// This is an error.
+	if p.LookupSubnet == "" {
+		return "", fmt.Errorf("Preseed file does not contain a system with name %q", name)
 	}
 
 	_, lookupSubnet, err := net.ParseCIDR(p.LookupSubnet)
