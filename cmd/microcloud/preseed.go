@@ -172,6 +172,13 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
 	}
 
+	c.bootstrap = config.isBootstrap()
+
+	err = config.validate(hostname, c.bootstrap)
+	if err != nil {
+		return err
+	}
+
 	var listenAddr string
 	if status.Ready {
 		// If the cluster is already bootstrapped use its address.
@@ -192,7 +199,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.name = hostname
 	c.address = listenIP.String()
 	initiator := config.isInitiator(c.name, c.address)
-	c.bootstrap = config.isBootstrap()
 
 	fmt.Println("Waiting for services to start ...")
 	err = checkInitialized(c.common.FlagMicroCloudDir, initiator && !c.bootstrap, true)
@@ -208,11 +214,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.sessionTimeout = DefaultSessionTimeout
 	if config.SessionTimeout > 0 {
 		c.sessionTimeout = time.Duration(config.SessionTimeout) * time.Second
-	}
-
-	err = config.validate(hostname, c.bootstrap)
-	if err != nil {
-		return err
 	}
 
 	// Build the service handler.
