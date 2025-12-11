@@ -96,6 +96,10 @@ jobs:
           key: download-failed # Use a non existing key to fallback to restore-keys
           restore-keys: trivy-cache-
 
+      - name: Install snapd
+        run: |
+          sudo apt-get install --no-install-recommends -y snapd
+
       - name: Download snap for scan
         run: |
           snap download microcloud --channel=${{ matrix.channel }}
