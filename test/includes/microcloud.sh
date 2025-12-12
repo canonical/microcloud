@@ -1228,6 +1228,28 @@ create_system() {
   )
 }
 
+retry() {
+    local cmd="$*"
+    local maxAttempts="10"
+    local i
+
+    for i in $(seq 1 "${maxAttempts}"); do
+        # Make sure to catch both stdout and stderr.
+        # Also kill the command after 30 minutes if it is still running.
+        # shellcheck disable=SC2086
+        output="$(timeout 30m ${cmd} 2>&1)" && return 0
+
+        # Log the failed attempt so that it's visible on the pipeline's summary page.
+        echo "::warning::Failed to run '${cmd}': ${output}"
+
+        retryInSeconds="$((i*5))"
+        echo "Retrying in ${retryInSeconds} seconds... (${i}/${maxAttempts})"
+        sleep "${retryInSeconds}"
+    done
+
+    return 1
+}
+
 setup_system() {
   name="${1}"
   shift 1
