@@ -1279,17 +1279,24 @@ setup_system() {
     # Remove unneeded/unwanted packages
     lxc exec "${name}" -- apt-get autopurge -y lxd-installer
 
+    packages="jq"
+
     # Install the snaps.
     # Retry the attempts in case the download from external sources fails due to instability.
     retry lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
-    else
-      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+      packages+=" zfsutils-linux htop"
     fi
 
+    if [ ! "${BASE_OS}" = "22.04" ]; then
+      packages+=" yq"
+    else
+      retry lxc exec "${name}" -- snap install yq
+    fi
+
+    # shellcheck disable=SC2086
+    retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
     retry lxc exec "${name}" -- snap install snapd
-    retry lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
