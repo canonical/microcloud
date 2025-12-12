@@ -116,7 +116,11 @@ runs:
       shell: bash
       run: |
         set -eux
-        sudo snap install lxd --channel 5.21/edge
+
+        # Source the retry func.
+        . test/includes/microcloud.sh
+
+        retry sudo snap install lxd --channel 5.21/edge
         sudo lxd init --auto --storage-backend=zfs
 
         # Save cached images into the (compressed) zpool
@@ -154,7 +158,10 @@ runs:
       run: |
         set -eux
 
-        sudo snap install terraform --classic
+        # Source the retry func.
+        . test/includes/microcloud.sh
+
+        retry sudo snap install terraform --classic
 
     - name: "Run system tests (${{ matrix.suite }})"
       shell: bash
