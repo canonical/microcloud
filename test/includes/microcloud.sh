@@ -858,7 +858,7 @@ reset_system() {
       iface="enp$((i + 5))s0"
       lxc exec "${name}" -- ip addr flush dev "${iface}"
       lxc exec "${name}" -- ip link set "${iface}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
+      lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${iface}.disable_ipv6=1"
     done
   )
 
@@ -1102,7 +1102,7 @@ restore_system() {
     for i in $(seq 1 "${num_extra_ifaces}") ; do
       network="enp$((i + 5))s0"
       lxc exec "${name}" -- ip link set "${network}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${network}/disable_ipv6"
+      lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${network}.disable_ipv6=1"
     done
   )
 
