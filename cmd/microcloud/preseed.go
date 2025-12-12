@@ -172,6 +172,13 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
 	}
 
+	c.bootstrap = config.isBootstrap()
+
+	err = config.validate(hostname, c.bootstrap)
+	if err != nil {
+		return err
+	}
+
 	var listenAddr string
 	if status.Ready {
 		// If the cluster is already bootstrapped use its address.
@@ -192,7 +199,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.name = hostname
 	c.address = listenIP.String()
 	initiator := config.isInitiator(c.name, c.address)
-	c.bootstrap = config.isBootstrap()
 
 	fmt.Println("Waiting for services to start ...")
 	err = checkInitialized(c.common.FlagMicroCloudDir, initiator && !c.bootstrap, true)
@@ -208,11 +214,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.sessionTimeout = DefaultSessionTimeout
 	if config.SessionTimeout > 0 {
 		c.sessionTimeout = time.Duration(config.SessionTimeout) * time.Second
-	}
-
-	err = config.validate(hostname, c.bootstrap)
-	if err != nil {
-		return err
 	}
 
 	// Build the service handler.
@@ -332,6 +333,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 	if p.Initiator != "" && p.InitiatorAddress != "" {
 		return errors.New("Cannot provide both the initiator's name and address")
+	}
+
+	if p.Initiator != "" && p.LookupSubnet == "" {
+		return errors.New("Missing lookup subnet")
 	}
 
 	if p.InitiatorAddress != "" && p.LookupSubnet != "" {
@@ -544,10 +549,18 @@ func (p *Preseed) isBootstrap() bool {
 // address either returns the address specified for the respective system
 // or the first address found on the system within the provided lookup subnet.
 func (p *Preseed) address(name string) (string, error) {
+	// In unicast mode return the address matching the given name.
 	for _, system := range p.Systems {
 		if system.Name == name && system.Address != "" {
 			return system.Address, nil
 		}
+	}
+
+	// If we are in unicast but weren't able to return the address, it's likely
+	// that the provided name (hostname) doesn't exist in the preseed file.
+	// This is an error.
+	if p.LookupSubnet == "" {
+		return "", fmt.Errorf("Preseed file does not contain a system with name %q", name)
 	}
 
 	_, lookupSubnet, err := net.ParseCIDR(p.LookupSubnet)
