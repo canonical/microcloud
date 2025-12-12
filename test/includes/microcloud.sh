@@ -1280,15 +1280,16 @@ setup_system() {
     lxc exec "${name}" -- apt-get autopurge -y lxd-installer
 
     # Install the snaps.
-    lxc exec "${name}" -- apt-get update
+    # Retry the attempts in case the download from external sources fails due to instability.
+    retry lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
+      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
     else
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
     fi
 
-    lxc exec "${name}" -- snap install snapd
-    lxc exec "${name}" -- snap install yq
+    retry lxc exec "${name}" -- snap install snapd
+    retry lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
@@ -1331,7 +1332,7 @@ setup_system() {
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
     else
-      lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
+      retry lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
     fi
 
     # Hold the snaps to not perform any refreshes during test execution.
