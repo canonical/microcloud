@@ -87,7 +87,7 @@ ovn:
 
     # First upgrade MicroCeph.
     for m in micro01 micro02 micro03; do
-      lxc exec "${m}" -- snap refresh microceph --channel "${microceph_target}"
+      retry lxc exec "${m}" -- snap refresh microceph --channel "${microceph_target}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -105,14 +105,16 @@ ovn:
         sleep 1
         retries=$((retries+1))
       done
+    done
 
+    for m in micro01 micro02 micro03; do
       # There was no encryption neither dedicated Ceph networks and CephFS in MicroCloud 1.
       validate_system_microceph "${m}" 0 0 disk2
     done
 
     # Second upgrade MicroOVN.
     for m in micro01 micro02 micro03; do
-      lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
+      retry lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -130,7 +132,9 @@ ovn:
         sleep 1
         retries=$((retries+1))
       done
+    done
 
+    for m in micro01 micro02 micro03; do
       # There was no explicit OVN underlay subnet configuration in MicroCloud 1.
       validate_system_microovn "${m}"
     done
@@ -138,7 +142,7 @@ ovn:
     # Third upgrade LXD.
     for m in micro01 micro02 micro03; do
       # Upgrade them in parallel as the refresh waits for the others to update too.
-      lxc exec "${m}" -- snap refresh lxd --channel "${lxd_target}" &
+      retry lxc exec "${m}" -- snap refresh lxd --channel "${lxd_target}" &
     done
     wait
 
@@ -157,14 +161,17 @@ ovn:
         sleep 1
         retries=$((retries+1))
       done
+    done
 
+    # Test LXD only after all the cluster members have stabilized after upgrade.
+    for m in micro01 micro02 micro03; do
       # Don't test for DNS nameservers on the OVN network as those weren't yet added in MicroCloud 1.
       validate_system_lxd "${m}" 3 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
     done
 
     # Fourth upgrade MicroCloud.
     for m in micro01 micro02 micro03; do
-      lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
+      retry lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
       set_debug_binaries "${m}"
     done
 
@@ -172,7 +179,7 @@ ovn:
       retries=0
       while true; do
         if [ "${retries}" -gt 60 ]; then
-          echo "LXD member ${m} failed to come up after upgrade"
+          echo "MicroCloud member ${m} failed to come up after upgrade"
           exit 1
         fi
 
@@ -202,10 +209,10 @@ ovn:
     [ "${c1_boot_id}" = "${c1_boot_id_after_upgrade}" ]
 
     # Upgrade micro04.
-    lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
-    lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
-    lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
-    lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
+    retry lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
+    retry lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
+    retry lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
+    retry lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
     lxc exec micro04 -- snap start microcloud
     set_debug_binaries "micro04"
 

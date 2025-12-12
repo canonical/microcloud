@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -162,6 +163,47 @@ func (i *InputHandler) AskString(question string, defaultAnswer string, validato
 
 		if len(answer) != 0 {
 			return answer, err
+		}
+
+		InvalidInputError(nil)
+	}
+}
+
+// AskPassphrase renders an interactive input with autocomplete suggestions and returns the entered passphrase.
+func (i *InputHandler) AskPassphrase(question string, suggestions []string, validator func(string) error, maxTokens uint8) (string, error) {
+	i.setActive(true)
+	defer i.setActive(false)
+
+	for {
+		// Start a Bubble Tea program with autocomplete model.
+		m := autocompleteModel(question, suggestions, maxTokens, i.testMode)
+		p := tea.NewProgram(m, tea.WithInput(i.input), tea.WithOutput(i.output))
+		result, err := p.Run()
+		if err != nil {
+			if errors.Is(err, tea.ErrInterrupted) {
+				os.Exit(1)
+			}
+
+			return "", err
+		}
+
+		autocomplete, ok := result.(model)
+		if !ok {
+			return "", errors.New("Unexpected result type from autocomplete model")
+		}
+
+		answer := strings.TrimSpace(autocomplete.textInput.Value())
+
+		if validator != nil {
+			err := validator(answer)
+			if err != nil {
+				InvalidInputError(err)
+				continue
+			}
+		}
+
+		if answer != "" {
+			return answer, nil
 		}
 
 		InvalidInputError(nil)

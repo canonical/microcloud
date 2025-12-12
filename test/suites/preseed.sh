@@ -413,4 +413,73 @@ EOF
     validate_system_microceph ${m} 1 disk2
     validate_system_microovn ${m}
   done
+
+  # Create a MicroCloud in unicast mode.
+  reset_systems 3 2 1
+
+  micro01_address="$(lxc ls -f csv | grep micro01 | cut -d',' -f3 | cut -d' ' -f1)"
+  micro02_address="$(lxc ls -f csv | grep micro02 | cut -d',' -f3 | cut -d' ' -f1)"
+  micro03_address="$(lxc ls -f csv | grep micro03 | cut -d',' -f3 | cut -d' ' -f1)"
+
+  preseed="$(cat << EOF
+initiator_address: ${micro01_address}
+session_passphrase: foo
+systems:
+- name: micro01
+  address: ${micro01_address}
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+- name: micro02
+  address: ${micro02_address}
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+- name: micro03
+  address: ${micro03_address}
+  ovn_uplink_interface: enp6s0
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
+ceph:
+  cephfs: true
+EOF
+  )"
+
+  # First start the initiator and ensure it has an active session.
+  # When the joiners reach out using unicast, they expect an active session.
+  # If the initiator isn't ready, its API will return an error telling there is no active session.
+  # Ensure LXD is up and running on the initiator so we don't have to wait for it to start when running microcloud preseed.
+  lxc exec micro01 -- lxc ls
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  # 5s should be enough until the initiator has started the session.
+  sleep 5
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+
+  # Wait until all the microcloud preseed commands on all the systems have returned.
+  wait
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd ${m} 3 disk1 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
+    validate_system_microceph ${m} 1 disk2
+    validate_system_microovn ${m}
+  done
 }

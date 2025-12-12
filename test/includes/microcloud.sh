@@ -225,6 +225,7 @@ join_session(){
 $([ -n "${LOOKUP_IFACE}" ] && printf "table:select")          # select the interface
 $([ -n "${LOOKUP_IFACE}" ] && printf -- "table:done")
 a a a a                                 # the test passphrase
+$(printf "ctrl:m")						# autocomplete model requires carriage return
 $(true)                                 # workaround for set -e
 "
 
@@ -279,25 +280,31 @@ set_debug_binaries() {
 
   if [ -n "${MICROOVN_SNAP_PATH}" ]; then
     echo "==> Add local build of MicroOVN snap."
-    lxc file push "${MICROOVN_SNAP_PATH}" "${name}/root/microovn.snap"
+    lxc file push --quiet "${MICROOVN_SNAP_PATH}" "${name}/root/microovn.snap"
     lxc exec "${name}" -- snap install --dangerous "/root/microovn.snap"
   fi
 
   if [ -n "${MICROCEPH_SNAP_PATH}" ]; then
     echo "==> Add local build of MicroCeph snap."
-    lxc file push "${MICROCEPH_SNAP_PATH}" "${name}/root/microceph.snap"
+    lxc file push --quiet "${MICROCEPH_SNAP_PATH}" "${name}/root/microceph.snap"
     lxc exec "${name}" -- snap install --dangerous "/root/microceph.snap"
   fi
 
   if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
     echo "==> Add debug binaries for MicroCloud."
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug
+
+    # Before injecting the binaries ensure the daemon is stopped.
+    # As the other cluster members might already have the new version, this member's version
+    # might still be behind after the snap refresh so the daemon enters a restart loop yielding "This node's version is behind, please upgrade."
+    # Therefore shut it down to exit the loop and ensure it can cleanly come up (with the right version) after injecting the binaries.
+    lxc exec "${name}" -- systemctl stop snap.microcloud.daemon || true
+
+    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug /var/snap/microcloud/common/microcloud.debug
 
     lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug --mode 0755
     lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug --mode 0755
 
-    lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
+    lxc exec "${name}" -- systemctl start snap.microcloud.daemon || true
   fi
 
   if [ -n "${LXD_DEBUG_PATH}" ]; then
@@ -851,7 +858,7 @@ reset_system() {
       iface="enp$((i + 5))s0"
       lxc exec "${name}" -- ip addr flush dev "${iface}"
       lxc exec "${name}" -- ip link set "${iface}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
+      lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${iface}.disable_ipv6=1"
     done
   )
 
@@ -1095,7 +1102,7 @@ restore_system() {
     for i in $(seq 1 "${num_extra_ifaces}") ; do
       network="enp$((i + 5))s0"
       lxc exec "${name}" -- ip link set "${network}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${network}/disable_ipv6"
+      lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${network}.disable_ipv6=1"
     done
   )
 
@@ -1221,6 +1228,28 @@ create_system() {
   )
 }
 
+retry() {
+    local cmd="$*"
+    local maxAttempts="10"
+    local i
+
+    for i in $(seq 1 "${maxAttempts}"); do
+        # Make sure to catch both stdout and stderr.
+        # Also kill the command after 30 minutes if it is still running.
+        # shellcheck disable=SC2086
+        output="$(timeout 30m ${cmd} 2>&1)" && return 0
+
+        # Log the failed attempt so that it's visible on the pipeline's summary page.
+        echo "::warning::Failed to run '${cmd}': ${output}"
+
+        retryInSeconds="$((i*5))"
+        echo "Retrying in ${retryInSeconds} seconds... (${i}/${maxAttempts})"
+        sleep "${retryInSeconds}"
+    done
+
+    return 1
+}
+
 setup_system() {
   name="${1}"
   shift 1
@@ -1250,16 +1279,24 @@ setup_system() {
     # Remove unneeded/unwanted packages
     lxc exec "${name}" -- apt-get autopurge -y lxd-installer
 
+    packages="jq"
+
     # Install the snaps.
-    lxc exec "${name}" -- apt-get update
+    # Retry the attempts in case the download from external sources fails due to instability.
+    retry lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
-    else
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+      packages+=" zfsutils-linux htop"
     fi
 
-    lxc exec "${name}" -- snap install snapd
-    lxc exec "${name}" -- snap install yq
+    if [ ! "${BASE_OS}" = "22.04" ]; then
+      packages+=" yq"
+    else
+      retry lxc exec "${name}" -- snap install yq
+    fi
+
+    # shellcheck disable=SC2086
+    retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
+    retry lxc exec "${name}" -- snap install snapd
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
@@ -1302,7 +1339,7 @@ setup_system() {
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
     else
-      lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
+      retry lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
     fi
 
     # Hold the snaps to not perform any refreshes during test execution.
@@ -1447,31 +1484,28 @@ lxd_wait_vm() {
   return 1
 }
 
-# ip_prefix_by_netmask: Returns the prefix length of the given netmask.
-ip_prefix_by_netmask () {
-  # shellcheck disable=SC2048,SC2086
-  c=0 x=0$( printf '%o' ${1//./ } )
-  # shellcheck disable=SC2048,SC2086
-  while [ $x -gt 0 ]; do
-    (( c += x % 2, x >>= 1 ))
-  done
-
-  echo /$c ;
-}
-
 # ip_config_to_netaddr: Returns the IPv4 network address of the given interface.
 # e.g: ip_config_to_netaddr lxdbr0 (with inet: 10.233.6.X/24)-> 10.233.6.0/24
 ip_config_to_netaddr () {
-	local line ip mask net_addr
-  line=$(ifconfig -a "$1" | grep netmask | tr -s " ")
-  ip=$(echo "$line" | cut -f 3 -d " ")
-  mask=$(echo "$line" | cut -f 5 -d " ")
+  local ip ip_dec cidr mask net net_dec
+  IFS=/ read -r ip cidr < <(ip -4 addr show dev "${1}" | awk '{if ($1 == "inet") print $2}')
 
-	IFS=. read -r io1 io2 io3 io4 <<< "$ip"
-	IFS=. read -r mo1 mo2 mo3 mo4 <<< "$mask"
-	net_addr="$((io1 & mo1)).$((io2 & mo2)).$((io3 & mo3)).$((io4 & mo4))"
+  # Convert IP to a 32-bit integer (decimal)
+  ip_dec="$(awk -F'.' '{printf "%d", (($1*256+$2)*256+$3)*256+$4}' <<< "${ip}")"
 
-	echo "${net_addr}$(ip_prefix_by_netmask "${mask}")"
+  # Calculate the network mask (32-bit integer)
+  # Network Mask = (2^mask_len - 1) shifted left by (32 - mask_len)
+  # A simpler way: (0xFFFFFFFF << (32 - mask_len)) & 0xFFFFFFFF
+  mask="$(( (0xFFFFFFFF << (32 - cidr)) & 0xFFFFFFFF ))"
+
+  # Calculate the network address (bit-wise AND)
+  net_dec="$(( ip_dec & mask ))"
+
+  # Convert the resulting 32-bit integer back to dotted-decimal format (network address)
+  net="$(( (net_dec >> 24) & 0xFF )).$(( (net_dec >> 16) & 0xFF )).$(( (net_dec >> 8) & 0xFF )).$(( net_dec & 0xFF ))"
+
+  # Output the final network address in CIDR format
+  echo "${net}/${cidr}"
 }
 
 set_cluster_subnet() {

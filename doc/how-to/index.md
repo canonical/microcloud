@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: How-to guides for key MicroCloud operations, including installation, initialization, UI access, configuration, cluster management, updates, and more.
+---
+
 (howto)=
 # How-to guides
 
@@ -8,6 +14,7 @@ These MicroCloud how-to guides cover key operations and processes, including ins
 
 Install MicroCloud </how-to/install>
 Initialize MicroCloud </how-to/initialize>
+Access the UI </how-to/ui>
 Automate a test deployment with Terraform </how-to/terraform_automation>
 Configure Ceph networking </how-to/ceph_networking>
 Configure OVN underlay </how-to/ovn_underlay>

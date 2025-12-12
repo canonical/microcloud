@@ -92,19 +92,19 @@ type cmdStatus struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for the deployment status.
-func (c *cmdStatus) Command() *cobra.Command {
+// command returns the subcommand for the deployment status.
+func (c *cmdStatus) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Deployment status with configuration warnings",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for the deployment status.
-func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for the deployment status.
+func (c *cmdStatus) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -325,7 +325,7 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 	if clusterSize < 3 {
 		tmpl := tui.Fmt{Arg: "%s: %d systems are required for effective fault tolerance"}
 		msg := tui.Printf(tmpl,
-			tui.Fmt{Color: tui.Red, Arg: "Reliability risk", Bold: true},
+			tui.Fmt{Color: tui.Yellow, Arg: "Reliability risk", Bold: true},
 			tui.Fmt{Color: tui.Bright, Arg: 3, Bold: true},
 		)
 
@@ -335,7 +335,7 @@ func compileWarnings(name string, statuses []types.Status) Warnings {
 	if osdCount < 3 && osdsConfigured {
 		tmpl := tui.Fmt{Arg: "%s: MicroCeph OSD replication recommends at least %d disks across %d systems"}
 		msg := tui.Printf(tmpl,
-			tui.Fmt{Color: tui.Red, Arg: "Data loss risk", Bold: true},
+			tui.Fmt{Color: tui.Yellow, Arg: "Data loss risk", Bold: true},
 			tui.Fmt{Color: tui.Bright, Arg: 3, Bold: true},
 			tui.Fmt{Color: tui.Bright, Arg: 3, Bold: true},
 		)

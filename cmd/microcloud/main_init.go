@@ -43,6 +43,9 @@ const DefaultAutoSessionTimeout time.Duration = 10 * time.Minute
 // DefaultSessionTimeout is the default time limit for the trust establishment session.
 const DefaultSessionTimeout time.Duration = 60 * time.Minute
 
+// LXDInitializationTimeout is the time limit for LXD initialization for microcloud.
+const LXDInitializationTimeout time.Duration = 1 * time.Minute
+
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
 	// ServerInfo contains the data reported about this system.
@@ -51,19 +54,25 @@ type InitSystem struct {
 	AvailableDisks []lxdAPI.ResourcesStorageDisk
 	// MicroCephDisks contains the disks intended to be passed to MicroCeph.
 	MicroCephDisks []cephTypes.DisksPost
-	// MicroCephPublicNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph public network.
-	MicroCephPublicNetworkSubnet string
-	// MicroCephClusterNetworkSubnet is an optional subnet (IPv4/IPv6 CIDR notation) for the Ceph cluster network.
-	MicroCephInternalNetworkSubnet string
+	// MicroCephPublicNetwork specifies the optional public network configuration for Ceph.
+	// Includes the subnet (IPv4/IPv6 CIDR), network interface name, and IP address within the subnet.
+	MicroCephPublicNetwork *NetworkInterfaceInfo
+	// MicroCephInternalNetwork specifies the optional cluster network configuration for Ceph.
+	// Includes the subnet (IPv4/IPv6 CIDR), network interface name, and IP address within the subnet.
+	MicroCephInternalNetwork *NetworkInterfaceInfo
+	// MicroCloudInternalNetwork contains the network configuration for the MicroCloud internal network.
+	// Includes the subnet (IPv4/IPv6 CIDR), network interface name, and IP address within the subnet.
+	MicroCloudInternalNetwork *NetworkInterfaceInfo
 	// TargetNetworks contains the network configuration for the target system.
 	TargetNetworks []lxdAPI.NetworksPost
 	// TargetStoragePools contains the storage pool configuration for the target system.
 	TargetStoragePools []lxdAPI.StoragePoolsPost
 	// Networks is the cluster-wide network configuration.
 	Networks []lxdAPI.NetworksPost
-	// OVNGeneveAddr represents an IP address to use for the OVN (if OVN is supported) Geneve tunnel on this system.
-	// If left empty, the system will choose to route the Geneve traffic through the management network.
-	OVNGeneveAddr string
+	// OVNGeneveNetwork specifies the configuration for the OVN Geneve tunnel.
+	// Includes the IP address, network interface name, and subnet to use for Geneve traffic.
+	// If left empty, Geneve traffic will be routed through the management network.
+	OVNGeneveNetwork *NetworkInterfaceInfo
 	// StoragePools is the cluster-wide storage pool configuration.
 	StoragePools []lxdAPI.StoragePoolsPost
 	// StorageVolumes is the cluster-wide storage volume configuration.
@@ -121,13 +130,13 @@ type cmdInit struct {
 	flagSessionTimeout int64
 }
 
-// Command returns the subcommand for initializing a MicroCloud.
-func (c *cmdInit) Command() *cobra.Command {
+// command returns the subcommand for initializing a MicroCloud.
+func (c *cmdInit) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"bootstrap"},
 		Short:   "Initialize MicroCloud and create a new cluster",
-		RunE:    c.Run,
+		RunE:    c.run,
 	}
 
 	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
@@ -135,8 +144,8 @@ func (c *cmdInit) Command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand for initializing a MicroCloud.
-func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for initializing a MicroCloud.
+func (c *cmdInit) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -155,11 +164,11 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
 	}
 
-	return cfg.RunInteractive(cmd, args)
+	return cfg.runInteractive(cmd, args)
 }
 
-// RunInteractive runs the interactive subcommand for initializing a MicroCloud.
-func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
+// runInteractive runs the interactive subcommand for initializing a MicroCloud.
+func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 	fmt.Println("Waiting for services to start ...")
 	err := checkInitialized(c.common.FlagMicroCloudDir, false, false)
 	if err != nil {
@@ -167,11 +176,6 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 	}
 
 	c.setupMany, err = c.common.asker.AskBool("Do you want to set up more than one cluster member?", true)
-	if err != nil {
-		return err
-	}
-
-	err = c.askAddress("")
 	if err != nil {
 		return err
 	}
@@ -186,6 +190,11 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 			Name:    c.name,
 			Address: c.address,
 		},
+	}
+
+	err = c.askAddress("")
+	if err != nil {
+		return err
 	}
 
 	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
@@ -261,7 +270,7 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	c.state[c.name] = *state
 	fmt.Println("Gathering system information ...")
-	for _, system := range c.systems {
+	for peer, system := range c.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == c.name {
 			continue
 		}
@@ -272,6 +281,12 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 		}
 
 		c.state[system.ServerInfo.Name] = *state
+
+		// Initialize MicroCloud network for other peers.
+		err = populateMicroCloudNetworkFromState(state, peer, &system, c.lookupSubnet)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Ensure LXD is not already clustered if we are running `microcloud init`.
@@ -315,6 +330,37 @@ func (c *initConfig) RunInteractive(cmd *cobra.Command, args []string) error {
 
 	if c.setupMany {
 		reverter.Success()
+	}
+
+	return nil
+}
+
+func populateMicroCloudNetworkFromState(state *service.SystemInformation, peer string, system *InitSystem, lookupSubnet *net.IPNet) error {
+	isLookupSubnet := lookupSubnet.IP.To4() != nil
+microCloudPeerIfaceFound:
+	for iface, network := range state.AvailableMicroCloudInterfaces {
+		for _, addr := range network.Addresses {
+			ip, _, err := net.ParseCIDR(addr)
+			if err != nil {
+				return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", addr, err)
+			}
+
+			isAddr := ip.To4() != nil
+			// Lookup subnet address and IP address should be of the same type (IPv4 or IPv6).
+			if isLookupSubnet == isAddr && lookupSubnet.Contains(ip) {
+				system.MicroCloudInternalNetwork = &NetworkInterfaceInfo{
+					Interface: net.Interface{Name: iface},
+					Subnet:    lookupSubnet,
+					IP:        ip,
+				}
+
+				break microCloudPeerIfaceFound
+			}
+		}
+	}
+
+	if system.MicroCloudInternalNetwork == nil {
+		return fmt.Errorf("Failed to initialize a suitable network interface for MicroCloud on %q", peer)
 	}
 
 	return nil
@@ -389,9 +435,9 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			CephConfig: info.MicroCephDisks,
 		}
 
-		if info.OVNGeneveAddr != "" {
+		if info.OVNGeneveNetwork != nil {
 			p := joinConfig[peer]
-			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveAddr}
+			p.OVNConfig = map[string]string{"ovn-encap-ip": info.OVNGeneveNetwork.IP.String()}
 			joinConfig[peer] = p
 		}
 	}
@@ -547,28 +593,6 @@ func validateGatewayNet(config map[string]string, ipPrefix string, cidrValidator
 }
 
 func (c *initConfig) validateSystems(s *service.Handler) (err error) {
-	for _, sys := range c.systems {
-		if sys.MicroCephInternalNetworkSubnet == "" || sys.OVNGeneveAddr == "" {
-			continue
-		}
-
-		_, subnet, err := net.ParseCIDR(sys.MicroCephInternalNetworkSubnet)
-		if err != nil {
-			return fmt.Errorf("Failed to parse available network interface CIDR address: %q: %w", subnet, err)
-		}
-
-		underlayIP := net.ParseIP(sys.OVNGeneveAddr)
-		if underlayIP == nil {
-			return fmt.Errorf("OVN underlay IP %q is invalid", sys.OVNGeneveAddr)
-		}
-
-		if subnet.Contains(underlayIP) {
-			tui.PrintWarning(fmt.Sprintf("OVN underlay IP (%s) is shared with the Ceph cluster network (%s)\n", underlayIP.String(), subnet.String()))
-
-			break
-		}
-	}
-
 	if !c.bootstrap {
 		return nil
 	}
@@ -701,12 +725,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroCeph {
 			microCephBootstrapConf := make(map[string]string)
-			if bootstrapSystem.MicroCephInternalNetworkSubnet != "" {
-				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetworkSubnet
+			if bootstrapSystem.MicroCephInternalNetwork != nil {
+				microCephBootstrapConf["ClusterNet"] = bootstrapSystem.MicroCephInternalNetwork.Subnet.String()
 			}
 
-			if bootstrapSystem.MicroCephPublicNetworkSubnet != "" {
-				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetworkSubnet
+			if bootstrapSystem.MicroCephPublicNetwork != nil {
+				microCephBootstrapConf["PublicNet"] = bootstrapSystem.MicroCephPublicNetwork.Subnet.String()
 			}
 
 			if len(microCephBootstrapConf) > 0 {
@@ -716,8 +740,8 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 		if s.Type() == types.MicroOVN {
 			microOvnBootstrapConf := make(map[string]string)
-			if bootstrapSystem.OVNGeneveAddr != "" {
-				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveAddr
+			if bootstrapSystem.OVNGeneveNetwork != nil {
+				microOvnBootstrapConf["ovn-encap-ip"] = bootstrapSystem.OVNGeneveNetwork.IP.String()
 			}
 
 			if len(microOvnBootstrapConf) > 0 {
@@ -978,9 +1002,14 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			return err
 		}
 	} else {
-		err = lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
+		op, err := lxdClient.UpdateProfile(profile.Name, profile.ProfilePut, "")
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to update profile %q: %w", profile.Name, err)
+		}
+
+		err = op.Wait()
+		if err != nil {
+			return fmt.Errorf("Failed to wait for profile %q to update: %w", profile.Name, err)
 		}
 	}
 
@@ -1019,19 +1048,41 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 				reverter.Add(func() {
 					_ = targetClient.UpdateServer(server.Writable(), "")
-					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "images")
-					_ = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
 				})
 
-				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
+				op, err := targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "images", Type: "custom"})
 				if err != nil {
-					return err
+					return fmt.Errorf("Failed to create volume %q on pool %q: %w", "images", "local", err)
 				}
 
-				err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				err = op.Wait()
 				if err != nil {
-					return err
+					return fmt.Errorf("Failed to wait for volume %q on pool %q: %w", "images", "local", err)
 				}
+
+				reverter.Add(func() {
+					op, err := targetClient.DeleteStoragePoolVolume("local", "custom", "images")
+					if err == nil {
+						_ = op.Wait()
+					}
+				})
+
+				op, err = targetClient.CreateStoragePoolVolume("local", lxdAPI.StorageVolumesPost{Name: "backups", Type: "custom"})
+				if err != nil {
+					return fmt.Errorf("Failed to create volume %q on pool %q: %w", "backups", "local", err)
+				}
+
+				err = op.Wait()
+				if err != nil {
+					return fmt.Errorf("Failed to wait for volume %q on pool %q: %w", "backups", "local", err)
+				}
+
+				reverter.Add(func() {
+					op, err = targetClient.DeleteStoragePoolVolume("local", "custom", "backups")
+					if err == nil {
+						_ = op.Wait()
+					}
+				})
 
 				newServer := server.Writable()
 				newServer.Config["storage.backups_volume"] = "local/backups"

@@ -72,6 +72,9 @@ cleanup() {
   fi
 
   for name in $(lxc list -c n -f csv micro); do
+    echo "${name} disks by id:"
+    lxc exec "${name}" -- ls -la /dev/disk/by-id
+
     echo -n "${name} CLI stdout:"
     if ! lxc exec "${name}" -- test -e out; then
         echo " was not found"
@@ -201,9 +204,6 @@ fi
 set -u
 
 export MICROCLOUD_SNAP_PATH
-
-echo "===> Checking that all snap channels are set to latest/edge"
-check_snap_channels
 
 run_test() {
     if [ "${TESTBED_READY}" = 0 ]; then

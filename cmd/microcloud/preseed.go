@@ -116,19 +116,19 @@ type cmdPreseed struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for unattended cluster initialization.
-func (c *cmdPreseed) Command() *cobra.Command {
+// command returns the subcommand for unattended cluster initialization.
+func (c *cmdPreseed) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preseed",
 		Short: "Initialize and extend a MicroCloud cluster unattended",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for unattended cluster initialization.
-func (c *cmdPreseed) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for unattended cluster initialization.
+func (c *cmdPreseed) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -172,6 +172,13 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return fmt.Errorf("Failed to get MicroCloud status: %w", err)
 	}
 
+	c.bootstrap = config.isBootstrap()
+
+	err = config.validate(hostname, c.bootstrap)
+	if err != nil {
+		return err
+	}
+
 	var listenAddr string
 	if status.Ready {
 		// If the cluster is already bootstrapped use its address.
@@ -192,7 +199,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.name = hostname
 	c.address = listenIP.String()
 	initiator := config.isInitiator(c.name, c.address)
-	c.bootstrap = config.isBootstrap()
 
 	fmt.Println("Waiting for services to start ...")
 	err = checkInitialized(c.common.FlagMicroCloudDir, initiator && !c.bootstrap, true)
@@ -208,11 +214,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.sessionTimeout = DefaultSessionTimeout
 	if config.SessionTimeout > 0 {
 		c.sessionTimeout = time.Duration(config.SessionTimeout) * time.Second
-	}
-
-	err = config.validate(hostname, c.bootstrap)
-	if err != nil {
-		return err
 	}
 
 	// Build the service handler.
@@ -332,6 +333,10 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 	if p.Initiator != "" && p.InitiatorAddress != "" {
 		return errors.New("Cannot provide both the initiator's name and address")
+	}
+
+	if p.Initiator != "" && p.LookupSubnet == "" {
+		return errors.New("Missing lookup subnet")
 	}
 
 	if p.InitiatorAddress != "" && p.LookupSubnet != "" {
@@ -544,10 +549,18 @@ func (p *Preseed) isBootstrap() bool {
 // address either returns the address specified for the respective system
 // or the first address found on the system within the provided lookup subnet.
 func (p *Preseed) address(name string) (string, error) {
+	// In unicast mode return the address matching the given name.
 	for _, system := range p.Systems {
 		if system.Name == name && system.Address != "" {
 			return system.Address, nil
 		}
+	}
+
+	// If we are in unicast but weren't able to return the address, it's likely
+	// that the provided name (hostname) doesn't exist in the preseed file.
+	// This is an error.
+	if p.LookupSubnet == "" {
+		return "", fmt.Errorf("Preseed file does not contain a system with name %q", name)
 	}
 
 	_, lookupSubnet, err := net.ParseCIDR(p.LookupSubnet)
@@ -614,6 +627,36 @@ func (d *DiskFilter) Match(disks []lxdAPI.ResourcesStorageDisk) ([]lxdAPI.Resour
 	return matches, nil
 }
 
+// findInterfaceAndNetworkForAddress expects an address without CIDR and returns the respective interface and network.
+func (p *Preseed) findInterfaceAndNetworkForAddress(address string) (*net.Interface, *net.IPNet, error) {
+	ip := net.ParseIP(address)
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range ifaces {
+		addresses, err := iface.Addrs()
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to get addresses of interface %q: %w", iface.Name, err)
+		}
+
+		for _, address := range addresses {
+			ipNet, ok := address.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if ipNet.IP.Equal(ip) {
+				return &iface, ipNet, nil
+			}
+		}
+	}
+
+	return nil, nil, fmt.Errorf("No interface found for address %q", address)
+}
+
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
 func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map[types.ServiceType]string) (map[string]InitSystem, error) {
 	c.systems = make(map[string]InitSystem, len(p.Systems))
@@ -630,34 +673,9 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		expectedSystems = append(expectedSystems, system.Name)
 	}
 
-	ifaces, err := net.Interfaces()
+	var err error
+	c.lookupIface, c.lookupSubnet, err = p.findInterfaceAndNetworkForAddress(c.address)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get network interfaces: %w", err)
-	}
-
-	for _, iface := range ifaces {
-		addresses, err := iface.Addrs()
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get addresses of interface %q: %w", iface.Name, err)
-		}
-
-		addressStrings := make([]string, 0, len(addresses))
-		for _, address := range addresses {
-			ipNet, ok := address.(*net.IPNet)
-			if !ok {
-				continue
-			}
-
-			addressStrings = append(addressStrings, ipNet.IP.String())
-		}
-
-		if slices.Contains(addressStrings, c.address) {
-			c.lookupIface = &iface
-			break
-		}
-	}
-
-	if c.lookupIface == nil {
 		return nil, fmt.Errorf("Failed to find lookup interface for address %q", c.address)
 	}
 
@@ -720,7 +738,21 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		c.systems[name] = system
 	}
 
-	lxd := s.Services[types.LXD].(*service.LXDService)
+	if c.bootstrap {
+		bootstrapSystem := c.systems[s.Name]
+
+		if c.lookupIface == nil {
+			return nil, errors.New("MicroCloud internal network interface is missing")
+		}
+
+		if c.lookupSubnet == nil {
+			return nil, errors.New("MicroCloud internal network subnet is missing")
+		}
+
+		bootstrapSystem.MicroCloudInternalNetwork = &NetworkInterfaceInfo{Interface: *c.lookupIface, Subnet: c.lookupSubnet, IP: c.lookupSubnet.IP}
+		c.systems[s.Name] = bootstrapSystem
+	}
+
 	ifaceByPeer := map[string]string{}
 	ovnUnderlayNeeded := false
 	for _, cfg := range p.Systems {
@@ -737,6 +769,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	if err != nil {
 		return nil, err
 	}
+
+	lxd := s.Services[types.LXD].(*service.LXDService)
 
 	// If an uplink interface was explicitly chosen, we will try to set up an OVN network.
 	explicitOVN := len(ifaceByPeer) > 0
@@ -802,6 +836,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 					return nil, fmt.Errorf("Failed to parse supplied underlay IP %q", sys.UnderlayIP)
 				}
 
+				ovnUnderlayIfaceByPeer := make(map[string]string)
+				ovnUnderlaySubnetByPeer := make(map[string]*net.IPNet)
 				for _, iface := range addressedInterfaces[sys.Name] {
 					for _, cidr := range iface.Addresses {
 						_, subnet, err := net.ParseCIDR(cidr)
@@ -811,6 +847,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 						if subnet.Contains(underlayIP) {
 							assignedSystems[sys.Name] = true
+							ovnUnderlayIfaceByPeer[sys.Name] = iface.Network.Name
+							ovnUnderlaySubnetByPeer[sys.Name] = subnet
 							break
 						}
 					}
@@ -820,8 +858,18 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 					return nil, fmt.Errorf("No available interface found for OVN underlay IP %q", sys.UnderlayIP)
 				}
 
+				ifaceName, ok := ovnUnderlayIfaceByPeer[sys.Name]
+				if !ok {
+					return nil, fmt.Errorf("Failed to find OVN underlay interface name for system %q", sys.Name)
+				}
+
+				subnet, ok := ovnUnderlaySubnetByPeer[sys.Name]
+				if !ok {
+					return nil, fmt.Errorf("Failed to find OVN underlay subnet for system %q", sys.Name)
+				}
+
 				system := c.systems[sys.Name]
-				system.OVNGeneveAddr = sys.UnderlayIP
+				system.OVNGeneveNetwork = &NetworkInterfaceInfo{Interface: net.Interface{Name: ifaceName}, Subnet: subnet, IP: underlayIP}
 				c.systems[sys.Name] = system
 			}
 		}
@@ -1064,7 +1112,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		if osdHosts < RecommendedOSDHosts {
-			fmt.Printf("Warning: OSD host count is less than %d. Distributed storage is not fault-tolerant\n", RecommendedOSDHosts)
+			errMsg := fmt.Sprintf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks (%d currently supplying)", RecommendedOSDHosts, osdHosts)
+			tui.PrintWarning(errMsg)
 		}
 	}
 
@@ -1087,11 +1136,11 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				return nil, err
 			}
 
-			if targetPublicCephNetwork.String() != c.lookupSubnet.String() {
+			if targetPublicCephNetwork != nil && targetPublicCephNetwork.String() != c.lookupSubnet.String() {
 				customTargetCephPublicNetwork = targetPublicCephNetwork.String()
 			}
 
-			if targetInternalCephNetwork.String() != c.lookupSubnet.String() {
+			if targetInternalCephNetwork != nil && targetInternalCephNetwork.String() != c.lookupSubnet.String() {
 				customTargetCephInternalNetwork = targetInternalCephNetwork.String()
 			}
 		}
@@ -1104,14 +1153,27 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		if internalCephNetwork != "" {
-			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, internalCephNetwork)
+			internalCephNetworkValidatedInterfaces, err := c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, internalCephNetwork)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph internal network: %w", err)
 			}
 
+			// Update systems with their internal Ceph network representation.
+			for peer, system := range c.systems {
+				peerCephValidatedInterfaces := internalCephNetworkValidatedInterfaces[peer]
+				if len(peerCephValidatedInterfaces) == 0 {
+					continue
+				}
+
+				system.MicroCephInternalNetwork = &peerCephValidatedInterfaces[0]
+				c.systems[peer] = system
+			}
+		} else {
 			bootstrapSystem := c.systems[s.Name]
-			bootstrapSystem.MicroCephInternalNetworkSubnet = internalCephNetwork
-			c.systems[s.Name] = bootstrapSystem
+			for peer, system := range c.systems {
+				system.MicroCephInternalNetwork = &NetworkInterfaceInfo{Interface: bootstrapSystem.MicroCloudInternalNetwork.Interface, Subnet: bootstrapSystem.MicroCloudInternalNetwork.Subnet, IP: bootstrapSystem.MicroCloudInternalNetwork.IP}
+				c.systems[peer] = system
+			}
 		}
 
 		var publicCephNetwork string
@@ -1122,14 +1184,27 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		}
 
 		if publicCephNetwork != "" {
-			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, publicCephNetwork)
+			publicCephNetworkValidatedInterfaces, err := c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, publicCephNetwork)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph public network: %w", err)
 			}
 
+			// Update systems with their public Ceph network representation.
+			for peer, system := range c.systems {
+				peerCephValidatedInterfaces := publicCephNetworkValidatedInterfaces[peer]
+				if len(peerCephValidatedInterfaces) == 0 {
+					continue
+				}
+
+				system.MicroCephPublicNetwork = &peerCephValidatedInterfaces[0]
+				c.systems[peer] = system
+			}
+		} else {
 			bootstrapSystem := c.systems[s.Name]
-			bootstrapSystem.MicroCephPublicNetworkSubnet = publicCephNetwork
-			c.systems[s.Name] = bootstrapSystem
+			for peer, system := range c.systems {
+				system.MicroCephPublicNetwork = &NetworkInterfaceInfo{Interface: bootstrapSystem.MicroCloudInternalNetwork.Interface, Subnet: bootstrapSystem.MicroCloudInternalNetwork.Subnet, IP: bootstrapSystem.MicroCloudInternalNetwork.IP}
+				c.systems[peer] = system
+			}
 		}
 	} else {
 		localPublicCephNetwork, localInternalCephNetwork, err := getTargetCephNetworks(s, nil)
@@ -1137,17 +1212,17 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			return nil, err
 		}
 
-		if localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != c.lookupSubnet.String() {
-			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localInternalCephNetwork.String())
+		if localInternalCephNetwork != nil && localInternalCephNetwork.String() != "" && localInternalCephNetwork.String() != c.lookupSubnet.String() {
+			_, err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localInternalCephNetwork.String())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph internal network: %w", err)
 			}
 		}
 
-		if localPublicCephNetwork.String() != "" && localPublicCephNetwork.String() != c.lookupSubnet.String() {
-			err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localPublicCephNetwork.String())
+		if localPublicCephNetwork != nil && localPublicCephNetwork.String() != "" && localPublicCephNetwork.String() != c.lookupSubnet.String() {
+			_, err = c.validateCephInterfacesForSubnet(lxd, addressedInterfaces, localPublicCephNetwork.String())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Failed to validate Ceph public network: %w", err)
 			}
 		}
 	}

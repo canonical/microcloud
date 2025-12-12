@@ -13,7 +13,7 @@ jobs:
   commits:
     if: ${{ github.repository == 'canonical/microcloud' }}
     name: Branch target and CLA
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Check branch target
         env:
@@ -34,4 +34,4 @@ jobs:
           exit 1
 
       - name: Check if CLA signed
-        uses: canonical/has-signed-canonical-cla@1c20438ad54b4d37105e777000545881d2293ba4 # 2
+        uses: canonical/has-signed-canonical-cla@1c20438ad54b4d37105e777000545881d2293ba4 # v2

@@ -22,12 +22,12 @@ type cmdJoin struct {
 	flagInitiatorAddress string
 }
 
-// Command returns the subcommand for joining a MicroCloud.
-func (c *cmdJoin) Command() *cobra.Command {
+// command returns the subcommand for joining a MicroCloud.
+func (c *cmdJoin) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "join",
 		Short: "Join an existing MicroCloud cluster",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().Int64Var(&c.flagLookupTimeout, "lookup-timeout", 0, "Amount of seconds to wait when finding systems on the network. Defaults: 60s")
@@ -37,8 +37,8 @@ func (c *cmdJoin) Command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand for joining a MicroCloud.
-func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for joining a MicroCloud.
+func (c *cmdJoin) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -67,14 +67,15 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		cfg.sessionTimeout = time.Duration(c.flagSessionTimeout) * time.Second
 	}
 
-	err = cfg.askAddress(c.flagInitiatorAddress)
-	if err != nil {
-		return err
-	}
-
+	// Gather hostname before calling askAddress, as it will be used to locate the bootstrap system.
 	cfg.name, err = os.Hostname()
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
+	}
+
+	err = cfg.askAddress(c.flagInitiatorAddress)
+	if err != nil {
+		return err
 	}
 
 	installedServices := []types.ServiceType{types.MicroCloud, types.LXD}
@@ -107,7 +108,7 @@ func (c *cmdJoin) Run(cmd *cobra.Command, args []string) error {
 		services[s.Type()] = version
 	}
 
-	passphrase, err := cfg.askPassphrase(s)
+	passphrase, err := cfg.askPassphrase()
 	if err != nil {
 		return err
 	}

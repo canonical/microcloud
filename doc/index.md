@@ -1,4 +1,7 @@
 ---
+myst:
+  html_meta:
+    description: MicroCloud is a lightweight, open source cloud platform built on LXD, MicroCeph, and MicroOVN, ideal for private cloud, edge computing, and test labs.
 discourse: lxc:[Introducing&#32;MicroCloud](15871)
 relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store](https://snapcraft.io/microcloud)"
 ---
@@ -6,11 +9,11 @@ relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store
 (home)=
 # MicroCloud
 
-Deploy a scalable, low-touch cloud platform in minutes with MicroCloud.
+Deploy a low-touch, open source cloud platform in minutes with MicroCloud.
 
-MicroCloud creates a lightweight cluster of machines that operates as an open source private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for reproducible, reliable deployments.
+MicroCloud creates a lightweight cluster of machines that operates as a scalable private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for {ref}`reproducible, scalable deployments <exp-microcloud-scale>`.
 
-With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from high availability, automatic security updates, and the advanced features of its components such as self-healing clusters and fine-grained access control. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance.
+With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from {ref}`high availability <exp-microcloud-ha>`, {ref}`streamlined security updates <ref-releases-snaps>`, and {ref}`fine-grained access control for multi-tenancy <exp-microcloud-access-control>`. Cluster members can run {ref}`full virtual machines or lightweight system containers <exp-microcloud-vms-containers>` with bare-metal performance. Manage it through your choice of client interfaces, including a {ref}`graphical UI <howto-ui>` and {ref}`CLI <howto-commands>`.
 
 MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
 
@@ -26,14 +29,14 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ````{grid} 1 1 2 2
 
-```{grid-item} [Tutorial](/tutorial/get_started)
+```{grid-item} [Tutorials](/tutorial/index)
 
-**Start here**: a hands-on [introduction to MicroCloud](/tutorial/get_started) for new users
+**Start here**: hands-on {ref}`introductions to MicroCloud <get-started>` for new users
 ```
 
 ```{grid-item} [How-to guides](/how-to/index)
 
-**Step-by-step guides** covering key operations and common tasks such as {ref}`installing MicroCloud <howto-install>` and {ref}`adding <howto-member-add>` and {ref}`removing <howto-member-remove>` cluster members
+**Step-by-step guides** covering key operations and common tasks such as {ref}`installing MicroCloud <howto-install>`, {ref}`adding <howto-member-add>` and {ref}`removing <howto-member-remove>` cluster members, and {ref}`accessing the UI <howto-ui>`
 ```
 
 ````
@@ -48,7 +51,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ```{grid-item} [Explanation](/explanation/index)
 
-**Discussion and clarification** of key topics such as {ref}`networking <explanation-networking>` and the [initialization process](/explanation/initialization/)
+**Discussion and clarification** of key topics such as {ref}`networking <exp-networking>` and the [initialization process](/explanation/initialization/)
 ```
 
 ````
@@ -57,7 +60,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 ## About the integrated documentation sets
 
-The three components of MicroCloud ({doc}`lxd:index`, {doc}`microceph:index`, and {doc}`microovn:index`) each offer their own documentation sets, available at their respective standalone documentation sites. 
+The three components of MicroCloud ({doc}`lxd:index`, {doc}`microceph:index`, and {doc}`microovn:index`) each offer their own documentation sets, available at their respective standalone documentation sites.
 
 For convenience, this site provides not only MicroCloud's documentation but also an integrated view of all four documentation sets. You can easily switch between sets using the links in the site header, allowing you to explore all the related documentation without leaving this site.
 
@@ -84,7 +87,7 @@ MicroCloud is a member of the Ubuntu family. It’s an open source project that 
 :maxdepth: 2
 
 self
-Tutorial </tutorial/get_started>
+Tutorials </tutorial/index>
 /how-to/index
 /reference/index
 /explanation/index

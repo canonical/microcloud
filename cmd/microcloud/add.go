@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
@@ -25,12 +26,12 @@ type cmdAdd struct {
 	flagSessionTimeout int64
 }
 
-// Command returns the subcommand to add new systems to MicroCloud.
-func (c *cmdAdd) Command() *cobra.Command {
+// command returns the subcommand to add new systems to MicroCloud.
+func (c *cmdAdd) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add new systems to an existing MicroCloud cluster",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	cmd.Flags().Int64Var(&c.flagSessionTimeout, "session-timeout", 0, "Amount of seconds to wait for the trust establishment session. Defaults: 60m")
@@ -38,8 +39,8 @@ func (c *cmdAdd) Command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand to add new systems to MicroCloud.
-func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to add new systems to MicroCloud.
+func (c *cmdAdd) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return cmd.Help()
 	}
@@ -154,8 +155,9 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg.state[cfg.name] = *state
+
 	fmt.Println("Gathering system information...")
-	for _, system := range cfg.systems {
+	for peer, system := range cfg.systems {
 		if system.ServerInfo.Name == "" || system.ServerInfo.Name == cfg.name {
 			continue
 		}
@@ -166,6 +168,11 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		cfg.state[system.ServerInfo.Name] = *state
+
+		err = populateMicroCloudNetworkFromState(state, peer, &system, cfg.lookupSubnet)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Ensure LXD is not already clustered if we are running `microcloud init`.
@@ -221,8 +228,19 @@ func (c *cmdAdd) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
+		// Populate MicroCloud Internal network also for existing systems.
+		system := cfg.systems[name]
+		err = populateMicroCloudNetworkFromState(state, name, &system, cfg.lookupSubnet)
+		if err != nil {
+			return err
+		}
+
 		cfg.state[name] = *state
 	}
+
+	microCloudNetworkFromStateSystem := cfg.systems[cfg.name]
+	microCloudNetworkFromStateSystem.MicroCloudInternalNetwork = &NetworkInterfaceInfo{Interface: *cfg.lookupIface, Subnet: cfg.lookupSubnet, IP: net.IP(cfg.address)}
+	cfg.systems[cfg.name] = microCloudNetworkFromStateSystem
 
 	err = cfg.askDisks(s)
 	if err != nil {

@@ -16,13 +16,13 @@ type cmdRemove struct {
 	flagForce bool
 }
 
-// Command returns the subcommand to remove a member from all MicroCloud services.
-func (c *cmdRemove) Command() *cobra.Command {
+// command returns the subcommand to remove a member from all MicroCloud services.
+func (c *cmdRemove) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove <name>",
 		Aliases: []string{"rm"},
 		Short:   "Remove the specified member from all MicroCloud services",
-		RunE:    c.Run,
+		RunE:    c.run,
 	}
 
 	cmd.Flags().BoolVarP(&c.flagForce, "force", "f", false, "Forcibly remove the cluster member")
@@ -30,8 +30,8 @@ func (c *cmdRemove) Command() *cobra.Command {
 	return cmd
 }
 
-// Run runs the subcommand to remove a member from all MicroCloud services.
-func (c *cmdRemove) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand to remove a member from all MicroCloud services.
+func (c *cmdRemove) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return cmd.Help()
 	}

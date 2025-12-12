@@ -63,40 +63,40 @@ func main() {
 	app.SetVersionTemplate("{{.Version}}\n")
 
 	var cmdInit = cmdInit{common: &commonCmd}
-	app.AddCommand(cmdInit.Command())
+	app.AddCommand(cmdInit.command())
 
 	var cmdAdd = cmdAdd{common: &commonCmd}
-	app.AddCommand(cmdAdd.Command())
+	app.AddCommand(cmdAdd.command())
 
 	var cmdJoin = cmdJoin{common: &commonCmd}
-	app.AddCommand(cmdJoin.Command())
+	app.AddCommand(cmdJoin.command())
 
 	var cmdPreseed = cmdPreseed{common: &commonCmd}
-	app.AddCommand(cmdPreseed.Command())
+	app.AddCommand(cmdPreseed.command())
 
 	var cmdRemove = cmdRemove{common: &commonCmd}
-	app.AddCommand(cmdRemove.Command())
+	app.AddCommand(cmdRemove.command())
 
 	var cmdService = cmdServices{common: &commonCmd}
-	app.AddCommand(cmdService.Command())
+	app.AddCommand(cmdService.command())
 
 	var cmdStatus = cmdStatus{common: &commonCmd}
-	app.AddCommand(cmdStatus.Command())
+	app.AddCommand(cmdStatus.command())
 
 	var cmdPeers = cmdClusterMembers{common: &commonCmd}
-	app.AddCommand(cmdPeers.Command())
+	app.AddCommand(cmdPeers.command())
 
 	var cmdShutdown = cmdShutdown{common: &commonCmd}
-	app.AddCommand(cmdShutdown.Command())
+	app.AddCommand(cmdShutdown.command())
 
 	var cmdSQL = cmdSQL{common: &commonCmd}
-	app.AddCommand(cmdSQL.Command())
+	app.AddCommand(cmdSQL.command())
 
 	var cmdSecrets = cmdSecrets{common: &commonCmd}
-	app.AddCommand(cmdSecrets.Command())
+	app.AddCommand(cmdSecrets.command())
 
 	var cmdWaitready = cmdWaitready{common: &commonCmd}
-	app.AddCommand(cmdWaitready.Command())
+	app.AddCommand(cmdWaitready.command())
 
 	app.InitDefaultHelpCmd()
 

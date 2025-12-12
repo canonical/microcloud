@@ -14,19 +14,19 @@ type cmdSQL struct {
 	common *CmdControl
 }
 
-// Command returns the subcommand for sql queries.
-func (c *cmdSQL) Command() *cobra.Command {
+// command returns the subcommand for sql queries.
+func (c *cmdSQL) command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sql <query>",
 		Short: "Run a SQL query against the daemon",
-		RunE:  c.Run,
+		RunE:  c.run,
 	}
 
 	return cmd
 }
 
-// Run runs the subcommand for sql queries.
-func (c *cmdSQL) Run(cmd *cobra.Command, args []string) error {
+// run runs the subcommand for sql queries.
+func (c *cmdSQL) run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		err := cmd.Help()
 		if err != nil {
