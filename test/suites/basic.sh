@@ -723,7 +723,7 @@ test_service_mismatch() {
   reset_systems 1 3 1
 
   lxc exec micro01 -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/enp5s0/disable_ipv6"
-  lxc exec micro01 -- snap refresh microceph --channel reef/stable
+  retry lxc exec micro01 -- snap refresh microceph --channel reef/stable
 
   ! join_session init micro01 || false
   lxc exec micro01 -- tail -1 out | grep -q "The installed version of MicroCeph is not supported"

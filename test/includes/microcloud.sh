@@ -1228,6 +1228,28 @@ create_system() {
   )
 }
 
+retry() {
+    local cmd="$*"
+    local maxAttempts="10"
+    local i
+
+    for i in $(seq 1 "${maxAttempts}"); do
+        # Make sure to catch both stdout and stderr.
+        # Also kill the command after 30 minutes if it is still running.
+        # shellcheck disable=SC2086
+        output="$(timeout 30m ${cmd} 2>&1)" && return 0
+
+        # Log the failed attempt so that it's visible on the pipeline's summary page.
+        echo "::warning::Failed to run '${cmd}': ${output}"
+
+        retryInSeconds="$((i*5))"
+        echo "Retrying in ${retryInSeconds} seconds... (${i}/${maxAttempts})"
+        sleep "${retryInSeconds}"
+    done
+
+    return 1
+}
+
 setup_system() {
   name="${1}"
   shift 1
@@ -1258,15 +1280,16 @@ setup_system() {
     lxc exec "${name}" -- apt-get autopurge -y lxd-installer
 
     # Install the snaps.
-    lxc exec "${name}" -- apt-get update
+    # Retry the attempts in case the download from external sources fails due to instability.
+    retry lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
+      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
     else
-      lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
     fi
 
-    lxc exec "${name}" -- snap install snapd
-    lxc exec "${name}" -- snap install yq
+    retry lxc exec "${name}" -- snap install snapd
+    retry lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
@@ -1309,7 +1332,7 @@ setup_system() {
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
     else
-      lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
+      retry lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
     fi
 
     # Hold the snaps to not perform any refreshes during test execution.

@@ -87,7 +87,7 @@ ovn:
 
     # First upgrade MicroCeph.
     for m in micro01 micro02 micro03; do
-      lxc exec "${m}" -- snap refresh microceph --channel "${microceph_target}"
+      retry lxc exec "${m}" -- snap refresh microceph --channel "${microceph_target}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -114,7 +114,7 @@ ovn:
 
     # Second upgrade MicroOVN.
     for m in micro01 micro02 micro03; do
-      lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
+      retry lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -142,7 +142,7 @@ ovn:
     # Third upgrade LXD.
     for m in micro01 micro02 micro03; do
       # Upgrade them in parallel as the refresh waits for the others to update too.
-      lxc exec "${m}" -- snap refresh lxd --channel "${lxd_target}" &
+      retry lxc exec "${m}" -- snap refresh lxd --channel "${lxd_target}" &
     done
     wait
 
@@ -171,7 +171,7 @@ ovn:
 
     # Fourth upgrade MicroCloud.
     for m in micro01 micro02 micro03; do
-      lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
+      retry lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
       set_debug_binaries "${m}"
     done
 
@@ -209,10 +209,10 @@ ovn:
     [ "${c1_boot_id}" = "${c1_boot_id_after_upgrade}" ]
 
     # Upgrade micro04.
-    lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
-    lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
-    lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
-    lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
+    retry lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
+    retry lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
+    retry lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
+    retry lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
     lxc exec micro04 -- snap start microcloud
     set_debug_binaries "micro04"
 
