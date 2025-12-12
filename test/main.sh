@@ -205,9 +205,6 @@ set -u
 
 export MICROCLOUD_SNAP_PATH
 
-echo "===> Checking that all snap channels are set to latest/edge"
-check_snap_channels
-
 run_test() {
     if [ "${TESTBED_READY}" = 0 ]; then
         testbed_setup

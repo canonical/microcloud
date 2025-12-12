@@ -34,24 +34,3 @@ check_empty() {
 		false
 	fi
 }
-
-check_snap_channels() {
-    if [ "${LXD_SNAP_CHANNEL}" != "5.21/edge" ]; then
-        echo "::warning::lxd channel not set to 5.21/edge, continuing anyway"
-    fi
-
-	non_edge=""
-    if [ "${MICROCEPH_SNAP_CHANNEL}" != "latest/edge" ]; then
-        non_edge="${non_edge} microceph"
-    fi
-    if [ "${MICROCLOUD_SNAP_CHANNEL}" != "latest/edge" ]; then
-        non_edge="${non_edge} microcloud"
-    fi
-    if [ "${MICROOVN_SNAP_CHANNEL}" != "latest/edge" ]; then
-        non_edge="${non_edge} microovn"
-    fi
-
-    for snap in ${non_edge}; do
-        echo "::warning::${snap} channel not set to latest/edge, continuing anyway"
-    done
-}
