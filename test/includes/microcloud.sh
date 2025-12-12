@@ -858,7 +858,7 @@ reset_system() {
       iface="enp$((i + 5))s0"
       lxc exec "${name}" -- ip addr flush dev "${iface}"
       lxc exec "${name}" -- ip link set "${iface}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${iface}/disable_ipv6" > /dev/null
+      lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${iface}.disable_ipv6=1"
     done
   )
 
@@ -1102,7 +1102,7 @@ restore_system() {
     for i in $(seq 1 "${num_extra_ifaces}") ; do
       network="enp$((i + 5))s0"
       lxc exec "${name}" -- ip link set "${network}" up
-      lxc exec "${name}" -- sh -c "echo 1 > /proc/sys/net/ipv6/conf/${network}/disable_ipv6"
+      lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${network}.disable_ipv6=1"
     done
   )
 
@@ -1279,17 +1279,24 @@ setup_system() {
     # Remove unneeded/unwanted packages
     lxc exec "${name}" -- apt-get autopurge -y lxd-installer
 
+    packages="jq"
+
     # Install the snaps.
     # Retry the attempts in case the download from external sources fails due to instability.
     retry lxc exec "${name}" -- apt-get update
     if [ -n "${CLOUD_INSPECT:-}" ] || [ "${SNAPSHOT_RESTORE}" = 0 ]; then
-      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq zfsutils-linux htop
-    else
-      retry lxc exec "${name}" -- apt-get install --no-install-recommends -y jq
+      packages+=" zfsutils-linux htop"
     fi
 
+    if [ ! "${BASE_OS}" = "22.04" ]; then
+      packages+=" yq"
+    else
+      retry lxc exec "${name}" -- snap install yq
+    fi
+
+    # shellcheck disable=SC2086
+    retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
     retry lxc exec "${name}" -- snap install snapd
-    retry lxc exec "${name}" -- snap install yq
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
