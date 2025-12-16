@@ -3,9 +3,9 @@ module github.com/canonical/microcloud/microcloud
 go 1.25.4
 
 require (
-	github.com/canonical/lxd v0.0.0-20251210090921-2ccb2e9958e1
+	github.com/canonical/lxd v0.0.0-20251216082852-209cbe976cf8
 	github.com/canonical/microceph/microceph v0.0.0-20250620092923-64d02d9538a8
-	github.com/canonical/microcluster/v2 v2.2.1
+	github.com/canonical/microcluster/v2 v2.2.2
 	github.com/canonical/microovn/microovn v0.0.0-20251201163532-93c643f0c6d8
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
@@ -32,10 +32,10 @@ require (
 	github.com/canonical/go-dqlite/v2 v2.0.1 // indirect
 	github.com/canonical/go-dqlite/v3 v3.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/charmbracelet/colorprofile v0.3.3 // indirect
+	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.14 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
-	github.com/clipperhouse/displaywidth v0.6.1 // indirect
+	github.com/clipperhouse/displaywidth v0.6.2 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -49,7 +49,6 @@ require (
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/gosexy/gettext v0.0.0-20160830220431-74466a0a0c4a // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kr/fs v0.1.0 // indirect
