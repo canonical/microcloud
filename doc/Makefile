@@ -62,7 +62,7 @@ integrate:
 	cp .sphinx/_integration/rtd-search.js integration/microceph/docs/.sphinx/_static/
 	cp .sphinx/_integration/rtd-search.js integration/microovn/docs/.sphinx/_static/
 	# Add information about where to find the tags/docs to the doc sets
-	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/custom_conf.py
+	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microovn/docs/custom_conf.py
 	# Override the MicroOVN tag with the circle of friends one (for consistency)
