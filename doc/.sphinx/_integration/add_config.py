@@ -11,8 +11,8 @@ html_context['microovn_tag'] = "../microovn/_static/microovn.png"
 
 if project == "LXD":
     html_baseurl = "https://documentation.ubuntu.com/lxd/stable-5.21/"
-    custom_html_js_files.append('rtd-search.js')
-    custom_tags.append('integrated')
+    html_js_files.append('rtd-search.js')
+    tags.add('integrated')
 elif project == "MicroCeph":
     html_baseurl = "https://canonical-microceph.readthedocs-hosted.com/en/latest/"
     # Override default header templates
