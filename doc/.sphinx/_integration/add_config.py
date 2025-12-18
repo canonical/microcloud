@@ -25,7 +25,7 @@ elif project == "MicroCeph":
     # Add "integrated" to the list of custom tags
     custom_tags = globals().get('custom_tags', []) + ['integrated']
 elif project == "MicroOVN":
-    html_baseurl = "https://canonical-microovn.readthedocs-hosted.com/en/latest/"
+    html_baseurl = "https://canonical-microovn.readthedocs-hosted.com/en/24.03/"
     custom_html_js_files.append('rtd-search.js')
     custom_tags.append('integrated')
 
