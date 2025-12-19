@@ -63,6 +63,13 @@ type StatusDistribution struct {
 	Count  int64  `json:"count"`
 }
 
+// ServerMetrics represents the metrics from one cluster member service.
+type ServerMetrics struct {
+	Member  string `json:"member"`
+	Metrics string `json:"metrics"`
+	Service string `json:"service"`
+}
+
 // ClusterManagerPostStatus represents the periodic status payload sent to cluster manager.
 type ClusterManagerPostStatus struct {
 	CPUTotalCount     int64                `json:"cpu_total_count"`
@@ -75,7 +82,7 @@ type ClusterManagerPostStatus struct {
 	DiskUsage         int64                `json:"disk_usage"`
 	MemberStatuses    []StatusDistribution `json:"member_statuses"`
 	InstanceStatuses  []StatusDistribution `json:"instance_statuses"`
-	Metrics           string               `json:"metrics"`
+	ServerMetrics     []ServerMetrics      `json:"server_metrics"`
 	UIURL             string               `json:"ui_url"`
 }
 
