@@ -63,6 +63,14 @@ type StatusDistribution struct {
 	Count  int64  `json:"count"`
 }
 
+// StoragePoolUsage represents the storage usage distribution.
+type StoragePoolUsage struct {
+	Name   string `json:"name"`
+	Member string `json:"member"`
+	Total  uint64 `json:"total"`
+	Usage  uint64 `json:"usage"`
+}
+
 // ClusterManagerPostStatus represents the periodic status payload sent to cluster manager.
 type ClusterManagerPostStatus struct {
 	CPUTotalCount     int64                `json:"cpu_total_count"`
@@ -71,8 +79,7 @@ type ClusterManagerPostStatus struct {
 	CPULoad15         string               `json:"cpu_load_15"`
 	MemoryTotalAmount int64                `json:"memory_total_amount"`
 	MemoryUsage       int64                `json:"memory_usage"`
-	DiskTotalSize     int64                `json:"disk_total_size"`
-	DiskUsage         int64                `json:"disk_usage"`
+	StoragePoolUsages []StoragePoolUsage   `json:"storage_pool_usages"`
 	MemberStatuses    []StatusDistribution `json:"member_statuses"`
 	InstanceStatuses  []StatusDistribution `json:"instance_statuses"`
 	Metrics           string               `json:"metrics"`
