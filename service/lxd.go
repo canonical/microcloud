@@ -292,6 +292,29 @@ func (s LXDService) DeleteToken(ctx context.Context, tokenName string, address s
 	return fmt.Errorf("No corresponding join token operation found for %q", tokenName)
 }
 
+// Metrics fetches the metrics from the LXD daemon at the given address with a remote client.
+func (s LXDService) Metrics(ctx context.Context, address string) (string, error) {
+	var c lxd.InstanceServer
+	var err error
+	if address != "" {
+		c, err = s.remoteClient(nil, address, CloudPort)
+	} else {
+		c, err = s.Client(ctx)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// Get the cluster member metrics.
+	metrics, err := c.GetMetrics()
+	if err != nil {
+		return "", err
+	}
+
+	return metrics, nil
+}
+
 // RemoteClusterMembers returns a map of cluster member names and addresses from the MicroCloud at the given address.
 // Provide the certificate of the remote server for mTLS.
 func (s LXDService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
