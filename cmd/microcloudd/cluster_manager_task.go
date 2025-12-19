@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"slices"
 	"time"
 
@@ -110,13 +111,19 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
-	err = enrichServerMetrics(lxdClient, &payload)
+	lxdMembers, err := lxdClient.GetClusterMembers()
+	if err != nil {
+		logger.Error("Failed to get LXD cluster members", logger.Ctx{"err": err})
+		return nextUpdate
+	}
+
+	err = enrichServerMetrics(ctx, lxdService, lxdMembers, &payload)
 	if err != nil {
 		logger.Error("Failed to enrich server metrics", logger.Ctx{"err": err})
 		return nextUpdate
 	}
 
-	err = enrichClusterMemberMetrics(lxdClient, &payload)
+	err = enrichClusterMemberMetrics(lxdClient, lxdMembers, &payload)
 	if err != nil {
 		logger.Error("Failed to enrich cluster member metrics", logger.Ctx{"err": err})
 		return nextUpdate
@@ -153,9 +160,8 @@ func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterMa
 	instanceFrequencies := make(map[string]int64)
 
 	instanceList, err := lxdClient.GetInstancesAllProjects(api.InstanceTypeAny)
-	for i := range instanceList {
-		inst := instanceList[i]
-		instanceFrequencies[inst.Status]++
+	for _, instance := range instanceList {
+		instanceFrequencies[instance.Status]++
 	}
 
 	for status, count := range instanceFrequencies {
@@ -168,23 +174,34 @@ func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterMa
 	return err
 }
 
-func enrichServerMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
-	metrics, err := lxdClient.GetMetrics()
-	if err != nil {
-		return fmt.Errorf("Failed to get LXD metrics: %w", err)
-	}
+func enrichServerMetrics(ctx context.Context, lxdService *service.LXDService, lxdMembers []api.ClusterMember, result *types.ClusterManagerPostStatus) error {
+	for _, member := range lxdMembers {
+		u, err := url.Parse(member.URL)
+		if err != nil {
+			// If we can't parse the URL of a member, skip it but continue with others.
+			logger.Error("Could not parse URL for cluster member", logger.Ctx{"member": member, "url": member.URL, "err": err})
+			continue
+		}
 
-	result.Metrics = metrics
+		memberAddress := u.Hostname()
+		metrics, err := lxdService.Metrics(ctx, memberAddress)
+		if err != nil {
+			// If we can't get the metrics of a member, skip it but continue with others.
+			logger.Error("Could not fetch metrics for cluster member", logger.Ctx{"member": member, "err": err})
+			continue
+		}
+
+		result.ServerMetrics = append(result.ServerMetrics, types.ServerMetrics{
+			Member:  member.ServerName,
+			Metrics: metrics,
+			Service: types.LXD,
+		})
+	}
 
 	return nil
 }
 
-func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
-	lxdMembers, err := lxdClient.GetClusterMembers()
-	if err != nil {
-		return fmt.Errorf("Failed to get LXD cluster members: %w", err)
-	}
-
+func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, lxdMembers []api.ClusterMember, result *types.ClusterManagerPostStatus) error {
 	if len(lxdMembers) > 0 {
 		result.UIURL = lxdMembers[0].URL
 	}
@@ -198,9 +215,7 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.Clus
 	var cpuLoad5 float64
 	var cpuLoad15 float64
 	statusFrequencies := make(map[string]int64)
-	for i := range lxdMembers {
-		member := lxdMembers[i]
-
+	for _, member := range lxdMembers {
 		statusFrequencies[member.Status]++
 		memberState, _, err := lxdClient.GetClusterMemberState(member.ServerName)
 		if err != nil {
