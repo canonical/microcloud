@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/canonical/lxd/client"
@@ -188,6 +189,11 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.Clus
 		result.UIURL = lxdMembers[0].URL
 	}
 
+	localPools, err := getLocalPools(lxdClient)
+	if err != nil {
+		return fmt.Errorf("Failed to get local LXD storage pools: %w", err)
+	}
+
 	var cpuLoad1 float64
 	var cpuLoad5 float64
 	var cpuLoad15 float64
@@ -210,10 +216,7 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.Clus
 		cpuLoad5 += memberState.SysInfo.LoadAverages[1]
 		cpuLoad15 += memberState.SysInfo.LoadAverages[2]
 
-		for _, poolsState := range memberState.StoragePools {
-			result.DiskTotalSize += int64(poolsState.Space.Total)
-			result.DiskUsage += int64(poolsState.Space.Used)
-		}
+		enrichStoragePoolMetrics(member, memberState, localPools, result)
 	}
 
 	for status, count := range statusFrequencies {
@@ -234,4 +237,75 @@ func enrichClusterMemberMetrics(lxdClient lxd.InstanceServer, result *types.Clus
 	}
 
 	return nil
+}
+
+func enrichStoragePoolMetrics(member api.ClusterMember, memberState *api.ClusterMemberState, localPools []string, result *types.ClusterManagerPostStatus) {
+	for name, poolState := range memberState.StoragePools {
+		if poolState.Space.Total == 0 || poolState.Space.Used == 0 {
+			// Error state or no available info on this pool.
+			logger.Info("Missing usage information from LXD storage pool", logger.Ctx{"member": member.ServerName, "pool": name})
+			continue
+		}
+
+		isLocalPool := slices.Contains(localPools, name)
+		if isLocalPool {
+			result.StoragePoolUsages = append(result.StoragePoolUsages, types.StoragePoolUsage{
+				Name:   name,
+				Member: member.ServerName,
+				Total:  poolState.Space.Total,
+				Usage:  poolState.Space.Used,
+			})
+
+			continue
+		}
+
+		if hasStoragePool(result.StoragePoolUsages, name) {
+			// We have already recorded this remote pool from another member.
+			continue
+		}
+
+		result.StoragePoolUsages = append(result.StoragePoolUsages, types.StoragePoolUsage{
+			Name:  name,
+			Total: poolState.Space.Total,
+			Usage: poolState.Space.Used,
+		})
+	}
+}
+
+func hasStoragePool(usages []types.StoragePoolUsage, name string) bool {
+	for _, u := range usages {
+		if u.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func getLocalPools(lxdClient lxd.InstanceServer) ([]string, error) {
+	server, _, err := lxdClient.GetServer()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get LXD server info: %w", err)
+	}
+
+	var localDrivers []string
+	for _, d := range server.Environment.StorageSupportedDrivers {
+		if !d.Remote {
+			localDrivers = append(localDrivers, d.Name)
+		}
+	}
+
+	storagePools, err := lxdClient.GetStoragePools()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get LXD storage pools: %w", err)
+	}
+
+	var localPools []string
+	for _, pool := range storagePools {
+		poolDriver := pool.Driver
+		if slices.Contains(localDrivers, poolDriver) {
+			localPools = append(localPools, pool.Name)
+		}
+	}
+
+	return localPools, nil
 }
