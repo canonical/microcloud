@@ -88,7 +88,7 @@ type selectableTable struct {
 
 // SummarizeResult formats the result string and args with the standard style for table result summaries.
 func SummarizeResult(tmpl string, args ...any) string {
-	fmtArgs := []Fmt{}
+	fmtArgs := make([]Fmt, 0, len(args))
 	for _, arg := range args {
 		fmtArgs = append(fmtArgs, Fmt{Arg: arg, Bold: true})
 	}
