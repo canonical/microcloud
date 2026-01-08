@@ -774,7 +774,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 				data := make([][]string, 0, availableDiskCount)
 				for peer, disks := range availableDisks {
-					sortedDisks := []api.ResourcesStorageDisk{}
+					sortedDisks := make([]api.ResourcesStorageDisk, 0, len(disks))
 					for _, disk := range disks {
 						sortedDisks = append(sortedDisks, disk)
 					}
