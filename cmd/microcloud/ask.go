@@ -738,10 +738,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 
 			if askSystemsRemote[name] {
 				availableDisks[name] = state.AvailableDisks
-
-				if len(state.AvailableDisks) > 0 {
-					availableDiskCount++
-				}
+				availableDiskCount += len(state.AvailableDisks)
 			}
 		}
 
@@ -775,9 +772,9 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				selectedDisks = map[string][]string{}
 				wipeDisks = map[string]map[string]bool{}
 				header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
-				data := [][]string{}
+				data := make([][]string, 0, availableDiskCount)
 				for peer, disks := range availableDisks {
-					sortedDisks := []api.ResourcesStorageDisk{}
+					sortedDisks := make([]api.ResourcesStorageDisk, 0, len(disks))
 					for _, disk := range disks {
 						sortedDisks = append(sortedDisks, disk)
 					}
