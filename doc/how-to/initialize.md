@@ -104,6 +104,12 @@ Complete the following steps to initialize MicroCloud:
       ```
 
    1. You can choose to optionally set up a CephFS distributed file system.
+
+      ```{admonition} If you did not set up local storage
+      :class: note
+      If you did not set up local storage _and_ you set up CephFS storage, there will be an additional step for you at the end of the initialization process.
+      ```
+
 1. Select either an IPv4 or IPv6 CIDR subnet for the Ceph internal traffic. You can leave it empty to use the default value, which is the MicroCloud internal network (see {ref}`howto-ceph-networking` for how to configure it).
 1. Select either an IPv4 or IPv6 CIDR subnet for the Ceph public traffic. You can leave it empty to use the default value, which is the MicroCloud internal network if you chose this as default for the Ceph internal network question, or the Ceph internal network if you chose to set a custom network other than the MicroCloud internal network (see {ref}`howto-ceph-networking` for how to configure it).
 1. Select whether you want to set up distributed networking (using MicroOVN).
@@ -127,6 +133,11 @@ Complete the following steps to initialize MicroCloud:
    See {ref}`bootstrapping-process` for more information.
 
    Once the initialization process is complete, you can start using MicroCloud.
+
+```{admonition} Possible final step
+:class: note
+If you initialized MicroCloud without local storage _and_ with CephFS storage, continue to the section below named {ref}`howto-initialize-images-backups` to complete your initialization.
+```
 
 See an example of the full initialization process in the {ref}`Get started with MicroCloud <initialization-process>` tutorial.
 
@@ -218,3 +229,61 @@ ovn:
   ipv4_gateway: 192.0.2.1/24
   ipv4_range: 192.0.2.100-192.0.2.254
 ```
+
+```{admonition} Possible final step
+:class: note
+If you initialized MicroCloud without local storage _and_ with CephFS storage, continue to the section below to complete your initialization.
+```
+
+(howto-initialize-images-backups)=
+## Configure `backups_volume` and `images_volume`
+
+```{admonition} When this applies
+:class: tip
+You only need to configure these options if you did not set up local storage _and_ you set up CephFS storage.
+```
+
+After initialization, you might need to configure the settings `storage.backups_volume` and `storage.images_volume` on each of your cluster members.
+
+If you initialized your cluster with local storage, MicroCloud automatically configures these settings to use volumes in the `local` storage pool, named `backups` and `images`. These volumes are then used as temporary locations for operations related to {ref}`instance backups <lxd:instances-backup-export>` and {ref}`locally cached images <lxd:about-images>`, such as packing or unpacking tarballs. For speed, this is the preferred configuration when local storage is available.
+
+However, if your MicroCloud does not use local storage, these temporary locations are not automatically configured during the initialization process, and the host file system is used instead. This can cause issues if the host's file system is smaller than required. In this case, if {ref}`CephFS storage <lxd:storage-cephfs>` is available, you can configure MicroCloud to use it for these temporary locations instead of the host's file system.
+
+Run the instructions below on each cluster member.
+
+First, confirm that it can access a CephFS storage pool. Run:
+
+```bash
+lxc storage list
+```
+
+In the output, look for a storage pool with its `DRIVER` set to `cephfs`. If CephFS was set up during MicroCloud initialization, this storage pool is named `remote-fs`.
+
+Next, create storage volumes to use for the images and instances backup operations, using the following syntax:
+
+```bash
+lxc storage volume create <cephfs-pool-name> <volume-name>
+```
+
+For example, if your CephFS storage pool name is `remote-fs` and your volumes are named `backups` and `images`, run:
+
+```bash
+lxc storage volume create remote-fs backups # for instances operations
+lxc storage volume create remote-fs images # for images operations
+```
+
+Once the storage volumes are created, set them as the values for the {ref}`configuration options <lxd:server-options-misc>` of `storage.images_volume` and `storage.backups_volume`. This example syntax uses `remote-fs` as the storage pool, along with volumes named `images` and `backup`:
+
+```bash
+lxc config set storage.images_volume=remote-fs/images
+lxc config set storage.backups_volume=remote-fs/backups
+```
+
+To view the set values, run:
+
+```bash
+lxc config get storage.backups_volume
+lxc config get storage.images_volume
+```
+
+Repeat these steps on each cluster member.
