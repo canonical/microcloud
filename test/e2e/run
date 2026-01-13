@@ -58,11 +58,10 @@ init() {
     fi
 }
 
-info() {
-    set -x
+info() (
+    { set -x; } 2>/dev/null
     lxc cluster list "${REMOTE}:"
-    set +x
-}
+)
 
 retry() {
     local cmd="$*"
