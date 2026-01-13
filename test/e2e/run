@@ -2,9 +2,90 @@
 set -eu
 set -o pipefail
 
+REPORT=""
+ARGS=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --report)
+            REPORT="$(date +%Y%m%d%H%M%S)-e2e-run.html"
+            shift
+            ;;
+        *)
+            ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+set -- "${ARGS[@]}"
+
 REMOTE="${REMOTE:-${1:-""}}"
 DESTROY="${DESTROY:-prompt}"
 EVACUATION_COUNTS="${EVACUATION_COUNTS:-1}"
+
+# Status tracking
+SETUP_STATUS="PENDING"
+CONN_STATUS="PENDING"
+EVAC_STATUS="PENDING"
+TEST_STATUS="FAILED"
+SUCCESSFUL_EVACUATIONS=0
+START_TIME="$(date +%s)"
+
+generate_report() {
+    set +e
+    trap - EXIT
+
+    [ -z "${REPORT}" ] && return 0
+
+    local color="red"
+    local overall="FAILED"
+    if [ "${TEST_STATUS}" = "PASSED" ]; then
+         color="green"
+         overall="PASSED"
+    fi
+
+    local setup_color="red"
+    [ "${SETUP_STATUS}" = "OK" ] && setup_color="green"
+
+    local conn_color="red"
+    [ "${CONN_STATUS}" = "OK" ] && conn_color="green"
+
+    local evac_color="red"
+    [ "${EVAC_STATUS}" = "OK" ] && evac_color="green"
+    [ "${EVAC_STATUS}" = "SKIPPED" ] && evac_color="black"
+
+    local member_count instance_count duration
+    member_count="$(clusterMembers ONLINE 2>/dev/null | wc -l || echo "N/A")"
+    instance_count="$(instanceList 2>/dev/null | wc -l || echo "N/A")"
+    duration="$(( $(date +%s) - START_TIME ))"
+
+    cat <<EOF >"${REPORT}"
+<!DOCTYPE html>
+<html>
+<head>
+<title>MicroCloud E2E Report</title>
+<style>
+body { font-family: sans-serif; }
+.green { color: green; }
+.red { color: red; }
+</style>
+</head>
+<body>
+<h1>MicroCloud E2E Test Report</h1>
+<p>Date: $(date)</p>
+<p>Duration: ${duration}s</p>
+<p>Remote: ${REMOTE}</p>
+<h2>Results</h2>
+<ul>
+  <li>Setup: <span class="${setup_color}">${SETUP_STATUS}</span> (${member_count} members, ${instance_count} instances)</li>
+  <li>Connectivity Check: <span class="${conn_color}">${CONN_STATUS}</span></li>
+  <li>Evacuation Tests: <span class="${evac_color}">${EVAC_STATUS}</span> (${SUCCESSFUL_EVACUATIONS}/${EVACUATION_COUNTS})</li>
+</ul>
+<h2 class="${color}">OVERALL STATUS: ${overall}</h2>
+</body>
+</html>
+EOF
+    echo "Report generated: ${REPORT}"
+}
 
 remoteAccessible() {
     lxc info "${REMOTE}:" >/dev/null 2>&1
@@ -113,6 +194,7 @@ setup() {
     echo "Setting up e2e environment on ${REMOTE}"
     apply
 
+    SETUP_STATUS="OK"
     echo "Setup done"
 }
 
@@ -180,6 +262,7 @@ connectivity() {
         done
     done
     echo "DONE"
+    CONN_STATUS="OK"
 }
 
 evacuation() {
@@ -220,6 +303,8 @@ if [ "${DESTROY}" = "only" ]; then
 fi
 
 init
+# Now that init has passed, we can set the trap for report generation.
+trap generate_report EXIT
 setup
 
 SUCCESSFUL_EVACUATIONS=0
@@ -233,8 +318,10 @@ done
 
 if [ "${EVACUATION_COUNTS}" = "0" ]; then
     echo "Evacuation test skipped"
+    EVAC_STATUS="SKIPPED"
 elif [ "${SUCCESSFUL_EVACUATIONS}" = "${EVACUATION_COUNTS}" ]; then
     echo "Evacuation test passed after ${SUCCESSFUL_EVACUATIONS} successful evacuations"
+    EVAC_STATUS="OK"
 else
     echo "Evacuation test failed: ${SUCCESSFUL_EVACUATIONS} successful evacuations out of the ${EVACUATION_COUNTS} expected"
     exit 1
@@ -242,5 +329,6 @@ fi
 
 info
 
+TEST_STATUS="PASSED"
 destroy
 echo "Done"
