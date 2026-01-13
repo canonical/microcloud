@@ -222,21 +222,21 @@ fi
 init
 setup
 
-SUCCESFUL_EVACUATIONS=0
+SUCCESSFUL_EVACUATIONS=0
 connectivity
 for i in $(seq "${EVACUATION_COUNTS}"); do
     echo "Evacuation test (${i}/${EVACUATION_COUNTS})"
     evacuation
     connectivity
-    SUCCESFUL_EVACUATIONS=$((SUCCESFUL_EVACUATIONS + 1))
+    SUCCESSFUL_EVACUATIONS=$((SUCCESSFUL_EVACUATIONS + 1))
 done
 
 if [ "${EVACUATION_COUNTS}" = "0" ]; then
     echo "Evacuation test skipped"
-elif [ "${SUCCESFUL_EVACUATIONS}" = "${EVACUATION_COUNTS}" ]; then
-    echo "Evacuation test passed after ${SUCCESFUL_EVACUATIONS} successful evacuations"
+elif [ "${SUCCESSFUL_EVACUATIONS}" = "${EVACUATION_COUNTS}" ]; then
+    echo "Evacuation test passed after ${SUCCESSFUL_EVACUATIONS} successful evacuations"
 else
-    echo "Evacuation test failed: ${SUCCESFUL_EVACUATIONS} successful evacuations out of the ${EVACUATION_COUNTS} expected"
+    echo "Evacuation test failed: ${SUCCESSFUL_EVACUATIONS} successful evacuations out of the ${EVACUATION_COUNTS} expected"
     exit 1
 fi
 
