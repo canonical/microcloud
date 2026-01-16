@@ -613,7 +613,8 @@ validate_system_lxd() {
     set_remote microcloud-test "${name}" test
 
     # Ensure we are clustered and online.
-    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
+    # Use the direct API reponse to not be affected by CLI changes.
+    lxc cluster list -f json | jq -e '.[] | select(.server_name == "'"${name}"'" and .status == "Online")' >/dev/null
     [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
     # Check core config options
