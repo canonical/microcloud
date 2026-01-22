@@ -106,7 +106,7 @@ if __name__ == "__main__":
         requirements.append("sphinxext-opengraph")
 
     if IsMyStParserUsed():
-        requirements.append("myst-parser")
+        requirements.append("myst-parser==4.0.1")
         requirements.append("linkify-it-py")
 
     # removes duplicate entries
