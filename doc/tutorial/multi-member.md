@@ -4,7 +4,7 @@
 This tutorial guides you through installing and initializing MicroCloud in a confined environment, including storage and networking. You'll then start some instances to see what you can do with MicroCloud. This tutorial uses LXD virtual machines (VMs) for the MicroCloud cluster members, so you don't need any extra hardware to follow it.
 
 ```{tip}
-   Only use physical machines in a production environment. Use VMs as cluster members only in testing or development environments, such as this tutorial. For this, nested virtualization must be enabled on your host machine. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation/#check-if-nested-virtualisation-is-enabled).
+   Only use physical machines in a production environment. Use VMs as cluster members only in testing or development environments, such as this tutorial. For this, nested virtualization must be enabled on your host machine. See the [Ubuntu Server documentation on how to check if nested virtualization is enabled](https://documentation.ubuntu.com/server/how-to/virtualisation/enable-nested-virtualisation).
 
    We also limit each machine in this tutorial to 2 GiB of RAM, which is less than the recommended hardware requirements. In the context of this tutorial, this amount of RAM is sufficient. However, in a production environment, make sure to use machines that fulfill the {ref}`reference-requirements-hardware`.
 ```
