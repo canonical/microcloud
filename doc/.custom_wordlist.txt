@@ -47,6 +47,7 @@ MicroOVN
 mTLS
 multicast
 NAT
+NBD
 Netplan
 NIC
 NICs
@@ -59,6 +60,7 @@ PNG
 pre
 preseed
 QSFP
+RBD
 Replicable
 replicable
 rollout
@@ -76,6 +78,7 @@ TLS
 UI's
 uplink
 upstream's
+uptime
 virtualized
 VLAN
 VM
