@@ -165,7 +165,7 @@ linkcheck_ignore = [
     # These links may fail from time to time
     'https://ceph.io',
     # Cloudflare protection on SourceForge domains often block linkcheck
-    r"https://.*\.sourceforge\.net/.*",
+    r"https://.*\.sourceforge\.(net|io)/.*",
     ]
 
 # Pages on which to ignore anchors
