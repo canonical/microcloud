@@ -50,15 +50,15 @@ integrate:
 	# Copy the header HTML and CSS files for the doc sets  
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microcloud/_static/
-	cp .sphinx/_integration/lxd.html integration/lxd/doc/.sphinx/_templates/header.html
-	cp .sphinx/_integration/header.css integration/lxd/doc/.sphinx/_static/
+	cp .sphinx/_integration/lxd.html integration/lxd/doc/_templates/header.html
+	cp .sphinx/_integration/header.css integration/lxd/doc/_static/
 	cp .sphinx/_integration/microceph.html integration/microceph/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/override-header.css integration/microceph/docs/.sphinx/_static/
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
 	# Copy the search JavaScript file
 	cp .sphinx/_integration/rtd-search.js integration/microcloud/_static/
-	cp .sphinx/_integration/rtd-search.js integration/lxd/doc/.sphinx/_static/
+	cp .sphinx/_integration/rtd-search.js integration/lxd/doc/_static/
 	cp .sphinx/_integration/rtd-search.js integration/microceph/docs/.sphinx/_static/
 	cp .sphinx/_integration/rtd-search.js integration/microovn/docs/.sphinx/_static/
 	# Add information about where to find the tags/docs to the doc sets
