@@ -80,6 +80,7 @@ type ServerMetrics struct {
 
 // ClusterManagerPostStatus represents the periodic status payload sent to cluster manager.
 type ClusterManagerPostStatus struct {
+	CephStatuses      []StatusDistribution `json:"ceph_statuses"`
 	CPUTotalCount     int64                `json:"cpu_total_count"`
 	CPULoad1          string               `json:"cpu_load_1"`
 	CPULoad5          string               `json:"cpu_load_5"`
