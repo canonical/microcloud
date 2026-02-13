@@ -129,6 +129,12 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
+	err = enrichCephStatuses(ctx, sh, &payload)
+	if err != nil {
+		logger.Error("Failed to enrich Ceph statuses", logger.Ctx{"err": err})
+		return nextUpdate
+	}
+
 	clusterCert, err := cloud.ClusterCert()
 	if err != nil {
 		logger.Error("Failed to get cluster certificate", logger.Ctx{"err": err})
@@ -154,6 +160,37 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 
 	logger.Debug("Finished sendClusterManagerStatusMessage")
 	return nextUpdate
+}
+
+func enrichCephStatuses(ctx context.Context, sh *service.Handler, result *types.ClusterManagerPostStatus) error {
+	if sh.Services[types.MicroCeph] == nil {
+		return nil
+	}
+
+	cephService := sh.Services[types.MicroCeph].(*service.CephService)
+	cephClient, err := cephService.Client("")
+	if err != nil {
+		return err
+	}
+
+	cephMembers, err := cephClient.GetClusterMembers(ctx)
+	if err != nil {
+		return err
+	}
+
+	statusFrequencies := make(map[string]int64)
+	for _, member := range cephMembers {
+		statusFrequencies[string(member.Status)]++
+	}
+
+	for status, count := range statusFrequencies {
+		result.CephStatuses = append(result.CephStatuses, types.StatusDistribution{
+			Status: status,
+			Count:  count,
+		})
+	}
+
+	return nil
 }
 
 func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
