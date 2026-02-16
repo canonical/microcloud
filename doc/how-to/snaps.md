@@ -36,7 +36,7 @@ The first part of the version string corresponds to the release (in this sample,
 (howto-snap-daemon)=
 ## Manage the MicroCloud daemon
 
-Installing the MicroCloud snap creates the MicroCloud daemon as a [snap service](https://snapcraft.io/docs/service-management). Use the following `snap` commands to manage this daemon.
+Installing the MicroCloud snap creates the MicroCloud daemon as a [snap service](https://snapcraft.io/docs/how-to-guides/manage-snaps/control-services/). Use the following `snap` commands to manage this daemon.
 
 To view the status of the daemon, run:
 
@@ -62,7 +62,7 @@ To restart the daemon, run:
 sudo snap restart microcloud
 ```
 
-For more information about managing snap services, visit [Service management](https://snapcraft.io/docs/service-management) in the Snap documentation.
+For more information about managing snap services, visit [Control services](https://snapcraft.io/docs/how-to-guides/manage-snaps/control-services/) in the Snap documentation.
 
 ## Related topics
 
