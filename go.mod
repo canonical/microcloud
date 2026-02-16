@@ -7,7 +7,7 @@ require (
 	github.com/canonical/microceph/microceph v0.0.0-20251124135446-9c99d97567fe
 	github.com/canonical/microcluster/v3 v3.0.0-20251209140223-fcba1f86d117
 	github.com/canonical/microovn/microovn v0.0.0-20251201095354-561073fa0700
-	github.com/charmbracelet/bubbles v0.21.1
+	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.6
