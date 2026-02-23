@@ -861,6 +861,11 @@ reset_system() {
       lxc exec "${name}" -- ip link set "${iface}" up
       lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${iface}.disable_ipv6=1"
     done
+
+    # Force LXD to start up.
+    # Slower runners might cause longer LXD startup times.
+    # To not force bumping numbers in MicroCloud, ensure LXD is started before MicroCloud starts checking the socket.
+    lxc exec "${name}" -- lxc info >/dev/null
   )
 
   echo "==> Reset ${name}"
@@ -1298,6 +1303,9 @@ setup_system() {
     # shellcheck disable=SC2086
     retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
     retry lxc exec "${name}" -- snap install snapd
+
+    # Install core26 to allow latest MicroOVN to be used.
+    retry lxc exec "${name}" -- snap install core26 --channel latest/edge
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
