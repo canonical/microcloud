@@ -1299,6 +1299,9 @@ setup_system() {
     retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
     retry lxc exec "${name}" -- snap install snapd
 
+    # Install core26 to allow latest MicroOVN to be used.
+    retry lxc exec "${name}" -- snap install core26 --channel latest/edge
+
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
     lxc exec "${name}" -- systemctl start fstrim.service
