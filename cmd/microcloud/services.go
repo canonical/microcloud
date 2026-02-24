@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/lxd/client"
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microcluster/v3/client"
 	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/spf13/cobra"
 
@@ -121,25 +120,25 @@ func (c *cmdServiceList) run(cmd *cobra.Command, args []string) error {
 	err = s.RunConcurrent("", "", func(s service.Service) error {
 		var err error
 		var data [][]string
-		var microClient *client.Client
+		var m *microcluster.MicroCluster
 		var lxd lxd.InstanceServer
 		switch s.Type() {
 		case types.LXD:
 			lxd, err = s.(*service.LXDService).Client(context.Background())
+			if err != nil {
+				return err
+			}
+
 		case types.MicroCeph:
-			microClient, err = s.(*service.CephService).Client("")
+			m = s.(*service.CephService).Microcluster()
 		case types.MicroOVN:
-			microClient, err = s.(*service.OVNService).Client()
+			m = s.(*service.OVNService).Microcluster()
 		case types.MicroCloud:
-			microClient, err = s.(*service.CloudService).Client()
+			m = s.(*service.CloudService).Microcluster()
 		}
 
-		if err != nil {
-			return err
-		}
-
-		if microClient != nil {
-			clusterMembers, err := microClient.GetClusterMembers(context.Background())
+		if m != nil {
+			clusterMembers, err := m.GetClusterMembers(context.Background())
 			if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
 				return err
 			}

@@ -8,8 +8,8 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microcluster/v3/client"
 	"github.com/canonical/microcluster/v3/microcluster"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
@@ -103,7 +103,7 @@ func (c *cmdClusterManagerJoin) run(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = apiClient.QueryStruct(context.Background(), "POST", "1.0", &api.NewURL().Path("cluster-managers").URL, payload, nil)
+	err = apiClient.Query(context.Background(), "POST", "1.0", &api.NewURL().Path("cluster-managers").URL, payload, nil)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (c *cmdClusterManagerShow) run(_ *cobra.Command, _ []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, nil, &clusterManager)
+	err = apiClient.Query(context.Background(), "GET", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func (c *cmdClusterManagerDelete) run(_ *cobra.Command, _ []string) error {
 		Force: c.flagForce,
 	}
 
-	err = apiClient.QueryStruct(context.Background(), "DELETE", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, payload, nil)
+	err = apiClient.Query(context.Background(), "DELETE", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, payload, nil)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 	}
 
 	var clusterManager *types.ClusterManager
-	err = apiClient.QueryStruct(context.Background(), "GET", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, nil, &clusterManager)
+	err = apiClient.Query(context.Background(), "GET", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, nil, &clusterManager)
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 		return errors.New("Invalid key")
 	}
 
-	err = apiClient.QueryStruct(context.Background(), "PUT", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, payload, nil)
+	err = apiClient.Query(context.Background(), "PUT", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, payload, nil)
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 		return errors.New("Invalid key")
 	}
 
-	err = apiClient.QueryStruct(context.Background(), "PUT", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, payload, nil)
+	err = apiClient.Query(context.Background(), "PUT", "1.0", &api.NewURL().Path("cluster-managers", database.ClusterManagerDefaultName).URL, payload, nil)
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func getApiClient(common *CmdControl) (*client.Client, error) {
+func getApiClient(common *CmdControl) (microTypes.Client, error) {
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: common.FlagMicroCloudDir})
 	if err != nil {
 		return nil, err
