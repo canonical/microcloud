@@ -57,7 +57,7 @@ func (s LXDService) Client(ctx context.Context) (lxd.InstanceServer, error) {
 	}
 
 	return lxd.ConnectLXDUnixWithContext(ctx, s.m.FileSystem.ControlSocket().Host, &lxd.ConnectionArgs{
-		HTTPClient:    c.Client.Client,
+		HTTPClient:    c.HTTP(),
 		SkipGetServer: true,
 		Proxy:         cloudClient.AuthProxy("", types.LXD),
 	})
@@ -91,7 +91,7 @@ func (s LXDService) remoteClient(cert *x509.Certificate, address string, port in
 
 	remoteURL := c.URL()
 	client, err := lxd.ConnectLXD(remoteURL.String(), &lxd.ConnectionArgs{
-		HTTPClient:    c.Client.Client,
+		HTTPClient:    c.HTTP(),
 		TLSClientCert: string(serverCert.PublicKey()),
 		TLSClientKey:  string(serverCert.PrivateKey()),
 		TLSServerCert: microTypes.X509Certificate{Certificate: cert}.String(),
