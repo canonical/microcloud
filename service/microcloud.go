@@ -384,3 +384,8 @@ func (s *CloudService) RemoteClient(cert *x509.Certificate, address string) (mic
 
 	return c, nil
 }
+
+// Microcluster returns the internal app struct.
+func (s *CloudService) Microcluster() *microcluster.MicroCluster {
+	return s.client
+}

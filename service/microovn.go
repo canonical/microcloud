@@ -263,3 +263,8 @@ func (s *OVNService) GetServices(ctx context.Context) (ovnTypes.Services, error)
 
 	return services, nil
 }
+
+// Microcluster returns the internal app struct.
+func (s *OVNService) Microcluster() *microcluster.MicroCluster {
+	return s.m
+}

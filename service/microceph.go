@@ -441,3 +441,8 @@ func (s *CephService) SupportsFeature(ctx context.Context, feature string) (bool
 
 	return server.Extensions.HasExtension(feature), nil
 }
+
+// Microcluster returns the internal app struct.
+func (s *CephService) Microcluster() *microcluster.MicroCluster {
+	return s.m
+}
