@@ -10,34 +10,32 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // SessionJoinCmd represents the /1.0/session/join API on MicroCloud.
-var SessionJoinCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var SessionJoinCmd = func(sh *service.Handler) microTypes.Endpoint {
+	return microTypes.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/join",
 		Path:              "session/join",
 
-		Post: rest.EndpointAction{Handler: authHandlerHMAC(sh, sessionJoinPost(sh)), AllowUntrusted: true},
+		Post: microTypes.EndpointAction{Handler: authHandlerHMAC(sh, sessionJoinPost(sh)), AllowUntrusted: true},
 	}
 }
 
 // sessionJoinPost receives join intent requests from new potential members.
-func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
-	return func(state state.State, r *http.Request) response.Response {
+func sessionJoinPost(sh *service.Handler) func(state microTypes.State, r *http.Request) microTypes.Response {
+	return func(state microTypes.State, r *http.Request) microTypes.Response {
 		// Apply delay right at the beginning before doing any validation.
 		// This limits the number of join attempts that can be made by an attacker.
 		select {
 		case <-time.After(100 * time.Millisecond):
 		case <-r.Context().Done():
-			return response.InternalError(errors.New("Request cancelled"))
+			return microTypes.InternalError(errors.New("Request cancelled"))
 		}
 
 		// Parse the request.
@@ -45,7 +43,7 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			return response.BadRequest(err)
+			return microTypes.BadRequest(err)
 		}
 
 		err = sh.SessionTransaction(true, func(session *service.Session) error {
@@ -85,7 +83,7 @@ func sessionJoinPost(sh *service.Handler) func(state state.State, r *http.Reques
 			}
 		})
 
-		return response.SmartError(err)
+		return microTypes.SmartError(err)
 	}
 }
 

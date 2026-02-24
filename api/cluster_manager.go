@@ -13,9 +13,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
+	"github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/gorilla/mux"
 
 	apiTypes "github.com/canonical/microcloud/microcloud/api/types"
@@ -25,35 +23,35 @@ import (
 )
 
 // ClusterManagersJoinCmd represents the /1.0/cluster-managers API on MicroCloud.
-var ClusterManagersJoinCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var ClusterManagersJoinCmd = func(sh *service.Handler) types.Endpoint {
+	return types.Endpoint{
 		Path: "cluster-managers",
 
-		Post: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPost(sh))},
+		Post: types.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPost(sh))},
 	}
 }
 
 // ClusterManagersCmd represents the /1.0/cluster-managers/{name} API on MicroCloud.
-var ClusterManagersCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var ClusterManagersCmd = func(sh *service.Handler) types.Endpoint {
+	return types.Endpoint{
 		Path: "cluster-managers/{name}",
 
-		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerDelete(sh))},
-		Get:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerGet)},
-		Put:    rest.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPut)},
+		Delete: types.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerDelete(sh))},
+		Get:    types.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerGet)},
+		Put:    types.EndpointAction{Handler: authHandlerMTLS(sh, clusterManagerPut)},
 	}
 }
 
 // clusterManagerGet returns the cluster manager configuration.
-func clusterManagerGet(state state.State, r *http.Request) response.Response {
+func clusterManagerGet(state types.State, r *http.Request) types.Response {
 	name, err := nameFromPath(r)
 	if err != nil {
-		return response.SmartError(err)
+		return types.SmartError(err)
 	}
 
 	clusterManager, clusterManagerConfig, err := database.LoadClusterManager(state, r.Context(), name)
 	if err != nil {
-		return response.SmartError(err)
+		return types.SmartError(err)
 	}
 
 	// convert clusterManagerConfig into a map string/string
@@ -72,30 +70,30 @@ func clusterManagerGet(state state.State, r *http.Request) response.Response {
 		Config:                  config,
 	}
 
-	return response.SyncResponse(true, resp)
+	return types.SyncResponse(true, resp)
 }
 
 // clusterManagerPost creates a new cluster manager configuration from a token.
-func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
-	return func(state state.State, r *http.Request) response.Response {
+func clusterManagerPost(sh *service.Handler) func(state types.State, r *http.Request) types.Response {
+	return func(state types.State, r *http.Request) types.Response {
 		args := apiTypes.ClusterManagersPost{}
 		err := json.NewDecoder(r.Body).Decode(&args)
 		if err != nil {
-			return response.BadRequest(err)
+			return types.BadRequest(err)
 		}
 
 		if args.Token == "" {
-			return response.BadRequest(errors.New("No token provided"))
+			return types.BadRequest(errors.New("No token provided"))
 		}
 
 		if args.Name != database.ClusterManagerDefaultName {
 			errMsg := fmt.Sprintf("Invalid cluster manager name, only %s is allowed", database.ClusterManagerDefaultName)
-			return response.BadRequest(errors.New(errMsg))
+			return types.BadRequest(errors.New(errMsg))
 		}
 
 		joinToken, err := shared.JoinTokenDecode(args.Token)
 		if err != nil {
-			return response.BadRequest(err)
+			return types.BadRequest(err)
 		}
 
 		// ensure cluster manager is not already configured
@@ -104,11 +102,11 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 			if api.StatusErrorCheck(err, http.StatusNotFound) {
 				// ignore, this is the expected path
 			} else {
-				return response.SmartError(err)
+				return types.SmartError(err)
 			}
 		}
 		if existingClusterManager != nil {
-			return response.BadRequest(errors.New("Cluster manager already configured"))
+			return types.BadRequest(errors.New("Cluster manager already configured"))
 		}
 
 		clusterManager := database.ClusterManager{
@@ -120,14 +118,14 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 		cloud := sh.Services[apiTypes.MicroCloud].(*service.CloudService)
 		clusterCert, err := cloud.ClusterCert()
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
 		// register in remote cluster manager (also ensures the token is valid)
 		clusterManagerClient := client.NewClusterManagerClient(&clusterManager)
 		err = clusterManagerClient.Join(clusterCert, joinToken.ServerName, args.Token)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
 		// store cluster manager configuration in local database
@@ -151,29 +149,29 @@ func clusterManagerPost(sh *service.Handler) func(state state.State, r *http.Req
 			return nil
 		})
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
-		return response.SyncResponse(true, nil)
+		return types.SyncResponse(true, nil)
 	}
 }
 
 // clusterManagerPut updates the cluster manager configuration.
-func clusterManagerPut(state state.State, r *http.Request) response.Response {
+func clusterManagerPut(state types.State, r *http.Request) types.Response {
 	name, err := nameFromPath(r)
 	if err != nil {
-		return response.SmartError(err)
+		return types.SmartError(err)
 	}
 
 	clusterManager, _, err := database.LoadClusterManager(state, r.Context(), name)
 	if err != nil {
-		return response.SmartError(err)
+		return types.SmartError(err)
 	}
 
 	args := apiTypes.ClusterManagerPut{}
 	err = json.NewDecoder(r.Body).Decode(&args)
 	if err != nil {
-		return response.BadRequest(err)
+		return types.BadRequest(err)
 	}
 
 	hasChangedAddress := len(args.Addresses) > 0
@@ -189,59 +187,59 @@ func clusterManagerPut(state state.State, r *http.Request) response.Response {
 	if hasChangedAddress || hasChangedFingerprint {
 		err = database.StoreClusterManager(state, r.Context(), *clusterManager)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 	}
 
 	if args.UpdateInterval != nil {
 		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateInterval)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 	}
 
-	return response.SyncResponse(true, nil)
+	return types.SyncResponse(true, nil)
 }
 
 // clusterManagerDelete clears the cluster manager configuration.
-func clusterManagerDelete(sh *service.Handler) func(state state.State, r *http.Request) response.Response {
-	return func(state state.State, r *http.Request) response.Response {
+func clusterManagerDelete(sh *service.Handler) func(state types.State, r *http.Request) types.Response {
+	return func(state types.State, r *http.Request) types.Response {
 		name, err := nameFromPath(r)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
 		args := apiTypes.ClusterManagerDelete{}
 		err = json.NewDecoder(r.Body).Decode(&args)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
 		clusterManager, _, err := database.LoadClusterManager(state, r.Context(), name)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
 		if !args.Force {
 			cloud := sh.Services[apiTypes.MicroCloud].(*service.CloudService)
 			clusterCert, err := cloud.ClusterCert()
 			if err != nil {
-				return response.SmartError(err)
+				return types.SmartError(err)
 			}
 
 			clusterManagerClient := client.NewClusterManagerClient(clusterManager)
 			err = clusterManagerClient.Delete(clusterCert)
 			if err != nil {
-				return response.SmartError(err)
+				return types.SmartError(err)
 			}
 		}
 
 		err = database.RemoveClusterManager(state, r.Context(), *clusterManager)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
-		return response.SyncResponse(true, nil)
+		return types.SyncResponse(true, nil)
 	}
 }
 

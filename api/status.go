@@ -12,11 +12,8 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microClient "github.com/canonical/microcluster/v3/client"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	"github.com/canonical/microcluster/v3/microcluster"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 	ovnTypes "github.com/canonical/microovn/microovn/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -25,12 +22,12 @@ import (
 )
 
 // StatusCmd represents the /1.0/status API on MicroCloud.
-var StatusCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var StatusCmd = func(sh *service.Handler) microTypes.Endpoint {
+	return microTypes.Endpoint{
 		Name: "status",
 		Path: "status",
 
-		Get: rest.EndpointAction{Handler: statusGet(sh), ProxyTarget: true},
+		Get: microTypes.EndpointAction{Handler: statusGet(sh), ProxyTarget: true},
 	}
 }
 
@@ -38,16 +35,16 @@ func statusGet(sh *service.Handler) endpointHandler {
 	// statusMu is used to synchronize map writes to the returned status information, as we populate cluster members for each service concurrently.
 	var statusMu sync.Mutex
 
-	return func(s state.State, r *http.Request) response.Response {
+	return func(s microTypes.State, r *http.Request) microTypes.Response {
 		statuses := []types.Status{}
 
-		if !microClient.IsNotification(r) {
-			cluster, err := s.Cluster(true)
+		if !microTypes.IsNotification(r) {
+			cluster, err := s.Connect().Cluster(true)
 			if err != nil {
-				return response.SmartError(err)
+				return microTypes.SmartError(err)
 			}
 
-			err = cluster.Query(r.Context(), true, func(ctx context.Context, c *microClient.Client) error {
+			err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
 				memberStatuses, err := client.GetStatus(ctx, c)
 				if err != nil {
 					logger.Error("Failed to get status for cluster member", logger.Ctx{"error": err, "address": c.URL()})
@@ -60,14 +57,14 @@ func statusGet(sh *service.Handler) endpointHandler {
 				return nil
 			})
 			if err != nil {
-				return response.SmartError(err)
+				return microTypes.SmartError(err)
 			}
 		}
 
 		var address string
-		addrPort, err := microTypes.ParseAddrPort(s.Address().URL.Host)
+		addrPort, err := microTypes.ParseAddrPort(s.Address().Host)
 		if err != nil {
-			return response.SmartError(fmt.Errorf("Failed to parse MicroCloud listen address: %w", err))
+			return microTypes.SmartError(fmt.Errorf("Failed to parse MicroCloud listen address: %w", err))
 		}
 
 		// The address may be empty if we haven't initialized MicroCloud yet.
@@ -120,12 +117,9 @@ func statusGet(sh *service.Handler) endpointHandler {
 				status.Clusters[s.Type()] = clusterMembers
 				statusMu.Unlock()
 			case types.MicroCloud:
-				microClient, err := s.(*service.CloudService).Client()
-				if err != nil {
-					return err
-				}
+				m := s.(*service.CloudService).Microcluster()
 
-				clusterMembers, err := microStatus(r.Context(), microClient, s)
+				clusterMembers, err := microStatus(r.Context(), m)
 				if err != nil {
 					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
 				}
@@ -138,24 +132,19 @@ func statusGet(sh *service.Handler) endpointHandler {
 			return nil
 		})
 		if err != nil {
-			return response.SmartError(err)
+			return microTypes.SmartError(err)
 		}
 
 		statuses = append(statuses, *status)
 
-		return response.SyncResponse(true, statuses)
+		return microTypes.SyncResponse(true, statuses)
 	}
 }
 
 func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, osds []cephTypes.Disk, cephServices []cephTypes.Service, err error) {
 	cephService := s.(*service.CephService)
 
-	microClient, err := cephService.Client("")
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	clusterMembers, err = microStatus(ctx, microClient, s)
+	clusterMembers, err = microStatus(ctx, cephService.Microcluster())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -196,12 +185,7 @@ func cephStatus(ctx context.Context, s service.Service) (clusterMembers []microT
 func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTypes.ClusterMember, ovnServices []ovnTypes.Service, err error) {
 	serviceOVN := s.(*service.OVNService)
 
-	microClient, err := serviceOVN.Client()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	clusterMembers, err = microStatus(ctx, microClient, s)
+	clusterMembers, err = microStatus(ctx, serviceOVN.Microcluster())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -224,8 +208,8 @@ func ovnStatus(ctx context.Context, s service.Service) (clusterMembers []microTy
 	return clusterMembers, ovnServices, nil
 }
 
-func microStatus(ctx context.Context, microClient *microClient.Client, s service.Service) ([]microTypes.ClusterMember, error) {
-	clusterMembers, err := microClient.GetClusterMembers(context.Background())
+func microStatus(ctx context.Context, m *microcluster.MicroCluster) ([]microTypes.ClusterMember, error) {
+	clusterMembers, err := m.GetClusterMembers(context.Background())
 	if err != nil && !lxdAPI.StatusErrorCheck(err, http.StatusServiceUnavailable) {
 		return nil, err
 	}

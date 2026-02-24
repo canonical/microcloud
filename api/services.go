@@ -8,33 +8,31 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // ServicesCmd represents the /1.0/services API on MicroCloud.
-var ServicesCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var ServicesCmd = func(sh *service.Handler) microTypes.Endpoint {
+	return microTypes.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "services",
 		Path:              "services",
 
-		Put: rest.EndpointAction{Handler: authHandlerMTLS(sh, servicesPut), ProxyTarget: true},
+		Put: microTypes.EndpointAction{Handler: authHandlerMTLS(sh, servicesPut), ProxyTarget: true},
 	}
 }
 
 // servicesPut updates the cluster status of the MicroCloud peer.
-func servicesPut(state state.State, r *http.Request) response.Response {
+func servicesPut(state microTypes.State, r *http.Request) microTypes.Response {
 	// Parse the request.
 	req := types.ServicesPut{}
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		return response.BadRequest(err)
+		return microTypes.BadRequest(err)
 	}
 
 	joinConfigs := map[types.ServiceType]service.JoinConfig{}
@@ -52,7 +50,7 @@ func servicesPut(state state.State, r *http.Request) response.Response {
 
 	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir(), services...)
 	if err != nil {
-		return response.SmartError(err)
+		return microTypes.SmartError(err)
 	}
 
 	err = sh.RunConcurrent(types.MicroCloud, types.LXD, func(s service.Service) error {
@@ -68,8 +66,8 @@ func servicesPut(state state.State, r *http.Request) response.Response {
 		return nil
 	})
 	if err != nil {
-		return response.SmartError(err)
+		return microTypes.SmartError(err)
 	}
 
-	return response.EmptySyncResponse
+	return microTypes.EmptySyncResponse
 }

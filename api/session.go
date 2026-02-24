@@ -11,13 +11,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/trust"
 	"github.com/canonical/lxd/shared/ws"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -30,30 +29,30 @@ import (
 const HMACMicroCloud10 trust.HMACVersion = "MicroCloud-1.0"
 
 // SessionInitiatingCmd represents the /1.0/session/initiating API on MicroCloud.
-var SessionInitiatingCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var SessionInitiatingCmd = func(sh *service.Handler) microTypes.Endpoint {
+	return microTypes.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/initiating",
 		Path:              "session/initiating",
 
-		Get: rest.EndpointAction{Handler: authHandlerMTLS(sh, sessionGet(sh, types.SessionInitiating))},
+		Get: microTypes.EndpointAction{Handler: authHandlerMTLS(sh, sessionGet(sh, types.SessionInitiating))},
 	}
 }
 
 // SessionJoiningCmd represents the /1.0/session/joining API on MicroCloud.
-var SessionJoiningCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var SessionJoiningCmd = func(sh *service.Handler) microTypes.Endpoint {
+	return microTypes.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "session/joining",
 		Path:              "session/joining",
 
-		Get: rest.EndpointAction{Handler: authHandlerMTLS(sh, sessionGet(sh, types.SessionJoining))},
+		Get: microTypes.EndpointAction{Handler: authHandlerMTLS(sh, sessionGet(sh, types.SessionJoining))},
 	}
 }
 
 // sessionGet returns a MicroCloud join session.
-func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state state.State, r *http.Request) response.Response {
-	return func(state state.State, r *http.Request) response.Response {
+func sessionGet(sh *service.Handler, sessionRole types.SessionRole) func(state microTypes.State, r *http.Request) microTypes.Response {
+	return func(state microTypes.State, r *http.Request) microTypes.Response {
 		if sh.ActiveSession() {
 			return response.BadRequest(errors.New("There already is an active session"))
 		}
@@ -147,7 +146,7 @@ func confirmedIntents(sh *service.Handler, gw *cloudClient.WebsocketGateway) ([]
 	}
 }
 
-func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudClient.WebsocketGateway) error {
+func handleInitiatingSession(state microTypes.State, sh *service.Handler, gw *cloudClient.WebsocketGateway) error {
 	session := types.Session{}
 	err := gw.ReceiveWithContext(gw.Context(), &session)
 	if err != nil {
@@ -253,7 +252,7 @@ func handleInitiatingSession(state state.State, sh *service.Handler, gw *cloudCl
 	return nil
 }
 
-func handleJoiningSession(state state.State, sh *service.Handler, gw *cloudClient.WebsocketGateway) error {
+func handleJoiningSession(state microTypes.State, sh *service.Handler, gw *cloudClient.WebsocketGateway) error {
 	session := types.Session{}
 	err := gw.ReceiveWithContext(gw.Context(), &session)
 	if err != nil {

@@ -9,9 +9,7 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -19,22 +17,22 @@ import (
 )
 
 // ServicesClusterCmd represents the /1.0/services/cluster/{name} API on MicroCloud.
-var ServicesClusterCmd = func(sh *service.Handler) rest.Endpoint {
-	return rest.Endpoint{
+var ServicesClusterCmd = func(sh *service.Handler) microTypes.Endpoint {
+	return microTypes.Endpoint{
 		AllowedBeforeInit: true,
 		Name:              "services/cluster/{name}",
 		Path:              "services/cluster/{name}",
 
-		Delete: rest.EndpointAction{Handler: authHandlerMTLS(sh, removeClusterMember)},
+		Delete: microTypes.EndpointAction{Handler: authHandlerMTLS(sh, removeClusterMember)},
 	}
 }
 
 // removeClusterMember removes the given cluster member from all services that it exists in.
-func removeClusterMember(state state.State, r *http.Request) response.Response {
+func removeClusterMember(state microTypes.State, r *http.Request) microTypes.Response {
 	force := r.URL.Query().Get("force") == "1"
 	name, err := url.PathUnescape(mux.Vars(r)["name"])
 	if err != nil {
-		return response.BadRequest(err)
+		return microTypes.BadRequest(err)
 	}
 
 	supportedServices := map[types.ServiceType]string{
@@ -50,14 +48,14 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		}
 	}
 
-	addr, _, err := net.SplitHostPort(state.Address().URL.Host)
+	addr, _, err := net.SplitHostPort(state.Address().Host)
 	if err != nil {
-		return response.SmartError(fmt.Errorf("State address %q is invalid: %w", state.Address().String(), err))
+		return microTypes.SmartError(fmt.Errorf("State address %q is invalid: %w", state.Address().String(), err))
 	}
 
 	sh, err := service.NewHandler(state.Name(), addr, state.FileSystem().StateDir(), existingServices...)
 	if err != nil {
-		return response.SmartError(err)
+		return microTypes.SmartError(err)
 	}
 
 	ceph := sh.Services[types.MicroCeph]
@@ -65,7 +63,7 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		// If we got a 503 error back, that means the service is installed, but hasn't been set up yet, so there are no cluster members to remove.
 		cluster, err := ceph.ClusterMembers(r.Context())
 		if err != nil && !api.StatusErrorCheck(err, http.StatusServiceUnavailable) {
-			return response.SmartError(err)
+			return microTypes.SmartError(err)
 		}
 
 		// We can't remove nodes from a 2 node MicroCeph cluster if that node is still in the monmap,
@@ -75,12 +73,12 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 
 			cephServices, err := cephService.GetServices(r.Context(), "")
 			if err != nil {
-				return response.SmartError(err)
+				return microTypes.SmartError(err)
 			}
 
 			for _, service := range cephServices {
 				if service.Location == name && service.Service == "mon" {
-					return response.SmartError(fmt.Errorf("%q must be removed from the Ceph monmap before it can be removed from MicroCloud", name))
+					return microTypes.SmartError(fmt.Errorf("%q must be removed from the Ceph monmap before it can be removed from MicroCloud", name))
 				}
 			}
 		}
@@ -154,12 +152,12 @@ func removeClusterMember(state state.State, r *http.Request) response.Response {
 		return s.DeleteClusterMember(r.Context(), name, force)
 	})
 	if err != nil {
-		return response.SmartError(err)
+		return microTypes.SmartError(err)
 	}
 
 	if !memberExists {
-		return response.NotFound(fmt.Errorf("Cluster member %q not found on any service", name))
+		return microTypes.NotFound(fmt.Errorf("Cluster member %q not found on any service", name))
 	}
 
-	return response.EmptySyncResponse
+	return microTypes.EmptySyncResponse
 }
