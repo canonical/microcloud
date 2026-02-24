@@ -13,9 +13,7 @@ import (
 	lxdAPI "github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v3/microcluster"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microcloud/microcloud/api"
@@ -128,7 +126,7 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	endpoints := []rest.Endpoint{
+	endpoints := []microTypes.Endpoint{
 		api.StatusCmd(s),
 		api.ServicesCmd(s),
 		api.ServiceTokensCmd(s),
@@ -169,11 +167,11 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 		ExtensionsSchema: database.SchemaExtensions,
 
 		PreInitListenAddress: "[::]:" + strconv.FormatInt(service.CloudPort, 10),
-		Hooks: &state.Hooks{
-			PostBootstrap: func(ctx context.Context, state state.State, initConfig map[string]string) error {
-				return setHandlerAddress(state.Address().URL.Host)
+		Hooks: &microTypes.Hooks{
+			PostBootstrap: func(ctx context.Context, state microTypes.State, initConfig map[string]string) error {
+				return setHandlerAddress(state.Address().Host)
 			},
-			PostJoin: func(ctx context.Context, state state.State, cfg map[string]string) error {
+			PostJoin: func(ctx context.Context, state microTypes.State, cfg map[string]string) error {
 				// If the node has joined close the session.
 				// This will signal to the client to exit out gracefully
 				// and ultimately lead to the closing of the websocket connection.
@@ -183,9 +181,9 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 				case <-ctx.Done():
 				}
 
-				return setHandlerAddress(state.Address().URL.Host)
+				return setHandlerAddress(state.Address().Host)
 			},
-			OnStart: func(ctx context.Context, state state.State) error {
+			OnStart: func(ctx context.Context, state microTypes.State) error {
 				SendClusterManagerStatusMessageTask(ctx, s, state)
 
 				// If we are already initialized, there's nothing to do.
@@ -198,7 +196,7 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 				databaseReady := err == nil
 
 				// With a 503 error or no error, we can be sure there is an address trying to connect to dqlite, so we can proceed with the handler address update.
-				err = setHandlerAddress(state.Address().URL.Host)
+				err = setHandlerAddress(state.Address().Host)
 				if err != nil {
 					return err
 				}
@@ -253,12 +251,12 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 			},
 		},
 
-		ExtensionServers: map[string]rest.Server{
+		ExtensionServers: map[string]microTypes.Server{
 			"microcloud": {
 				CoreAPI:   true,
 				PreInit:   true,
 				ServeUnix: true,
-				Resources: []rest.Resources{
+				Resources: []microTypes.Resources{
 					{
 						PathPrefix: types.APIVersion,
 						Endpoints:  endpoints,

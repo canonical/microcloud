@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
@@ -19,8 +19,8 @@ import (
 )
 
 // SendClusterManagerStatusMessageTask starts a go routine, that sends periodic status messages to cluster manager.
-func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s state.State) {
-	go func(ctx context.Context, sh *service.Handler, s state.State) {
+func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s microTypes.State) {
+	go func(ctx context.Context, sh *service.Handler, s microTypes.State) {
 		ticker := time.NewTicker(database.UpdateIntervalDefaultSeconds * time.Second)
 		defer ticker.Stop()
 
@@ -39,7 +39,7 @@ func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handle
 	}(ctx, sh, s)
 }
 
-func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s state.State) time.Duration {
+func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s microTypes.State) time.Duration {
 	logger.Debug("Starting sendClusterManagerStatusMessage")
 	var nextUpdate time.Duration = 0
 
@@ -91,7 +91,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
-	if leaderInfo.Address != s.Address().URL.Host {
+	if leaderInfo.Address != s.Address().Host {
 		logger.Debug("Not the leader, skipping status message")
 		return nextUpdate
 	}
@@ -168,12 +168,9 @@ func enrichCephStatuses(ctx context.Context, sh *service.Handler, result *types.
 	}
 
 	cephService := sh.Services[types.MicroCeph].(*service.CephService)
-	cephClient, err := cephService.Client("")
-	if err != nil {
-		return err
-	}
+	m := cephService.Microcluster()
 
-	cephMembers, err := cephClient.GetClusterMembers(ctx)
+	cephMembers, err := m.GetClusterMembers(ctx)
 	if err != nil {
 		return err
 	}
