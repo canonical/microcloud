@@ -30,6 +30,34 @@ func GetStatus(ctx context.Context, c microTypes.Client) ([]types.Status, error)
 	return statuses, nil
 }
 
+// DeleteToken allows deleting a token using the given client.
+// We don't use Microcluster's own token deletion func from the app to allow this func being called both on
+// the local Microcluster member as well as a remote member.
+// It's using Microcluster's stable API.
+func DeleteToken(ctx context.Context, name string, c microTypes.Client) error {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	return c.Query(queryCtx, "DELETE", microTypes.PublicEndpoint, &api.NewURL().Path("tokens", name).URL, nil, nil)
+}
+
+// GetClusterMembers returns a list of cluster members.
+// We don't use Microcluster's own cluster member list func from the app to allow this func being called both on
+// the local Microcluster member as well as a remote member.
+// It's using Microcluster's stable API.
+func GetClusterMembers(ctx context.Context, c microTypes.Client) ([]microTypes.ClusterMember, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	var clusterMembers []microTypes.ClusterMember
+	err := c.Query(queryCtx, "GET", microTypes.PublicEndpoint, &api.NewURL().Path("cluster").URL, nil, &clusterMembers)
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterMembers, nil
+}
+
 // StartSession starts a new session and returns the underlying websocket connection.
 func StartSession(ctx context.Context, c microTypes.Client, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
