@@ -10,15 +10,14 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v3/client"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 // GetStatus fetches a set of status information for the whole cluster.
-func GetStatus(ctx context.Context, c *client.Client) ([]types.Status, error) {
+func GetStatus(ctx context.Context, c microTypes.Client) ([]types.Status, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -32,7 +31,7 @@ func GetStatus(ctx context.Context, c *client.Client) ([]types.Status, error) {
 }
 
 // StartSession starts a new session and returns the underlying websocket connection.
-func StartSession(ctx context.Context, c *client.Client, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
+func StartSession(ctx context.Context, c microTypes.Client, role string, sessionTimeout time.Duration) (*websocket.Conn, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -46,7 +45,7 @@ func StartSession(ctx context.Context, c *client.Client, role string, sessionTim
 }
 
 // StopSession is called from the initiator to stop a joiner session.
-func StopSession(ctx context.Context, c *client.Client, stopMsg string) error {
+func StopSession(ctx context.Context, c microTypes.Client, stopMsg string) error {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -60,7 +59,7 @@ func StopSession(ctx context.Context, c *client.Client, stopMsg string) error {
 }
 
 // JoinServices sends join information to initiate the cluster join process.
-func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut) error {
+func JoinServices(ctx context.Context, c microTypes.Client, data types.ServicesPut) error {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -73,7 +72,7 @@ func JoinServices(ctx context.Context, c *client.Client, data types.ServicesPut)
 }
 
 // JoinIntent sends the join intent to a potential cluster.
-func JoinIntent(ctx context.Context, c *client.Client, data types.SessionJoinPost) (*x509.Certificate, error) {
+func JoinIntent(ctx context.Context, c microTypes.Client, data types.SessionJoinPost) (*x509.Certificate, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -98,7 +97,7 @@ func JoinIntent(ctx context.Context, c *client.Client, data types.SessionJoinPos
 	}
 
 	// Parse the response to check for errors.
-	_, err = response.ParseResponse(resp)
+	_, err = microTypes.ParseResponse(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +110,7 @@ func JoinIntent(ctx context.Context, c *client.Client, data types.SessionJoinPos
 }
 
 // RemoteIssueToken issues a token on the remote MicroCloud.
-func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.ServiceType, data types.ServiceTokensPost) (string, error) {
+func RemoteIssueToken(ctx context.Context, c microTypes.Client, serviceType types.ServiceType, data types.ServiceTokensPost) (string, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -125,7 +124,7 @@ func RemoteIssueToken(ctx context.Context, c *client.Client, serviceType types.S
 }
 
 // DeleteClusterMember removes the cluster member from any service that it is part of.
-func DeleteClusterMember(ctx context.Context, c *client.Client, memberName string, force bool) error {
+func DeleteClusterMember(ctx context.Context, c microTypes.Client, memberName string, force bool) error {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
