@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/canonical/lxd/client"
+	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
@@ -1868,4 +1870,72 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 	}
 
 	return nil
+}
+
+func (c *initConfig) askInitialUIAccessLink(sh *service.Handler) (string, error) {
+	lxd, ok := sh.Services[types.LXD].(*service.LXDService)
+	if !ok {
+		return "", errors.New("Failed to retrieve LXD service")
+	}
+
+	requiredAPIExtension := "auth_bearer"
+	hasAPIExtension, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, requiredAPIExtension)
+	if err != nil {
+		return "", fmt.Errorf("Failed to check for the %q LXD API extension: %w", requiredAPIExtension, err)
+	}
+
+	if !hasAPIExtension {
+		return "", nil
+	}
+
+	lxdClient, err := lxd.Client(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	generate, err := c.asker.AskBool("Would you like to create an initial UI access link?", true)
+	if err != nil {
+		return "", err
+	}
+
+	if !generate {
+		return "", nil
+	}
+
+	address := sh.Address()
+	if address == "" {
+		return "", errors.New("LXD server address is not set, cannot create UI initial access link")
+	}
+
+	uiAdminIdentityName := "ui-admin-initial"
+
+	// Check if identity already exists.
+	uiAdminIdentity, _, err := lxdClient.GetIdentity(api.AuthenticationMethodBearer, uiAdminIdentityName)
+	if err != nil && !api.StatusErrorCheck(err, http.StatusNotFound) {
+		return "", fmt.Errorf("Failed to check for existing initial UI identity: %w", err)
+	}
+
+	if uiAdminIdentity == nil {
+		// Create identity if it doesn't exist.
+		uiAdminIdentityReq := api.IdentitiesBearerPost{
+			Name: uiAdminIdentityName,
+			Type: api.IdentityTypeBearerTokenInitialUI,
+		}
+
+		err := lxdClient.CreateIdentityBearer(uiAdminIdentityReq)
+		if err != nil {
+			return "", fmt.Errorf("Failed to create initial UI identity: %w", err)
+		}
+	} else if uiAdminIdentity.Type != api.IdentityTypeBearerTokenInitialUI {
+		return "", fmt.Errorf("A bearer identity with name %q already exists but is not of type %q", uiAdminIdentityName, api.IdentityTypeBearerTokenInitialUI)
+	}
+
+	token, err := lxdClient.IssueBearerIdentityToken(uiAdminIdentityName, api.IdentityBearerTokenPost{})
+	if err != nil {
+		return "", fmt.Errorf("Failed to issue bearer token for initial UI access link: %w", err)
+	}
+
+	uiAccessLink := api.NewURL().Scheme("https").Host(address+":"+strconv.FormatInt(service.LXDPort, 10)).WithQuery("token", token.Token)
+
+	return uiAccessLink.String(), nil
 }
