@@ -2,6 +2,8 @@ ACL
 ACLs
 AGPL
 AGPLv
+API
+Auth
 backend
 backporting
 balancers
@@ -36,6 +38,7 @@ intra
 IOV
 IPs
 IPv
+Keycloak
 lifecycle
 LTS
 LXD

@@ -24,6 +24,7 @@ Update and upgrade </how-to/update_upgrade>
 Manage the snaps </how-to/snaps>
 Recover MicroCloud </how-to/recover>
 Add a service </how-to/add_service>
+Manage multiple clusters </how-to/cluster_manager>
 Get support </how-to/support>
 Contribute to MicroCloud </how-to/contribute>
 ```
