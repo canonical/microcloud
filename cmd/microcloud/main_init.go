@@ -332,6 +332,8 @@ func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 		reverter.Success()
 	}
 
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
+
 	return nil
 }
 
@@ -1096,8 +1098,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	reverter.Success()
-
-	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 
 	return nil
 }

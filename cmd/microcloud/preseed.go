@@ -317,7 +317,13 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		}
 	}
 
-	return c.setupCluster(s)
+	err = c.setupCluster(s)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
+	return nil
 }
 
 // validate validates the unmarshaled preseed input.
