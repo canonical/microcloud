@@ -128,6 +128,10 @@ Complete the following steps to initialize MicroCloud:
       1. Select the network interfaces that you want to use.
 
          You must select one network interface with an IP address per machine.
+1. Select whether you want to create an initial UI access link.
+
+   If you choose `yes`, a UI access link with admin permissions, valid for 1 day, will be created and printed.
+   The link opens the UI in a browser and is intended for initial setup, allowing you to configure a permanent authentication method, such as mTLS or OIDC.
 1. MicroCloud now starts to bootstrap the cluster.
    Monitor the output to see whether all steps complete successfully.
    See {ref}`bootstrapping-process` for more information.
