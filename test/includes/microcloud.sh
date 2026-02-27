@@ -56,6 +56,7 @@ microcloud_interactive() {
   OVN_UNDERLAY_FILTER=${OVN_UNDERLAY_FILTER:-}    # filter string for OVN underlay interfaces.
   IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
   REPLACE_PROFILE="${REPLACE_PROFILE:-}"          # Replace default profile config and devices.
+  CREATE_UI_ACCESS_LINK="${CREATE_UI_ACCESS_LINK:-yes}" # (yes/no) whether to create the UI initial access link during bootstrap.
 
   setup=""
   if [ -n "${MULTI_NODE}" ]; then
@@ -180,6 +181,12 @@ ${REPLACE_PROFILE}
 $(true)                                                 # workaround for set -e
 "
 fi
+
+
+  setup="${setup}
+${CREATE_UI_ACCESS_LINK}
+$(true)                                                 # workaround for set -e
+"
 
   # clear comments and empty lines.
   setup="$(echo "${setup}" | sed '/^\s*#/d; s/\s*#.*//; /^$/d' | tee /dev/stderr)"

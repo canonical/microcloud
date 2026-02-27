@@ -14,13 +14,20 @@ test_interactive() {
   export SETUP_OVN_EXPLICIT="no"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
+  export CREATE_UI_ACCESS_LINK="yes"
   join_session init micro01 micro02 micro03
+
+  if check_api_extension "auth_bearer"; then
+    # Ensure initial UI access link was printed by the bootstrap flow.
+    lxc exec micro01 -- cat out | grep -Fx "UI initial access link (expires in 1 day):"
+  fi
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
   lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
   for m in micro01 micro02 micro03 ; do
-    validate_system_lxd "${m}" 3
+    validate_system_lxd "${m}" 1
     validate_system_microceph "${m}"
     validate_system_microovn "${m}"
   done
@@ -43,8 +50,14 @@ test_interactive() {
   export ZFS_WIPE="yes"
   export CEPH_CLUSTER_NETWORK="${microcloud_internal_net_addr}"
   export CEPH_PUBLIC_NETWORK="${microcloud_internal_net_addr}"
+  export CREATE_UI_ACCESS_LINK="no"
   unset SETUP_CEPH SETUP_OVN_EXPLICIT
   join_session init micro01 micro02 micro03
+
+  if check_api_extension "auth_bearer"; then
+    # Ensure initial UI access link was not printed by the bootstrap flow.
+    ! lxc exec micro01 -- cat out | grep -Fx "UI initial access link (expires in 1 day):" || false
+  fi
 
   lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
   lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
