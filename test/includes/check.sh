@@ -27,6 +27,17 @@ check_dependencies() {
 	fi
 }
 
+check_api_extension() {
+	ext="$1"
+
+	if ! lxc info | grep -qx "^- ${ext}$"; then
+		echo "Missing LXD API extension: $ext" >&2
+		return 1
+	fi
+
+	return 0
+}
+
 check_empty() {
 	if [ "$(find "${1}" 2>/dev/null | wc -l)" -gt "1" ]; then
 		echo "${1} is not empty, content:"
