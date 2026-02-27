@@ -118,7 +118,8 @@ if not 'conf_py_path' in html_context and 'github_folder' in html_context:
 
 # For ignoring specific links
 linkcheck_anchors_ignore_for_url = [
-    r'https://github\.com/.*'
+    r'https://github\.com/.*',
+    r'https://charmhub\.io/.*',
 ]
 linkcheck_anchors_ignore_for_url.extend(custom_linkcheck_anchors_ignore_for_url)
 
