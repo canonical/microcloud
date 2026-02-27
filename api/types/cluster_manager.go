@@ -1,7 +1,10 @@
 package types
 
 import (
+	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // ClusterManagersPost represents the cluster manager configuration when receiving a POST request in MicroCloud.
@@ -55,6 +58,10 @@ type ClusterManagerPut struct {
 	// Interval in seconds to send status messages to the cluster manager
 	// Example: 60
 	UpdateInterval *string `json:"update_interval" yaml:"update_interval"`
+
+	// Enables or disables the reverse tunnel to the cluster manager
+	// Example: true, false
+	ReverseTunnel *string `json:"reverse_tunnel" yaml:"reverse_tunnel"`
 }
 
 // StatusDistribution represents the distribution of items.
@@ -99,4 +106,27 @@ type ClusterManagerJoin struct {
 	ClusterName        string `json:"cluster_name" yaml:"cluster_name"`
 	ClusterCertificate string `json:"cluster_certificate" yaml:"cluster_certificate"`
 	Token              string `json:"token" yaml:"token"`
+}
+
+// ClusterManagerTunnel represents the tunnel connection the cluster manager.
+type ClusterManagerTunnel struct {
+	Mu     sync.RWMutex
+	WsConn *websocket.Conn
+}
+
+// ClusterManagerTunnelRequest represents the request received through the tunnel.
+type ClusterManagerTunnelRequest struct {
+	ID      string            `json:"id"`
+	Method  string            `json:"method"`
+	Path    string            `json:"path"`
+	Headers map[string]string `json:"headers"`
+	Body    []byte            `json:"body"`
+}
+
+// ClusterManagerTunnelResponse represents the response sent through the tunnel.
+type ClusterManagerTunnelResponse struct {
+	ID      string            `json:"id"`
+	Status  int               `json:"status"`
+	Headers map[string]string `json:"headers"`
+	Body    []byte            `json:"body"`
 }
