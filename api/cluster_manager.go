@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v3/microcluster/types"
@@ -195,6 +196,13 @@ func clusterManagerPut(state types.State, r *http.Request) types.Response {
 		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateInterval)
 		if err != nil {
 			return types.SmartError(err)
+		}
+	}
+
+	if args.ReverseTunnel != nil {
+		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.ReverseTunnelKey, *args.ReverseTunnel)
+		if err != nil {
+			return response.SmartError(err)
 		}
 	}
 
