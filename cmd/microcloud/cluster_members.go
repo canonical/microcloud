@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/lxd/shared"
 	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/termios"
-	"github.com/canonical/microcluster/v3/client"
 	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/spf13/cobra"
@@ -83,8 +82,8 @@ type cmdClusterMembersList struct {
 // command returns the subcommand to list cluster members.
 func (c *cmdClusterMembersList) command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list <address>",
-		Short: "List cluster members locally, or remotely if an address is specified",
+		Use:   "list",
+		Short: "List cluster members locally",
 		RunE:  c.run,
 	}
 
@@ -111,26 +110,11 @@ func (c *cmdClusterMembersList) run(cmd *cobra.Command, args []string) error {
 		return c.listLocalClusterMembers(m)
 	}
 
-	var client *client.Client
-
-	// Get a local client connected to the unix socket if no address is specified.
-	if len(args) == 1 {
-		client, err = m.RemoteClient(args[0])
-		if err != nil {
-			return err
-		}
-	} else {
-		client, err = m.LocalClient()
-		if err != nil {
-			return err
-		}
-	}
-
-	return c.listClusterMembers(cmd.Context(), client)
+	return c.listClusterMembers(cmd.Context(), m)
 }
 
-func (c *cmdClusterMembersList) listClusterMembers(ctx context.Context, client *client.Client) error {
-	clusterMembers, err := client.GetClusterMembers(ctx)
+func (c *cmdClusterMembersList) listClusterMembers(ctx context.Context, m *microcluster.MicroCluster) error {
+	clusterMembers, err := m.GetClusterMembers(ctx)
 	if err != nil {
 		return err
 	}
@@ -212,12 +196,7 @@ func (c *cmdClusterMemberRemove) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := m.LocalClient()
-	if err != nil {
-		return err
-	}
-
-	err = client.DeleteClusterMember(context.Background(), args[0], c.flagForce)
+	err = m.RemoveClusterMember(context.Background(), args[0], "", c.flagForce)
 	if err != nil {
 		return err
 	}

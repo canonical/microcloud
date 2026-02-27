@@ -14,8 +14,8 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/client"
 	"github.com/canonical/microcluster/v3/microcluster"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	ovnTypes "github.com/canonical/microovn/microovn/api/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -57,7 +57,7 @@ func NewOVNService(name string, addr string, cloudDir string) (*OVNService, erro
 }
 
 // Client returns a client to the OVN unix socket.
-func (s OVNService) Client() (*client.Client, error) {
+func (s OVNService) Client() (microTypes.Client, error) {
 	return s.m.LocalClient()
 }
 
@@ -96,7 +96,7 @@ func (s OVNService) IssueToken(ctx context.Context, peer string) (string, error)
 
 // DeleteToken deletes a token by its name.
 func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address string) error {
-	var c *client.Client
+	var c microTypes.Client
 	var err error
 	if address != "" {
 		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
@@ -113,7 +113,7 @@ func (s OVNService) DeleteToken(ctx context.Context, tokenName string, address s
 		return err
 	}
 
-	return c.DeleteTokenRecord(ctx, tokenName)
+	return cloudClient.DeleteToken(ctx, tokenName, c)
 }
 
 // Join joins a cluster with the given token.
@@ -125,7 +125,7 @@ func (s OVNService) Join(ctx context.Context, joinConfig JoinConfig) error {
 // Provide the certificate of the remote server for mTLS.
 func (s OVNService) RemoteClusterMembers(ctx context.Context, cert *x509.Certificate, address string) (map[string]string, error) {
 	var err error
-	var client *client.Client
+	var client microTypes.Client
 
 	canonicalAddress := util.CanonicalNetworkAddress(address, CloudPort)
 	if cert != nil {
@@ -160,12 +160,7 @@ func (s OVNService) ClusterMembers(ctx context.Context) (map[string]string, erro
 
 // DeleteClusterMember removes the given cluster member from the service.
 func (s OVNService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
-	c, err := s.m.LocalClient()
-	if err != nil {
-		return err
-	}
-
-	return c.DeleteClusterMember(ctx, name, force)
+	return s.m.RemoveClusterMember(ctx, name, "", force)
 }
 
 // Type returns the type of Service.
@@ -267,4 +262,9 @@ func (s *OVNService) GetServices(ctx context.Context) (ovnTypes.Services, error)
 	}
 
 	return services, nil
+}
+
+// Microcluster returns the internal app struct.
+func (s *OVNService) Microcluster() *microcluster.MicroCluster {
+	return s.m
 }

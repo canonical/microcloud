@@ -8,18 +8,17 @@ import (
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/trust"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
+	"github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/service"
 )
 
 // endpointHandler is just a convenience for writing clean return types.
-type endpointHandler func(state.State, *http.Request) response.Response
+type endpointHandler func(types.State, *http.Request) types.Response
 
 // authHandlerMTLS ensures a request has been authenticated using mTLS.
 func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
-	return func(s state.State, r *http.Request) response.Response {
+	return func(s types.State, r *http.Request) types.Response {
 		if r.RemoteAddr == "@" {
 			logger.Debug("Allowing unauthenticated request through unix socket")
 
@@ -28,7 +27,7 @@ func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
 
 		// Use certificate based authentication between cluster members.
 		if r.TLS != nil {
-			trustedCerts := s.Remotes().CertificatesNative()
+			trustedCerts := s.Truststore().RemoteCertificatesNative()
 			for _, cert := range r.TLS.PeerCertificates {
 				// First evaluate the permanent turst store.
 				trusted, _ := util.CheckMutualTLS(*cert, trustedCerts)
@@ -45,13 +44,13 @@ func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
 			}
 		}
 
-		return response.Forbidden(errors.New("Failed to authenticate using mTLS"))
+		return types.Forbidden(errors.New("Failed to authenticate using mTLS"))
 	}
 }
 
 // authHandlerHMAC ensures a request has been authenticated using the HMAC in the Authorization header.
 func authHandlerHMAC(sh *service.Handler, f endpointHandler) endpointHandler {
-	return func(s state.State, r *http.Request) response.Response {
+	return func(s types.State, r *http.Request) types.Response {
 		sessionFunc := func(session *service.Session) error {
 			h, err := trust.NewHMACArgon2([]byte(session.Passphrase()), nil, trust.NewDefaultHMACConf(HMACMicroCloud10))
 			if err != nil {
@@ -84,7 +83,7 @@ func authHandlerHMAC(sh *service.Handler, f endpointHandler) endpointHandler {
 		// Run a r/w transaction against the session as we might stop it due to too many failed attempts.
 		err := sh.SessionTransaction(false, sessionFunc)
 		if err != nil {
-			return response.SmartError(err)
+			return types.SmartError(err)
 		}
 
 		return f(s, r)

@@ -15,8 +15,8 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	"github.com/canonical/microcluster/v3/client"
 	"github.com/canonical/microcluster/v3/microcluster"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
@@ -57,7 +57,7 @@ func NewCephService(name string, addr string, cloudDir string) (*CephService, er
 }
 
 // Client returns a client to the Ceph unix socket. If target is specified, it will be added to the query params.
-func (s CephService) Client(target string) (*client.Client, error) {
+func (s CephService) Client(target string) (microTypes.Client, error) {
 	c, err := s.m.LocalClient()
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (s CephService) IssueToken(ctx context.Context, peer string) (string, error
 
 // DeleteToken deletes a token by its name.
 func (s CephService) DeleteToken(ctx context.Context, tokenName string, address string) error {
-	var c *client.Client
+	var c microTypes.Client
 	var err error
 	if address != "" {
 		c, err = s.m.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
@@ -127,7 +127,7 @@ func (s CephService) DeleteToken(ctx context.Context, tokenName string, address 
 		return err
 	}
 
-	return c.DeleteTokenRecord(ctx, tokenName)
+	return cloudClient.DeleteToken(ctx, tokenName, c)
 }
 
 // AddDisk requests Ceph sets up a new OSD.
@@ -177,7 +177,7 @@ func (s CephService) GetServices(ctx context.Context, target string) (cephTypes.
 
 // GetDisks returns the list of configured disks.
 func (s CephService) GetDisks(ctx context.Context, target string, cert *x509.Certificate) (cephTypes.Disks, error) {
-	var c *client.Client
+	var c microTypes.Client
 	var err error
 
 	if target == "" {
@@ -244,7 +244,7 @@ func (s CephService) PoolSetReplicationFactor(ctx context.Context, data cephType
 // before the MicroCloud cluster is being formed.
 // If the cluster is already formed and the trust got established this isn't required anymore.
 func (s CephService) GetConfig(ctx context.Context, data cephTypes.Config, target string, cert *x509.Certificate) (cephTypes.Configs, error) {
-	var c *client.Client
+	var c microTypes.Client
 	var err error
 
 	if target == "" {
@@ -293,9 +293,9 @@ func (s CephService) Join(ctx context.Context, joinConfig JoinConfig) error {
 
 // remoteClient returns an https client for the given address:port.
 // It picks the cluster certificate if none is provided to verify the remote.
-func (s CephService) remoteClient(cert *x509.Certificate, address string) (*client.Client, error) {
+func (s CephService) remoteClient(cert *x509.Certificate, address string) (microTypes.Client, error) {
 	var err error
-	var client *client.Client
+	var client microTypes.Client
 
 	canonicalAddress := util.CanonicalNetworkAddress(address, CloudPort)
 	if cert != nil {
@@ -339,12 +339,7 @@ func (s CephService) ClusterMembers(ctx context.Context) (map[string]string, err
 
 // DeleteClusterMember removes the given cluster member from the service.
 func (s CephService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
-	c, err := s.m.LocalClient()
-	if err != nil {
-		return err
-	}
-
-	return c.DeleteClusterMember(ctx, name, force)
+	return s.m.RemoveClusterMember(ctx, name, "", force)
 }
 
 // ClusterConfig returns the Ceph cluster configuration.
@@ -445,4 +440,9 @@ func (s *CephService) SupportsFeature(ctx context.Context, feature string) (bool
 	}
 
 	return server.Extensions.HasExtension(feature), nil
+}
+
+// Microcluster returns the internal app struct.
+func (s *CephService) Microcluster() *microcluster.MicroCluster {
+	return s.m
 }

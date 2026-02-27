@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
-	"github.com/canonical/microcluster/v3/state"
+	"github.com/canonical/microcluster/v3/microcluster/types"
 )
 
 // ClusterManagerDefaultName is the default name for the cluster manager.
@@ -20,7 +20,7 @@ const UpdateIntervalSecondsKey = "update-interval-seconds"
 const UpdateIntervalDefaultSeconds = 60
 
 // LoadClusterManager loads the cluster manager configuration from the database.
-func LoadClusterManager(state state.State, ctx context.Context, name string) (*ClusterManager, []ClusterManagerConfig, error) {
+func LoadClusterManager(state types.State, ctx context.Context, name string) (*ClusterManager, []ClusterManagerConfig, error) {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
 	if err != nil {
 		return nil, nil, err
@@ -42,7 +42,7 @@ func LoadClusterManager(state state.State, ctx context.Context, name string) (*C
 }
 
 // StoreClusterManager stores the cluster manager configuration in the database.
-func StoreClusterManager(state state.State, ctx context.Context, clusterManager ClusterManager) error {
+func StoreClusterManager(state types.State, ctx context.Context, clusterManager ClusterManager) error {
 	err := state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		err := UpdateClusterManager(ctx, tx, clusterManager.ID, clusterManager)
 		return err
@@ -51,7 +51,7 @@ func StoreClusterManager(state state.State, ctx context.Context, clusterManager 
 }
 
 // RemoveClusterManager removes the cluster manager configuration from the database.
-func RemoveClusterManager(state state.State, ctx context.Context, clusterManager ClusterManager) error {
+func RemoveClusterManager(state types.State, ctx context.Context, clusterManager ClusterManager) error {
 	err := state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		err := DeleteClusterManager(ctx, tx, clusterManager.ID)
 		return err
@@ -60,7 +60,7 @@ func RemoveClusterManager(state state.State, ctx context.Context, clusterManager
 }
 
 // StoreClusterManagerConfig stores the cluster manager configuration in the database.
-func StoreClusterManagerConfig(state state.State, ctx context.Context, name string, key string, value string) error {
+func StoreClusterManagerConfig(state types.State, ctx context.Context, name string, key string, value string) error {
 	clusterManager, clusterManagerConfig, err := LoadClusterManager(state, ctx, name)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func StoreClusterManagerConfig(state state.State, ctx context.Context, name stri
 }
 
 // SetClusterManagerStatusLastSuccess sets the last successful status time in the database.
-func SetClusterManagerStatusLastSuccess(state state.State, ctx context.Context, name string, successTime time.Time) error {
+func SetClusterManagerStatusLastSuccess(state types.State, ctx context.Context, name string, successTime time.Time) error {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func SetClusterManagerStatusLastSuccess(state state.State, ctx context.Context, 
 }
 
 // SetClusterManagerStatusLastError sets the last error status time and response in the database.
-func SetClusterManagerStatusLastError(state state.State, ctx context.Context, name string, errorTime time.Time, errorResponse string) error {
+func SetClusterManagerStatusLastError(state types.State, ctx context.Context, name string, errorTime time.Time, errorResponse string) error {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func SetClusterManagerStatusLastError(state state.State, ctx context.Context, na
 	return err
 }
 
-func loadClusterManagerFromDb(ctx context.Context, state state.State, name string) (*ClusterManager, error) {
+func loadClusterManagerFromDb(ctx context.Context, state types.State, name string) (*ClusterManager, error) {
 	var clusterManager *ClusterManager
 
 	err := state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {

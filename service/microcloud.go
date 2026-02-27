@@ -13,8 +13,8 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
-	microClient "github.com/canonical/microcluster/v3/client"
 	"github.com/canonical/microcluster/v3/microcluster"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -67,7 +67,7 @@ func (s *CloudService) StartCloud(ctx context.Context, args microcluster.DaemonA
 }
 
 // Client returns a client to the MicroCloud unix socket.
-func (s CloudService) Client() (*microClient.Client, error) {
+func (s CloudService) Client() (microTypes.Client, error) {
 	return s.client.LocalClient()
 }
 
@@ -106,7 +106,7 @@ func (s CloudService) IssueToken(ctx context.Context, peer string) (string, erro
 
 // DeleteToken deletes a token by its name.
 func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address string) error {
-	var c *microClient.Client
+	var c microTypes.Client
 	var err error
 	if address != "" {
 		c, err = s.client.RemoteClient(util.CanonicalNetworkAddress(address, CloudPort))
@@ -123,7 +123,7 @@ func (s CloudService) DeleteToken(ctx context.Context, tokenName string, address
 		return err
 	}
 
-	return c.DeleteTokenRecord(ctx, tokenName)
+	return cloudClient.DeleteToken(ctx, tokenName, c)
 }
 
 // RemoteIssueToken issues a token for the given peer on a remote MicroCloud where we are authorized using mTLS.
@@ -138,7 +138,7 @@ func (s CloudService) RemoteIssueToken(ctx context.Context, clusterAddress strin
 		return "", err
 	}
 
-	return cloudClient.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().URL.Host, JoinerName: peer})
+	return cloudClient.RemoteIssueToken(ctx, c, serviceType, types.ServiceTokensPost{ClusterAddress: c.URL().Host, JoinerName: peer})
 }
 
 // Join joins a cluster with the given token.
@@ -148,9 +148,9 @@ func (s CloudService) Join(ctx context.Context, joinConfig JoinConfig) error {
 
 // remoteClient returns an https client for the given address:port.
 // It picks the cluster certificate if none is provided to verify the remote.
-func (s CloudService) remoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
+func (s CloudService) remoteClient(cert *x509.Certificate, address string) (microTypes.Client, error) {
 	var err error
-	var client *microClient.Client
+	var client microTypes.Client
 
 	canonicalAddress := util.CanonicalNetworkAddress(address, CloudPort)
 	if cert != nil {
@@ -171,7 +171,7 @@ func (s CloudService) RequestJoin(ctx context.Context, name string, cert *x509.C
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 
-	var c *microClient.Client
+	var c microTypes.Client
 	var err error
 	if name == s.name {
 		c, err = s.client.LocalClient()
@@ -256,8 +256,8 @@ func (s CloudService) ClusterMembers(ctx context.Context) (map[string]string, er
 }
 
 // clusterMembers returns a map of cluster member names and addresses.
-func clusterMembers(ctx context.Context, client *microClient.Client) (map[string]string, error) {
-	members, err := client.GetClusterMembers(ctx)
+func clusterMembers(ctx context.Context, c microTypes.Client) (map[string]string, error) {
+	members, err := cloudClient.GetClusterMembers(ctx, c)
 	if err != nil {
 		return nil, err
 	}
@@ -272,12 +272,7 @@ func clusterMembers(ctx context.Context, client *microClient.Client) (map[string
 
 // DeleteClusterMember removes the given cluster member from the service.
 func (s CloudService) DeleteClusterMember(ctx context.Context, name string, force bool) error {
-	c, err := s.client.LocalClient()
-	if err != nil {
-		return err
-	}
-
-	return c.DeleteClusterMember(ctx, name, force)
+	return s.client.RemoveClusterMember(ctx, name, "", force)
 }
 
 // Type returns the type of Service.
@@ -376,7 +371,7 @@ func (s *CloudService) StartSession(ctx context.Context, role string, sessionTim
 }
 
 // RemoteClient returns a client targeting a remote MicroCloud.
-func (s *CloudService) RemoteClient(cert *x509.Certificate, address string) (*microClient.Client, error) {
+func (s *CloudService) RemoteClient(cert *x509.Certificate, address string) (microTypes.Client, error) {
 	c, err := s.remoteClient(cert, address)
 	if err != nil {
 		return nil, err
@@ -388,4 +383,9 @@ func (s *CloudService) RemoteClient(cert *x509.Certificate, address string) (*mi
 	}
 
 	return c, nil
+}
+
+// Microcluster returns the internal app struct.
+func (s *CloudService) Microcluster() *microcluster.MicroCluster {
+	return s.client
 }

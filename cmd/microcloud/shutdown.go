@@ -40,16 +40,11 @@ func (c *cmdShutdown) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to wait for MicroCloud to get ready: %w", err)
 	}
 
-	client, err := m.LocalClient()
-	if err != nil {
-		return err
-	}
-
 	chResult := make(chan error, 1)
 	go func() {
 		defer close(chResult)
 
-		err := client.ShutdownDaemon(context.Background())
+		err := m.Shutdown(context.Background())
 		if err != nil {
 			chResult <- err
 			return
