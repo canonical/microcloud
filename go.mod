@@ -3,9 +3,9 @@ module github.com/canonical/microcloud/microcloud
 go 1.25.7
 
 require (
-	github.com/canonical/lxd v0.0.0-20260226101506-b16bc0098da1
-	github.com/canonical/microceph/microceph v0.0.0-20260220191032-240430de08a3
-	github.com/canonical/microcluster/v3 v3.0.0-20260226082219-a85067cbb7e2
+	github.com/canonical/lxd v0.0.0-20260226231150-b6869aa54a8e
+	github.com/canonical/microceph/microceph v0.0.0-20260227083013-a0c302ed10be
+	github.com/canonical/microcluster/v3 v3.0.2
 	github.com/canonical/microovn/microovn v0.0.0-20260224064056-e860d3abf65c
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
