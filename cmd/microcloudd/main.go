@@ -184,6 +184,7 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 				return setHandlerAddress(state.Address().Host)
 			},
 			OnStart: func(ctx context.Context, state microTypes.State) error {
+				ReconcileClusterManagerTunnel(ctx, s, state)
 				SendClusterManagerStatusMessageTask(ctx, s, state)
 
 				// If we are already initialized, there's nothing to do.
