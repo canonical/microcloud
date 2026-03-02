@@ -223,6 +223,16 @@ func (s LXDService) Join(ctx context.Context, joinConfig JoinConfig) error {
 		return fmt.Errorf("Failed to update server configuration: %w", err)
 	}
 
+	// Check if the daemon is ready before returning.
+	// This is to ensure it already responds to heartbeats after joining the cluster.
+	ctx, cancel := context.WithTimeout(ctx, LXDInitializationTimeout)
+	defer cancel()
+
+	err = s.WaitReady(ctx, client, false, false)
+	if err != nil {
+		return fmt.Errorf("Failed to check if LXD member is ready after join: %w", err)
+	}
+
 	return nil
 }
 
