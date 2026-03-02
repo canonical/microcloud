@@ -112,7 +112,7 @@ sudo snap refresh --hold lxd microceph microovn microcloud
 
 Then you can perform {ref}`manual updates <howto-update>` on a schedule that you control.
 
-For detailed information about holds, see: [Pause or stop automatic updates](https://snapcraft.io/docs/managing-updates#p-32248-pause-or-stop-automatic-updates) in the Snap documentation.
+The {ref}`snap:how-to-guides-work-with-snaps-manage-updates` page in the Snap documentation provides details about how to pause or stop automatic updates.
 
 (howto-update)=
 ## Update MicroCloud
