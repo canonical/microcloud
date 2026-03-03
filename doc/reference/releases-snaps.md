@@ -64,12 +64,12 @@ Currently, since no feature release has been published since the last LTS, there
 (ref-snaps-microcloud)=
 ## MicroCloud snap
 
-MicroCloud is distributed as a [snap](https://snapcraft.io/docs). A key benefit of snap packaging is that it includes all required dependencies. This allows packages to run in a consistent environment on many different Linux distributions. Using the snap also streamlines updates through its [channels](https://snapcraft.io/docs/channels).
+MicroCloud is distributed as a [snap](https://snapcraft.io/docs). A key benefit of snap packaging is that it includes all required dependencies. This allows packages to run in a consistent environment on many different Linux distributions. Using the snap also streamlines updates through its channels.
 
 (ref-snaps-microcloud-channels)=
 ### Channels
 
-Each installed snap follows a [channel](https://snapcraft.io/docs/channels). Channels include a {ref}`track <ref-snaps-microcloud-tracks>` and a {ref}`risk level <ref-snaps-microcloud-risk>` (for example, the {{current_feature_track}}/stable channel). Each channel points to one release at a time, and when a new release is published to a channel, it replaces the previous one. {ref}`Updating the snap <howto-update-upgrade>` then updates to that release.
+Each installed snap follows a channel. Channels include a {ref}`track <ref-snaps-microcloud-tracks>` and a {ref}`risk level <ref-snaps-microcloud-risk>` (for example, the {{current_feature_track}}/stable channel). Each channel points to one release at a time, and when a new release is published to a channel, it replaces the previous one. {ref}`Updating the snap <howto-update-upgrade>` then updates to that release.
 
 To view all available channels for MicroCloud, run:
 
@@ -77,10 +77,12 @@ To view all available channels for MicroCloud, run:
 snap info microcloud
 ```
 
+For more information about channels, see {ref}`snap:explanation-how-snaps-work-channels-and-tracks` in the Snap documentation.
+
 (ref-snaps-microcloud-tracks)=
 ### Tracks
 
-MicroCloud releases are grouped under [snap tracks](https://snapcraft.io/docs/channels#heading--tracks).
+MicroCloud releases are grouped under snap tracks.
 
 The current feature track is {{current_feature_track}}, and the currently supported LTS track is {{current_lts_track}}. The `1` track reached {abbr}`EOL (End of Life)` at the end of April 2025.
 
@@ -104,9 +106,11 @@ If you {ref}`install the MicroCloud snap <installing-snap-package>` without spec
 (ref-snaps-microcloud-risk)=
 ### Risk levels
 
-For each MicroCloud track, there are three [risk levels](https://snapcraft.io/docs/channels#heading--risk-levels): `stable`, `candidate`, and `edge`.
+For each MicroCloud track, there are three risk levels: `stable`, `candidate`, and `edge`.
 
 We recommend that you use the `stable` risk level to install fully tested releases; this is the only risk level supported under [Ubuntu Pro](https://ubuntu.com/pro), as well as the default risk level if one is not specified at install. The `candidate` and `edge` levels offer newer but less-tested updates, posing higher risk.
+
+For more information about risk levels, see {ref}`snap:explanation-how-snaps-work-channels-and-tracks` in the Snap documentation.
 
 (ref-releases-snaps-components)=
 ## For MicroCloud components
