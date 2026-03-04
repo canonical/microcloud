@@ -27,6 +27,29 @@ check_dependencies() {
 	fi
 }
 
+check_api_extension() {
+	local ext="${1:-}"
+	local member="${2:-}"
+
+	if [ "${ext}" = "" ]; then
+		echo "Usage: check_api_extension <extension> [<member>]" >&2
+		return 1
+	fi
+
+	local info
+
+	if [ "${member}" != "" ]; then
+		info="$(lxc exec "${member}" -- lxc info)"
+	else
+		info="$(lxc info)"
+	fi
+
+	if ! echo "${info}" | grep -qx -- "^- ${ext}$"; then
+		echo "Missing LXD API extension: ${ext}" >&2
+		return 1
+	fi
+}
+
 check_empty() {
 	if [ "$(find "${1}" 2>/dev/null | wc -l)" -gt "1" ]; then
 		echo "${1} is not empty, content:"

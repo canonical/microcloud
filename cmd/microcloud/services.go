@@ -355,5 +355,11 @@ func (c *cmdServiceAdd) run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return cfg.setupCluster(s)
+	err = cfg.setupCluster(s)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
+	return nil
 }

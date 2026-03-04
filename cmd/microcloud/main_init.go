@@ -318,6 +318,11 @@ func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	uiAccessLink, err := c.askInitialUIAccessLink(s)
+	if err != nil {
+		return err
+	}
+
 	err = c.validateSystems(s)
 	if err != nil {
 		return err
@@ -331,6 +336,15 @@ func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 	if c.setupMany {
 		reverter.Success()
 	}
+
+	if uiAccessLink != "" {
+		fmt.Println()
+		fmt.Println("UI initial access link (expires in 1 day):")
+		fmt.Println(uiAccessLink)
+		fmt.Println()
+	}
+
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 
 	return nil
 }
@@ -1096,8 +1110,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	reverter.Success()
-
-	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 
 	return nil
 }
