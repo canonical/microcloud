@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/version"
+	"github.com/gorilla/websocket"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/database"
@@ -84,6 +86,26 @@ func (c *ClusterManagerClient) Delete(clusterCert *shared.CertInfo) error {
 	return err
 }
 
+// ConnectTunnelWebsocket establishes a WebSocket connection to the cluster manager for reverse tunneling.
+func (c *ClusterManagerClient) ConnectTunnelWebsocket(clusterCert *shared.CertInfo) (*websocket.Conn, error) {
+	tlsConfig, address, err := c.getTlsConfig(clusterCert)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get TLS config: %w", err)
+	}
+
+	dialer := websocket.Dialer{
+		TLSClientConfig: tlsConfig,
+	}
+
+	u := url.URL{Scheme: "wss", Host: address, Path: "/1.0/remote-cluster/ws"}
+	conn, _, err := dialer.Dial(u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
 func (c *ClusterManagerClient) craftRequest(method string, path string, reqBody io.Reader) (*http.Request, error) {
 	url := "https://remote" + path // remote is a placeholder, real address will be set in sendRequest
 	req, err := http.NewRequest(method, url, reqBody)
@@ -122,7 +144,19 @@ func (c *ClusterManagerClient) sendRequest(clusterCert *shared.CertInfo, req *ht
 
 func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*http.Client, string, error) {
 	client := &http.Client{}
+	tlsConfig, address, err := c.getTlsConfig(clusterCert)
+	if err != nil {
+		return nil, "", fmt.Errorf("Failed to get TLS config: %w", err)
+	}
 
+	client.Transport = &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	return client, address, nil
+}
+
+func (c *ClusterManagerClient) getTlsConfig(clusterCert *shared.CertInfo) (*tls.Config, string, error) {
 	var address string
 	var remoteCert *x509.Certificate
 	var err error
@@ -171,9 +205,5 @@ func (c *ClusterManagerClient) getHTTPClient(clusterCert *shared.CertInfo) (*htt
 		return &cert, nil
 	}
 
-	client.Transport = &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
-
-	return client, address, nil
+	return tlsConfig, address, nil
 }
