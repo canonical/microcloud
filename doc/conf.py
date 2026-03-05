@@ -99,6 +99,7 @@ exclude_patterns = [
     'Thumbs.db',
     '.DS_Store',
     '.sphinx',
+    'reference/release-notes/release-notes-template.md',
 ]
 exclude_patterns.extend(custom_excludes)
 
