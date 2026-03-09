@@ -869,11 +869,6 @@ reset_system() {
       lxc exec "${name}" -- ip link set "${iface}" up
       lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${iface}.disable_ipv6=1"
     done
-
-    # Force LXD to start up.
-    # Slower runners might cause longer LXD startup times.
-    # To not force bumping numbers in MicroCloud, ensure LXD is started before MicroCloud starts checking the socket.
-    lxc exec "${name}" -- lxc info >/dev/null
   )
 
   echo "==> Reset ${name}"
@@ -1119,6 +1114,11 @@ restore_system() {
       lxc exec "${name}" -- sysctl -wq "net.ipv6.conf.${network}.disable_ipv6=1"
     done
   )
+
+  # Force LXD to start up.
+  # Slower runners might cause longer LXD startup times.
+  # To not force bumping numbers in MicroCloud, ensure LXD is started before MicroCloud starts checking the socket.
+  lxc exec "${name}" -- lxc info >/dev/null
 
   set_debug_binaries "${name}"
   echo "==> Restored ${name}"
