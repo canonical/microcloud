@@ -23,6 +23,9 @@ import (
 	"github.com/canonical/microcloud/microcloud/version"
 )
 
+// LXDInitializationTimeout is the time limit for LXD initialization for microcloud.
+const LXDInitializationTimeout time.Duration = 1 * time.Minute
+
 // LXDService is a LXD service.
 type LXDService struct {
 	m *microcluster.MicroCluster
