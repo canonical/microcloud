@@ -43,7 +43,7 @@ func (c *cmdWaitready) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Default context timeout for waiting on the daemon.
-	ctx, cancel := context.WithTimeout(context.Background(), LXDInitializationTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), service.LXDInitializationTimeout)
 	defer cancel()
 
 	if c.flagTimeout > 0 {
