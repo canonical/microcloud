@@ -90,7 +90,7 @@ html-rtd:
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
-	ADDPREREQS='pyyaml' PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
+	ADDPREREQS='gitpython pyyaml' PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microcloud
 
 # `spelling` checks only the MicroCloud docs.
 spelling: clean-doc microcloud
@@ -113,7 +113,7 @@ serve-microcloud: microcloud
 	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
 
 install:
-	$(MAKE) -f Makefile.sp sp-install ADDPREREQS='pyyaml'
+	$(MAKE) -f Makefile.sp sp-install ADDPREREQS='pyyaml gitpython'
 	
 %:
 	$(MAKE) -f Makefile.sp sp-$@
