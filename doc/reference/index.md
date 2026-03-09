@@ -18,6 +18,7 @@ Find out about requirements for a MicroCloud deployment, as well as information 
 :maxdepth: 1
 MicroCloud requirements </reference/requirements>
 /reference/releases-snaps
+/reference/release-notes/index
 ```
 
 ## MicroCloud Cluster Manager
