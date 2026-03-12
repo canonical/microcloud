@@ -95,6 +95,12 @@ ceph:
   public_network: ${ceph_public_subnet_prefix}.0/24
   cephfs: true"
 
+    # On 22.04 machines we cannot use dm-crypt.
+    # Therefore negate the instruction to encrypt the Ceph OSD disks.
+    if [ "${BASE_OS}" = "22.04" ]; then
+      preseed="$(echo "${preseed}" | yq -e '.systems.[].storage.ceph.[].encrypt = false')"
+    fi
+
     # Deploy a version 2 MicroCloud and launch some instances.
     lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
     lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
@@ -137,8 +143,17 @@ ceph:
       done
     done
 
+    disks_encrypted="1"
+    disks_encrypted_list="disk2"
+
+    # On 22.04 machines the check should indicate no Ceph OSD encryption.
+    if [ "${BASE_OS}" = "22.04" ]; then
+      disks_encrypted="0"
+      disks_encrypted_list=""
+    fi
+
     for m in micro01 micro02 micro03; do
-      validate_system_microceph "${m}" 1 1 "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 disk2
+      validate_system_microceph "${m}" 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
     done
 
     # Second upgrade MicroOVN.
@@ -259,13 +274,17 @@ systems:
         wipe: true
         encrypt: true"
 
+    if [ "${BASE_OS}" = "22.04" ]; then
+      preseed="$(echo "${preseed}" | yq -e '.systems.[].storage.ceph.[].encrypt = false')"
+    fi
+
     lxc exec micro04 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
     lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
 
     lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
     lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
-    validate_system_microceph micro04 1 1 "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 disk2
+    validate_system_microceph micro04 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
     validate_system_microovn micro04 "${ovn_underlay_subnet_prefix}"
     validate_system_lxd micro04 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
     lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster list -f json | jq -r '.[] | select(.name == "micro04") | .status' | grep -q ONLINE
