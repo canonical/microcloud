@@ -193,7 +193,12 @@ func enrichCephStatuses(ctx context.Context, sh *service.Handler, result *types.
 func enrichInstanceMetrics(lxdClient lxd.InstanceServer, result *types.ClusterManagerPostStatus) error {
 	instanceFrequencies := make(map[string]int64)
 
-	instanceList, err := lxdClient.GetInstancesAllProjects(api.InstanceTypeAny)
+	args := lxd.GetInstancesArgs{
+		InstanceType: api.InstanceTypeAny,
+		AllProjects:  true,
+	}
+
+	instanceList, err := lxdClient.GetInstances(args)
 	for _, instance := range instanceList {
 		instanceFrequencies[instance.Status]++
 	}
