@@ -17,3 +17,8 @@
 .swagger-ui .information-container .url {
     display: none;
 }
+
+/* Hides unneeded Authorize button in the cluster manager API page */
+.swagger-ui .scheme-container {
+    display: none !important;
+}

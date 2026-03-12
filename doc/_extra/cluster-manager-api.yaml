@@ -1,0 +1,815 @@
+openapi: 3.0.3
+info:
+  title: MicroCloud Cluster Manager Management API
+  version: 1.0.0
+  description: The MicroCloud Cluster Manager Management API provides endpoints to communicate with the Cluster Manager backend.
+  license:
+    name: AGPL-3.0-only
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  contact:
+    name: MicroCloud Cluster Manager
+    url: https://github.com/canonical/microcloud-cluster-manager
+paths:
+  /1.0:
+    get:
+      summary: Reports user information from the request
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseAPIRoot"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseAPIRoot"
+        "500":
+          description: Failed to retrieve user information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorInternal"
+  /1.0/status:
+    get:
+      summary: Readiness and liveness status
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEmpty"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseEmpty"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorInternal"
+  /1.0/configuration:
+    get:
+      summary: Get management API configuration
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Configuration metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConfiguration"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseConfiguration"
+  /1.0/remote-cluster:
+    get:
+      summary: List remote clusters
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Remote clusters metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseRemoteClusters"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseRemoteClusters"
+        "500":
+          description: Failed to retrieve remote clusters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorInternal"
+  /1.0/remote-cluster/{remoteClusterName}:
+    parameters:
+      - $ref: "#/components/parameters/RemoteClusterName"
+    get:
+      summary: Get a remote cluster by name
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Remote cluster metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseRemoteCluster"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseRemoteCluster"
+        "404":
+          description: Remote cluster not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorNotFound"
+        "500":
+          description: Failed to retrieve remote cluster
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorInternal"
+    delete:
+      summary: Delete a remote cluster
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Empty response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEmpty"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseEmpty"
+    patch:
+      summary: Update a remote cluster
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoteClusterPatch"
+            examples:
+              patch:
+                $ref: "#/components/examples/RemoteClusterPatch"
+      responses:
+        "200":
+          description: Empty response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEmpty"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseEmpty"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorBadRequest"
+  /1.0/remote-cluster-join-token:
+    get:
+      summary: List remote cluster join tokens
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Remote cluster tokens metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseRemoteClusterTokens"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseRemoteClusterTokens"
+    post:
+      summary: Create a remote cluster join token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoteClusterTokenPost"
+            examples:
+              create:
+                $ref: "#/components/examples/RemoteClusterTokenPost"
+      responses:
+        "200":
+          description: Created token metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseRemoteClusterTokenPostResponse"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseRemoteClusterTokenPostResponse"
+        "400":
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              examples:
+                error:
+                  $ref: "#/components/examples/ResponseErrorBadRequest"
+  /1.0/remote-cluster-join-token/{remoteClusterName}:
+    parameters:
+      - $ref: "#/components/parameters/RemoteClusterName"
+    delete:
+      summary: Delete a remote cluster join token
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Empty response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEmpty"
+              examples:
+                success:
+                  $ref: "#/components/examples/ResponseEmpty"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    RemoteClusterName:
+      name: remoteClusterName
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    Response:
+      type: object
+      properties:
+        type:
+          type: string
+          description: API response type (sync, async, error)
+        status:
+          type: string
+        status_code:
+          type: integer
+        operation:
+          type: string
+        error:
+          type: string
+        error_code:
+          type: string
+        metadata:
+          description: Endpoint-specific payload
+    ResponseAPIRoot:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              $ref: "#/components/schemas/APIRoot"
+    ResponseConfiguration:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              $ref: "#/components/schemas/Configuration"
+    ResponseRemoteClusters:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              type: array
+              items:
+                $ref: "#/components/schemas/RemoteCluster"
+    ResponseRemoteCluster:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              $ref: "#/components/schemas/RemoteCluster"
+    ResponseRemoteClusterTokens:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              type: array
+              items:
+                $ref: "#/components/schemas/RemoteClusterToken"
+    ResponseRemoteClusterTokenPostResponse:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              $ref: "#/components/schemas/RemoteClusterTokenPostResponse"
+    ResponseEmpty:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            metadata:
+              nullable: true
+    APIRoot:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        trusted:
+          type: boolean
+      required:
+        - email
+        - name
+        - trusted
+    ConfigData:
+      type: object
+      properties:
+        value:
+          type: string
+        description:
+          type: string
+        title:
+          type: string
+      required:
+        - value
+        - description
+        - title
+    Configuration:
+      type: object
+      properties:
+        api_version:
+          $ref: "#/components/schemas/ConfigData"
+        version:
+          $ref: "#/components/schemas/ConfigData"
+        cluster_connector_domain:
+          $ref: "#/components/schemas/ConfigData"
+        cluster_connector_port:
+          $ref: "#/components/schemas/ConfigData"
+        oidc_client_id:
+          $ref: "#/components/schemas/ConfigData"
+        oidc_client_secret:
+          $ref: "#/components/schemas/ConfigData"
+        oidc_issuer:
+          $ref: "#/components/schemas/ConfigData"
+        oidc_audience:
+          $ref: "#/components/schemas/ConfigData"
+        db_connection_string:
+          $ref: "#/components/schemas/ConfigData"
+        db_max_idle_conns:
+          $ref: "#/components/schemas/ConfigData"
+        db_max_open_conns:
+          $ref: "#/components/schemas/ConfigData"
+        grafana_base_url:
+          $ref: "#/components/schemas/ConfigData"
+        prometheus_base_url:
+          $ref: "#/components/schemas/ConfigData"
+        rate_limit_refill_rate:
+          $ref: "#/components/schemas/ConfigData"
+        rate_limit_bucket_size:
+          $ref: "#/components/schemas/ConfigData"
+        rate_limit_client_active_interval:
+          $ref: "#/components/schemas/ConfigData"
+        rate_limit_cleanup_interval:
+          $ref: "#/components/schemas/ConfigData"
+        rate_limit_log_interval:
+          $ref: "#/components/schemas/ConfigData"
+        rate_limit_max_clients:
+          $ref: "#/components/schemas/ConfigData"
+      required:
+        - api_version
+        - version
+        - cluster_connector_domain
+        - cluster_connector_port
+        - oidc_client_id
+        - oidc_client_secret
+        - oidc_issuer
+        - oidc_audience
+        - db_connection_string
+        - db_max_idle_conns
+        - db_max_open_conns
+        - grafana_base_url
+        - prometheus_base_url
+        - rate_limit_refill_rate
+        - rate_limit_bucket_size
+        - rate_limit_client_active_interval
+        - rate_limit_cleanup_interval
+        - rate_limit_log_interval
+        - rate_limit_max_clients
+    StatusDistribution:
+      type: object
+      properties:
+        status:
+          type: string
+        count:
+          type: integer
+          format: int64
+      required:
+        - status
+        - count
+    StoragePoolUsage:
+      type: object
+      properties:
+        name:
+          type: string
+        member:
+          type: string
+        total:
+          type: integer
+          format: int64
+        usage:
+          type: integer
+          format: int64
+      required:
+        - name
+        - member
+        - total
+        - usage
+    RemoteCluster:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        cluster_certificate:
+          type: string
+        disk_threshold:
+          type: integer
+          format: int64
+        memory_threshold:
+          type: integer
+          format: int64
+        status:
+          type: string
+        ceph_count:
+          type: integer
+          format: int64
+        ceph_statuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusDistribution"
+        cpu_total_count:
+          type: integer
+          format: int64
+        cpu_load_1:
+          type: string
+        cpu_load_5:
+          type: string
+        cpu_load_15:
+          type: string
+        memory_total_amount:
+          type: integer
+          format: int64
+        memory_usage:
+          type: integer
+          format: int64
+        storage_pool_usages:
+          type: array
+          items:
+            $ref: "#/components/schemas/StoragePoolUsage"
+        member_count:
+          type: integer
+          format: int64
+        member_statuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusDistribution"
+        instance_count:
+          type: integer
+          format: int64
+        instance_statuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusDistribution"
+        ui_url:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        last_status_update_at:
+          type: string
+          format: date-time
+      required:
+        - name
+        - description
+        - cluster_certificate
+        - disk_threshold
+        - memory_threshold
+        - status
+        - ceph_count
+        - ceph_statuses
+        - cpu_total_count
+        - cpu_load_1
+        - cpu_load_5
+        - cpu_load_15
+        - memory_total_amount
+        - memory_usage
+        - storage_pool_usages
+        - member_count
+        - member_statuses
+        - instance_count
+        - instance_statuses
+        - ui_url
+        - joined_at
+        - created_at
+        - last_status_update_at
+    RemoteClusterStatus:
+      type: string
+      enum:
+        - ACTIVE
+    RemoteClusterPatch:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/RemoteClusterStatus"
+        description:
+          type: string
+        disk_threshold:
+          type: integer
+          format: int64
+        memory_threshold:
+          type: integer
+          format: int64
+    RemoteClusterTokenPost:
+      type: object
+      properties:
+        expiry:
+          type: string
+          format: date-time
+        cluster_name:
+          type: string
+        description:
+          type: string
+      required:
+        - cluster_name
+    RemoteClusterTokenPostResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
+    RemoteClusterToken:
+      type: object
+      properties:
+        expiry:
+          type: string
+          format: date-time
+        cluster_name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - expiry
+        - cluster_name
+        - description
+        - created_at
+  examples:
+    ResponseAPIRoot:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata:
+          email: admin@example.com
+          name: Cluster Admin
+          trusted: true
+    ResponseConfiguration:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata:
+          api_version:
+            value: "1.0"
+            title: API Version
+            description: The version of the API being used
+          version:
+            value: "1.2.3"
+            title: Version
+            description: The version of MicroCloud Cluster Manager
+          cluster_connector_domain:
+            value: cluster-connector.example.com
+            title: Cluster Connector Domain
+            description: The host domain for the cluster-connector API
+          cluster_connector_port:
+            value: "8443"
+            title: Cluster Connector Port
+            description: The host port for the cluster-connector API
+          oidc_client_id:
+            value: manager-ui
+            title: OIDC Client ID
+            description: The OpenID Connect client ID for the application
+          oidc_client_secret:
+            value: "***"
+            title: OIDC Client Secret
+            description: The OpenID Connect client secret for the application
+          oidc_issuer:
+            value: https://issuer.example.com
+            title: OIDC Issuer
+            description: OpenID Connect Discovery URL for the provider
+          oidc_audience:
+            value: microcloud-cluster-manager
+            title: OIDC Audience
+            description: Expected audience value for the application
+          db_connection_string:
+            value: postgresql://user:pass@db:5432/microcloud?sslmode=require
+            title: Database Connection
+            description: The connection string for the Postgres database
+          db_max_idle_conns:
+            value: "10"
+            title: Database Max Idle Connections
+            description: The maximum number of idle connections in the database pool
+          db_max_open_conns:
+            value: "50"
+            title: Database Max Open Connections
+            description: The maximum number of open connections in the database pool
+          grafana_base_url:
+            value: https://grafana.example.com
+            title: Grafana base URL
+            description: The base url for grafana
+          prometheus_base_url:
+            value: https://prometheus.example.com
+            title: Prometheus base URL
+            description: The base url for prometheus
+          rate_limit_refill_rate:
+            value: "5.00"
+            title: Rate Limit Refill Rate
+            description: Tokens added to rate limiting bucket per second
+          rate_limit_bucket_size:
+            value: "10"
+            title: Rate Limit Bucket Size
+            description: Maximum tokens in the rate limiting bucket (requests/second)
+          rate_limit_client_active_interval:
+            value: 5m0s
+            title: Rate Limit Client Active Interval
+            description: Time after which inactive clients are available for clean up
+          rate_limit_cleanup_interval:
+            value: 1m0s
+            title: Rate Limit Cleanup Interval
+            description: Time between cleanup runs
+          rate_limit_log_interval:
+            value: 10m0s
+            title: Rate Limit Log Interval
+            description: Time between logs to avoid I/O strain
+          rate_limit_max_clients:
+            value: "1000"
+            title: Rate Limit Max Clients
+            description: Maximum number of clients to track in the rate limiter. If reached, new clients will be rejected.
+    ResponseRemoteClusters:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata:
+          - name: cluster-a
+            description: Primary cluster
+            cluster_certificate: "-----BEGIN CERTIFICATE-----..."
+            disk_threshold: 80
+            memory_threshold: 85
+            status: ACTIVE
+            ceph_count: 3
+            ceph_statuses:
+              - status: healthy
+                count: 3
+            cpu_total_count: 48
+            cpu_load_1: "0.12"
+            cpu_load_5: "0.25"
+            cpu_load_15: "0.30"
+            memory_total_amount: 34359738368
+            memory_usage: 8589934592
+            storage_pool_usages:
+              - name: default
+                member: node-1
+                total: 1099511627776
+                usage: 219902325555
+            member_count: 3
+            member_statuses:
+              - status: online
+                count: 3
+            instance_count: 120
+            instance_statuses:
+              - status: running
+                count: 118
+            ui_url: https://lxd.example.com
+            joined_at: "2026-02-01T10:00:00Z"
+            created_at: "2026-01-15T08:30:00Z"
+            last_status_update_at: "2026-02-18T12:34:56Z"
+    ResponseRemoteCluster:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata:
+          name: cluster-a
+          description: Primary cluster
+          cluster_certificate: "-----BEGIN CERTIFICATE-----..."
+          disk_threshold: 80
+          memory_threshold: 85
+          status: ACTIVE
+          ceph_count: 3
+          ceph_statuses:
+            - status: healthy
+              count: 3
+          cpu_total_count: 48
+          cpu_load_1: "0.12"
+          cpu_load_5: "0.25"
+          cpu_load_15: "0.30"
+          memory_total_amount: 34359738368
+          memory_usage: 8589934592
+          storage_pool_usages:
+            - name: default
+              member: node-1
+              total: 1099511627776
+              usage: 219902325555
+          member_count: 3
+          member_statuses:
+            - status: online
+              count: 3
+          instance_count: 120
+          instance_statuses:
+            - status: running
+              count: 118
+          ui_url: https://lxd.example.com
+          joined_at: "2026-02-01T10:00:00Z"
+          created_at: "2026-01-15T08:30:00Z"
+          last_status_update_at: "2026-02-18T12:34:56Z"
+    ResponseRemoteClusterTokens:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata:
+          - expiry: "2026-02-19T12:00:00Z"
+            cluster_name: cluster-a
+            description: Join token for cluster-a
+            created_at: "2026-02-18T09:00:00Z"
+    ResponseRemoteClusterTokenPostResponse:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata:
+          token: eyJzZWNyZXQiOiJzZWNyZXQiLCJleHBpcmVzX2F0IjoiMjAyNi0wMi0xOVQxMjowMDowMFoiLCJhZGRyZXNzZXMiOlsiY2x1c3Rlci1jb25uZWN0b3IuZXhhbXBsZS5jb206ODQ0MyJdLCJzZXJ2ZXJfbmFtZSI6ImNsdXN0ZXItYSIsImZpbmdlcnByaW50IjoiYWJjZGVmIn0=
+    ResponseEmpty:
+      value:
+        type: sync
+        status: Success
+        status_code: 200
+        metadata: null
+    ResponseErrorBadRequest:
+      value:
+        type: error
+        status: Error
+        status_code: 400
+        error: invalid payload
+        metadata: null
+    ResponseErrorNotFound:
+      value:
+        type: error
+        status: Error
+        status_code: 404
+        error: RemoteCluster not found
+        metadata: null
+    ResponseErrorInternal:
+      value:
+        type: error
+        status: Error
+        status_code: 500
+        error: "database connection error: connection refused"
+        metadata: null
+    RemoteClusterPatch:
+      value:
+        status: ACTIVE
+        description: Updated description
+        disk_threshold: 75
+        memory_threshold: 80
+    RemoteClusterTokenPost:
+      value:
+        expiry: "2026-02-19T12:00:00Z"
+        cluster_name: cluster-a
+        description: Join token for cluster-a
