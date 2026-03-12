@@ -1,7 +1,7 @@
 #!/bin/bash
 
 test_upgrade() {
-  reset_systems 4 2 3
+  reset_systems 4 3 5
 
   # Clear out the debug binaries as we want to test upgrades from published versions.
   for i in $(seq -f "%02g" 1 4) ; do
@@ -19,25 +19,46 @@ test_upgrade() {
     fi
   done
 
-  # Perform upgrade test from MicroCloud 1 to 2.
-  if [ "${MICROCLOUD_SNAP_CHANNEL}" = "1/candidate" ]; then
+  # Perform upgrade test from MicroCloud 2 to 3.
+  if [ "${MICROCLOUD_SNAP_CHANNEL}" = "2/candidate" ]; then
     # Use the edge channels to catch issues early in the release process.
     microceph_target="squid/edge"
-    microovn_target="24.03/edge"
-    lxd_target="5.21/edge"
+    microovn_target="latest/edge"
+    lxd_target="6/edge"
     microcloud_target="3/edge"
 
-    # The lookup subnet has to contain the netmask and the address has to be the one used by MicroCloud not the gateway.
-    lookup_subnet="$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address + "/" + .netmask')"
+    # MicroOVN latest/edge currently doesn't work with 22.04.
+    # See https://bugs.launchpad.net/microovn/+bug/2144013.
+    if [ "${BASE_OS}" = "22.04" ]; then
+      microovn_target="24.03/edge"
+    fi
 
-    # Use the MicroCloud version 1 preseed format with all the features available at the time of release:
-    # - local and remote storage
-    # - wiping disks
-    # - OVN uplink interface
-    preseed="lookup_subnet: ${lookup_subnet}
+    addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
+
+    ceph_cluster_subnet_prefix="10.0.1"
+    ceph_cluster_subnet_iface="enp7s0"
+    ceph_public_subnet_prefix="10.0.2"
+    ceph_public_subnet_iface="enp8s0"
+    ovn_underlay_subnet_prefix="10.0.3"
+    ovn_underlay_subnet_iface="enp9s0"
+    set_cluster_subnet 4  "${ceph_cluster_subnet_iface}" "${ceph_cluster_subnet_prefix}"
+    set_cluster_subnet 4  "${ceph_public_subnet_iface}" "${ceph_public_subnet_prefix}"
+    set_cluster_subnet 4  "${ovn_underlay_subnet_iface}" "${ovn_underlay_subnet_prefix}"
+
+    # Use the MicroCloud version 2 preseed format with all the features available at the time of release:
+    # - Local and remote storage
+    # - Wiping disks
+    # - Encrypting disks
+    # - OVN uplink interface, DNS servers, disaggregated
+    # - CephFS
+    # - Ceph network disaggregated
+    preseed="lookup_subnet: ${addr}/24
+initiator: micro01
+session_passphrase: foo
 systems:
 - name: micro01
   ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.0.3.2
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
@@ -45,8 +66,10 @@ systems:
     ceph:
       - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
+        encrypt: true
 - name: micro02
   ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.0.3.3
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
@@ -54,8 +77,10 @@ systems:
     ceph:
       - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
+        encrypt: true
 - name: micro03
   ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.0.3.4
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
@@ -63,16 +88,40 @@ systems:
     ceph:
       - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
         wipe: true
+        encrypt: true
+
 ovn:
   ipv4_gateway: 10.1.123.1/24
   ipv4_range: 10.1.123.100-10.1.123.254
-  ipv6_gateway: fd42:1:1234:1234::1/64"
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
 
-    # Deactivate the fourth MicroCloud so we can add it later after upgrade.
-    lxc exec micro04 -- snap stop microcloud
+ceph:
+  internal_network: ${ceph_cluster_subnet_prefix}.0/24
+  public_network: ${ceph_public_subnet_prefix}.0/24
+  cephfs: true"
 
-    # Deploy a version 1 MicroCloud and launch some instances.
-    lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud init --preseed <<< "$preseed"
+    if [ "${BASE_OS}" = "22.04" ]; then
+      # On 22.04 machines we cannot use dm-crypt.
+      # Therefore negate the instruction to encrypt the Ceph OSD disks.
+      preseed="$(echo "${preseed}" | yq -e '.systems.[].storage.ceph.[].encrypt = false')"
+
+      # On 22.04 machines we need to ensure ZFS tooling is present for LXD 6.
+      for m in micro01 micro02 micro03 micro04; do
+        retry lxc exec "${m}" -- apt-get install --no-install-recommends -y zfsutils-linux
+        lxc exec "${m}" -- snap set lxd zfs.external=true
+        lxc exec "${m}" -- snap restart lxd
+      done
+    fi
+
+    # Deploy a version 2 MicroCloud and launch some instances.
+    lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+    lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
+    lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
+
+    lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+    lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+    lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
     if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
       echo "::warning::SKIPPING VM LAUNCH TEST"
@@ -87,7 +136,7 @@ ovn:
 
     # First upgrade MicroCeph.
     for m in micro01 micro02 micro03; do
-      retry lxc exec "${m}" -- snap refresh microceph --channel "${microceph_target}"
+      lxc exec "${m}" -- snap refresh microceph --channel "${microceph_target}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -107,14 +156,22 @@ ovn:
       done
     done
 
+    disks_encrypted="1"
+    disks_encrypted_list="disk2"
+
+    # On 22.04 machines the check should indicate no Ceph OSD encryption.
+    if [ "${BASE_OS}" = "22.04" ]; then
+      disks_encrypted="0"
+      disks_encrypted_list=""
+    fi
+
     for m in micro01 micro02 micro03; do
-      # There was no encryption neither dedicated Ceph networks and CephFS in MicroCloud 1.
-      validate_system_microceph "${m}" 0 0 disk2
+      validate_system_microceph "${m}" 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
     done
 
     # Second upgrade MicroOVN.
     for m in micro01 micro02 micro03; do
-      retry lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
+      lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
     done
 
     for m in micro01 micro02 micro03; do
@@ -135,14 +192,13 @@ ovn:
     done
 
     for m in micro01 micro02 micro03; do
-      # There was no explicit OVN underlay subnet configuration in MicroCloud 1.
-      validate_system_microovn "${m}"
+      validate_system_microovn ${m} "${ovn_underlay_subnet_prefix}"
     done
 
     # Third upgrade LXD.
     for m in micro01 micro02 micro03; do
       # Upgrade them in parallel as the refresh waits for the others to update too.
-      retry lxc exec "${m}" -- snap refresh lxd --channel "${lxd_target}" &
+      lxc exec "${m}" -- snap refresh lxd --channel "${lxd_target}" &
     done
     wait
 
@@ -165,13 +221,12 @@ ovn:
 
     # Test LXD only after all the cluster members have stabilized after upgrade.
     for m in micro01 micro02 micro03; do
-      # Don't test for DNS nameservers on the OVN network as those weren't yet added in MicroCloud 1.
-      validate_system_lxd "${m}" 3 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+      validate_system_lxd "${m}" 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
     done
 
     # Fourth upgrade MicroCloud.
     for m in micro01 micro02 micro03; do
-      retry lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
+      lxc exec "${m}" -- snap refresh microcloud --channel "${microcloud_target}"
       set_debug_binaries "${m}"
     done
 
@@ -209,28 +264,32 @@ ovn:
     [ "${c1_boot_id}" = "${c1_boot_id_after_upgrade}" ]
 
     # Upgrade micro04.
-    retry lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
-    retry lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
-    retry lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
-    retry lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
-    lxc exec micro04 -- snap start microcloud
+    lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
+    lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
+    lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
+    lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
     set_debug_binaries "micro04"
 
     # Join micro04 to the old cluster using the MicroCloud 2 preseed format.
-    lookup_gateway=$(lxc network get lxdbr0 ipv4.address)
-    preseed="lookup_subnet: ${lookup_gateway}
+    preseed="lookup_subnet: ${addr}/24
 initiator: micro01
 session_passphrase: foo
 systems:
 - name: micro04
   ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.0.3.5
   storage:
     local:
       path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
       wipe: true
     ceph:
       - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
-        wipe: true"
+        wipe: true
+        encrypt: true"
+
+    if [ "${BASE_OS}" = "22.04" ]; then
+      preseed="$(echo "${preseed}" | yq -e '.systems.[].storage.ceph.[].encrypt = false')"
+    fi
 
     lxc exec micro04 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed" &
     lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed"
@@ -238,9 +297,9 @@ systems:
     lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
     lxc exec micro04 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
 
-    validate_system_microceph micro04 0 0 disk2
-    validate_system_microovn micro04
-    validate_system_lxd micro04 4 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+    validate_system_microceph micro04 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
+    validate_system_microovn micro04 "${ovn_underlay_subnet_prefix}"
+    validate_system_lxd micro04 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
     lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster list -f json | jq -r '.[] | select(.name == "micro04") | .status' | grep -q ONLINE
   fi
 }

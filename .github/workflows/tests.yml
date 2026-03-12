@@ -206,11 +206,10 @@ jobs:
           - "22.04"
           - "24.04"
         microceph:
-          - "reef/stable"
-          - "quincy/stable"
-        microovn: ["22.03/stable"]
+          - "squid/stable"
+        microovn: ["24.03/stable"]
         lxd: ["5.21/stable"]
-        microcloud: ["1/candidate"]
+        microcloud: ["2/candidate"]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
