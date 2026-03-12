@@ -95,10 +95,17 @@ ceph:
   public_network: ${ceph_public_subnet_prefix}.0/24
   cephfs: true"
 
-    # On 22.04 machines we cannot use dm-crypt.
-    # Therefore negate the instruction to encrypt the Ceph OSD disks.
     if [ "${BASE_OS}" = "22.04" ]; then
+      # On 22.04 machines we cannot use dm-crypt.
+      # Therefore negate the instruction to encrypt the Ceph OSD disks.
       preseed="$(echo "${preseed}" | yq -e '.systems.[].storage.ceph.[].encrypt = false')"
+
+      # On 22.04 machines we need to ensure ZFS tooling is present for LXD 6.
+      for m in micro01 micro02 micro03 micro04; do
+        retry lxc exec "${m}" -- apt-get install --no-install-recommends -y zfsutils-linux
+        lxc exec "${m}" -- snap set lxd zfs.external=true
+        lxc exec "${m}" -- snap restart lxd
+      done
     fi
 
     # Deploy a version 2 MicroCloud and launch some instances.
