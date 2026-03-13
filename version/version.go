@@ -3,7 +3,7 @@ package version
 
 // RawVersion is the current daemon version of MicroCloud.
 // LTS versions also include the patch number.
-const RawVersion = "3.0"
+const RawVersion = "3.1"
 
 // LTS should be set if the current version is an LTS (long-term support) version.
 const LTS = false
