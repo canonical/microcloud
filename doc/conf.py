@@ -162,7 +162,9 @@ if html_title == '':
 ### Additional files
 ############################################################
 
-html_static_path = ['.sphinx/_static']
+html_extra_path = ['_extra']
+
+html_static_path = ['.sphinx/_static', '_static']
 if 'custom_html_static_path' in globals():
     html_static_path = html_static_path + custom_html_static_path
 

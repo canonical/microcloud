@@ -28,4 +28,5 @@ Learn about the MicroCloud Cluster Manager's architecture and how it connects mu
 ```{toctree}
 :maxdepth: 1
 Cluster Manager architecture </reference/cluster-manager-architecture>
+/reference/cluster-manager-api
 ```
