@@ -261,8 +261,9 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
-				"ceph.rbd.du":       "false",
-				"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+				"ceph.rbd.du":        "false",
+				"ceph.rbd.features":  "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+				"ceph.osd.pool_name": DefaultCephOSDPool,
 			},
 			Description: "Distributed storage on Ceph",
 		},
@@ -306,6 +307,7 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 				"cephfs.create_missing": "true",
 				"cephfs.meta_pool":      DefaultCephFSMetaOSDPool,
 				"cephfs.data_pool":      DefaultCephFSDataOSDPool,
+				"cephfs.path":           DefaultCephFSOSDPool,
 			},
 			Description: "Distributed file-system storage using CephFS",
 		},
