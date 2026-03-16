@@ -1033,7 +1033,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				// There should only be one ceph pool per system.
 				if !addedCephPool {
 					if c.bootstrap {
-						system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
+						req, err := lxd.DefaultPendingCephStoragePool()
+						if err != nil {
+							return nil, err
+						}
+
+						if req != nil {
+							system.TargetStoragePools = append(system.TargetStoragePools, *req)
+						}
 
 						if s.Name == peer {
 							system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
@@ -1273,7 +1280,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			}
 
 			if !found && c.bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
+				req, err := lxd.DefaultPendingCephStoragePool()
+				if err != nil {
+					return nil, err
+				}
+
+				if req != nil {
+					system.TargetStoragePools = append(system.TargetStoragePools, *req)
+				}
 			}
 
 			found = false
@@ -1297,7 +1311,15 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	if (len(cephMatches)+len(directCephMatches) > 0 && p.Ceph.CephFS) || hasCephFS {
 		for name, system := range c.systems {
 			if c.bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
+				req, err := lxd.DefaultPendingCephFSStoragePool()
+				if err != nil {
+					return nil, err
+				}
+
+				if req != nil {
+					system.TargetStoragePools = append(system.TargetStoragePools, *req)
+				}
+
 				if s.Name == name {
 					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())
 				}

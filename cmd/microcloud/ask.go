@@ -963,7 +963,14 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				targetConfigs[target] = []api.StoragePoolsPost{}
 			}
 
-			targetConfigs[target] = append(targetConfigs[target], lxd.DefaultPendingCephStoragePool())
+			req, err := lxd.DefaultPendingCephStoragePool()
+			if err != nil {
+				return err
+			}
+
+			if req != nil {
+				targetConfigs[target] = append(targetConfigs[target], *req)
+			}
 		}
 
 		if len(targetConfigs) > 0 {
@@ -992,7 +999,14 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				targetConfigs[target] = []api.StoragePoolsPost{}
 			}
 
-			targetConfigs[target] = append(targetConfigs[target], lxd.DefaultPendingCephFSStoragePool())
+			req, err := lxd.DefaultPendingCephFSStoragePool()
+			if err != nil {
+				return err
+			}
+
+			if req != nil {
+				targetConfigs[target] = append(targetConfigs[target], *req)
+			}
 		}
 
 		if len(targetConfigs) > 0 {
