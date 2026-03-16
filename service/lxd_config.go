@@ -229,16 +229,28 @@ func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []ap
 
 // DefaultPendingCephStoragePool returns the default remote storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{
-		Name:   DefaultCephPool,
-		Driver: "ceph",
-		StoragePoolPut: api.StoragePoolPut{
-			Config: map[string]string{
-				"source": DefaultCephOSDPool,
-			},
-		},
+// If not required by the used version of LXD, nil is returned.
+func (s LXDService) DefaultPendingCephStoragePool() (*api.StoragePoolsPost, error) {
+	hasStorageRemoteDropSource, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_remote_drop_source")
+	if err != nil {
+		return nil, err
 	}
+
+	// Use the old approach of specifying the pool name in "source".
+	if !hasStorageRemoteDropSource {
+		return &api.StoragePoolsPost{
+			Name:   DefaultCephPool,
+			Driver: "ceph",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"source": DefaultCephOSDPool,
+				},
+			},
+		}, nil
+	}
+
+	// This version of LXD doesn't require any config when creating a pending Ceph pool.
+	return nil, nil
 }
 
 // DefaultCephStoragePool returns the default remote storage configuration when
@@ -259,16 +271,28 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 
 // DefaultPendingCephFSStoragePool returns the default cephfs storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{
-		Name:   DefaultCephFSPool,
-		Driver: "cephfs",
-		StoragePoolPut: api.StoragePoolPut{
-			Config: map[string]string{
-				"source": DefaultCephFSOSDPool,
-			},
-		},
+// If not required by the used version of LXD, nil is returned.
+func (s LXDService) DefaultPendingCephFSStoragePool() (*api.StoragePoolsPost, error) {
+	hasStorageRemoteDropSource, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_remote_drop_source")
+	if err != nil {
+		return nil, err
 	}
+
+	// Use the old approach of specifying the FS path.
+	if !hasStorageRemoteDropSource {
+		return &api.StoragePoolsPost{
+			Name:   DefaultCephFSPool,
+			Driver: "cephfs",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"source": DefaultCephFSOSDPool,
+				},
+			},
+		}, nil
+	}
+
+	// This version of LXD doesn't require any config when creating a pending CephFS pool.
+	return nil, nil
 }
 
 // DefaultCephFSStoragePool returns the default cephfs storage configuration when
