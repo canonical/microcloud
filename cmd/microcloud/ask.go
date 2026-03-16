@@ -640,10 +640,10 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		return nil
 	}
 
-	// Check if we need to use JoinConfig because the storage pools and networks are already set up.
+	// Check if we need to join as the storage pools and networks might already be set up.
 	// Select the systems that don't have the corresponding storage pools, and only ask questions for those systems.
-	useJoinConfigRemote := false
-	useJoinConfigRemoteFS := false
+	joinRemote := false
+	joinRemoteFS := false
 	askSystemsRemote := map[string]bool{}
 	askSystemsRemoteFS := map[string]bool{}
 	for _, info := range c.state {
@@ -664,13 +664,13 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if hasPool {
-			useJoinConfigRemote = true
+			joinRemote = true
 		} else {
 			askSystemsRemote[info.ClusterName] = true
 		}
 
 		if hasFSPool {
-			useJoinConfigRemoteFS = true
+			joinRemoteFS = true
 		} else {
 			askSystemsRemoteFS[info.ClusterName] = true
 		}
@@ -873,7 +873,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				}
 
 				systemsWithDisks := len(mergedDisks)
-				insufficientDisks = !useJoinConfigRemote && systemsWithDisks < RecommendedOSDHosts
+				insufficientDisks = !joinRemote && systemsWithDisks < RecommendedOSDHosts
 
 				if insufficientDisks {
 					errMsg := fmt.Sprintf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks (%d currently supplying). Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts, systemsWithDisks)
@@ -919,8 +919,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	}
 
 	// If a cephfs pool has already been set up, we will extend it automatically, so no need to ask the question.
-	setupCephFS := useJoinConfigRemoteFS
-	if !useJoinConfigRemoteFS {
+	setupCephFS := joinRemoteFS
+	if !joinRemoteFS {
 		lxd := sh.Services[types.LXD].(*service.LXDService)
 		ext := "storage_cephfs_create_missing"
 		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, ext)
@@ -957,15 +957,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	finalConfigs := []api.StoragePoolsPost{}
 	targetConfigs := map[string][]api.StoragePoolsPost{}
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if useJoinConfigRemote {
-		for target := range askSystemsRemote {
-			if joinConfigs[target] == nil {
-				joinConfigs[target] = []api.ClusterMemberConfigKey{}
-			}
-
-			joinConfigs[target] = append(joinConfigs[target], lxd.DefaultCephStoragePoolJoinConfig())
-		}
-	} else {
+	if !joinRemote {
 		for target := range askSystemsRemote {
 			if targetConfigs[target] == nil {
 				targetConfigs[target] = []api.StoragePoolsPost{}
@@ -979,13 +971,20 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 	}
 
-	if useJoinConfigRemoteFS {
+	if joinRemoteFS {
 		for target := range askSystemsRemoteFS {
 			if joinConfigs[target] == nil {
 				joinConfigs[target] = []api.ClusterMemberConfigKey{}
 			}
 
-			joinConfigs[target] = append(joinConfigs[target], lxd.DefaultCephFSStoragePoolJoinConfig())
+			req, err := lxd.DefaultCephFSStoragePoolJoinConfig()
+			if err != nil {
+				return err
+			}
+
+			if req != nil {
+				joinConfigs[target] = append(joinConfigs[target], *req)
+			}
 		}
 	} else if setupCephFS {
 		for target := range askSystemsRemoteFS {

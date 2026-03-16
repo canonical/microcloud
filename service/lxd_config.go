@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -256,17 +257,6 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 	}
 }
 
-// DefaultCephStoragePoolJoinConfig returns the default remote storage configuration when
-// joining an existing cluster.
-func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKey {
-	return api.ClusterMemberConfigKey{
-		Entity: "storage-pool",
-		Name:   DefaultCephPool,
-		Key:    "source",
-		Value:  DefaultCephOSDPool,
-	}
-}
-
 // DefaultPendingCephFSStoragePool returns the default cephfs storage configuration when
 // creating a pending pool on a specific cluster member target.
 func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
@@ -298,13 +288,24 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 	}
 }
 
-// DefaultCephFSStoragePoolJoinConfig returns the default cephfs storage configuration when
-// joining an existing cluster.
-func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
-	return api.ClusterMemberConfigKey{
-		Entity: "storage-pool",
-		Name:   "remote-fs",
-		Key:    "source",
-		Value:  DefaultCephFSOSDPool,
+// DefaultCephFSStoragePoolJoinConfig returns the default cephfs storage configuration when joining an existing cluster.
+// If not required by the used version of LXD, nil is returned.
+func (s LXDService) DefaultCephFSStoragePoolJoinConfig() (*api.ClusterMemberConfigKey, error) {
+	hasStorageRemoteDropSource, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_remote_drop_source")
+	if err != nil {
+		return nil, err
 	}
+
+	// "source" is no longer valid when LXD has the storage_remote_drop_source extension.
+	if !hasStorageRemoteDropSource {
+		return &api.ClusterMemberConfigKey{
+			Entity: "storage-pool",
+			Name:   "remote-fs",
+			Key:    "source",
+			Value:  DefaultCephFSOSDPool,
+		}, nil
+	}
+
+	// This version of LXD doesn't require any config when joining a CephFS pool.
+	return nil, nil
 }
