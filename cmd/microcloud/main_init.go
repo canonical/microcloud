@@ -1039,10 +1039,10 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			poolNames = append(poolNames, pool.Name)
 		}
 
-		// When joining the selected system, it can grow either the local or remote storage pool.
+		// When joining the selected system, it grows the local storage pool.
 		// In this case add the pool's name to the list of available storage pools.
 		for _, cfg := range system.JoinConfig {
-			if cfg.Name == "local" || cfg.Name == "remote" {
+			if cfg.Name == "local" {
 				if cfg.Entity == "storage-pool" && cfg.Key == "source" {
 					poolNames = append(poolNames, cfg.Name)
 				}
