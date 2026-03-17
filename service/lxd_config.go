@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -242,18 +243,29 @@ func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
 
 // DefaultCephStoragePool returns the default remote storage configuration when
 // creating the finalized pool.
-func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{
+func (s LXDService) DefaultCephStoragePool() (*api.StoragePoolsPost, error) {
+	req := api.StoragePoolsPost{
 		Name:   DefaultCephPool,
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
-				"ceph.rbd.du":       "false",
-				"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+				"ceph.rbd.du": "false",
 			},
 			Description: "Distributed storage on Ceph",
 		},
 	}
+
+	hasExtension, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_ceph_use_rbd_defaults")
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the features in case LXD isn't using the Ceph cluster's defaults.
+	if !hasExtension {
+		req.Config["ceph.rbd.features"] = "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten"
+	}
+
+	return &req, nil
 }
 
 // DefaultCephStoragePoolJoinConfig returns the default remote storage configuration when
