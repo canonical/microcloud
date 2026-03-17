@@ -255,19 +255,30 @@ func (s LXDService) DefaultPendingCephStoragePool() (*api.StoragePoolsPost, erro
 
 // DefaultCephStoragePool returns the default remote storage configuration when
 // creating the finalized pool.
-func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{
+func (s LXDService) DefaultCephStoragePool() (*api.StoragePoolsPost, error) {
+	req := api.StoragePoolsPost{
 		Name:   DefaultCephPool,
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
 				"ceph.rbd.du":        "false",
-				"ceph.rbd.features":  "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
 				"ceph.osd.pool_name": DefaultCephOSDPool,
 			},
 			Description: "Distributed storage on Ceph",
 		},
 	}
+
+	hasExtension, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_ceph_use_rbd_defaults")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check for storage_ceph_use_rbd_defaults extension: %w", err)
+	}
+
+	// Set the features in case LXD isn't using the Ceph cluster's defaults.
+	if !hasExtension {
+		req.Config["ceph.rbd.features"] = "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten"
+	}
+
+	return &req, nil
 }
 
 // DefaultPendingCephFSStoragePool returns the default cephfs storage configuration when
