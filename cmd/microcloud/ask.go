@@ -974,7 +974,12 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if len(targetConfigs) > 0 {
-			finalConfigs = append(finalConfigs, lxd.DefaultCephStoragePool())
+			req, err := lxd.DefaultCephStoragePool()
+			if err != nil {
+				return err
+			}
+
+			finalConfigs = append(finalConfigs, *req)
 		}
 	}
 
