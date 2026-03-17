@@ -20,7 +20,7 @@ The MicroCloud Cluster Manager is a separate application from the {ref}`MicroClo
 (howto-cluster-manager-requirements)=
 ## Requirements
 
-The clusters that you intend to manage with the Cluster Manager must all use **MicroCloud 3/edge or higher**.
+The clusters that you intend to manage with the Cluster Manager must all use **MicroCloud 3/stable or higher**.
 
 The Cluster Manager itself must be installed on a machine with the following setup:
 
