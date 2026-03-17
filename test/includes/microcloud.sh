@@ -499,13 +499,21 @@ validate_system_lxd_zfs() {
 validate_system_lxd_ceph() {
   name=${1}
   cephfs=${2}
+
+  SKIP_CEPH_RBD_FEATURES="${SKIP_CEPH_RBD_FEATURES:-}"
+
   echo "    ${name} Validating Ceph storage"
   cfg="$(lxc storage show remote)"
   grep -q "ceph.cluster_name: ceph" <<< "${cfg}"
   grep -q "ceph.osd.pg_num: \"32\"" <<< "${cfg}"
   grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
   grep -q "ceph.rbd.du: \"false\"" <<< "${cfg}"
-  grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten" <<< "${cfg}"
+  # Allow skipping the ceph.rbd.features check.
+  # This is convenient when upgrading an existing LXD cluster which now has the the API extension
+  # but the pool was created when the API extension was still absent.
+  if ! check_api_extension storage_ceph_use_rbd_defaults && [ "${SKIP_CEPH_RBD_FEATURES}" != "1" ]; then
+    grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten" <<< "${cfg}"
+  fi
   grep -q "ceph.user.name: admin" <<< "${cfg}"
   grep -q "volatile.pool.pristine: \"true\"" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
