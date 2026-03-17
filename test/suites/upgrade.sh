@@ -166,7 +166,7 @@ ovn:
     # Test LXD only after all the cluster members have stabilized after upgrade.
     for m in micro01 micro02 micro03; do
       # Don't test for DNS nameservers on the OVN network as those weren't yet added in MicroCloud 1.
-      validate_system_lxd "${m}" 3 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+      SKIP_CEPH_RBD_FEATURES="1" validate_system_lxd "${m}" 3 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
     done
 
     # Fourth upgrade MicroCloud.
@@ -240,7 +240,7 @@ systems:
 
     validate_system_microceph micro04 0 0 disk2
     validate_system_microovn micro04
-    validate_system_lxd micro04 4 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
+    SKIP_CEPH_RBD_FEATURES="1" validate_system_lxd micro04 4 disk1 1 0 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64
     lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster list -f json | jq -r '.[] | select(.name == "micro04") | .status' | grep -q ONLINE
   fi
 }
