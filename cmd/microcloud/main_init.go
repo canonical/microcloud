@@ -697,13 +697,18 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	for _, network := range system.Networks {
+		// If no device is set, allow each network.
+		// If OVN is present allow it to overwrite any existing network as it takes precedence.
 		if network.Name == service.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
 			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
 		}
 	}
 
 	for _, pool := range system.StoragePools {
-		if pool.Driver == "ceph" || profile.Devices["root"] == nil {
+		// If no device is set, allow each pool managed by MicroCloud except CephFS ("local" using ZFS or "remote" using Ceph).
+		// If CephFS is enabled, ensure we don't replace the profile's root device with the CephFS pool
+		// as we always want to use a pool which allows the creation of all types of volumes.
+		if pool.Driver == "ceph" || (profile.Devices["root"] == nil && pool.Driver == "zfs") {
 			profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
 		}
 	}
