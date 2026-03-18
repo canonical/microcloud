@@ -86,15 +86,13 @@ For detailed information, see: {ref}`reference-requirements`.
 ```{youtube} https://www.youtube.com/watch?v=M0y0hQ16YuE
 ```
 
-To install MicroCloud, install all required {ref}`snaps <reference-requirements-software-snaps>` on all machines that you want to include in your cluster. You can {ref}`optionally specify a channel <howto-install-specify-channel>` for each snap, but generally, you can leave out the channel to use the current recommended default. 
-
-To do so, enter the following commands on all machines:
+Install all required {ref}`snaps <reference-requirements-software-snaps>` on each machine intended as a MicroCloud cluster member. Enter the following commands on all machines:
 
 ```bash
-sudo snap install lxd --cohort="+"
-sudo snap install microceph --cohort="+"
-sudo snap install microovn --cohort="+"
-sudo snap install microcloud --cohort="+"
+sudo snap install lxd --channel=5.21/stable --cohort="+"
+sudo snap install microceph --channel=squid/stable --cohort="+"
+sudo snap install microovn --channel=24.03/stable --cohort="+"
+sudo snap install microcloud --channel=2/stable --cohort="+"
 ```
 
 The `--cohort` flag ensures that versions remain {ref}`synchronized during later updates <howto-update-sync>`.
@@ -134,21 +132,27 @@ sudo snap refresh microcloud --cohort="+" --channel=2/stable
 ```
 
 (howto-install-specify-channel)=
-### Optionally specify a channel
+### Optionally specify a different channel
 
-Channels correspond to different {ref}`releases <ref-releases-snaps>`. When unspecified, MicroCloud and its components' snaps use their respective recommended default channels.
+A channel includes both a {ref}`track <ref-snaps-microcloud-tracks>` (such as `2`) and a {ref}`risk level <ref-snaps-microcloud-risk>` (such as `stable` or `edge`).
 
-To specify a different channel, add the `--channel` flag at installation:
+MicroCloud's component snaps must use tracks that correspond to the same MicroCloud release within the {ref}`matrix of compatible versions <ref-releases-matrix>`. 
+
+For production deployments, use the `stable` risk level for all snaps. For testing or development, you might use a different risk level for some snaps. See {ref}`ref-snaps-microcloud-risk` for more information.
+
+To specify a different channel, use the `--channel` flag at installation:
 
 ```bash
 sudo snap install <snap> --cohort="+" --channel=<target channel>
 ```
 
-For example, to use the `3/edge` channel for the MicroCloud snap, run:
+For example, to use the `5.21.edge` channel for the LXD snap, run:
 
 ```bash
-sudo snap install microcloud --cohort="+" --channel=3/edge
+sudo snap install lxd --cohort="+" --channel=5.21/edge
 ```
+
+Even if the risk level for a snap differs from the other snaps, the same channel must be used for that snap on all cluster members. For example, if you use the `5.21/edge` channel for the LXD snap, then _all_ cluster members must use that channel for the LXD snap.
 
 For details about the MicroCloud snap channels, see: {ref}`ref-snaps-microcloud-channels`.
 
