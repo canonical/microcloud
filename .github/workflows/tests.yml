@@ -143,7 +143,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository_owner == 'canonical' }}
     name: System (core)
-    runs-on: self-hosted-linux-amd64-noble-large
+    runs-on: ubuntu-24.04
     needs: code-tests
     strategy:
       fail-fast: false
@@ -199,7 +199,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository_owner == 'canonical' }}
     name: System (upgrade)
-    runs-on: self-hosted-linux-amd64-noble-large
+    runs-on: ubuntu-24.04
     needs: code-tests
     strategy:
       fail-fast: false
