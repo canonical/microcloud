@@ -146,7 +146,7 @@ To specify a different channel, use the `--channel` flag at installation:
 sudo snap install <snap> --cohort="+" --channel=<target channel>
 ```
 
-For example, to use the `5.21.edge` channel for the LXD snap, run:
+For example, to use the `5.21/edge` channel for the LXD snap, run:
 
 ```bash
 sudo snap install lxd --cohort="+" --channel=5.21/edge
