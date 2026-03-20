@@ -1033,13 +1033,18 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				// There should only be one ceph pool per system.
 				if !addedCephPool {
 					if c.bootstrap {
-						system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
+						req, err := lxd.DefaultPendingCephStoragePool()
+						if err != nil {
+							return nil, err
+						}
+
+						if req != nil {
+							system.TargetStoragePools = append(system.TargetStoragePools, *req)
+						}
 
 						if s.Name == peer {
 							system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
 						}
-					} else {
-						system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
 					}
 
 					addedCephPool = true
@@ -1275,7 +1280,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			}
 
 			if !found && c.bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephStoragePool())
+				req, err := lxd.DefaultPendingCephStoragePool()
+				if err != nil {
+					return nil, err
+				}
+
+				if req != nil {
+					system.TargetStoragePools = append(system.TargetStoragePools, *req)
+				}
 			}
 
 			found = false
@@ -1289,17 +1301,6 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 				system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
 			}
 
-			found = false
-			for _, config := range system.JoinConfig {
-				if config.Name == service.DefaultCephPool {
-					found = true
-				}
-			}
-
-			if !found && !c.bootstrap {
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephStoragePoolJoinConfig())
-			}
-
 			c.systems[name] = system
 		}
 	}
@@ -1310,12 +1311,27 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	if (len(cephMatches)+len(directCephMatches) > 0 && p.Ceph.CephFS) || hasCephFS {
 		for name, system := range c.systems {
 			if c.bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingCephFSStoragePool())
+				req, err := lxd.DefaultPendingCephFSStoragePool()
+				if err != nil {
+					return nil, err
+				}
+
+				if req != nil {
+					system.TargetStoragePools = append(system.TargetStoragePools, *req)
+				}
+
 				if s.Name == name {
 					system.StoragePools = append(system.StoragePools, lxd.DefaultCephFSStoragePool())
 				}
 			} else {
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultCephFSStoragePoolJoinConfig())
+				req, err := lxd.DefaultCephFSStoragePoolJoinConfig()
+				if err != nil {
+					return nil, err
+				}
+
+				if req != nil {
+					system.JoinConfig = append(system.JoinConfig, *req)
+				}
 			}
 
 			c.systems[name] = system

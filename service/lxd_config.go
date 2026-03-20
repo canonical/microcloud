@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -228,16 +229,28 @@ func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []ap
 
 // DefaultPendingCephStoragePool returns the default remote storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingCephStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{
-		Name:   DefaultCephPool,
-		Driver: "ceph",
-		StoragePoolPut: api.StoragePoolPut{
-			Config: map[string]string{
-				"source": DefaultCephOSDPool,
-			},
-		},
+// If not required by the used version of LXD, nil is returned.
+func (s LXDService) DefaultPendingCephStoragePool() (*api.StoragePoolsPost, error) {
+	hasStorageRemoteDropSource, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_remote_drop_source")
+	if err != nil {
+		return nil, err
 	}
+
+	// Use the old approach of specifying the pool name in "source".
+	if !hasStorageRemoteDropSource {
+		return &api.StoragePoolsPost{
+			Name:   DefaultCephPool,
+			Driver: "ceph",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"source": DefaultCephOSDPool,
+				},
+			},
+		}, nil
+	}
+
+	// This version of LXD doesn't require any config when creating a pending Ceph pool.
+	return nil, nil
 }
 
 // DefaultCephStoragePool returns the default remote storage configuration when
@@ -248,37 +261,39 @@ func (s LXDService) DefaultCephStoragePool() api.StoragePoolsPost {
 		Driver: "ceph",
 		StoragePoolPut: api.StoragePoolPut{
 			Config: map[string]string{
-				"ceph.rbd.du":       "false",
-				"ceph.rbd.features": "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+				"ceph.rbd.du":        "false",
+				"ceph.rbd.features":  "layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten",
+				"ceph.osd.pool_name": DefaultCephOSDPool,
 			},
 			Description: "Distributed storage on Ceph",
 		},
 	}
 }
 
-// DefaultCephStoragePoolJoinConfig returns the default remote storage configuration when
-// joining an existing cluster.
-func (s LXDService) DefaultCephStoragePoolJoinConfig() api.ClusterMemberConfigKey {
-	return api.ClusterMemberConfigKey{
-		Entity: "storage-pool",
-		Name:   DefaultCephPool,
-		Key:    "source",
-		Value:  DefaultCephOSDPool,
-	}
-}
-
 // DefaultPendingCephFSStoragePool returns the default cephfs storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingCephFSStoragePool() api.StoragePoolsPost {
-	return api.StoragePoolsPost{
-		Name:   DefaultCephFSPool,
-		Driver: "cephfs",
-		StoragePoolPut: api.StoragePoolPut{
-			Config: map[string]string{
-				"source": DefaultCephFSOSDPool,
-			},
-		},
+// If not required by the used version of LXD, nil is returned.
+func (s LXDService) DefaultPendingCephFSStoragePool() (*api.StoragePoolsPost, error) {
+	hasStorageRemoteDropSource, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_remote_drop_source")
+	if err != nil {
+		return nil, err
 	}
+
+	// Use the old approach of specifying the FS path.
+	if !hasStorageRemoteDropSource {
+		return &api.StoragePoolsPost{
+			Name:   DefaultCephFSPool,
+			Driver: "cephfs",
+			StoragePoolPut: api.StoragePoolPut{
+				Config: map[string]string{
+					"source": DefaultCephFSOSDPool,
+				},
+			},
+		}, nil
+	}
+
+	// This version of LXD doesn't require any config when creating a pending CephFS pool.
+	return nil, nil
 }
 
 // DefaultCephFSStoragePool returns the default cephfs storage configuration when
@@ -292,19 +307,31 @@ func (s LXDService) DefaultCephFSStoragePool() api.StoragePoolsPost {
 				"cephfs.create_missing": "true",
 				"cephfs.meta_pool":      DefaultCephFSMetaOSDPool,
 				"cephfs.data_pool":      DefaultCephFSDataOSDPool,
+				"cephfs.path":           DefaultCephFSOSDPool,
 			},
 			Description: "Distributed file-system storage using CephFS",
 		},
 	}
 }
 
-// DefaultCephFSStoragePoolJoinConfig returns the default cephfs storage configuration when
-// joining an existing cluster.
-func (s LXDService) DefaultCephFSStoragePoolJoinConfig() api.ClusterMemberConfigKey {
-	return api.ClusterMemberConfigKey{
-		Entity: "storage-pool",
-		Name:   "remote-fs",
-		Key:    "source",
-		Value:  DefaultCephFSOSDPool,
+// DefaultCephFSStoragePoolJoinConfig returns the default cephfs storage configuration when joining an existing cluster.
+// If not required by the used version of LXD, nil is returned.
+func (s LXDService) DefaultCephFSStoragePoolJoinConfig() (*api.ClusterMemberConfigKey, error) {
+	hasStorageRemoteDropSource, err := s.HasExtension(context.Background(), s.name, s.address, nil, "storage_remote_drop_source")
+	if err != nil {
+		return nil, err
 	}
+
+	// "source" is no longer valid when LXD has the storage_remote_drop_source extension.
+	if !hasStorageRemoteDropSource {
+		return &api.ClusterMemberConfigKey{
+			Entity: "storage-pool",
+			Name:   "remote-fs",
+			Key:    "source",
+			Value:  DefaultCephFSOSDPool,
+		}, nil
+	}
+
+	// This version of LXD doesn't require any config when joining a CephFS pool.
+	return nil, nil
 }
