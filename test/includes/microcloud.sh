@@ -512,7 +512,7 @@ validate_system_lxd_ceph() {
   grep -q "driver: ceph" <<< "${cfg}"
 
   cfg="$(lxc storage show remote --target "${name}")"
-  grep -q "source: lxd_remote" <<< "${cfg}"
+  grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
   if [ "${cephfs}" = 1 ]; then
@@ -523,7 +523,7 @@ validate_system_lxd_ceph() {
     grep -q "cephfs.data_pool: lxd_cephfs_data" <<< "${cfg}"
 
     cfg=$(lxc storage show remote-fs --target "${name}")
-    grep -q "source: lxd_cephfs" <<< "${cfg}"
+    grep -q "cephfs.path: lxd_cephfs" <<< "${cfg}"
     grep -q "status: Created" <<< "${cfg}"
   else
     ! lxc storage show remote-fs || true
