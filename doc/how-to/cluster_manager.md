@@ -68,7 +68,7 @@ Deploy the [PostgreSQL K8s charm](https://charmhub.io/postgresql-k8s), the [Trae
 ```bash
 juju deploy postgresql-k8s --channel 14/stable --trust
 juju deploy traefik-k8s --trust
-juju deploy microcloud-cluster-manager-k8s --channel edge --trust
+juju deploy microcloud-cluster-manager-k8s --trust
 ```
 
 The `--trust` flag grants the deployed charm permission to access cloud or cluster credentials and perform privileged operations.
