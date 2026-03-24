@@ -221,7 +221,7 @@ ceph:
 
     # Test LXD only after all the cluster members have stabilized after upgrade.
     for m in micro01 micro02 micro03; do
-      validate_system_lxd "${m}" 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
+      SKIP_CEPH_RBD_FEATURES="1" validate_system_lxd "${m}" 3 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
     done
 
     # Fourth upgrade MicroCloud.
@@ -299,7 +299,7 @@ systems:
 
     validate_system_microceph micro04 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
     validate_system_microovn micro04 "${ovn_underlay_subnet_prefix}"
-    validate_system_lxd micro04 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
+    SKIP_CEPH_RBD_FEATURES="1" validate_system_lxd micro04 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
     lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster list -f json | jq -r '.[] | select(.name == "micro04") | .status' | grep -q ONLINE
   fi
 }

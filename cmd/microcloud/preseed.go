@@ -1043,7 +1043,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 						}
 
 						if s.Name == peer {
-							system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
+							req, err := lxd.DefaultCephStoragePool()
+							if err != nil {
+								return nil, err
+							}
+
+							system.StoragePools = append(system.StoragePools, *req)
 						}
 					}
 
@@ -1298,7 +1303,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			}
 
 			if !found && c.bootstrap && s.Name == name {
-				system.StoragePools = append(system.StoragePools, lxd.DefaultCephStoragePool())
+				req, err := lxd.DefaultCephStoragePool()
+				if err != nil {
+					return nil, err
+				}
+
+				system.StoragePools = append(system.StoragePools, *req)
 			}
 
 			c.systems[name] = system
