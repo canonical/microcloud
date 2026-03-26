@@ -20,14 +20,14 @@ In case of error, see {ref}`howto-recover` for troubleshooting details.
 (howto-update-upgrade-running-instances)=
 ## Keep instances running during an update or upgrade
 
-You can update or upgrade MicroCloud and its dependency snaps on a cluster member while it is hosting running instances. 
+You can update or upgrade MicroCloud and its dependency snaps on a cluster member while it is hosting running instances.
 
 For the LXD snap, this won't affect the running instances. However, for the MicroCeph or MicroOVN snaps, storage and network services might be briefly affected. For example, when MicroCeph is updated on a cluster member, instances on that machine might experience temporary packet loss.
 
 To avoid such possible effects entirely, use the live migration approach described below when updating or upgrading the MicroCeph and MicroOVN snaps.
 
 - Use virtual machines (VMs) instead of system containers for crucial workloads; in general, containers cannot be live-migrated.
-- Each VM must be pre-configured for live migration. See: {ref}`lxd:live-migration-vms` for information on the required configurations.
+- Each VM must be pre-configured for live migration. See: {ref}`lxd:live-migration` for information on the required configurations.
 - Before you update or upgrade a cluster member, use the {ref}`cluster evacuate <lxd:cluster-evacuate>` operation to migrate all instances on the host to other members in the same cluster.
 - Once the update or upgrade is complete, use the {ref}`cluster restore <lxd:cluster-restore>` operation to migrate all evacuated instances back to the original host.
 - The evacuate and restore operations can live-migrate any VMs that are configured to allow it. If any instances on the cluster member are ineligible for live migration (such as a container, or a VM that is not configured for live migration), then during both evacuation and restoration, those instances are stopped, migrated, and restarted.
