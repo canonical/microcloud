@@ -1,12 +1,12 @@
 module github.com/canonical/microcloud/microcloud
 
-go 1.25.8
+go 1.26.1
 
 require (
-	github.com/canonical/lxd v0.0.0-20260312125150-6c62aea10770
-	github.com/canonical/microceph/microceph v0.0.0-20260305172100-8d2282bcc1ef
+	github.com/canonical/lxd v0.0.0-20260402100224-491dd1403f1a
+	github.com/canonical/microceph/microceph v0.0.0-20260326102219-1227e2294b07
 	github.com/canonical/microcluster/v3 v3.0.2
-	github.com/canonical/microovn/microovn v0.0.0-20260224064056-e860d3abf65c
+	github.com/canonical/microovn/microovn v0.0.0-20260327151159-b41956d6b959
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -42,7 +42,7 @@ require (
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -52,11 +52,11 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.21 // indirect
-	github.com/mattn/go-sqlite3 v1.14.34 // indirect
+	github.com/mattn/go-sqlite3 v1.14.38 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
@@ -72,7 +72,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zitadel/logging v0.7.0 // indirect
-	github.com/zitadel/oidc/v3 v3.45.5 // indirect
+	github.com/zitadel/oidc/v3 v3.45.6 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.42.0 // indirect
