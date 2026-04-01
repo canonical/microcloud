@@ -50,6 +50,28 @@ MicroCloud requires LXD version 5.21:
 
        sudo snap install lxd
 
+1. Add the current user to the `lxd` group
+
+   ````{admonition} Important security notice
+   :class: important
+   Local access to LXD through the Unix socket always grants full access to LXD.
+   This includes the ability to attach file system paths or devices to any instance as well as tweak the security features on any instance.
+
+   Therefore, you should only give such access to users who you'd trust with root access to your system.
+
+   For more information, see {ref}`lxd:security-daemon-access`.
+   ````
+
+   Installing LXD through its snap should automatically create a `lxd` group on your system. The user you are logged in as must be in this group to interact with LXD.
+
+   Enter the following command to add your user to the `lxd` group:
+
+   ```bash
+   sudo usermod -aG lxd "$USER"
+   ```
+
+   Then restart your machine to apply the change.
+
 1. Enter the following command to initialize LXD:
 
        lxd init
