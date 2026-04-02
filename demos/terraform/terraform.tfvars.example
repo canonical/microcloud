@@ -17,9 +17,9 @@ microcloud_channel = "2/stable"
 lxd_channel = "5.21/stable"
 
 # Timeouts
-session_timeout = 300
+session_timeout = 900
 lookup_timeout = 300
-instance_create_timeout = "15m"
+instance_create_timeout = "25m"
 
 # VM Configuration
 vm_count = 4
