@@ -952,11 +952,19 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		for _, network := range system.Networks {
-			_ = lxdClient.DeleteNetwork(network.Name)
+			op, err := lxdClient.DeleteNetwork(network.Name)
+			if err == nil {
+				// Network deletion is asynchronous; wait for completion before proceeding.
+				_ = op.Wait()
+			}
 		}
 
 		for _, pool := range system.StoragePools {
-			_ = lxdClient.DeleteStoragePool(pool.Name)
+			op, err := lxdClient.DeleteStoragePool(pool.Name)
+			if err == nil {
+				// Storage pool deletion is asynchronous; wait for completion before proceeding.
+				_ = op.Wait()
+			}
 		}
 	})
 
@@ -967,17 +975,38 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			return err
 		}
 
+		// Populate the server info cache so that HasExtension works correctly.
+		// Without this, a fresh client has server == nil, which causes HasExtension
+		// to return true for any extension, including storage_and_network_operations,
+		// even on older LXD servers that don't support it. That causes async operations
+		// to call queryOperation, which fails when the server returns a 200 sync response
+		// (no real operation ID to wait on).
+		_, _, err = lxdClient.GetServer()
+		if err != nil {
+			return err
+		}
+
 		targetClient := lxdClient.UseTarget(name)
 
 		for _, pool := range system.TargetStoragePools {
-			err = targetClient.CreateStoragePool(pool)
+			op, err := targetClient.CreateStoragePool(pool)
+			if err == nil {
+				// Storage pool creation is asynchronous; wait for completion before proceeding.
+				err = op.Wait()
+			}
+
 			if err != nil {
 				return err
 			}
 		}
 
 		for _, network := range system.TargetNetworks {
-			err = targetClient.CreateNetwork(network)
+			op, err := targetClient.CreateNetwork(network)
+			if err == nil {
+				// Network creation is asynchronous; wait for completion before proceeding.
+				err = op.Wait()
+			}
+
 			if err != nil {
 				return err
 			}
@@ -992,21 +1021,36 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			continue
 		}
 
-		err = lxdClient.CreateStoragePool(pool)
+		op, err := lxdClient.CreateStoragePool(pool)
+		if err == nil {
+			// Storage pool creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
 	}
 
 	if cephFSPool.Driver != "" {
-		err = lxdClient.CreateStoragePool(cephFSPool)
+		op, err := lxdClient.CreateStoragePool(cephFSPool)
+		if err == nil {
+			// Storage pool creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, network := range system.Networks {
-		err = lxdClient.CreateNetwork(network)
+		op, err := lxdClient.CreateNetwork(network)
+		if err == nil {
+			// Network creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
