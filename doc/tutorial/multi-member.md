@@ -298,13 +298,15 @@ Complete the following steps:
    1. As the address for MicroCloud's internal traffic, select the listed IPv4 address.
    1. Copy the session passphrase.
 
-1. Head to the other VMs (`micro2`, `micro3`, and `micro4`) and start the join process on each:
+1. Open a new terminal window and start the join process for the `micro2` VM:
 
        lxc exec micro2 microcloud join
 
-   In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
+   Select the listed IPv4 address for MicroCloud's internal traffic.
 
-   When prompted, enter the session passphrase for each joining  member.
+   When prompted, enter the session passphrase.
+
+1. Repeat the above step for the `micro3` and `micro4` VMs.
 
 1. Return to `micro1` to continue the initialization process:
 
