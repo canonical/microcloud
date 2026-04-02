@@ -952,7 +952,11 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		for _, network := range system.Networks {
-			_ = lxdClient.DeleteNetwork(network.Name)
+			op, err := lxdClient.DeleteNetwork(network.Name)
+			if err == nil {
+				// Network deletion is asynchronous; wait for completion before proceeding.
+				_ = op.Wait()
+			}
 		}
 
 		for _, pool := range system.StoragePools {
@@ -997,7 +1001,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		for _, network := range system.TargetNetworks {
-			err = targetClient.CreateNetwork(network)
+			op, err := targetClient.CreateNetwork(network)
+			if err == nil {
+				// Network creation is asynchronous; wait for completion before proceeding.
+				err = op.Wait()
+			}
+
 			if err != nil {
 				return err
 			}
@@ -1036,7 +1045,12 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	for _, network := range system.Networks {
-		err = lxdClient.CreateNetwork(network)
+		op, err := lxdClient.CreateNetwork(network)
+		if err == nil {
+			// Network creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
