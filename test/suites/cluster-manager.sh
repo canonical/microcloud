@@ -55,7 +55,7 @@ test_cluster_manager() {
   lxc exec micro01 -- sh -c "pgrep -f 'openssl s_server -accept 3000' | xargs kill" || true
 
   echo "==> Delete cluster manager with force flag"
-  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager delete 2>&1 | grep "Unable to connect to: localhost:3000" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager delete 2>&1 | grep "Cannot connect to: localhost:3000" -q
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager delete --force
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show 2>&1 | grep "Error: Cluster manager not found" -q
 }
