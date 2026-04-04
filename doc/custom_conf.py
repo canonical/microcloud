@@ -235,14 +235,15 @@ custom_excludes = [
     'README.md'
     ]
 
-# Add CSS files (located in .sphinx/_static/)
+# Add CSS files (located in .sphinx/_static/ or from external link)
 custom_html_css_files = [
-    'cookie-banner.css',
+    'https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css',
 ]
 
-# Add JavaScript files (located in .sphinx/_static/)
+# Add JavaScript files (located in .sphinx/_static/ or from external link)
 custom_html_js_files = [
-    'js/bundle.js',]
+    'https://assets.ubuntu.com/v1/287a5e8f-bundle.js',
+]
 
 ## The following settings override the default configuration.
 
