@@ -156,6 +156,9 @@ ceph:
       done
     done
 
+    # Wait for MicroCeph to stabilize before proceeding.
+    lxc exec micro01 -- microceph waitready --storage --timeout 300
+
     disks_encrypted="1"
     disks_encrypted_list="disk2"
 
