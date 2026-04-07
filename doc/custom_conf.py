@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import yaml
 from redirects import redirects
 from git import Repo, InvalidGitRepositoryError
@@ -26,10 +27,13 @@ from git import Repo, InvalidGitRepositoryError
 project = 'MicroCloud'
 author = 'Canonical Group Ltd'
 
-# The title you want to display for the documentation in the sidebar.
-# You might want to include a version number here.
-# To not display any title, set this option to an empty string.
-html_title = ''
+with open('../version/version.go') as f:
+    match = re.search(r'RawVersion = "([^"]+)"', f.read())
+    version = match.group(1) if match else ''
+
+# Sidebar documentation title; best kept reasonably short
+# To disable the title, set to an empty string.
+html_title = project + ' documentation ' + version
 
 # The default value uses the current year as the copyright year.
 #
