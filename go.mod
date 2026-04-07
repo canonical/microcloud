@@ -3,10 +3,10 @@ module github.com/canonical/microcloud/microcloud
 go 1.26.1
 
 require (
-	github.com/canonical/lxd v0.0.0-20260402100224-491dd1403f1a
-	github.com/canonical/microceph/microceph v0.0.0-20260326102219-1227e2294b07
+	github.com/canonical/lxd v0.0.0-20260407090146-728dc14a0009
+	github.com/canonical/microceph/microceph v0.0.0-20260407063710-783a26a3e98e
 	github.com/canonical/microcluster/v3 v3.0.2
-	github.com/canonical/microovn/microovn v0.0.0-20260327151159-b41956d6b959
+	github.com/canonical/microovn/microovn v0.0.0-20260403145038-0f2539122c1a
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -30,7 +30,7 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/canonical/go-dqlite/v3 v3.0.4 // indirect
-	github.com/canonical/microcluster/v2 v2.2.2 // indirect
+	github.com/canonical/microcluster/v2 v2.2.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
@@ -55,8 +55,8 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-runewidth v0.0.21 // indirect
-	github.com/mattn/go-sqlite3 v1.14.38 // indirect
+	github.com/mattn/go-runewidth v0.0.22 // indirect
+	github.com/mattn/go-sqlite3 v1.14.41 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
@@ -72,12 +72,12 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zitadel/logging v0.7.0 // indirect
-	github.com/zitadel/oidc/v3 v3.45.6 // indirect
+	github.com/zitadel/oidc/v3 v3.46.0 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.42.0 // indirect
-	go.opentelemetry.io/otel/metric v1.42.0 // indirect
-	go.opentelemetry.io/otel/trace v1.42.0 // indirect
+	go.opentelemetry.io/otel v1.43.0 // indirect
+	go.opentelemetry.io/otel/metric v1.43.0 // indirect
+	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
