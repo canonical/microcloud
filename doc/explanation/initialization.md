@@ -13,9 +13,8 @@ See {ref}`howto-initialize` for instructions on how to set up MicroCloud.
 To allow several instances of MicroCloud to join the final cluster, in both the interactive and non-interactive method each instance is running one half of the trust establishment session to trust the other side.
 
 Each trust establishment session has one initiator and one to many joiners.
-In case of the interactive mode the side which runs the `microcloud init` command becomes the initiator.
-The other side becomes the joiner by running `microcloud join`.
-In the non-interactive mode the initiator is being defined either using the `initiator` or `initiator_address` configuration key.
+In interactive mode, the side that runs the `microcloud init` command becomes the initiator, and the other sides become joiners by running `microcloud join`.
+In non-interactive mode, the initiator is defined by either the `initiator` or `initiator_address` configuration key.
 
 (automatic-server-detection)=
 ## Automatic server detection
