@@ -12,8 +12,8 @@ Performing an update or upgrade requires going through the list of snaps one aft
 Before performing an update or upgrade, make sure to back up your data to prevent any data loss in case of failure.
 See the following backup guides for each of the snaps:
 
-* {doc}`How to backup MicroCeph <microceph:explanation/taking-snapshots>`
-* {ref}`How to backup LXD <lxd:backups>`
+* {doc}`How to back up MicroCeph <microceph:explanation/taking-snapshots>`
+* {ref}`How to back up LXD <lxd:backups>`
 
 In case of error, see {ref}`howto-recover` for troubleshooting details.
 
