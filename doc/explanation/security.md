@@ -17,7 +17,7 @@ MicroCloud runs on Ubuntu and benefits from all [Ubuntu platform security measur
 (exp-security-snaps)=
 ## Snaps
 
-MicroCloud and its components are distributed as [snaps](https://snapcraft.io/docs), which enhances security through providing a confined environment with a streamlined update mechanism. Both LTS and feature channels receive regular security updates through Canonical’s official infrastructure.
+MicroCloud and its components are distributed as [snaps](https://snapcraft.io/docs), which enhances security by providing a confined environment with a streamlined update mechanism. Both LTS and feature channels receive regular security updates through Canonical’s official infrastructure.
 
 All snaps are digitally signed using [assertions](https://snapcraft.io/docs/assertions) to guarantee authenticity and integrity.
 

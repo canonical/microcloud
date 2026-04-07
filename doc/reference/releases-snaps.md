@@ -36,7 +36,7 @@ MicroCloud follows the [Ubuntu release cycle](https://ubuntu.com/about/release-c
 (ref-releases-microcloud-lts-support)=
 #### Support
 
-LTS releases receive standard support for five years, meaning that it receives continuous updates according to the support levels described below. An [Ubuntu Pro](https://ubuntu.com/pro) subscription can provide additional support and extends the support duration by an additional five years.
+LTS releases receive standard support for five years, meaning that they receive continuous updates according to the support levels described below. An [Ubuntu Pro](https://ubuntu.com/pro) subscription can provide additional support and extends the support duration by an additional five years.
 
 Standard support for an LTS release starts at full support for its first two years, then moves to maintenance support for the remaining three years. Once an LTS reaches End of Life (EOL), it no longer receives any updates.
 

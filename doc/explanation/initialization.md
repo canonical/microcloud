@@ -10,8 +10,7 @@ See {ref}`howto-initialize` for instructions on how to set up MicroCloud.
 (trust-establishment-session)=
 ## Trust establishment session
 
-To allow several instances of MicroCloud joining the final cluster, in both the interactive and non-interactive method each instance
-is running one half of the trust establishment session to trust the other side.
+To allow several instances of MicroCloud to join the final cluster, in both the interactive and non-interactive method each instance is running one half of the trust establishment session to trust the other side.
 
 Each trust establishment session has one initiator and one to many joiners.
 In case of the interactive mode the side which runs the `microcloud init` command becomes the initiator.
@@ -21,7 +20,7 @@ In the non-interactive mode the initiator is being defined either using the `ini
 (automatic-server-detection)=
 ## Automatic server detection
 
-If required MicroCloud uses multicast discovery to automatically detect a so called initiator on the network.
+If required, MicroCloud uses multicast discovery to automatically detect a so-called initiator on the network.
 This method works in physical networks, but it is usually not supported in a cloud environment.
 Instead you can specify the address of the initiator instead to not require using multicast.
 
