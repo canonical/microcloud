@@ -298,7 +298,9 @@ set_debug_binaries() {
     lxc exec "${name}" -- snap install --dangerous "/root/microceph.snap"
   fi
 
-  if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
+  # Don't inject debug binaries if not using the edge channel of MicroCloud.
+  # This allows running the test suite with candidate channels without injecting another version.
+  if [ -n "${MICROCLOUD_DEBUG_PATH}" ] && [ -n "${MICROCLOUDD_DEBUG_PATH}" ] && [[ "${MICROCLOUD_SNAP_CHANNEL}" == */edge ]]; then
     echo "==> Add debug binaries for MicroCloud."
 
     # Before injecting the binaries ensure the daemon is stopped.
