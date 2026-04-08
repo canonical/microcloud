@@ -59,8 +59,6 @@ Each feature release replaces the one before it, up to the next LTS release. Aft
 
 Feature releases receive continuous updates via each new release. The newest release at any given time is also eligible for additional support through an [Ubuntu Pro](https://ubuntu.com/pro) subscription.
 
-Currently, since no feature release has been published since the last LTS, there is no supported feature release.
-
 (ref-snaps-microcloud)=
 ## MicroCloud snap
 
