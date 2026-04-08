@@ -16,6 +16,7 @@ import (
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
+	"github.com/canonical/microcloud/microcloud/cmd/tui"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -258,5 +259,6 @@ func (c *cmdAdd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	reverter.Success()
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 	return nil
 }

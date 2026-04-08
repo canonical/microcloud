@@ -175,7 +175,8 @@ jobs:
         microcloud: ["2/edge"]
         exclude:
           # Exclude LXD 6 for regular development pipelines to speed up the result cycle.
-          - lxd: ${{ github.event_name != 'schedule' && '6/edge' }}
+          # But launch the LXD 6 tests both for schedules and manual workflow dispatch.
+          - lxd: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && '6/edge' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -260,11 +261,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo add-apt-repository ppa:dqlite/dev -y --no-update
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libdqlite-dev pkg-config
-          go install github.com/axw/gocov/gocov@latest
-          go install github.com/AlekSi/gocov-xml@latest
+          go install github.com/afunix/gocov/gocov@latest
+          go install github.com/b-dean/gocov-xml@v1.2.1-bdd.0 # XXX: Using this repo is a temporary workaround until https://github.com/AlekSi/gocov-xml/pull/20 is merged. See https://github.com/AlekSi/gocov-xml/pull/20#issuecomment-3275134132 for more details.
           go install honnef.co/go/tools/cmd/staticcheck@latest
 
       - name: Convert coverage files

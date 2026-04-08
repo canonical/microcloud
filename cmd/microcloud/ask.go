@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
@@ -20,6 +22,7 @@ import (
 	"github.com/canonical/lxd/shared/units"
 	"github.com/canonical/lxd/shared/validate"
 	cephTypes "github.com/canonical/microceph/microceph/api/types"
+	microTypes "github.com/canonical/microcluster/v2/rest/types"
 
 	cloudAPI "github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -67,7 +70,7 @@ func checkInitialized(stateDir string, expectInitialized bool, preseed bool) err
 
 	return s.RunConcurrent("", "", func(s service.Service) error {
 		// Create initialization context with timeout defined in LXDInitializationTimeout.
-		initializationCtx, cancel := context.WithTimeout(context.Background(), LXDInitializationTimeout)
+		initializationCtx, cancel := context.WithTimeout(context.Background(), service.LXDInitializationTimeout)
 		defer cancel()
 
 		// Check if the service is initialized using initializationCtx.
@@ -637,10 +640,10 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		return nil
 	}
 
-	// Check if we need to use JoinConfig because the storage pools and networks are already set up.
+	// Check if we need to join as the storage pools and networks might already be set up.
 	// Select the systems that don't have the corresponding storage pools, and only ask questions for those systems.
-	useJoinConfigRemote := false
-	useJoinConfigRemoteFS := false
+	joinRemote := false
+	joinRemoteFS := false
 	askSystemsRemote := map[string]bool{}
 	askSystemsRemoteFS := map[string]bool{}
 	for _, info := range c.state {
@@ -661,13 +664,13 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 		}
 
 		if hasPool {
-			useJoinConfigRemote = true
+			joinRemote = true
 		} else {
 			askSystemsRemote[info.ClusterName] = true
 		}
 
 		if hasFSPool {
-			useJoinConfigRemoteFS = true
+			joinRemoteFS = true
 		} else {
 			askSystemsRemoteFS[info.ClusterName] = true
 		}
@@ -870,7 +873,7 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				}
 
 				systemsWithDisks := len(mergedDisks)
-				insufficientDisks = !useJoinConfigRemote && systemsWithDisks < RecommendedOSDHosts
+				insufficientDisks = !joinRemote && systemsWithDisks < RecommendedOSDHosts
 
 				if insufficientDisks {
 					errMsg := fmt.Sprintf("Disk configuration does not meet recommendations for fault tolerance. At least %d systems must supply disks (%d currently supplying). Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure", RecommendedOSDHosts, systemsWithDisks)
@@ -916,8 +919,8 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	}
 
 	// If a cephfs pool has already been set up, we will extend it automatically, so no need to ask the question.
-	setupCephFS := useJoinConfigRemoteFS
-	if !useJoinConfigRemoteFS {
+	setupCephFS := joinRemoteFS
+	if !joinRemoteFS {
 		lxd := sh.Services[types.LXD].(*service.LXDService)
 		ext := "storage_cephfs_create_missing"
 		hasCephFS, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, ext)
@@ -954,35 +957,46 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 	finalConfigs := []api.StoragePoolsPost{}
 	targetConfigs := map[string][]api.StoragePoolsPost{}
 	lxd := sh.Services[types.LXD].(*service.LXDService)
-	if useJoinConfigRemote {
-		for target := range askSystemsRemote {
-			if joinConfigs[target] == nil {
-				joinConfigs[target] = []api.ClusterMemberConfigKey{}
-			}
-
-			joinConfigs[target] = append(joinConfigs[target], lxd.DefaultCephStoragePoolJoinConfig())
-		}
-	} else {
+	if !joinRemote {
 		for target := range askSystemsRemote {
 			if targetConfigs[target] == nil {
 				targetConfigs[target] = []api.StoragePoolsPost{}
 			}
 
-			targetConfigs[target] = append(targetConfigs[target], lxd.DefaultPendingCephStoragePool())
+			req, err := lxd.DefaultPendingCephStoragePool()
+			if err != nil {
+				return err
+			}
+
+			if req != nil {
+				targetConfigs[target] = append(targetConfigs[target], *req)
+			}
 		}
 
 		if len(targetConfigs) > 0 {
-			finalConfigs = append(finalConfigs, lxd.DefaultCephStoragePool())
+			req, err := lxd.DefaultCephStoragePool()
+			if err != nil {
+				return err
+			}
+
+			finalConfigs = append(finalConfigs, *req)
 		}
 	}
 
-	if useJoinConfigRemoteFS {
+	if joinRemoteFS {
 		for target := range askSystemsRemoteFS {
 			if joinConfigs[target] == nil {
 				joinConfigs[target] = []api.ClusterMemberConfigKey{}
 			}
 
-			joinConfigs[target] = append(joinConfigs[target], lxd.DefaultCephFSStoragePoolJoinConfig())
+			req, err := lxd.DefaultCephFSStoragePoolJoinConfig()
+			if err != nil {
+				return err
+			}
+
+			if req != nil {
+				joinConfigs[target] = append(joinConfigs[target], *req)
+			}
 		}
 	} else if setupCephFS {
 		for target := range askSystemsRemoteFS {
@@ -990,7 +1004,14 @@ func (c *initConfig) askRemotePool(sh *service.Handler) error {
 				targetConfigs[target] = []api.StoragePoolsPost{}
 			}
 
-			targetConfigs[target] = append(targetConfigs[target], lxd.DefaultPendingCephFSStoragePool())
+			req, err := lxd.DefaultPendingCephFSStoragePool()
+			if err != nil {
+				return err
+			}
+
+			if req != nil {
+				targetConfigs[target] = append(targetConfigs[target], *req)
+			}
 		}
 
 		if len(targetConfigs) > 0 {
@@ -1868,4 +1889,77 @@ func (c *initConfig) askJoinConfirmation(gw *cloudClient.WebsocketGateway, servi
 	}
 
 	return nil
+}
+
+func (c *initConfig) askInitialUIAccessLink(sh *service.Handler) (string, error) {
+	lxd, ok := sh.Services[types.LXD].(*service.LXDService)
+	if !ok {
+		return "", errors.New("Failed to retrieve LXD service")
+	}
+
+	requiredAPIExtension := "auth_bearer"
+	hasAPIExtension, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, requiredAPIExtension)
+	if err != nil {
+		return "", fmt.Errorf("Failed to check for the %q LXD API extension: %w", requiredAPIExtension, err)
+	}
+
+	if !hasAPIExtension {
+		return "", nil
+	}
+
+	lxdClient, err := lxd.Client(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	generate, err := c.asker.AskBool("Would you like to create an initial UI access link?", true)
+	if err != nil {
+		return "", err
+	}
+
+	if !generate {
+		return "", nil
+	}
+
+	address := sh.Address()
+	if address == "" {
+		return "", errors.New("LXD server address is not set, cannot create UI initial access link")
+	}
+
+	uiAdminIdentityName := "ui-admin-initial"
+
+	// Check if identity already exists.
+	uiAdminIdentity, _, err := lxdClient.GetIdentity(api.AuthenticationMethodBearer, uiAdminIdentityName)
+	if err != nil && !api.StatusErrorCheck(err, http.StatusNotFound) {
+		return "", fmt.Errorf("Failed to check for existing initial UI identity: %w", err)
+	}
+
+	if uiAdminIdentity == nil {
+		// Create identity if it doesn't exist.
+		uiAdminIdentityReq := api.IdentitiesBearerPost{
+			Name: uiAdminIdentityName,
+			Type: api.IdentityTypeBearerTokenInitialUI,
+		}
+
+		err := lxdClient.CreateIdentityBearer(uiAdminIdentityReq)
+		if err != nil {
+			return "", fmt.Errorf("Failed to create initial UI identity: %w", err)
+		}
+	} else if uiAdminIdentity.Type != api.IdentityTypeBearerTokenInitialUI {
+		return "", fmt.Errorf("A bearer identity with name %q already exists but is not of type %q", uiAdminIdentityName, api.IdentityTypeBearerTokenInitialUI)
+	}
+
+	token, err := lxdClient.IssueBearerIdentityToken(uiAdminIdentityName, api.IdentityBearerTokenPost{})
+	if err != nil {
+		return "", fmt.Errorf("Failed to issue bearer token for initial UI access link: %w", err)
+	}
+
+	addrPort, err := microTypes.ParseAddrPort(util.CanonicalNetworkAddress(address, service.LXDPort))
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse LXD address: %w", err)
+	}
+
+	uiAccessLink := api.NewURL().Scheme("https").Host(addrPort.String()).WithQuery("token", token.Token)
+
+	return uiAccessLink.String(), nil
 }

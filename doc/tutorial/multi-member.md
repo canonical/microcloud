@@ -50,6 +50,28 @@ MicroCloud requires LXD version 5.21:
 
        sudo snap install lxd
 
+1. Add the current user to the `lxd` group
+
+   ```{admonition} Important security notice
+   :class: important
+   Local access to LXD through the Unix socket always grants full access to LXD.
+   This includes the ability to attach file system paths or devices to any instance as well as tweak the security features on any instance.
+
+   Therefore, you should only give such access to users who you'd trust with root access to your system.
+
+   For more information, see {ref}`lxd:security-daemon-access`.
+   ```
+
+   Installing LXD through its snap should automatically create a `lxd` group on your system. The user you are logged in as must be in this group to interact with LXD.
+
+   Enter the following command to add your user to the `lxd` group:
+
+   ```bash
+   sudo usermod -aG lxd "$USER"
+   ```
+
+   Then restart your machine to apply the change.
+
 1. Enter the following command to initialize LXD:
 
        lxd init
@@ -276,13 +298,15 @@ Complete the following steps:
    1. As the address for MicroCloud's internal traffic, select the listed IPv4 address.
    1. Copy the session passphrase.
 
-1. Head to the other VMs (`micro2`, `micro3`, and `micro4`) and start the join process on each:
+1. Open a new terminal window and start the join process for the `micro2` VM:
 
        lxc exec micro2 microcloud join
 
-   In each joining cluster member, select the listed IPv4 address for MicroCloud's internal traffic.
+   Select the listed IPv4 address for MicroCloud's internal traffic.
 
-   When prompted, enter the session passphrase for each joining  member.
+   When prompted, enter the session passphrase.
+
+1. Repeat the above step for the `micro3` and `micro4` VMs.
 
 1. Return to `micro1` to continue the initialization process:
 

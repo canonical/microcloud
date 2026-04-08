@@ -56,6 +56,7 @@ microcloud_interactive() {
   OVN_UNDERLAY_FILTER=${OVN_UNDERLAY_FILTER:-}    # filter string for OVN underlay interfaces.
   IPV6_SUBNET=${IPV6_SUBNET:-}                    # OVN ipv6 range.
   REPLACE_PROFILE="${REPLACE_PROFILE:-}"          # Replace default profile config and devices.
+  CREATE_UI_ACCESS_LINK="${CREATE_UI_ACCESS_LINK:-yes}" # (yes/no) whether to create the UI initial access link during bootstrap.
 
   setup=""
   if [ -n "${MULTI_NODE}" ]; then
@@ -177,6 +178,13 @@ fi
 if [ -n "${REPLACE_PROFILE}" ] ; then
   setup="${setup}
 ${REPLACE_PROFILE}
+$(true)                                                 # workaround for set -e
+"
+fi
+
+if check_api_extension auth_bearer "${2}"; then
+  setup="${setup}
+${CREATE_UI_ACCESS_LINK}
 $(true)                                                 # workaround for set -e
 "
 fi
@@ -491,20 +499,28 @@ validate_system_lxd_zfs() {
 validate_system_lxd_ceph() {
   name=${1}
   cephfs=${2}
+
+  SKIP_CEPH_RBD_FEATURES="${SKIP_CEPH_RBD_FEATURES:-}"
+
   echo "    ${name} Validating Ceph storage"
   cfg="$(lxc storage show remote)"
   grep -q "ceph.cluster_name: ceph" <<< "${cfg}"
   grep -q "ceph.osd.pg_num: \"32\"" <<< "${cfg}"
   grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
   grep -q "ceph.rbd.du: \"false\"" <<< "${cfg}"
-  grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten" <<< "${cfg}"
+  # Allow skipping the ceph.rbd.features check.
+  # This is convenient when upgrading an existing LXD cluster which now has the API extension
+  # but the pool was created when the API extension was still absent.
+  if ! check_api_extension storage_ceph_use_rbd_defaults && [ "${SKIP_CEPH_RBD_FEATURES}" != "1" ]; then
+    grep -q "ceph.rbd.features: layering,striping,exclusive-lock,object-map,fast-diff,deep-flatten" <<< "${cfg}"
+  fi
   grep -q "ceph.user.name: admin" <<< "${cfg}"
   grep -q "volatile.pool.pristine: \"true\"" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
   grep -q "driver: ceph" <<< "${cfg}"
 
   cfg="$(lxc storage show remote --target "${name}")"
-  grep -q "source: lxd_remote" <<< "${cfg}"
+  grep -q "ceph.osd.pool_name: lxd_remote" <<< "${cfg}"
   grep -q "status: Created" <<< "${cfg}"
 
   if [ "${cephfs}" = 1 ]; then
@@ -515,7 +531,7 @@ validate_system_lxd_ceph() {
     grep -q "cephfs.data_pool: lxd_cephfs_data" <<< "${cfg}"
 
     cfg=$(lxc storage show remote-fs --target "${name}")
-    grep -q "source: lxd_cephfs" <<< "${cfg}"
+    grep -q "cephfs.path: lxd_cephfs" <<< "${cfg}"
     grep -q "status: Created" <<< "${cfg}"
   else
     ! lxc storage show remote-fs || true
@@ -613,7 +629,8 @@ validate_system_lxd() {
     set_remote microcloud-test "${name}" test
 
     # Ensure we are clustered and online.
-    lxc cluster list -f csv | sed -e 's/,\?database-leader,\?//' | cut -d',' -f1,7 | grep -qxF "${name},ONLINE"
+    # Use the direct API response to not be affected by CLI changes.
+    lxc cluster list -f json | jq -e '.[] | select(.server_name == "'"${name}"'" and .status == "Online")' >/dev/null
     [ "$(lxc cluster list -f csv | wc -l)" = "${num_peers}" ]
 
     # Check core config options
@@ -1106,6 +1123,11 @@ restore_system() {
     done
   )
 
+  # Force LXD to start up.
+  # Slower runners might cause longer LXD startup times.
+  # To not force bumping numbers in MicroCloud, ensure LXD is started before MicroCloud starts checking the socket.
+  lxc exec "${name}" -- lxc info >/dev/null
+
   set_debug_binaries "${name}"
   echo "==> Restored ${name}"
 }
@@ -1297,6 +1319,9 @@ setup_system() {
     # shellcheck disable=SC2086
     retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
     retry lxc exec "${name}" -- snap install snapd
+
+    # Install core26 to allow latest MicroOVN to be used.
+    retry lxc exec "${name}" -- snap install core26 --channel latest/edge
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean

@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: Step-by-step tutorial to learn the basics of how to install, initialize, and use MicroCloud using a physical machine as a single cluster member.
+---
+
 (tutorial-single)=
 # MicroCloud tutorial using a single physical cluster member
 
@@ -170,6 +176,12 @@ Would you like to set up CephFS remote storage? (yes/no) [default=yes]:
 
 Press {kbd}`Enter` to accept the default of `yes`.
 
+```{admonition} If you did not set up local storage
+:class: note
+
+If you did not set up local storage _and_ you set up CephFS storage, there will be an additional step for you at the end of the initialization process.
+```
+
 Next, you'll be prompted to select the CIDR subnet for Ceph internal and public traffic:
 
 ```{terminal}
@@ -257,6 +269,11 @@ Initializing new services ...
 Awaiting cluster formation ...
 Configuring cluster-wide devices ...
 MicroCloud is ready
+```
+
+```{admonition} Possible final step
+:class: note
+If you initialized MicroCloud without local storage _and_ with CephFS storage, visit the {ref}`howto-initialize-images-backups` how-to guide to complete your initialization, then continue this tutorial.
 ```
 
 (tutorial-single-inspect)=

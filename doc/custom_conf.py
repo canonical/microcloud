@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import yaml
 from redirects import redirects
 
@@ -25,10 +26,13 @@ from redirects import redirects
 project = 'MicroCloud'
 author = 'Canonical Group Ltd'
 
-# The title you want to display for the documentation in the sidebar.
-# You might want to include a version number here.
-# To not display any title, set this option to an empty string.
-html_title = ''
+with open('../version/version.go') as f:
+    match = re.search(r'RawVersion = "([^"]+)"', f.read())
+    version = match.group(1) if match else ''
+
+# Sidebar documentation title; best kept reasonably short
+# To disable the title, set to an empty string.
+html_title = project + ' documentation ' + version
 
 # The default value uses the current year as the copyright year.
 #
@@ -166,6 +170,8 @@ linkcheck_ignore = [
     'https://ceph.io',
     # Cloudflare protection on SourceForge domains often block linkcheck
     r"https://.*\.sourceforge\.(net|io)/.*",
+    # Ignore so that we can link change log in release notes before a release is ready
+    r"https://github\.com/canonical/microcloud/compare.*",
     ]
 
 # Pages on which to ignore anchors
@@ -232,14 +238,15 @@ custom_excludes = [
     'README.md'
     ]
 
-# Add CSS files (located in .sphinx/_static/)
+# Add CSS files (located in .sphinx/_static/ or from external link)
 custom_html_css_files = [
-    'cookie-banner.css',
+    'https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css',
 ]
 
-# Add JavaScript files (located in .sphinx/_static/)
+# Add JavaScript files (located in .sphinx/_static/ or from external link)
 custom_html_js_files = [
-    'js/bundle.js',]
+    'https://assets.ubuntu.com/v1/287a5e8f-bundle.js',
+]
 
 ## The following settings override the default configuration.
 

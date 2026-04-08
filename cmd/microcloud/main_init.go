@@ -43,9 +43,6 @@ const DefaultAutoSessionTimeout time.Duration = 10 * time.Minute
 // DefaultSessionTimeout is the default time limit for the trust establishment session.
 const DefaultSessionTimeout time.Duration = 60 * time.Minute
 
-// LXDInitializationTimeout is the time limit for LXD initialization for microcloud.
-const LXDInitializationTimeout time.Duration = 1 * time.Minute
-
 // InitSystem represents the configuration passed to individual systems that join via the Handler.
 type InitSystem struct {
 	// ServerInfo contains the data reported about this system.
@@ -318,6 +315,11 @@ func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	uiAccessLink, err := c.askInitialUIAccessLink(s)
+	if err != nil {
+		return err
+	}
+
 	err = c.validateSystems(s)
 	if err != nil {
 		return err
@@ -331,6 +333,15 @@ func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 	if c.setupMany {
 		reverter.Success()
 	}
+
+	if uiAccessLink != "" {
+		fmt.Println()
+		fmt.Println("UI initial access link (expires in 1 day):")
+		fmt.Println(uiAccessLink)
+		fmt.Println()
+	}
+
+	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 
 	return nil
 }
@@ -686,13 +697,18 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	for _, network := range system.Networks {
+		// If no device is set, allow each network.
+		// If OVN is present allow it to overwrite any existing network as it takes precedence.
 		if network.Name == service.DefaultOVNNetwork || profile.Devices["eth0"] == nil {
 			profile.Devices["eth0"] = map[string]string{"name": "eth0", "network": network.Name, "type": "nic"}
 		}
 	}
 
 	for _, pool := range system.StoragePools {
-		if pool.Driver == "ceph" || profile.Devices["root"] == nil {
+		// If no device is set, allow each pool managed by MicroCloud except CephFS ("local" using ZFS or "remote" using Ceph).
+		// If CephFS is enabled, ensure we don't replace the profile's root device with the CephFS pool
+		// as we always want to use a pool which allows the creation of all types of volumes.
+		if pool.Driver == "ceph" || (profile.Devices["root"] == nil && pool.Driver == "zfs") {
 			profile.Devices["root"] = map[string]string{"path": "/", "pool": pool.Name, "type": "disk"}
 		}
 	}
@@ -936,11 +952,19 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 		}
 
 		for _, network := range system.Networks {
-			_ = lxdClient.DeleteNetwork(network.Name)
+			op, err := lxdClient.DeleteNetwork(network.Name)
+			if err == nil {
+				// Network deletion is asynchronous; wait for completion before proceeding.
+				_ = op.Wait()
+			}
 		}
 
 		for _, pool := range system.StoragePools {
-			_ = lxdClient.DeleteStoragePool(pool.Name)
+			op, err := lxdClient.DeleteStoragePool(pool.Name)
+			if err == nil {
+				// Storage pool deletion is asynchronous; wait for completion before proceeding.
+				_ = op.Wait()
+			}
 		}
 	})
 
@@ -951,17 +975,38 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			return err
 		}
 
+		// Populate the server info cache so that HasExtension works correctly.
+		// Without this, a fresh client has server == nil, which causes HasExtension
+		// to return true for any extension, including storage_and_network_operations,
+		// even on older LXD servers that don't support it. That causes async operations
+		// to call queryOperation, which fails when the server returns a 200 sync response
+		// (no real operation ID to wait on).
+		_, _, err = lxdClient.GetServer()
+		if err != nil {
+			return err
+		}
+
 		targetClient := lxdClient.UseTarget(name)
 
 		for _, pool := range system.TargetStoragePools {
-			err = targetClient.CreateStoragePool(pool)
+			op, err := targetClient.CreateStoragePool(pool)
+			if err == nil {
+				// Storage pool creation is asynchronous; wait for completion before proceeding.
+				err = op.Wait()
+			}
+
 			if err != nil {
 				return err
 			}
 		}
 
 		for _, network := range system.TargetNetworks {
-			err = targetClient.CreateNetwork(network)
+			op, err := targetClient.CreateNetwork(network)
+			if err == nil {
+				// Network creation is asynchronous; wait for completion before proceeding.
+				err = op.Wait()
+			}
+
 			if err != nil {
 				return err
 			}
@@ -976,21 +1021,36 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			continue
 		}
 
-		err = lxdClient.CreateStoragePool(pool)
+		op, err := lxdClient.CreateStoragePool(pool)
+		if err == nil {
+			// Storage pool creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
 	}
 
 	if cephFSPool.Driver != "" {
-		err = lxdClient.CreateStoragePool(cephFSPool)
+		op, err := lxdClient.CreateStoragePool(cephFSPool)
+		if err == nil {
+			// Storage pool creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, network := range system.Networks {
-		err = lxdClient.CreateNetwork(network)
+		op, err := lxdClient.CreateNetwork(network)
+		if err == nil {
+			// Network creation is asynchronous; wait for completion before proceeding.
+			err = op.Wait()
+		}
+
 		if err != nil {
 			return err
 		}
@@ -1028,10 +1088,10 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			poolNames = append(poolNames, pool.Name)
 		}
 
-		// When joining the selected system, it can grow either the local or remote storage pool.
+		// When joining the selected system, it grows the local storage pool.
 		// In this case add the pool's name to the list of available storage pools.
 		for _, cfg := range system.JoinConfig {
-			if cfg.Name == "local" || cfg.Name == "remote" {
+			if cfg.Name == "local" {
 				if cfg.Entity == "storage-pool" && cfg.Key == "source" {
 					poolNames = append(poolNames, cfg.Name)
 				}
@@ -1096,8 +1156,6 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 	}
 
 	reverter.Success()
-
-	fmt.Println(tui.SuccessColor("MicroCloud is ready", true))
 
 	return nil
 }
