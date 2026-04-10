@@ -19,16 +19,16 @@ At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD clus
 
 MicroCloud sets up a LXD cluster. You can use the {command}`microcloud cluster` command to show information about the cluster members, or to remove specific members.
 
-Apart from that, you can use LXD commands to manage the cluster. In the LXD documentation, see {ref}`lxd:clustering` for how-to guides on cluster management, or {ref}`lxd:exp-clusters` for an explanation of LXD clusters.
+Apart from that, you can use LXD commands to manage the cluster. In the LXD documentation, refer to {ref}`lxd:clustering` for how-to guides on cluster management, or {ref}`lxd:exp-clusters` for an explanation of LXD clusters.
 
 (exp-microcloud-microovn)=
 ## MicroOVN networking
 
 By default, MicroCloud uses MicroOVN for networking, which is a minimal wrapper around OVN (Open Virtual Network).
 
-- For an overview of MicroCloud networking with OVN, see: {ref}`exp-networking`.
-- For networking requirements, see: {ref}`reference-requirements-network`.
-- To learn how to use a dedicated underlay network, see: {ref}`howto-ovn-underlay`.
+- For an overview of MicroCloud networking with OVN, refer to {ref}`exp-networking`.
+- For networking requirements, refer to {ref}`reference-requirements-network`.
+- To learn how to use a dedicated underlay network, refer to {ref}`howto-ovn-underlay`.
 
 (exp-microcloud-storage)=
 ## Storage
@@ -52,7 +52,7 @@ To use distributed storage, you must have at least three disks (attached to at l
 
 You can securely access a browser-based graphical UI for managing your MicroCloud deployment.
 
-For details, see: {ref}`howto-ui`.
+For details, refer to {ref}`howto-ui`.
 
 ```{admonition} Other client interfaces
 :class: tip
@@ -66,7 +66,7 @@ MicroCloud is designed to be replicable at scale, enabling you to create consist
 
 Once deployed, each MicroCloud component (LXD, MicroCeph, MicroOVN) is designed to scale horizontally, meaning you can add more machines to increase capacity, performance, and redundancy. When new cluster members are added, these components automatically integrate them as control plane, storage, and networking peers without requiring manual reconfiguration. This includes {doc}`automatic failure domain adjustment <microceph:explanation/cluster-scaling>` for MicroCeph.
 
-Furthermore, MicroCloud's snap-based updates help keep deployments consistent at scale. By updating cluster members to the latest version available on the LTS snap channel, you can ensure that all machines are using the same version with the latest security updates and bugfixes. See: {ref}`ref-releases-snaps`.
+Furthermore, MicroCloud's snap-based updates help keep deployments consistent at scale. By updating cluster members to the latest version available on the LTS snap channel, you can ensure that all machines are using the same version with the latest security updates and bugfixes. Refer to {ref}`ref-releases-snaps` to learn more.
 
 (exp-microcloud-ha)=
 ## High availability
@@ -75,9 +75,9 @@ MicroCloud achieves high availability (HA) through its distributed architecture:
 
 LXD provides control plane HA by allowing each cluster member to manage the cluster. If one member goes down, another can serve requests in its place. For data plane HA, LXD also provides automatic {ref}`cluster healing <lxd:cluster-healing>`. For more information, refer to the LXD documentation on {ref}`lxd:clusters-high-availability`.
 
-Using distributed storage with MicroCeph means that data is replicated across the cluster, so even if one member goes offline, its data remains available on others. Ceph's {doc}`Controlled Replication Under Scalable Hashing (CRUSH) algorithm <ceph:rados/operations/crush-map>` automatically redistributes data when parts of the system fail, maintaining availability. Also see: the {ref}`MicroCloud storage requirements for high availability <reference-requirements-storage-ha>` and the {doc}`MicroCeph documentation on its failure domain management <microceph:explanation/cluster-scaling>`.
+Using distributed storage with MicroCeph means that data is replicated across the cluster, so even if one member goes offline, its data remains available on others. Ceph's {doc}`Controlled Replication Under Scalable Hashing (CRUSH) algorithm <ceph:rados/operations/crush-map>` automatically redistributes data when parts of the system fail, maintaining availability. For more information, refer to the {ref}`MicroCloud storage requirements for high availability <reference-requirements-storage-ha>` and the {doc}`MicroCeph documentation on its failure domain management <microceph:explanation/cluster-scaling>`.
 
-MicroOVN brings a distributed overlay network, meaning that switching and routing functions are not centralized on any single cluster member. Each member hosts its own virtual switch, avoiding a single point of failure for internal, intra-cluster traffic: every member can continue forwarding packets even if others are offline. External connectivity relies on a virtual router that is active on one member at a time; if that member fails, another takes over to keep uplink connectivity available. For more information, see: {ref}`exp-networking-ovn`.
+MicroOVN brings a distributed overlay network, meaning that switching and routing functions are not centralized on any single cluster member. Each member hosts its own virtual switch, avoiding a single point of failure for internal, intra-cluster traffic: every member can continue forwarding packets even if others are offline. External connectivity relies on a virtual router that is active on one member at a time; if that member fails, another takes over to keep uplink connectivity available. For more information, refer to {ref}`exp-networking-ovn`.
 
 (exp-microcloud-access-control)=
 ## Fine-grained access control and multi-tenancy

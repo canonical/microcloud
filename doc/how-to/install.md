@@ -19,7 +19,7 @@ A physical or virtual machine intended for use as a MicroCloud cluster member mu
 - Networking:
   - Fixed IP addresses (DHCP not supported)
   - At least two network interfaces per cluster member: one for intra-cluster communication and one for external connectivity to the uplink network
-    - Partially or fully disaggregated networking setups require more interfaces; see: {ref}`howto-ceph-networking`
+    - Partially or fully disaggregated networking setups require more interfaces; refer to {ref}`howto-ceph-networking` to learn more
     - To use a {ref}`dedicated underlay network for OVN traffic <exp-networking-ovn-underlay>`, an additional interface per cluster member is required
   - Uplink network must support both broadcast and multicast
   - Intra-cluster interface must have IPs assigned; external connectivity interface (to uplink) must not have any IPs assigned
@@ -47,7 +47,7 @@ These requirements are in addition to those listed in the General tab.
 - Memory:
   - Minimum 8 GiB RAM per cluster member
 - Networking:
-  - It is possible to use a single network interface per cluster member. However, such a configuration is neither supported nor recommended. For details, see: {ref}`reference-requirements-network-interface-single`.
+  - It is possible to use a single network interface per cluster member. However, such a configuration is neither supported nor recommended. For details, refer to {ref}`reference-requirements-network-interface-single`.
 - Storage:
   - If high availability is required, use distributed storage with:
     - a minimum of 3 cluster members
@@ -79,7 +79,7 @@ These requirements are in addition to those listed in the General tab.
 ````
 `````
 
-For detailed information, see: {ref}`reference-requirements`.
+For detailed information, refer to {ref}`reference-requirements`.
 
 ## Installation
 
@@ -90,7 +90,7 @@ Install all required {ref}`snaps <reference-requirements-software-snaps>` on eac
 
 ```{admonition} Snap channels
 :class: note
-The snap channels shown below install the current {ref}`feature release <ref-releases-microcloud-feature>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current LTS release <ref-releases-microcloud-lts>` of MicroCloud instead, see the [install guide for that version](https://documentation.ubuntu.com/microcloud/v2/microcloud/how-to/install/).
+The snap channels shown below install the current {ref}`feature release <ref-releases-microcloud-feature>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current LTS release <ref-releases-microcloud-lts>` of MicroCloud instead, refer to the [install guide for that version](https://documentation.ubuntu.com/microcloud/v2/microcloud/how-to/install/).
 ```
 
 ```bash
@@ -143,7 +143,7 @@ A channel includes both a {ref}`track <ref-snaps-microcloud-tracks>` (such as `3
 
 MicroCloud's component snaps must use tracks that correspond to the same MicroCloud release within the {ref}`matrix of compatible versions <ref-releases-matrix>`. 
 
-For production deployments, use the `stable` risk level for all snaps. For testing or development, you might use a different risk level for some snaps. See {ref}`ref-snaps-microcloud-risk` for more information.
+For production deployments, use the `stable` risk level for all snaps. For testing or development, you might use a different risk level for some snaps. Refer to {ref}`ref-snaps-microcloud-risk` for more information.
 
 To specify a different channel, use the `--channel` flag at installation:
 
@@ -159,9 +159,9 @@ sudo snap install lxd --cohort="+" --channel=6/edge
 
 Even if the risk level for a snap differs from the other snaps, the same channel must be used for that snap on all cluster members. For example, if you use the `6/edge` channel for the LXD snap, then _all_ cluster members must use that channel for the LXD snap.
 
-For details about the MicroCloud snap channels, see: {ref}`ref-snaps-microcloud-channels`.
+For details about the MicroCloud snap channels, refer to {ref}`ref-snaps-microcloud-channels`.
 
 (howto-install-hold-updates)=
 ## Hold updates
 
-When a new release is published to a snap channel, installed snaps following that channel update automatically by default. This is undesired behavior for MicroCloud and its components, and you should override this default behavior by holding updates. See: {ref}`howto-update-hold`.
+When a new release is published to a snap channel, installed snaps following that channel update automatically by default. This is undesired behavior for MicroCloud and its components, and you should override this default behavior by holding updates. Refer to {ref}`howto-update-hold` for details.
