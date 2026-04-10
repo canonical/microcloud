@@ -1,7 +1,7 @@
 (howto-support)=
 # How to get support
 
-For information about supported and compatible releases of MicroCloud and its components, see: {ref}`ref-releases-matrix`.
+Refer to {ref}`ref-releases-matrix` for the matrix of compatible releases across MicroCloud and its components.
 
 ## Community support
 
@@ -27,5 +27,5 @@ You can find additional resources on the [MicroCloud website](https://canonical.
 
 LTS releases of MicroCloud receive standard support for five years, which means they receive continuous updates. Commercial support for MicroCloud is provided as part of [Ubuntu Pro](https://ubuntu.com/pro) (both Infra-only and full Ubuntu Pro). See the [full service description](https://ubuntu.com/legal/ubuntu-pro-description) for details.
 
-Managed solutions and firefighting support are also available for MicroCloud deployments. See: [Managed services](https://ubuntu.com/managed).
+Managed solutions and firefighting support are also available for MicroCloud deployments. Visit [Managed services](https://ubuntu.com/managed) for details.
 

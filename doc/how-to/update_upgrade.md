@@ -1,7 +1,7 @@
 (howto-update-upgrade)=
 # How to update and upgrade
 
-The snaps for MicroCloud, LXD, MicroCeph, and MicroOVN installed on MicroCloud cluster members must always run the same version of each snap. Thus, when the snaps on any cluster member are refreshed, they must also be refreshed on all other cluster members. See {ref}`howto-update-upgrade-order` for the recommended order.
+The snaps for MicroCloud, LXD, MicroCeph, and MicroOVN installed on MicroCloud cluster members must always run the same version of each snap. Thus, when the snaps on any cluster member are refreshed, they must also be refreshed on all other cluster members. Refer to {ref}`howto-update-upgrade-order` for the recommended order.
 
 If the cluster members' snaps are not synchronized, MicroCloud continues to function as normal in regards to its data plane. However, the configuration of its control plane cannot be altered. For example, you cannot add or remove cluster members or instances. To prevent automatic updates from causing snaps to run different versions, make sure to always {ref}`hold updates <howto-update-hold>` as well as {ref}`synchronize updates using the cohort flag <howto-update-sync>`.
 
@@ -10,12 +10,12 @@ Performing an update or upgrade requires going through the list of snaps one aft
 (howto-update-upgrade-backup)=
 ## Back up data
 Before performing an update or upgrade, make sure to back up your data to prevent any data loss in case of failure.
-See the following backup guides for each of the snaps:
+Consult the following backup guides for each of the snaps:
 
 * {doc}`How to back up MicroCeph <microceph:explanation/taking-snapshots>`
 * {ref}`How to back up LXD <lxd:backups>`
 
-In case of error, see {ref}`howto-recover` for troubleshooting details.
+In case of error, refer to {ref}`howto-recover` for troubleshooting details.
 
 (howto-update-upgrade-running-instances)=
 ## Keep instances running during an update or upgrade
@@ -27,12 +27,12 @@ For the LXD snap, this won't affect the running instances. However, for the Micr
 To avoid such possible effects entirely, use the live migration approach described below when updating or upgrading the MicroCeph and MicroOVN snaps.
 
 - Use virtual machines (VMs) instead of system containers for crucial workloads; in general, containers cannot be live-migrated.
-- Each VM must be pre-configured for live migration. See: {ref}`lxd:live-migration` for information on the required configurations.
+- Each VM must be pre-configured for live migration. Refer to {ref}`lxd:live-migration` for information on the required configurations.
 - Before you update or upgrade a cluster member, use the {ref}`cluster evacuate <lxd:cluster-evacuate>` operation to migrate all instances on the host to other members in the same cluster.
 - Once the update or upgrade is complete, use the {ref}`cluster restore <lxd:cluster-restore>` operation to migrate all evacuated instances back to the original host.
 - The evacuate and restore operations can live-migrate any VMs that are configured to allow it. If any instances on the cluster member are ineligible for live migration (such as a container, or a VM that is not configured for live migration), then during both evacuation and restoration, those instances are stopped, migrated, and restarted.
 
-For more information on the cluster evacuate and restore operations, see: {ref}`lxd:cluster-evacuate-restore`.
+For more information on the cluster evacuate and restore operations, refer to {ref}`lxd:cluster-evacuate-restore`.
 
 (howto-update-upgrade-order)=
 ## Update and upgrade order
@@ -49,7 +49,7 @@ Update the same component's snap on all cluster members before moving to the nex
 (howto-update-sync)=
 ## Synchronize updates using the cohort flag
 
-Even with manual snap updates, versions can fall out of sync; see {ref}`ref-snaps-updates` for details.
+Even with manual snap updates, versions can fall out of sync; refer to {ref}`ref-snaps-updates` for details.
 
 To ensure synchronized updates, the `--cohort="+"` flag must be set on all cluster members. You only need to set this flag once per snap on each cluster member, either during {ref}`installation <howto-install>`, or the first time you {ref}`perform a manual update <howto-update>`.
 
@@ -120,7 +120,7 @@ For detailed information about holds, see: [Pause or stop automatic updates](htt
 ```{admonition} Users of the 1 track
 :class: important
 The `1` MicroCloud track reached {abbr}`EOL (End of Life)` at the end of April 2025.
-If you use this track, make sure to upgrade to the `2` LTS track, as no further updates will be released to the `1` track. See the {ref}`howto-upgrade` guide below for more information. Specific command syntax is provided in {ref}`howto-upgrade-microcloud-full-example`.
+If you use this track, make sure to upgrade to the `2` LTS track, as no further updates will be released to the `1` track. Refer to the {ref}`howto-upgrade` guide below for more information. Specific command syntax is provided in {ref}`howto-upgrade-microcloud-full-example`.
 ```
 
 Updating MicroCloud allows access to the latest set of features and fixes in the tracked channels for the various snaps. During an update, snaps are refreshed to the most up-to-date version for their tracked channel. This does not introduce breaking changes.
@@ -178,7 +178,7 @@ sudo microcloud status
 
 ```{note}
 The status command was introduced in MicroCloud version 2.
-See {ref}`howto-upgrade` on how to upgrade to another track.
+Refer to {ref}`howto-upgrade` on how to upgrade to another track.
 ```
 
 (howto-upgrade)=
@@ -188,7 +188,7 @@ Upgrading MicroCloud means to switch to a newer track with major improvements an
 
 During an upgrade, the snaps channel will be switched to another track.
 This might introduce breaking changes for MicroCloud and its components and should be done with care.
-See {ref}`howto-update` for regular non-breaking updates.
+Refer to {ref}`howto-update` for regular non-breaking updates.
 
 Before you update, ensure that all snaps are {ref}`synchronized using the cohort flag <howto-update-sync>`. The `--cohort` flag is only necessary if the snap is not `in-cohort`.
 
@@ -249,7 +249,7 @@ sudo microcloud status
 
 Use the commands below to upgrade all components from MicroCloud 1 to MicroCloud 2.
 
-Omit the `--cohort="+"` flag if the MicroCeph snap is already `in-cohort`. If unsure, see: {ref}`howto-update-sync`.
+Omit the `--cohort="+"` flag if the MicroCeph snap is already `in-cohort`. If unsure, refer to {ref}`howto-update-sync`.
 
 First, upgrade MicroCeph on all cluster members, one by one:
 
