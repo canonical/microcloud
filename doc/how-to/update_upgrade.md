@@ -288,10 +288,10 @@ If you manage a large MicroCloud deployment and you need absolute control over w
 
 The Enterprise Store Proxy is a separate application that sits between the snap client command on your machines and the snap store. You can configure the Enterprise Store Proxy to make only specific snap revisions available for installation.
 
-See the [Enterprise Store Proxy documentation](https://documentation.ubuntu.com/enterprise-store/) for information about how to install and register the Enterprise Store Proxy.
+Visit the [Enterprise Store Proxy documentation](https://ubuntu.com/enterprise-store/docs/) for information about how to install and register the Enterprise Store Proxy.
 
 After setting it up, configure the snap clients on all cluster members to use the proxy.
-See [Configuring devices](https://documentation.ubuntu.com/enterprise-store/main/how-to/devices/) for instructions.
+Refer to [Configuring devices](https://ubuntu.com/enterprise-store/docs/how-to/devices/) for instructions.
 
 You can then configure the Enterprise Store Proxy to override the revisions for the snaps that are needed for MicroCloud:
 
