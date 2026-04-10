@@ -18,11 +18,12 @@ accessible in order to perform database operations. If a cluster has less than
 a quorum of voters up and accessible, then database operations will no longer
 be possible on the entire cluster.
 
-If the loss of quorum is temporary (e.g. some members temporarily lose power),
-database operations will be restored when the offline members come back online.
+If the loss of quorum is temporary (for example, some members temporarily lose
+power), database operations will be restored when the offline members come back
+online.
 
 This document describes how to recover database access if the offline members
-have been lost without the possibility of recovery (e.g. disk failure).
+have been lost without the possibility of recovery (for example, disk failure).
 
 ## Recovery procedure
 
