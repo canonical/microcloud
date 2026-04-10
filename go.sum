@@ -18,8 +18,6 @@ github.com/canonical/lxd v0.0.0-20260407090146-728dc14a0009 h1:zJHvm+pYtdEsHGXUy
 github.com/canonical/lxd v0.0.0-20260407090146-728dc14a0009/go.mod h1:niacuONElRVfOIpNItztZdfF0hllr1Mt89sUZZVYs2o=
 github.com/canonical/microceph/microceph v0.0.0-20250620092923-64d02d9538a8 h1:WJi+xVY9fd28VqDFZk4yUskVzAtSNAs2tGxKjdQjCZw=
 github.com/canonical/microceph/microceph v0.0.0-20250620092923-64d02d9538a8/go.mod h1:xM3IgZAWK6KCOvKEc2CDpZ6KwOooaHwxZ3DYFtTU2o4=
-github.com/canonical/microcluster/v2 v2.2.2 h1:aeec4I9xXkcIAGrSQo+nNvdoH/cD6kq6lYxesYKuBdE=
-github.com/canonical/microcluster/v2 v2.2.2/go.mod h1:aBWqPeUY39zfeAS+T3kaRLat137LhzjEbBCpBO8NkfA=
 github.com/canonical/microcluster/v2 v2.2.3 h1:ggPfBdKjttO85lz9qLAeC6HkLEdc/PdiBsoLqGJaJ5g=
 github.com/canonical/microcluster/v2 v2.2.3/go.mod h1:e87bIJRSbw3JwnU1Ve1xRs+DKXDEPYxD0dkbHKCjFjw=
 github.com/canonical/microovn/microovn v0.0.0-20260402092424-d03b5ab0168d h1:1huY95NQEWL/n8Z3KDOBsDo4rwCFOBBcCCd9vtkxIvs=
@@ -201,8 +199,8 @@ golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220408201424-a24fb2fb8a0f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.42.0 h1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=
-golang.org/x/sys v0.42.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
+golang.org/x/sys v0.43.0 h1:Rlag2XtaFTxp19wS8MXlJwTvoh8ArU6ezoyFsMyCTNI=
+golang.org/x/sys v0.43.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
 golang.org/x/term v0.41.0 h1:QCgPso/Q3RTJx2Th4bDLqML4W6iJiaXFq2/ftQF13YU=
 golang.org/x/term v0.41.0/go.mod h1:3pfBgksrReYfZ5lvYM0kSO0LIkAl4Yl2bXOkKP7Ec2A=
 golang.org/x/text v0.35.0 h1:JOVx6vVDFokkpaq1AEptVzLTpDe9KGpj5tR4/X+ybL8=
