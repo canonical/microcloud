@@ -27,37 +27,15 @@ jobs:
         with:
           ref: main
 
-      - name: Install Trivy
-        uses: canonical/lxd/.github/actions/install-trivy@main
-
-      - name: Download Trivy DB
-        id: db_download
-        run: trivy fs --download-db-only --cache-dir /home/runner/vuln-cache
-        continue-on-error: true
-
-      - name: Cache Trivy vulnerability database
-        if: ${{ steps.db_download.outcome == 'success' }}
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: /home/runner/vuln-cache
-          key: trivy-cache-${{ github.run_id }}
-
-      - name: Use previously downloaded database instead
-        if: ${{ steps.db_download.outcome == 'failure' }}
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: /home/runner/vuln-cache
-          key: download-failed # Use a non existing key to fallback to restore-keys
-          restore-keys: trivy-cache-
-
       - name: Run Trivy vulnerability scanner
-        run: |
-          trivy fs --skip-db-update \
-          --scanners vuln,secret,misconfig \
-          --format sarif \
-          --cache-dir /home/runner/vuln-cache \
-          --severity LOW,MEDIUM,HIGH,CRITICAL \
-          --output trivy-microcloud-repo-scan-results.sarif .
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          output: trivy-microcloud-repo-scan-results.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.29.5
@@ -86,16 +64,6 @@ jobs:
         with:
           ref: ${{ matrix.branch }}
 
-      - name: Install Trivy
-        uses: canonical/lxd/.github/actions/install-trivy@main
-
-      - name: Restore cached Trivy vulnerability database
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: /home/runner/vuln-cache
-          key: download-failed # Use a non existing key to fallback to restore-keys
-          restore-keys: trivy-cache-
-
       - name: Install snapd
         run: |
           sudo apt-get install --no-install-recommends -y snapd
@@ -106,13 +74,14 @@ jobs:
           unsquashfs ./microcloud*.snap
 
       - name: Run Trivy vulnerability scanner
-        run: |
-          trivy rootfs --skip-db-update \
-          --scanners vuln,secret,misconfig \
-          --format sarif \
-          --cache-dir /home/runner/vuln-cache \
-          --severity LOW,MEDIUM,HIGH,CRITICAL \
-          --output snap-scan-results.sarif squashfs-root
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: rootfs
+          scan-ref: squashfs-root
+          scanners: vuln,secret,misconfig
+          format: sarif
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          output: snap-scan-results.sarif
 
       - name: Flag snap scanning alerts
         run: |
