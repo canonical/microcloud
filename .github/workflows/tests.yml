@@ -293,7 +293,7 @@ jobs:
 
   doc-tests:
     name: Documentation
-    uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@main
+    uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@aaeaf091e8f55145184ad897cb9834f224bd31de # main
     with:
       working-directory: './doc'
       makefile: 'Makefile'
