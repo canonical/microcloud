@@ -16,17 +16,17 @@ runs:
   using: composite
   steps:
     - name: Tune disk performance
-      uses: canonical/lxd/.github/actions/tune-disk-performance@main
+      uses: canonical/lxd/.github/actions/tune-disk-performance@main # zizmor: ignore[unpinned-uses]
 
     - name: Reclaim some space
-      uses: canonical/lxd/.github/actions/reclaim-disk-space@main
+      uses: canonical/lxd/.github/actions/reclaim-disk-space@main # zizmor: ignore[unpinned-uses]
 
     - name: Reclaim some memory
-      uses: canonical/lxd/.github/actions/reclaim-memory@main
+      uses: canonical/lxd/.github/actions/reclaim-memory@main # zizmor: ignore[unpinned-uses]
 
     - name: Disable Docker (GitHub runners)
       if: ${{ runner.environment == 'github-hosted' }}
-      uses: canonical/lxd/.github/actions/disable-docker@main
+      uses: canonical/lxd/.github/actions/disable-docker@main # zizmor: ignore[unpinned-uses]
 
     - name: "Disable br_netfilter"
       shell: bash
