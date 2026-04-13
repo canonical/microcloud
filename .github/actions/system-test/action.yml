@@ -142,7 +142,7 @@ runs:
         export MICROCLOUD_SNAP_CHANNEL="${{ matrix.microcloud }}"
 
         cd test
-        if [ "${{ inputs.setup_testbed }}" = "false" ]; then
+        if [ "${INPUTS_SETUP_TESTBED}" = "false" ]; then
           echo "Skipping testbed setup"
         else
           sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh setup
@@ -153,6 +153,8 @@ runs:
         echo "MICROCEPH_SNAP_CHANNEL=${MICROCEPH_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
         echo "MICROOVN_SNAP_CHANNEL=${MICROOVN_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
         echo "MICROCLOUD_SNAP_CHANNEL=${MICROCLOUD_SNAP_CHANNEL}" >> "${GITHUB_ENV}"
+      env:
+        INPUTS_SETUP_TESTBED: ${{ inputs.setup_testbed }}
 
     - name: Setup Terraform
       if: ${{ inputs.setup_terraform == 'true' }}
@@ -172,7 +174,7 @@ runs:
         chmod +x ~
 
         # Handle coverage collection based on input
-        if [ "${{ inputs.collect_coverage }}" = "false" ]; then
+        if [ "${INPUTS_COLLECT_COVERAGE}" = "false" ]; then
           echo "Coverage collection disabled for this test"
           export GOCOVERDIR=''
         fi
@@ -180,6 +182,8 @@ runs:
         cd test
         sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
         echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
+      env:
+        INPUTS_COLLECT_COVERAGE: ${{ inputs.collect_coverage }}
 
     - name: Upload coverage data
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
