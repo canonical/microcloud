@@ -43,12 +43,13 @@ Use the same instructions to configure the OIDC client on the provider side for 
 
 - When creating the client application, use port `443` instead of `8443` as the listen port for the callback URL. `8443` is the default listen port for the LXD server; `443` is the default for the Cluster Manager.
 
-- When shown how to obtain certain values for adding via `lxc config`, note down the values only. Do not use `lxc config` to set them. You'll need the values that are used for the following configuration values in LXD:
+- When assigning OIDC roles to users in your identity provider, use `mcm-idp-groups` as the claim key. To access the Cluster Manager, users must belong to the `admins` group.
 
-- `oidc.issuer`
-- `oidc.client`
-- `oidc.audience`  (Auth0 only)
-- `oidc.client.secret` (Keycloak only)
+- When shown how to obtain certain values for adding via `lxc config`, note down the values only. Do not use `lxc config` to set them. You'll need the values that are used for the following configuration values in LXD:
+  - `oidc.issuer`
+  - `oidc.client`
+  - `oidc.audience` (Auth0 only)
+  - `oidc.client.secret` (Keycloak only)
 
 You will use these values later for Juju configuration.
 
@@ -63,7 +64,7 @@ First, add a new `cluster-manager` Juju [model](https://documentation.ubuntu.com
 juju add-model cluster-manager
 ```
 
-Deploy the [PostgreSQL K8s charm](https://charmhub.io/postgresql-k8s), the [Traefik K8s charm](https://charmhub.io/traefik-k8s), and the [MicroCloud Cluster Manager K8s charm](https://charmhub.io/microcloud-cluster-manager-k8s):
+Deploy the [PostgreSQL K8s](https://charmhub.io/postgresql-k8s), [Traefik K8s](https://charmhub.io/traefik-k8s), and [MicroCloud Cluster Manager K8s](https://charmhub.io/microcloud-cluster-manager-k8s) charms:
 
 ```bash
 juju deploy postgresql-k8s --channel 14/stable --trust
