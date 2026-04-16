@@ -51,7 +51,7 @@ integrate:
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microcloud/_static/
 	cp .sphinx/_integration/lxd.html integration/lxd/doc/_templates/header.html
-	cp .sphinx/_integration/header.css integration/lxd/doc/_static/
+	cp .sphinx/_integration/override-header.css integration/lxd/doc/_static/
 	cp .sphinx/_integration/microceph.html integration/microceph/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/override-header.css integration/microceph/docs/.sphinx/_static/
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
