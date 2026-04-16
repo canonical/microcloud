@@ -1,7 +1,7 @@
 # Links to other doc sets (used in the header)
 # All paths are relative to the URL of one doc set
-html_context['microcloud_path'] = "../microcloud"
-html_context['microcloud_tag'] = "../microcloud/_static/tag.png"
+html_context['microcloud_path'] = ".."
+html_context['microcloud_tag'] = "../_static/tag.png"
 html_context['lxd_path'] = "../lxd"
 html_context['lxd_tag'] = "../lxd/_static/tag.png"
 html_context['microceph_path'] = "../microceph"
