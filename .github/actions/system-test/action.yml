@@ -64,7 +64,7 @@ runs:
 
     - name: Sideload debug binaries
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env]
         set -eux
 
         # Binaries to sideload
@@ -83,7 +83,7 @@ runs:
 
     - name: "Free up the ephemeral disk"
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env]
         set -eux
 
         if ! mountpoint --quiet /mnt; then
@@ -131,7 +131,7 @@ runs:
 
     - name: "Prepare for system tests"
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env]
         set -eux
         chmod +x ~
 
@@ -169,7 +169,7 @@ runs:
 
     - name: "Run system tests (${{ matrix.suite }})"
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env]
         set -eux
         chmod +x ~
 
