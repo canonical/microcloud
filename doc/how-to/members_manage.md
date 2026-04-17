@@ -1,7 +1,7 @@
 (howto-members-manage)=
 # How to manage MicroCloud cluster members
 
-The how-to guides in this section provide instructions for managing MicroCloud cluster members, which can be physical or virtual machines. These include how to add, remove, and shut down cluster members.
+Follow these guides to add cluster members interactively or with a preseed configuration file, and to safely remove or shut down cluster members.
 
 ```{toctree}
 :maxdepth: 1
