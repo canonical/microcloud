@@ -1102,4 +1102,4 @@ Now that your MicroCloud is up and running, you can start using it! If you're al
 
 If you're new to LXD, check out the {ref}`LXD tutorial <lxd:tutorial-first-steps>` to familiarize yourself with what you can do in LXD. It guides you through common initial operations in LXD, using either the CLI or a web-based graphical UI. Skip the first section about installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.
 
-Keep in mind that the MicroCloud cluster you created using virtual machines as cluster members in this tutorial is not intended for production use. Follow {ref}`tutorial-multi` if you want to try setting up MicroCloud on a physical machine.
+Keep in mind that the MicroCloud cluster you created using virtual machines as cluster members in this tutorial is not intended for production use. Follow {ref}`tutorial-single` if you want to try setting up MicroCloud on a physical machine.
