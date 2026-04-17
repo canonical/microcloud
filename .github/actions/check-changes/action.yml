@@ -17,13 +17,13 @@ runs:
       run: |
         changes=""
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "Checking pull request changes between HEAD and origin/${{ github.base_ref }}"
+          echo "Checking pull request changes between HEAD and origin/${GITHUB_BASE_REF}"
 
-          changes="$(git diff 'origin/${{ github.base_ref }}..HEAD' --name-only '${{ inputs.glob }}')"
+          changes="$(git diff "origin/${GITHUB_BASE_REF}..HEAD" --name-only "${INPUTS_GLOB}")"
         else
           echo "Checking changes made by the last (merge) commit"
 
-          changes="$(git diff HEAD^ --name-only '${{ inputs.glob }}')"
+          changes="$(git diff HEAD^ --name-only "${INPUTS_GLOB}")"
         fi
 
         if [ "$changes" != "" ]; then
@@ -34,3 +34,5 @@ runs:
         else
           echo "changes=false" >> "$GITHUB_OUTPUT"
         fi
+      env:
+        INPUTS_GLOB: ${{ inputs.glob }}

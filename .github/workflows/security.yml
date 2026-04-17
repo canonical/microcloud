@@ -6,7 +6,9 @@ on:
 
 permissions:
   contents: read
-  security-events: write # for uploading SARIF results to the security tab
+
+env:
+  KEV_URL: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -19,109 +21,123 @@ defaults:
 jobs:
   trivy-repo:
     name: Trivy - Repository
-    runs-on: ubuntu-slim
-    if: ${{ github.ref_name == 'main' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write # for uploading SARIF results to the security tab
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository_owner == 'canonical' }}
+    env:
+      SARIF_FILE: trivy-${{ github.event.repository.name }}-repo-scan-results.sarif
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
-
-      - name: Install Trivy
-        uses: canonical/lxd/.github/actions/install-trivy@main
-
-      - name: Download Trivy DB
-        id: db_download
-        run: trivy fs --download-db-only --cache-dir /home/runner/vuln-cache
-        continue-on-error: true
-
-      - name: Cache Trivy vulnerability database
-        if: ${{ steps.db_download.outcome == 'success' }}
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: /home/runner/vuln-cache
-          key: trivy-cache-${{ github.run_id }}
-
-      - name: Use previously downloaded database instead
-        if: ${{ steps.db_download.outcome == 'failure' }}
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: /home/runner/vuln-cache
-          key: download-failed # Use a non existing key to fallback to restore-keys
-          restore-keys: trivy-cache-
+          persist-credentials: false
 
       - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          output: ${{ env.SARIF_FILE }}
+
+      - name: Tag KEV alerts
         run: |
-          trivy fs --skip-db-update \
-          --scanners vuln,secret,misconfig \
-          --format sarif \
-          --cache-dir /home/runner/vuln-cache \
-          --severity LOW,MEDIUM,HIGH,CRITICAL \
-          --output trivy-microcloud-repo-scan-results.sarif .
+            set -euo pipefail
+            curl -s --compressed --proto '=https' --tlsv1.3 --fail --max-time 30 -o kev.json "${KEV_URL}"
+            kev_ids="$(jq -r '.vulnerabilities[].cveID' kev.json)"
+            jq --exit-status --arg ids "$kev_ids" '($ids | split("\n")) as $id_list | .runs[].tool.driver.rules[] |= (
+              if (.id as $id | $id_list | index($id)) then
+                .shortDescription.text |= . + " (KEV)"
+              else
+                .
+              end
+            )' "${SARIF_FILE}" > trivy-modified.sarif
+            mv trivy-modified.sarif "${SARIF_FILE}"
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.29.5
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         with:
-          sarif_file: "trivy-microcloud-repo-scan-results.sarif"
+          sarif_file: ${{ env.SARIF_FILE }}
           sha: ${{ github.sha }}
           ref: refs/heads/main
 
   trivy-snap:
     name: Trivy - Snap
-    runs-on: ubuntu-slim
-    if: ${{ github.ref_name == 'main' }}
+    runs-on: ubuntu-24.04
     needs: trivy-repo
+    permissions:
+      contents: read
+      security-events: write # for uploading SARIF results to the security tab
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository_owner == 'canonical' }}
     strategy:
       matrix:
         include:
           - channel: "3/edge"
             branch: "main"
+            version: "3"
           - channel: "2/stable"
             branch: "v2-edge"
+            version: "2"
           - channel: "1/stable"
             branch: "v1-edge"
+            version: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ matrix.branch }}
+          persist-credentials: false
 
-      - name: Install Trivy
-        uses: canonical/lxd/.github/actions/install-trivy@main
-
-      - name: Restore cached Trivy vulnerability database
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: /home/runner/vuln-cache
-          key: download-failed # Use a non existing key to fallback to restore-keys
-          restore-keys: trivy-cache-
-
-      - name: Install snapd
-        run: |
-          sudo apt-get install --no-install-recommends -y snapd
+      - name: Resolve branch HEAD SHA
+        id: branch-sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Download snap for scan
+        env:
+          SNAP_NAME: ${{ github.event.repository.name }}
         run: |
-          snap download microcloud --channel=${{ matrix.channel }}
-          unsquashfs ./microcloud*.snap
+          snap download "${SNAP_NAME}" --channel=${{ matrix.version }}/stable --cohort="+"
+          unsquashfs ./${SNAP_NAME}*.snap
 
       - name: Run Trivy vulnerability scanner
-        run: |
-          trivy rootfs --skip-db-update \
-          --scanners vuln,secret,misconfig \
-          --format sarif \
-          --cache-dir /home/runner/vuln-cache \
-          --severity LOW,MEDIUM,HIGH,CRITICAL \
-          --output snap-scan-results.sarif squashfs-root
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: rootfs
+          scan-ref: squashfs-root
+          scanners: vuln,secret,misconfig
+          format: sarif
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          output: ${{ matrix.version }}-stable.sarif
 
-      - name: Flag snap scanning alerts
+      - name: Flag snap scanning alerts and tag KEV alerts
         run: |
-          jq '.runs[].tool.driver.rules[] |= (.shortDescription.text |= "Snap scan - " + .)' snap-scan-results.sarif > tmp.json
-          mv tmp.json snap-scan-results.sarif
+          set -euo pipefail
+          # Download KEV catalog
+          curl -s --compressed --proto '=https' --tlsv1.3 --fail --max-time 30 -o kev.json "${KEV_URL}"
+          kev_ids="$(jq -r '.vulnerabilities[].cveID' kev.json)"
+          # Modify the SARIF file to both add "Snap scan - " prefix and tag KEV alerts
+          jq --exit-status --arg ids "$kev_ids" '
+            ($ids | split("\n")) as $id_list |
+            .runs[].tool.driver.rules[] |= (
+              # First add the Snap scan prefix to all entries
+              .shortDescription.text = "Snap scan - " + .shortDescription.text |
+              # Then add KEV tag if applicable
+              if (.id as $id | $id_list | index($id)) then
+                .shortDescription.text |= . + " (KEV)"
+              else
+                .
+              end
+            )' ${{ matrix.version }}-stable.sarif > ${{ matrix.version }}-modified.sarif
+          mv ${{ matrix.version }}-modified.sarif ${{ matrix.version }}-stable.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.29.5
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         with:
-          sarif_file: "snap-scan-results.sarif"
-          sha: ${{ github.sha }}
+          sarif_file: ${{ matrix.version }}-stable.sarif
+          sha: ${{ steps.branch-sha.outputs.sha }}
           ref: refs/heads/${{ matrix.branch }}
