@@ -721,6 +721,6 @@ You should now see the LXD UI prompting you to set up a certificate. Follow the 
 
 To learn how to add more physical machines as cluster members to your MicroCloud, refer to {ref}`howto-member-add`.
 
-Consult {ref}`howto-commands` for a reference of the most common commands.
+Consult {ref}`ref-commands` for a reference of the most common commands.
 
 If you're new to LXD, check out the {ref}`LXD tutorials <lxd:first-steps>` to familiarize yourself with what you can do in LXD. You can skip the sections for installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.

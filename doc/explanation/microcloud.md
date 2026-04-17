@@ -56,7 +56,7 @@ For details, refer to {ref}`howto-ui`.
 
 ```{admonition} Other client interfaces
 :class: tip
-You can also manage MicroCloud through the {ref}`command line <howto-commands>` or LXD's {ref}`lxd:rest-api`.
+You can also manage MicroCloud through the {ref}`command line <ref-commands>` or LXD's {ref}`lxd:rest-api`.
 ```
 
 (exp-microcloud-scale)=

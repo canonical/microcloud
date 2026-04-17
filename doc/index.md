@@ -13,7 +13,7 @@ Deploy a low-touch, open source cloud platform in minutes with MicroCloud.
 
 MicroCloud creates a lightweight cluster of machines that operates as a scalable private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the [MicroCloud snap](https://snapcraft.io/microcloud) for {ref}`reproducible, scalable deployments <exp-microcloud-scale>`.
 
-With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from {ref}`high availability <exp-microcloud-ha>`, {ref}`streamlined security updates <ref-releases-snaps>`, and {ref}`fine-grained access control for multi-tenancy <exp-microcloud-access-control>`. Cluster members can run {ref}`full virtual machines or lightweight system containers <exp-microcloud-vms-containers>` with bare-metal performance. Manage it through your choice of client interfaces, including a {ref}`graphical UI <howto-ui>` and {ref}`CLI <howto-commands>`.
+With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from {ref}`high availability <exp-microcloud-ha>`, {ref}`streamlined security updates <ref-releases-snaps>`, and {ref}`fine-grained access control for multi-tenancy <exp-microcloud-access-control>`. Cluster members can run {ref}`full virtual machines or lightweight system containers <exp-microcloud-vms-containers>` with bare-metal performance. Manage it through your choice of client interfaces, including a {ref}`graphical UI <howto-ui>` and {ref}`CLI <ref-commands>`.
 
 MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
 
