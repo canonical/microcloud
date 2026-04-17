@@ -88,7 +88,7 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 
 		daemonVersion = semver.Canonical("v" + match)
 		expectedVersion := semver.Canonical("v" + microCephMinVersion)
-		if semver.Compare(semver.MajorMinor(daemonVersion), semver.MajorMinor(expectedVersion)) != 0 {
+		if semver.Compare(semver.MajorMinor(daemonVersion), semver.MajorMinor(expectedVersion)) == -1 {
 			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
 		}
 	}
