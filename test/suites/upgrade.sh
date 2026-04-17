@@ -169,7 +169,8 @@ ceph:
     fi
 
     for m in micro01 micro02 micro03; do
-      validate_system_microceph "${m}" 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
+      # As we are testing with an older version of MicroCeph using Microcluster v2, use the old SQL endpoint.
+      MICROCEPH_SQL_ENDPOINT="core/internal/sql" validate_system_microceph "${m}" 1 "${disks_encrypted}" "${ceph_cluster_subnet_prefix}.0/24" "${ceph_public_subnet_prefix}.0/24" disk2 "${disks_encrypted_list}"
     done
 
     # Second upgrade MicroOVN.
