@@ -111,12 +111,6 @@ func (s *versionSuite) Test_validateVersions() {
 			expectErr: true,
 		},
 		{
-			desc:      "Unsupported MicroCeph with larger major version",
-			version:   "ceph-version: 999.0.0~git",
-			service:   types.MicroCeph,
-			expectErr: true,
-		},
-		{
 			desc:      "Unsupported MicroCeph with smaller major version",
 			version:   "ceph-version: 1.0.0~git",
 			service:   types.MicroCeph,
@@ -133,6 +127,12 @@ func (s *versionSuite) Test_validateVersions() {
 			desc:      "Supported MicroOVN with larger major version",
 			version:   "25.09",
 			service:   types.MicroOVN,
+			expectErr: false,
+		},
+		{
+			desc:      "Supported MicroCeph with larger major version",
+			version:   "ceph-version: 20.2.0-0ubuntu0.24.04.1~bpo24.04.1~ppa202602041400; microceph-git: e6eb74a064",
+			service:   types.MicroCeph,
 			expectErr: false,
 		},
 	}
