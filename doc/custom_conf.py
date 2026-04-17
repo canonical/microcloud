@@ -142,7 +142,7 @@ html_baseurl = 'https://documentation.ubuntu.com/microcloud/'
 # based on the version if built in RTD
 if 'READTHEDOCS_VERSION' in os.environ:
     rtd_version = os.environ["READTHEDOCS_VERSION"]
-    sitemap_url_scheme = f'{rtd_version}/microcloud/{{link}}'
+    sitemap_url_scheme = f'{rtd_version}/{{link}}'
 else:
     sitemap_url_scheme = '{link}'
 
@@ -303,9 +303,15 @@ rst_prolog = '''
 
 if not ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     exec(compile(source=open('.sphinx/_integration/add_config.py').read(), filename='.sphinx/_integration/add_config.py', mode='exec'))
+    # MicroCloud docs are at the URL root, so override the relative paths to sibling doc sets
+    html_context['lxd_path'] = "lxd"
+    html_context['lxd_tag'] = "lxd/_static/tag.png"
+    html_context['microceph_path'] = "microceph"
+    html_context['microceph_tag'] = "microceph/_static/tag.png"
+    html_context['microovn_path'] = "microovn"
+    html_context['microovn_tag'] = "microovn/_static/microovn.png"
     custom_html_static_path = ['integration/microcloud/_static']
     custom_templates_path = ['integration/microcloud/_templates']
-    redirects['../index'] = 'microcloud/'
     custom_tags.append('integrated')
 
 # Load substitutions from YAML file
