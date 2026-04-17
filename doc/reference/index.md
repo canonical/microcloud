@@ -10,9 +10,10 @@ myst:
 The reference material in this section provides technical information about MicroCloud.
 
 (ref-microcloud)=
-## MicroCloud
+## Requirements and releases
 
-Find out about requirements for a MicroCloud deployment, as well as information about its release cycles, release types, and snaps.
+Find out about requirements for a MicroCloud deployment, as well as information
+about its release cycles, release types, and snaps.
 
 ```{toctree}
 :maxdepth: 1
@@ -23,10 +24,20 @@ MicroCloud requirements </reference/requirements>
 
 ## MicroCloud Cluster Manager
 
-Learn about the MicroCloud Cluster Manager's architecture and how it connects multiple clusters to a centralized UI tool.
+Learn about the MicroCloud Cluster Manager architecture and how it connects
+multiple clusters to a centralized UI tool.
 
 ```{toctree}
 :maxdepth: 1
 Cluster Manager architecture </reference/cluster-manager-architecture>
 /reference/cluster-manager-api
+```
+
+## Commands
+
+Learn how to perform MicroCloud operations through the CLI.
+
+```{toctree}
+:maxdepth: 1
+Common CLI commands </how-to/commands>
 ```
