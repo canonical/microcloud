@@ -81,14 +81,14 @@ func (s *versionSuite) Test_validateVersions() {
 			expectErr: false,
 		},
 		{
-			desc:      "Unsupported MicroCeph with larger minor version",
-			version:   fmt.Sprintf("ceph-version: %s.999~git", strings.Split(microCephMinVersion, ".")[0]),
+			desc:      "Supported MicroCeph with larger minor version",
+			version:   fmt.Sprintf("ceph-version: %s.999.0~git", strings.Split(microCephMinVersion, ".")[0]),
 			service:   types.MicroCeph,
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			desc:      "Unsupported MicroCeph with smaller minor version",
-			version:   fmt.Sprintf("ceph-version: %s.0~git", strings.Split(microCephMinVersion, ".")[0]),
+			version:   fmt.Sprintf("ceph-version: %s.0.0~git", strings.Split(microCephMinVersion, ".")[0]),
 			service:   types.MicroCeph,
 			expectErr: true,
 		},
@@ -111,10 +111,10 @@ func (s *versionSuite) Test_validateVersions() {
 			expectErr: true,
 		},
 		{
-			desc:      "Unsupported MicroCeph with larger major version",
+			desc:      "Supported MicroCeph with larger major version",
 			version:   "ceph-version: 999.0.0~git",
 			service:   types.MicroCeph,
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			desc:      "Unsupported MicroCeph with smaller major version",
