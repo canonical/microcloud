@@ -348,6 +348,8 @@ validate_system_microceph() {
     name=${1}
     shift 1
 
+    MICROCEPH_SQL_ENDPOINT="${MICROCEPH_SQL_ENDPOINT:-core/control/sql}"
+
     cephfs=0
     if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
       cephfs="${1}"
@@ -394,7 +396,7 @@ validate_system_microceph() {
       done
 
      query='{\"query\": \"select count(*) from disks join core_cluster_members on core_cluster_members.id = disks.member_id where core_cluster_members.name = \\\"${name}\\\"\"}'
-     count_disks=\$(curl --unix-socket /var/snap/microceph/common/state/control.socket ./core/internal/sql -X POST -d \"\${query}\" -s)
+     count_disks=\$(curl --unix-socket /var/snap/microceph/common/state/control.socket ./${MICROCEPH_SQL_ENDPOINT} -X POST -d \"\${query}\" -s)
      echo \"\${count_disks}\" | jq '.status_code' | grep -q 200
      echo \"\${count_disks}\" | jq '.metadata .Results[0] .rows[0][0]' | grep -q \${count}
     "
