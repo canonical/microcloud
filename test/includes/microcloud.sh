@@ -1318,7 +1318,9 @@ setup_system() {
 
     # shellcheck disable=SC2086
     retry lxc exec "${name}" -- apt-get install --no-install-recommends -y ${packages}
-    retry lxc exec "${name}" -- snap install snapd
+    lxc exec "${name}" -- sh -ceu '
+      snap refresh snapd --channel latest/beta || snap install snapd --channel latest/beta
+    '
 
     # Install core26 to allow latest MicroOVN to be used.
     retry lxc exec "${name}" -- snap install core26 --channel latest/edge
