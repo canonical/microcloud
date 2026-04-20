@@ -247,6 +247,7 @@ custom_html_css_files = [
 # Add JavaScript files (located in .sphinx/_static/ or from external link)
 custom_html_js_files = [
     'https://assets.ubuntu.com/v1/287a5e8f-bundle.js',
+    'rtd-versions-flyout.js',
 ]
 
 ## The following settings override the default configuration.
@@ -326,6 +327,9 @@ if os.path.exists('./substitutions.yaml'):
     with open('./substitutions.yaml', 'r') as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
+# Version label shown in the RTD flyout next to "default", in parentheses.
+# Set the FLYOUT_DEFAULT_VERSION_LABEL environment variable in the RTD project dashboard.
+html_context['flyout_default_version_label'] = os.environ.get('FLYOUT_DEFAULT_VERSION_LABEL', '')
 
 # SwaggerUI configuration
 
