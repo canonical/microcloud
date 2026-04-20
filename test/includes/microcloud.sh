@@ -1313,7 +1313,7 @@ setup_system() {
     if [ ! "${BASE_OS}" = "22.04" ]; then
       packages+=" yq"
     else
-      retry lxc exec "${name}" -- snap install yq
+      lxc exec "${name}" -- snap install yq
     fi
 
     # shellcheck disable=SC2086
@@ -1323,7 +1323,7 @@ setup_system() {
     '
 
     # Install core26 to allow latest MicroOVN to be used.
-    retry lxc exec "${name}" -- snap install core26 --channel latest/edge
+    lxc exec "${name}" -- snap install core26 --channel latest/edge
 
     # Free disk blocks
     lxc exec "${name}" -- apt-get clean
@@ -1366,7 +1366,7 @@ setup_system() {
       lxc file push --quiet "${MICROCLOUD_SNAP_PATH}" "${name}"/root/microcloud.snap
       lxc exec "${name}" -- snap install --dangerous /root/microcloud.snap
     else
-      retry lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
+      lxc exec "${name}" -- snap install microcloud --channel="${MICROCLOUD_SNAP_CHANNEL}" --cohort="+"
     fi
 
     # Hold the snaps to not perform any refreshes during test execution.
