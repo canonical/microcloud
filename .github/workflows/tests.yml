@@ -203,7 +203,9 @@ jobs:
       matrix:
         suite: ["upgrade"]
         os:
-          - "22.04"
+          # Temporarily disable the upgrade test on 22.04 due to issues with latest MicroCeph and LXD using CephFS.
+          # See https://chat.canonical.com/canonical/pl/ix7oj94web8wmm4wdt7rqq1etc.
+          #- "22.04"
           - "24.04"
         microceph:
           - "squid/stable"
