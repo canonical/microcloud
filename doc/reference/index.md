@@ -30,3 +30,10 @@ Learn about the MicroCloud Cluster Manager's architecture and how it connects mu
 Cluster Manager architecture </reference/cluster-manager-architecture>
 /reference/cluster-manager-api
 ```
+
+## Commands
+
+```{toctree}
+:maxdepth: 1
+/reference/commands
+```

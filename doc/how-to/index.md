@@ -18,7 +18,6 @@ Access the UI </how-to/ui>
 Automate a test deployment with Terraform </how-to/terraform_automation>
 Configure Ceph networking </how-to/ceph_networking>
 Configure OVN underlay </how-to/ovn_underlay>
-Work with MicroCloud </how-to/commands>
 Manage cluster members <members_manage>
 Update and upgrade </how-to/update_upgrade>
 Manage the snaps </how-to/snaps>
