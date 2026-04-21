@@ -3,10 +3,17 @@
 
 This section provides technical reference guides for MicroCloud.
 
-## Requirements and releases
+## Commands
 
-Find out about requirements for a MicroCloud deployment, as well as information
-about its release cycles, release types, and snaps.
+Consult this command reference to work with MicroCloud through the CLI.
+
+```{toctree}
+:maxdepth: 1
+
+/reference/commands
+```
+
+## Requirements and releases
 
 ```{toctree}
 :maxdepth: 1
@@ -14,14 +21,4 @@ about its release cycles, release types, and snaps.
 MicroCloud requirements </reference/requirements>
 /reference/releases-snaps
 /reference/release-notes/index
-```
-
-## Commands
-
-Use this command reference to perform common MicroCloud operations through the
-CLI.
-
-```{toctree}
-:maxdepth: 1
-/reference/commands
 ```
