@@ -7,25 +7,67 @@ myst:
 (get-started)=
 (tutorials)=
 (tutorial)=
-# Get started with MicroCloud
+# Tutorials
 
-MicroCloud is quick to set up. Once initialized, you can start using MicroCloud in the same way as a regular LXD cluster. The tutorials in this section provide you with an introduction to MicroCloud concepts and use, including its installation and initialization, and use of its graphical UI.
+These tutorials provide you with an introduction to MicroCloud concepts and
+usage.
 
-A production MicroCloud should use at least three physical machines as cluster members. However, when first learning about MicroCloud, it's common to only have a single machine available. Thus, we offer two approaches for learning about MicroCloud that both use one physical machine:
+A production MicroCloud should use at least three physical machines as cluster
+members. However, you may only have a single physical machine available when
+first learning about MicroCloud. Our tutorials only require a single physical
+machine to complete, but keep in mind that these tutorials are intended for
+learning purposes only.
 
-{ref}`Set up a single-member MicroCloud with a physical machine <tutorial-single>`
-: This tutorial helps you understand the MicroCloud production environment. While certain cluster features are not available in a single-member setup (such as communication between cluster members), you will learn about other important MicroCloud concepts. After you complete this tutorial, you can join other physical machines to the cluster to create a multi-member setup.
+## Get started with MicroCloud
 
-  This approach requires a higher level of Linux system administration knowledge on your part, such as how to configure your network interfaces. It also requires at least two additional physical storage disks and two network interfaces.
+- {ref}`Set up a multi-member MicroCloud with virtual machines <tutorial-multi>`
 
-{ref}`Set up a multi-member MicroCloud with virtual machines <tutorial-multi>`
-: This tutorial uses a sandbox approach. It shows you how to create multiple LXD virtual machines (VMs) on a single physical host machine and use those VMs as MicroCloud cluster members. 
+In this tutorial, you will create multiple LXD virtual machines (VMs) on a
+single physical host machine and use those VMs as cluster members.
 
-  Since this approach guides you in building and configuring a virtual environment step by step, you do not need system administration knowledge. You'll be able to create a multi-member cluster without requiring multiple physical machines, disks, and network interfaces. However, keep in mind that this approach is intended for learning purposes only. In production environments, only physical machines should be used for MicroCloud cluster members.
+Follow this tutorial to learn about MicroCloud concepts, cluster initialization,
+and the MicroCloud UI.
+
+- Hardware requirements: A single machine that supports LXD
+- Prerequisites: Basic understanding of a CLI
+
+```{admonition} In production environments
+   :class: note
+   The use of virtual machines in this tutorial is intended for learning
+   purposes only. In production environments, only physical machines should be
+   used as MicroCloud cluster members.
+```
+
+## Advanced tutorial
+
+- {ref}`Set up a single-member MicroCloud with a physical machine
+  <tutorial-single>`
+
+In this tutorial, you will install and initialize MicroCloud on a single
+physical machine and access the MicroCloud UI.
+
+Follow this tutorial to learn more about the MicroCloud production environment.
+Certain cluster features are not available in a single-member setup, but you
+will still learn other important MicroCloud concepts. After you complete this
+tutorial, you can join other physical machines to the cluster to create a
+multi-member setup.
+
+- Hardware requirements: A single machine with two additional physical storage
+  disks and two network interfaces
+- Prerequisites: Knowledge of Linux system administration, including the
+  configuration of network interfaces
+
+```{admonition} In production environments
+   :class: note
+   The use of a single physical machine in this tutorial is intended for
+   learning purposes only. In production environments, at least three physical
+   machines should be used as cluster members.
+```
 
 ```{toctree}
 :hidden:
 :maxdepth: 2
 
-Single physical machine as a cluster member </tutorial/single-member>
-Multiple virtual machines as cluster members </tutorial/multi-member>
+Get started with MicroCloud </tutorial/multi-member>
+Advanced tutorial </tutorial/single-member>
+```
