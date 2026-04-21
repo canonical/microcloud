@@ -29,7 +29,7 @@ how to enroll a MicroCloud cluster.
 
 ### Temporary UI access link
 
-It's fast to deploy a MicroCloud and gain the ability to spawn resources with it from the command line.
+It's fast to deploy a MicroCloud and gain the ability to spawn resources from the command line.
 To provide the same experience when {ref}`using the UI <howto-ui>`, we added a new question to the end of the
 interactive `microcloud init` questionnaire:
 
@@ -37,7 +37,7 @@ interactive `microcloud init` questionnaire:
 
 If you answer `yes` (default), MicroCloud creates a temporary UI access link that allows you to immediately enter
 the LXD UI after MicroCloud is installed.
-The temporary access lasts for 24 hours and is intended to perform further setups (such as configuring permanent access).
+The temporary access lasts for 24 hours and is intended to allow you to perform further setup (such as configuring permanent access).
 
 This requires a 6+ version of LXD, which is currently a feature track (non-LTS).
 
