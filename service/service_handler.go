@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/canonical/lxd/shared/api"
 
@@ -30,6 +31,9 @@ const (
 	// CloudMulticastPort is the default MicroCloud multicast discovery port.
 	CloudMulticastPort int64 = 9444
 )
+
+// ServiceJoinTokenLifetime is the duration for which a join token issued by a service will be valid.
+const ServiceJoinTokenLifetime = time.Hour
 
 // Handler holds a set of stateful services.
 type Handler struct {
