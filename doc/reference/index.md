@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    description: An index of MicroCloud reference guides covering CLI commands, deployment requirements, releases, and snap details.
+---
+
 (reference)=
 # Reference
 

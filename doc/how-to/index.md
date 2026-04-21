@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: How-to guides for key MicroCloud operations, including installation, initialization, UI access, configuration, cluster management, updates, and more.
+    description: An index of how-to guides for key MicroCloud operations, including installation, initialization, UI access, configuration, management, and updates.
 ---
 
 (howto)=
