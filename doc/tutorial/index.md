@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: Hands-on tutorials to install, initialize, and try out test deployments of MicroCloud, on a single physical machine or multiple virtual machines.
+    description: An index to hands-on tutorials to install, initialize, and try out test deployments of MicroCloud, on a single physical machine or multiple virtual machines.
 ---
 
 (get-started)=

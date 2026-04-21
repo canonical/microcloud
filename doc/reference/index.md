@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: Reference guides for MicroCloud such as deployment requirements, releases and snaps details, and the architecture of the MicroCloud Cluster Manager.
+    description: An index of MicroCloud reference guides covering the Cluster Manager architecture, CLI commands, deployment requirements, releases, and snap details.
 ---
 
 (reference)=
