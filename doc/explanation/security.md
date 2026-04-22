@@ -41,7 +41,7 @@ For details on LXD’s security architecture and operational guidance, see the {
 (exp-security-microceph)=
 ## MicroCeph
 
-The {doc}`MicroCeph security documentation <microceph:explanation/security/security-overview>` provides information on encryption, authentication, best practices for secure deployment and operation, and more.
+The {doc}`MicroCeph security documentation <microceph:snap/explanation/security/security-overview>` provides information on encryption, authentication, best practices for secure deployment and operation, and more.
 
 (exp-security-microovn)=
 ## MicroOVN
