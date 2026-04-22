@@ -81,7 +81,7 @@ update-gomod:
 	go get -t -v -u ./...
 
 	# Static pins
-	go get github.com/canonical/microceph/microceph@64d02d9538a89be039707ecbf942ca1aeae29760 # squid LTS.
+	go get github.com/canonical/microceph/microceph@squid # squid LTS.
 	go get github.com/canonical/microovn/microovn@branch-24.03 # 24.03 LTS.
 	go get github.com/olekukonko/tablewriter@v0.0.5 # Due to breaking API in later versions
 
