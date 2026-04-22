@@ -1,16 +1,16 @@
 module github.com/canonical/microcloud/microcloud
 
-go 1.26.1
+go 1.26.2
 
 require (
-	github.com/canonical/lxd v0.0.0-20260410070859-a1ec720c7a6a
-	github.com/canonical/microceph/microceph v0.0.0-20260409010620-12ff30884c27
+	github.com/canonical/lxd v0.0.0-20260422080601-4cba50d47509
+	github.com/canonical/microceph/microceph v0.0.0-20260414165240-e6eb74a06472
 	github.com/canonical/microcluster/v3 v3.0.2
 	github.com/canonical/microovn/microovn v0.0.0-20260403145038-0f2539122c1a
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/ansi v0.11.6
+	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/muesli/reflow v0.3.0
@@ -30,7 +30,6 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/canonical/go-dqlite/v3 v3.0.4 // indirect
-	github.com/canonical/microcluster/v2 v2.2.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
@@ -72,7 +71,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zitadel/logging v0.7.0 // indirect
-	github.com/zitadel/oidc/v3 v3.47.2 // indirect
+	github.com/zitadel/oidc/v3 v3.47.5 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
