@@ -103,9 +103,10 @@ func (s CephService) Bootstrap(ctx context.Context) error {
 	}
 }
 
-// IssueToken issues a token for the given peer. Each token will last 5 minutes in case the system joins the cluster very slowly.
+// IssueToken issues a token for the given peer.
+// Each token will last 1 hour in case the system joins the cluster very slowly or there are other services which take longer to join (e.g. MicroCeph OSD setup).
 func (s CephService) IssueToken(ctx context.Context, peer string) (string, error) {
-	return s.m.NewJoinToken(ctx, peer, 5*time.Minute)
+	return s.m.NewJoinToken(ctx, peer, ServiceJoinTokenLifetime)
 }
 
 // DeleteToken deletes a token by its name.

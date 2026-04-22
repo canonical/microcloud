@@ -32,8 +32,8 @@ If you cannot meet the requirements below, try the {ref}`multi-member cluster tu
   sudo snap remove --purge lxd
   ```
 
-- If LXD is installed but not initialized, you do not need to remove it. However, ensure that it is running the most recent LTS version. See the LXD documentation: {ref}`lxd:howto-snap`.
-- If MicroCeph or MicroOVN are already installed, ensure that they are also running their most recent LTS versions. To ensure that the versions are compatible for MicroCloud, refer to: {ref}`ref-releases-matrix`.
+- If LXD is installed but not initialized, you do not need to remove it. However, ensure that it is running the most recent LTS version. Refer to {ref}`lxd:howto-snap` in the LXD documentation for details.
+- If MicroCeph or MicroOVN are already installed, ensure that they are also running their most recent LTS versions. To ensure that the versions are compatible for MicroCloud, refer to {ref}`ref-releases-matrix`.
 - Due to variation in physical machine setups, it is beyond the scope of this tutorial to instruct you on how to set up your network interfaces and storage disks. Thus, this tutorial requires a higher level of knowledge of server management on your part. If you require step-by-step instructions, follow the {ref}`multi-member cluster tutorial<tutorial-multi>` instead.
 
 (tutorial-single-requirements-storage)=
@@ -67,7 +67,7 @@ sudo snap install lxd microceph microovn microcloud --cohort="+"
 ```{admonition} About the cohort flag
 :class: note
 The `--cohort="+"` flag in the command ensures that the same version of the snap is installed on all cluster members.
-See {ref}`howto-update-sync` for more information.
+Refer to {ref}`howto-update-sync` for more information.
 ```
 
 (tutorial-single-hold-updates)=
@@ -81,14 +81,14 @@ Thus, whenever you install MicroCloud and its components, pause automatic update
 sudo snap refresh lxd microceph microovn microcloud --hold
 ```
 
-For more information, see {ref}`howto-update-hold`.
+For more information, refer to {ref}`howto-update-hold`.
 
 (tutorial-single-init)=
 ## Initialize MicroCloud
 
 The initialization process sets up LXD, MicroCeph, and MicroOVN to work together as a MicroCloud. When you initialize MicroCloud, you can optionally set up the MicroCloud cluster using a join mechanism to add multiple machines as cluster members. In this tutorial, we will set up a single cluster member during initialization; you can optionally add more cluster members afterward. The initialization also sets up MicroCloud storage and network configurations.
 
-For a detailed look at the initialization process, see: {ref}`explanation-initialization`.
+For a detailed look at the initialization process, refer to {ref}`explanation-initialization`.
 
 ```{tip}
 In this tutorial, we initialize MicroCloud interactively. Later, you might want to look into using a preseed file for {ref}`howto-initialize-preseed` to automate deployment with a pre-defined configuration.
@@ -193,13 +193,13 @@ By default, MicroCloud uses your internal network for both. Press {kbd}`Enter` t
 
 ```{admonition} Using other networks for Ceph
 :class: note
-MicroCloud and MicroCeph support using separate networks for Ceph internal and public traffic if needed. We don't need this for the purposes of this tutorial, but if you'd like to know more, see: {ref}`howto-ceph-networking`.
+MicroCloud and MicroCeph support using separate networks for Ceph internal and public traffic if needed. We don't need this for the purposes of this tutorial, but if you'd like to know more, refer to {ref}`howto-ceph-networking`.
 ```
 
 (tutorial-single-init-network-uplink)=
 ### Configure the uplink network
 
-Next, you'll set up the uplink network that provides external connectivity from your cluster members to other networks, such as the internet. This uplink network is configured with MicroOVN, a minimal wrapper around the OVN (Open Virtual Network) project. For more information about OVN networking, see {ref}`exp-networking`.
+Next, you'll set up the uplink network that provides external connectivity from your cluster members to other networks, such as the internet. This uplink network is configured with MicroOVN, a minimal wrapper around the OVN (Open Virtual Network) project. For more information about OVN networking, refer to {ref}`exp-networking`.
 
 MicroCloud will ask:
 
@@ -255,7 +255,7 @@ This refers to an OVN underlay network. Press {kbd}`Enter` to accept the default
 
 ```{admonition} Using a dedicated underlay network
 :class: note
-MicroCloud and MicroOVN support using a dedicated underlay network for OVN traffic. We don't need this for the purposes of this tutorial, but if you'd like to know more, see: {ref}`howto-ovn-underlay`.
+MicroCloud and MicroOVN support using a dedicated underlay network for OVN traffic. We don't need this for the purposes of this tutorial, but if you'd like to know more, refer to {ref}`howto-ovn-underlay`.
 ```
 
 You should then see the following output:
@@ -445,7 +445,7 @@ locations:
 project: default
 ```
 
-The OVN network spans across all MicroCloud cluster members and handles internal traffic. It also provides external connectivity to MicroCloud instances by connecting to the uplink network via a virtual router. This virtual router is active on only one cluster member at a time. When there are multiple cluster members, if the cluster member with the virtual router goes offline, the virtual router can migrate to a different cluster member to ensure uplink connectivity. For details, see: {ref}`exp-networking-ovn-architecture`.
+The OVN network spans across all MicroCloud cluster members and handles internal traffic. It also provides external connectivity to MicroCloud instances by connecting to the uplink network via a virtual router. This virtual router is active on only one cluster member at a time. When there are multiple cluster members, if the cluster member with the virtual router goes offline, the virtual router can migrate to a different cluster member to ensure uplink connectivity. For details, refer to {ref}`exp-networking-ovn-architecture`.
 
 Within the output of the previous command (`lxc network show default`), find the value for `volatile.network.ipv4.address`. It should match the first IPv4 address in the subnet range you provided for the uplink network during configuration. This is the IP address for the virtual router.
 
@@ -666,7 +666,7 @@ This ping should fail. Other instances should not be reachable because they are 
 
 ```{admonition} OVN peer routing
 :class: tip
-If you want to enable direct connectivity for instances on different OVN subnets, see: {ref}`lxd:network-ovn-peers`.
+If you want to enable direct connectivity for instances on different OVN subnets, refer to {ref}`lxd:network-ovn-peers`.
 ```
 
 Exit the `u4` container:
@@ -678,7 +678,7 @@ exit
 (tutorial-single-ui)=
 ## Access the UI
 
-Instead of managing your instances and your LXD setup from the command line, you can also use the LXD UI. See {ref}`lxd:access-ui` for more information.
+Instead of managing your instances and your LXD setup from the command line, you can also use the LXD UI. Refer to {ref}`lxd:access-ui` for more information.
 
 Check the LXD cluster list to determine the URL of the cluster member.
 
@@ -719,8 +719,8 @@ You should now see the LXD UI prompting you to set up a certificate. Follow the 
 (tutorial-single-next)=
 ## Next steps
 
-To learn how to add more physical machines as cluster members to your MicroCloud, see: {ref}`howto-member-add`.
+To learn how to add more physical machines as cluster members to your MicroCloud, refer to {ref}`howto-member-add`.
 
-See {ref}`howto-commands` for a reference of the most common commands.
+Consult {ref}`ref-commands` for a reference of the most common commands.
 
 If you're new to LXD, check out the {ref}`LXD tutorials <lxd:first-steps>` to familiarize yourself with what you can do in LXD. You can skip the sections for installing and initializing LXD, because LXD is already operational as part of your MicroCloud setup.

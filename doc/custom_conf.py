@@ -279,22 +279,28 @@ if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
         'lxd': ('https://documentation.ubuntu.com/lxd/stable-5.21/', None),
         'microceph': ('https://canonical-microceph.readthedocs-hosted.com/en/v19.2.0-squid/', None),
         'microovn': ('https://documentation.ubuntu.com/microcloud/v2/microovn/', None),
-        'ceph': ('https://docs.ceph.com/en/latest/', None),
     }
 elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
     intersphinx_mapping = {
         'lxd': (os.environ['PATH_PREFIX'] + 'lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
         'microceph': (os.environ['PATH_PREFIX'] + 'microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
         'microovn': (os.environ['PATH_PREFIX'] + 'microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
-        'ceph': ('https://docs.ceph.com/en/latest/', None)
     }
 else:
     intersphinx_mapping = {
         'lxd': ('/lxd/', '_build/lxd/objects.inv'),
         'microceph': ('/microceph/', '_build/microceph/objects.inv'),
         'microovn': ('/microovn/', '_build/microovn/objects.inv'),
-        'ceph': ('https://docs.ceph.com/en/latest/', None)
     }
+
+# Add intersphinx mappings for docs sets not part of the MicroCloud integrated docs here:
+
+base_intersphinx = {
+    'ceph': ('https://docs.ceph.com/en/latest/', None),
+    'snap': ('https://snapcraft.io/docs/', None),
+}
+
+intersphinx_mapping.update(base_intersphinx)
 
 # Define a :center: role that can be used to center the content of table cells.
 rst_prolog = '''

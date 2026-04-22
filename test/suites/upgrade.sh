@@ -107,6 +107,9 @@ ovn:
       done
     done
 
+    # Wait for MicroCeph to stabilize before proceeding.
+    lxc exec micro01 -- microceph waitready --storage --timeout 300
+
     for m in micro01 micro02 micro03; do
       # There was no encryption neither dedicated Ceph networks and CephFS in MicroCloud 1.
       validate_system_microceph "${m}" 0 0 disk2

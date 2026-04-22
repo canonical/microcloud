@@ -19,7 +19,7 @@ The releases above are currently under standard support, meaning they receive bu
 
 The snaps for MicroCloud, LXD, MicroCeph, and MicroOVN must be installed on all members of the same MicroCloud cluster. The versions installed by each snap must be compatible with one another, and the same version of each snap must be installed on all cluster members.
 
-Also see: {ref}`howto-update-upgrade` and {ref}`howto-snap`.
+Refer to {ref}`howto-update-upgrade` and {ref}`howto-snap` for additional details.
 
 (ref-releases-microcloud)=
 ## MicroCloud releases
@@ -36,7 +36,7 @@ MicroCloud follows the [Ubuntu release cycle](https://ubuntu.com/about/release-c
 (ref-releases-microcloud-lts-support)=
 #### Support
 
-LTS releases receive standard support for five years, meaning that it receives continuous updates according to the support levels described below. An [Ubuntu Pro](https://ubuntu.com/pro) subscription can provide additional support and extends the support duration by an additional five years.
+LTS releases receive standard support for five years, meaning that they receive continuous updates according to the support levels described below. An [Ubuntu Pro](https://ubuntu.com/pro) subscription can provide additional support and extends the support duration by an additional five years.
 
 Standard support for an LTS release starts at full support for its first two years, then moves to maintenance support for the remaining three years. Once an LTS reaches End of Life (EOL), it no longer receives any updates.
 
@@ -59,17 +59,15 @@ Each feature release replaces the one before it, up to the next LTS release. Aft
 
 Feature releases receive continuous updates via each new release. The newest release at any given time is also eligible for additional support through an [Ubuntu Pro](https://ubuntu.com/pro) subscription.
 
-Currently, since no feature release has been published since the last LTS, there is no supported feature release.
-
 (ref-snaps-microcloud)=
 ## MicroCloud snap
 
-MicroCloud is distributed as a [snap](https://snapcraft.io/docs). A key benefit of snap packaging is that it includes all required dependencies. This allows packages to run in a consistent environment on many different Linux distributions. Using the snap also streamlines updates through its [channels](https://snapcraft.io/docs/channels).
+MicroCloud is distributed as a [snap](https://snapcraft.io/docs). A key benefit of snap packaging is that it includes all required dependencies. This allows packages to run in a consistent environment on many different Linux distributions. Using the snap also streamlines updates through its channels.
 
 (ref-snaps-microcloud-channels)=
 ### Channels
 
-Each installed snap follows a [channel](https://snapcraft.io/docs/channels). Channels include a {ref}`track <ref-snaps-microcloud-tracks>` and a {ref}`risk level <ref-snaps-microcloud-risk>` (for example, the {{current_feature_track}}/stable channel). Each channel points to one release at a time, and when a new release is published to a channel, it replaces the previous one. {ref}`Updating the snap <howto-update-upgrade>` then updates to that release.
+Each installed snap follows a channel. Channels include a {ref}`track <ref-snaps-microcloud-tracks>` and a {ref}`risk level <ref-snaps-microcloud-risk>` (for example, the {{current_feature_track}}/stable channel). Each channel points to one release at a time, and when a new release is published to a channel, it replaces the previous one. {ref}`Updating the snap <howto-update-upgrade>` then updates to that release.
 
 To view all available channels for MicroCloud, run:
 
@@ -77,10 +75,12 @@ To view all available channels for MicroCloud, run:
 snap info microcloud
 ```
 
+For more information about channels, refer to {ref}`snap:explanation-how-snaps-work-channels-and-tracks` in the Snap documentation.
+
 (ref-snaps-microcloud-tracks)=
 ### Tracks
 
-MicroCloud releases are grouped under [snap tracks](https://snapcraft.io/docs/channels#heading--tracks).
+MicroCloud releases are grouped under snap tracks.
 
 The current feature track is {{current_feature_track}}, and the currently supported LTS track is {{current_lts_track}}. The `1` track reached {abbr}`EOL (End of Life)` at the end of April 2025.
 
@@ -104,9 +104,11 @@ If you {ref}`install the MicroCloud snap <installing-snap-package>` without spec
 (ref-snaps-microcloud-risk)=
 ### Risk levels
 
-For each MicroCloud track, there are three [risk levels](https://snapcraft.io/docs/channels#heading--risk-levels): `stable`, `candidate`, and `edge`.
+For each MicroCloud track, there are three risk levels: `stable`, `candidate`, and `edge`.
 
 We recommend that you use the `stable` risk level to install fully tested releases; this is the only risk level supported under [Ubuntu Pro](https://ubuntu.com/pro), as well as the default risk level if one is not specified at install. The `candidate` and `edge` levels offer newer but less-tested updates, posing higher risk.
+
+For more information about risk levels, refer to {ref}`snap:explanation-how-snaps-work-channels-and-tracks` in the Snap documentation.
 
 (ref-releases-snaps-components)=
 ## For MicroCloud components
@@ -114,7 +116,7 @@ We recommend that you use the `stable` risk level to install fully tested releas
 (ref-releases-snaps-lxd)=
 ### LXD
 
-LXD follows a similar approach to its releases and snap as MicroCloud, including an LTS release every two years and more frequent feature releases on a feature track. For details, see {ref}`LXD releases and snap <lxd:ref-releases-snap>`.
+LXD follows a similar approach to its releases and snap as MicroCloud, including an LTS release every two years and more frequent feature releases on a feature track. For details, refer to {ref}`LXD releases and snap <lxd:ref-releases-snap>`.
 
 (ref-releases-snaps-microceph)=
 ### MicroCeph
@@ -125,7 +127,7 @@ The version of Ceph initially included in the release of an LTS version of Ubunt
 
 MicroCeph typically does not publish feature releases, but provides periodic non-breaking updates to existing releases, along with a new stable release corresponding to each Ceph release series. These MicroCeph releases share their upstream's release names (such as `quincy` or `squid`).
 
-For details about MicroCeph, see {doc}`microceph:index`. For more information about the Ceph release cycle, visit the Ceph documentation: {ref}`ceph:ceph-releases-general`.
+For details about MicroCeph, refer to the {doc}`MicroCeph documentation <microceph:index>`. For more information about the Ceph release cycle, visit the {ref}`Ceph documentation <ceph:ceph-releases-general>`.
 
 (ref-releases-snaps-microovn)=
 ### MicroOVN releases and snap
@@ -134,7 +136,7 @@ The upstream [OVN](https://www.ovn.org/) project follows a six-month release cad
 
 Every two years, the March version of OVN becomes an LTS version, such as the `24.03` version released in March of 2024. MicroOVN publishes versions that correspond to these upstream LTS versions. Stable maintenance is provided through upstream point releases for OVN and bugfixes for the snap deployment.
 
-For more information, see the MicroOVN documentation:
+For more information, refer to the MicroOVN documentation:
 
 - {doc}`microovn:developers/release-process`
 - {ref}`microovn:snap channels`
@@ -146,7 +148,7 @@ By default, installed snaps update automatically when new releases are published
 
 With MicroCloud, this can be problematic because its component snaps must always use {ref}`compatible versions <ref-releases-matrix>`, and because all members of a cluster must use the same version of each snap.
 
-To prevent issues, {ref}`hold updates for MicroCloud and its components <howto-update-hold>`. Furthermore, ensure that the all snaps are set to `in-cohort` (see {ref}`howto-update-sync`).
+To prevent issues, {ref}`hold updates for MicroCloud and its components <howto-update-hold>`. Furthermore, ensure that all snaps are set to `in-cohort` (refer to {ref}`howto-update-sync` for details).
 
 ## Related topics
 

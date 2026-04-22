@@ -3,7 +3,7 @@
 
 Manage MicroCloud and its components (LXD, MicroCeph, and MicroOVN) through their snap packages.
 
-For the installation guide, see: {ref}`howto-install`. For details about the snaps, including {ref}`supported and compatible releases <ref-releases-matrix>`, {ref}`tracks <ref-snaps-microcloud-tracks>`, and {ref}`release processes <ref-releases-microcloud>`, see: {ref}`ref-releases-snaps`.
+For the installation guide, refer to {ref}`howto-install`. For details about the snaps, including {ref}`supported and compatible releases <ref-releases-matrix>`, {ref}`tracks <ref-snaps-microcloud-tracks>`, and {ref}`release processes <ref-releases-microcloud>`, refer to {ref}`ref-releases-snaps`.
 
 (howto-snap-info)=
 ## View snap information
@@ -36,7 +36,7 @@ The first part of the version string corresponds to the release (in this sample,
 (howto-snap-daemon)=
 ## Manage the MicroCloud daemon
 
-Installing the MicroCloud snap creates the MicroCloud daemon as a [snap service](https://snapcraft.io/docs/how-to-guides/manage-snaps/control-services/). Use the following `snap` commands to manage this daemon.
+Installing the MicroCloud snap creates the MicroCloud daemon as a snap service. Use the following `snap` commands to manage this daemon.
 
 To view the status of the daemon, run:
 
@@ -62,7 +62,7 @@ To restart the daemon, run:
 sudo snap restart microcloud
 ```
 
-For more information about managing snap services, visit [Control services](https://snapcraft.io/docs/how-to-guides/manage-snaps/control-services/) in the Snap documentation.
+For more information about managing snap services, visit {ref}`snap:how-to-guides-manage-snaps-control-services` in the Snap documentation.
 
 ## Related topics
 

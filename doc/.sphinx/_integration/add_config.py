@@ -12,6 +12,7 @@ html_context['microovn_tag'] = "../microovn/_static/microovn.png"
 if project == "LXD":
     html_baseurl = "https://documentation.ubuntu.com/lxd/stable-5.21/"
     html_js_files.append('rtd-search.js')
+    html_css_files = globals().get('html_css_files', []) + ['override-header.css']
     tags.add('integrated')
 elif project == "MicroCeph":
     html_baseurl = "https://canonical-microceph.readthedocs-hosted.com/en/latest/"

@@ -7,7 +7,7 @@ myst:
 (explanation)=
 # Explanation
 
-The explanatory guides in this section introduce you to the concepts used in MicroCloud and help you understand how things fit together.
+The explanatory guides in this section help you understand how MicroCloud fits together with LXD, Ceph, and OVN. Use these guides to learn about MicroCloud's approach to clustering, networking, storage, security, and more.
 
 ```{toctree}
 :maxdepth: 1

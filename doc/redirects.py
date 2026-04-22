@@ -5,4 +5,5 @@ redirects = {
     'how-to/remove_machine': '../member_remove',
     'how-to/add_machine': '../member_add',
     'how-to/shutdown_machine': '../member_shutdown',
+    'how-to/commands': '../../reference/commands',
 }
