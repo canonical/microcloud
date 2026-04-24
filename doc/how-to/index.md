@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: How-to guides for key MicroCloud operations, including installation, initialization, UI access, configuration, cluster management, updates, and more.
+    description: An index of how-to guides for key MicroCloud operations, including installation, initialization, UI access, configuration, management, and updates.
 ---
 
 (howto)=
@@ -9,11 +9,12 @@ myst:
 
 These MicroCloud how-to guides cover key operations and processes.
 
-## Initial setup
+## Set up and deploy
 
-Follow these guides to install MicroCloud in a testing or production environment
-and initialize MicroCloud through interactive or automated configuration
-processes. You can also set up access to the MicroCloud UI.
+MicroCloud can be installed in testing or production environments and
+initialized interactively or through an automated process. Once deployed, the
+MicroCloud UI provides an interface alongside the {ref}`MicroCloud CLI
+<ref-commands>`.
 
 ```{toctree}
 :maxdepth: 1
@@ -23,10 +24,19 @@ Initialize MicroCloud </how-to/initialize>
 Access the UI </how-to/ui>
 ```
 
+Terraform makes it possible to automate the MicroCloud deployment process.
+
+```{toctree}
+:maxdepth: 1
+
+Deploy a MicroCloud test environment with Terraform </how-to/terraform_automation>
+```
+
 ## Configure services
 
-You can configure storage with MicroCeph and networking with MicroOVN during the
-initialization process, or you can add a service later.
+MicroCeph and MicroOVN make it possible to configure storage and networking to
+meet your needs. Configure these services during a MicroCloud initialization, or
+add a service later.
 
 ```{toctree}
 :maxdepth: 1
@@ -38,8 +48,8 @@ Add a service </how-to/add_service>
 
 ## Manage clusters and cluster members
 
-As your needs change, follow these steps to manage your clusters and cluster
-members and keep your deployment up to date.
+As your needs change, manage clusters and cluster members to keep your
+deployment up to date.
 
 ```{toctree}
 :maxdepth: 1
@@ -51,20 +61,7 @@ Update and upgrade </how-to/update_upgrade>
 Manage the snaps </how-to/snaps>
 ```
 
-## Automated deployment with Terraform
-
-Follow this guide to automate the deployment of MicroCloud with Terraform.
-
-```{toctree}
-:maxdepth: 1
-
-Deploy a MicroCloud test environment with Terraform </how-to/terraform_automation>
-```
-
 ## Engage with us
-
-Find out how to get community and commercial support, and learn how to
-contribute to the MicroCloud project.
 
 ```{toctree}
 :maxdepth: 1
