@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: Deep-dive explanations that introduce you to concepts in MicroCloud, such as its networking approach and local versus distributed storage.
+    description: An index of explanations about MicroCloud concepts, such as its relationship to LXD, Ceph, and OVN and its approach to networking, storage, and security.
 ---
 
 (explanation)=
