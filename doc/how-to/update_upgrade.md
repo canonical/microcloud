@@ -12,7 +12,7 @@ Performing an update or upgrade requires going through the list of snaps one aft
 Before performing an update or upgrade, make sure to back up your data to prevent any data loss in case of failure.
 Consult the following backup guides for each of the snaps:
 
-* {doc}`How to back up MicroCeph <microceph:snap/explanation/taking-snapshots>`
+* {ref}`How to back up MicroCeph <microceph:taking-snapshots>`
 * {ref}`How to back up LXD <lxd:backups>`
 
 In case of error, refer to {ref}`howto-recover` for troubleshooting details.
@@ -199,9 +199,9 @@ As MicroCloud consumes the services offered by its component snaps, the upgrade 
 
 Make sure to consult the dedicated upgrade guides of each component before you perform the actual upgrade:
 
-* {doc}`How to upgrade MicroCeph <microceph:snap/how-to/major-upgrade>`
+* {ref}`How to upgrade MicroCeph <microceph:major-upgrades>`
 * {doc}`How to upgrade MicroOVN <microovn:how-to/major-upgrades>`
-* {doc}`How to upgrade LXD <lxd:howto/cluster_manage>`
+* {ref}`How to upgrade LXD <lxd:cluster-manage>`
 
 To start the upgrade procedure, enter the following command on the first machine:
 

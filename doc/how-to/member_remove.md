@@ -10,7 +10,7 @@ sudo microcloud remove <name>
 Before removing the cluster member, ensure that there are no LXD instances, storage volumes, or MicroCeph OSDs located on it.
 
 See {ref}`how to remove instances <lxd:instances-manage-delete>` in the LXD documentation.
-See {doc}`how to remove OSDs <microceph:snap/how-to/remove-disk>` in the MicroCeph documentation.
+See {ref}`how to remove OSDs <microceph:remove-disk>` in the MicroCeph documentation.
 
 ````{note}
 If local storage was created, MicroCloud will have also added some default storage volumes that will need to be cleaned up:
