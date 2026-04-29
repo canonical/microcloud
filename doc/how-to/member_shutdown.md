@@ -12,12 +12,16 @@ This guide provides instructions to safely shut down a MicroCloud cluster member
 (howto-member-shutdown-instances)=
 ## Stop or live-migrate all instances on the cluster member
 
-To shut down a machine that is a MicroCloud cluster member, first ensure that it is not hosting any running LXD instances.
-
-You can stop all instances on a cluster member using the command:
+To shut down a machine that is a MicroCloud cluster member, first ensure that it is not hosting any running LXD instances. Check to make sure that no project has any running instances on the target cluster member:
 
 ```bash
-lxc stop --all
+lxc ls --all-projects
+```
+
+Explicitly shutting down LXD will shut down all instances running on that cluster member:
+
+```bash
+sudo snap stop lxd
 ```
 
 Alternatively, for instances that can be {ref}`live-migrated <lxd:live-migration>`, you can migrate them to another cluster member without stopping them. See: {ref}`lxd:howto-instances-migrate` for more information.
