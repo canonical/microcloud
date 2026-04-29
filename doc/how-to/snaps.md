@@ -67,6 +67,7 @@ For more information about managing snap services, visit {ref}`snap:how-to-guide
 ## Related topics
 
 How-to guides:
+
 - {ref}`howto-update-upgrade`
 - {ref}`howto-install`
 

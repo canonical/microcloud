@@ -703,6 +703,7 @@ We continue using `micro1`, but you will see the same results on the others.
    1. Within the output of the previous command (`lxc network show default`), find the value for `volatile.network.ipv4.address`. This is the virtual router's IPv4 address.
 
    1. Ping that IPv4 address.
+   
    ```{terminal}
    :input: ping 192.0.2.100
    :user: root
