@@ -1,13 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/canonical/lxd/client"
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
@@ -21,13 +29,19 @@ import (
 // SendClusterManagerStatusMessageTask starts a go routine, that sends periodic status messages to cluster manager.
 func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s microTypes.State) {
 	go func(ctx context.Context, sh *service.Handler, s microTypes.State) {
+		// tunnel object to hold the websocket connection and its mutex for safe concurrent access
+		tunnel := &types.ClusterManagerTunnel{
+			WsConn: nil, // This will be set when the websocket connection is established
+			Mu:     sync.RWMutex{},
+		}
+
 		ticker := time.NewTicker(database.UpdateIntervalDefaultSeconds * time.Second)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ticker.C:
-				newUpdateTime := sendClusterManagerStatusMessage(ctx, sh, s)
+				newUpdateTime := sendClusterManagerStatusMessage(ctx, sh, s, tunnel)
 				if newUpdateTime > 0 {
 					ticker.Reset(newUpdateTime)
 				}
@@ -39,7 +53,7 @@ func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handle
 	}(ctx, sh, s)
 }
 
-func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s microTypes.State) time.Duration {
+func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s microTypes.State, tunnel *types.ClusterManagerTunnel) time.Duration {
 	logger.Debug("Starting sendClusterManagerStatusMessage")
 	var nextUpdate time.Duration = 0
 
@@ -66,6 +80,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
+	hasReverseTunnel := false
 	for _, config := range clusterManagerConfig {
 		if config.Key == database.UpdateIntervalSecondsKey {
 			interval, err := time.ParseDuration(config.Value + "s")
@@ -75,7 +90,10 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 			}
 
 			nextUpdate = interval
-			break
+		}
+
+		if config.Key == database.ReverseTunnelKey {
+			hasReverseTunnel = config.Value == "true"
 		}
 	}
 
@@ -93,6 +111,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 
 	if leaderInfo.Address != s.Address().Host {
 		logger.Debug("Not the leader, skipping status message")
+		ensureTunnelClosed(tunnel)
 		return nextUpdate
 	}
 
@@ -157,6 +176,8 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	if err != nil {
 		logger.Error("Failed to set cluster manager status last success", logger.Ctx{"err": err})
 	}
+
+	ensureTunnel(tunnel, hasReverseTunnel, clusterManagerClient, clusterCert)
 
 	logger.Debug("Finished sendClusterManagerStatusMessage")
 	return nextUpdate
@@ -362,4 +383,137 @@ func getLocalPools(lxdClient lxd.InstanceServer) ([]string, error) {
 	}
 
 	return localPools, nil
+}
+
+func ensureTunnel(tunnel *types.ClusterManagerTunnel, needsTunnel bool, clusterManagerClient *client.ClusterManagerClient, clusterCert *shared.CertInfo) {
+	if needsTunnel && tunnel.WsConn != nil {
+		logger.Debug("Websocket already connected, skipping reconnection")
+		return
+	}
+
+	if needsTunnel && tunnel.WsConn == nil {
+		logger.Debug("Websocket not connected, establishing connection in new goroutine")
+		go openTunnel(tunnel, clusterManagerClient, clusterCert)
+		return
+	}
+
+	if !needsTunnel && tunnel.WsConn != nil {
+		logger.Debug("Websocket connected but reverse tunnel is disabled, closing connection")
+		go ensureTunnelClosed(tunnel)
+		return
+	}
+
+	logger.Debug("Reverse tunnel is disabled, not opening websocket connection")
+}
+
+func openTunnel(tunnel *types.ClusterManagerTunnel, clusterManagerClient *client.ClusterManagerClient, clusterCert *shared.CertInfo) {
+	conn, err := clusterManagerClient.ConnectTunnelWebsocket(clusterCert)
+	if err != nil {
+		logger.Error("Failed to connect to cluster manager websocket", logger.Ctx{"err": err})
+		return
+	}
+
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			logger.Error("Failed to close cluster manager websocket", logger.Ctx{"err": err})
+		}
+	}()
+
+	tunnel.Mu.Lock()
+	tunnel.WsConn = conn
+	tunnel.Mu.Unlock()
+
+	// Handle CTRL+C to gracefully close
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	done := make(chan struct{})
+
+	logger.Debug("Connected to cluster manager websocket")
+
+	defer close(done)
+	for {
+		var req types.ClusterManagerTunnelRequest
+		err = conn.ReadJSON(&req)
+		if err != nil {
+			logger.Error("Cluster manager websocket read error:", logger.Ctx{"err": err})
+			ensureTunnelClosed(tunnel)
+			return
+		}
+
+		logger.Debug("Cluster manager websocket request received:", logger.Ctx{"path": req.Path})
+		resp := handleTunnelRequest(req)
+
+		// Send back the response
+		err = conn.WriteJSON(resp)
+		if err != nil {
+			logger.Error("Cluster manager websocket write error:", logger.Ctx{"err": err})
+			ensureTunnelClosed(tunnel)
+			return
+		}
+	}
+}
+
+func handleTunnelRequest(req types.ClusterManagerTunnelRequest) types.ClusterManagerTunnelResponse {
+	targetURL := "https://127.0.0.1:8443" + req.Path
+	newReq, err := http.NewRequest(req.Method, targetURL, bytes.NewReader(req.Body))
+	if err != nil {
+		logger.Error("Failed to create new HTTP request for tunnel", logger.Ctx{"err": err})
+		return types.ClusterManagerTunnelResponse{ID: req.ID, Status: http.StatusInternalServerError}
+	}
+
+	auth, ok := req.Headers["Authorization"]
+	if !ok || auth == "" {
+		logger.Error("Missing Authorization header in tunnel request", logger.Ctx{"reqID": req.ID})
+		return types.ClusterManagerTunnelResponse{ID: req.ID, Status: http.StatusUnauthorized}
+	}
+
+	newReq.Header.Set("Authorization", auth)
+
+	lxdHttpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // todo: should verify certificate
+			},
+		},
+	}
+
+	lxdResponse, err := lxdHttpClient.Do(newReq)
+	if err != nil {
+		logger.Error("Error from LXD client query", logger.Ctx{"err": err, "path": req.Path, "method": req.Method})
+		return types.ClusterManagerTunnelResponse{ID: req.ID, Status: http.StatusInternalServerError}
+	}
+
+	responseBody, err := io.ReadAll(lxdResponse.Body)
+	if err != nil {
+		logger.Error("Failed to marshal LXD response", logger.Ctx{"err": err})
+		return types.ClusterManagerTunnelResponse{ID: req.ID, Status: http.StatusInternalServerError}
+	}
+
+	return types.ClusterManagerTunnelResponse{
+		ID:     req.ID,
+		Status: lxdResponse.StatusCode,
+		Body:   responseBody,
+	}
+}
+
+func ensureTunnelClosed(tunnel *types.ClusterManagerTunnel) {
+	if tunnel.WsConn == nil {
+		return
+	}
+
+	logger.Debug("Closing cluster manager websocket.")
+	closeTunnel(tunnel)
+}
+
+func closeTunnel(tunnel *types.ClusterManagerTunnel) {
+	tunnel.Mu.Lock()
+	defer tunnel.Mu.Unlock()
+
+	err := tunnel.WsConn.Close()
+	tunnel.WsConn = nil
+	if err != nil {
+		logger.Error("Failed to close cluster manager websocket", logger.Ctx{"err": err})
+	}
 }
