@@ -37,7 +37,7 @@ MicroCloud 2.1.0 LTS <https://discourse.ubuntu.com/t/microcloud-2-1-0-lts-has-be
 ## Release notes for MicroCloud components
 
 - {ref}`LXD release notes <lxd:ref-release-notes>`
-- {doc}`MicroCeph release notes <microceph:snap/reference/release-notes>`
+- {ref}`MicroCeph release notes <microceph:release-notes>`
 
 MicroOVN does not yet publish release notes.
 
