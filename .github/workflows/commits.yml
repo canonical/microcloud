@@ -10,7 +10,7 @@ permissions: {}
 
 jobs:
   commits:
-    if: ${{ github.repository == 'canonical/microcloud' }}
+    if: ${{ github.repository_owner == 'canonical' }}
     name: Branch target and CLA
     runs-on: ubuntu-slim
     steps:
