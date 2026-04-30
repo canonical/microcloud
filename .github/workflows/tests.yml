@@ -31,7 +31,7 @@ defaults:
 
 jobs:
   changes:
-    if: ${{ github.repository == 'canonical/microcloud' }}
+    if: ${{ github.repository_owner == 'canonical' }}
     name: Changes
     runs-on: ubuntu-slim
     outputs:
@@ -50,7 +50,7 @@ jobs:
           glob: ":!doc/*"
 
   code-tests:
-    if: ${{ (needs.changes.outputs.except_docs == 'true' || github.event_name == 'schedule') && github.repository == 'canonical/microcloud' }}
+    if: ${{ (needs.changes.outputs.except_docs == 'true' || github.event_name == 'schedule') && github.repository_owner == 'canonical' }}
     name: Code
     runs-on: ubuntu-22.04
     needs: [changes]
@@ -139,7 +139,7 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
-    if: ${{ github.repository == 'canonical/microcloud' }}
+    if: ${{ github.repository_owner == 'canonical' }}
     name: System (core)
     runs-on: self-hosted-linux-amd64-noble-large
     needs: code-tests
@@ -195,7 +195,7 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
-    if: ${{ github.repository == 'canonical/microcloud' }}
+    if: ${{ github.repository_owner == 'canonical' }}
     name: System (upgrade)
     runs-on: self-hosted-linux-amd64-noble-large
     needs: code-tests
@@ -231,7 +231,7 @@ jobs:
       CGO_LDFLAGS: "-L/home/runner/go/bin/dqlite/libs/"
       LD_LIBRARY_PATH: "/home/runner/go/bin/dqlite/libs/"
       CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository_owner == 'canonical' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -302,7 +302,7 @@ jobs:
     name: Trigger snap edge build
     runs-on: ubuntu-24.04
     needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
-    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.repository_owner == 'canonical' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       PACKAGE: "microcloud"
@@ -319,9 +319,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: canonical/lxd/.github/actions/lp-snap-build@main # zizmor: ignore[unpinned-uses]
+      # XXX: from this point onwards in this **specific job**, the private SSH key is
+      #      available through the SSH_AUTH_SOCK environment variable.
+      - uses: canonical/lxd-pkg-snap/.github/actions/lp-snap-build@latest-edge # zizmor: ignore[unpinned-uses]
         with:
-          ssh-key: "${{ secrets.LAUNCHPAD_LXD_BOT_KEY}}"
+          ssh-key: ${{ secrets.LAUNCHPAD_LXD_BOT_KEY }} # zizmor: ignore[secrets-outside-env]
 
       - name: Trigger Launchpad snap build
         run: |
@@ -330,7 +332,11 @@ jobs:
           localRev="$(git rev-parse HEAD)"
           cd ~/"${PACKAGE}-pkg-snap-lp"
           lxd-snapcraft -package "${PACKAGE}" -set-version "git-${localRev:0:7}" -set-source-commit "${localRev}"
-          git add --all
-          git commit --all --quiet -s --allow-empty -m "Automatic upstream build (${BRANCH})" -m "Upstream commit: ${localRev}"
+          git add snapcraft.yaml
+          git commit --quiet -s --allow-empty -m "Automatic upstream build (${BRANCH})" -m "Upstream commit: ${localRev}"
           git show
           git push --quiet
+
+          # Unload the SSH key from the agent now that the push is done, to
+          # prevent accidental usage in any subsequent steps within this job.
+          ssh-add -D
