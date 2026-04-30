@@ -31,6 +31,3 @@ jobs:
 
           echo "Invalid branch target: ${TARGET} != ${TARGET_FROM_PR_TITLE}"
           exit 1
-
-      - name: Check if CLA signed
-        uses: canonical/has-signed-canonical-cla@1c20438ad54b4d37105e777000545881d2293ba4 # v2
