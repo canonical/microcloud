@@ -15,6 +15,12 @@ LXDVERSION       = origin/main
 MICROCEPHVERSION = origin/main
 MICROOVNVERSION  = origin/main
 
+SPHINX_DIR       ?= .sphinx
+DOCS_SOURCEDIR   ?= .
+DOCS_VENVDIR     ?= $(SPHINX_DIR)/venv
+DOCS_VENV        ?= $(DOCS_VENVDIR)/bin/activate
+INTEGRATION_DIR  ?= integration
+
 # Put it first so that "make" without argument is like "make help".
 help:
 	@echo "\n" \
@@ -111,6 +117,35 @@ serve: html
 # `serve-microcloud` rebuilds the MicroCloud docs as a stand-along doc set and serves them.
 serve-microcloud: microcloud
 	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
+
+pymarkdownlnt-install: install
+	@. $(DOCS_VENV); test -d $(DOCS_VENVDIR)/lib/python*/site-packages/pymarkdown || pip install pymarkdownlnt==0.9.35
+
+# Without --return-code-scheme explicit, pymarkdownlnt returns 1 for multiple scenarios
+# By using the explicit scheme, it only returns 1 when no files are found,
+# which should not result in failure
+lint lint-md: pymarkdownlnt-install
+	@echo "Running Markdown linting..."
+	@. $(DOCS_VENV); pymarkdownlnt \
+		--config $(SPHINX_DIR)/.pymarkdown.json \
+		--return-code-scheme explicit \
+		scan \
+			--recurse \
+			--exclude=$(SPHINX_DIR)/** \
+			--exclude=$(DOCS_VENVDIR)/** \
+			--exclude=$(INTEGRATION_DIR)/** \
+			$(DOCS_SOURCEDIR); \
+	status=$$?; \
+	if [ $$status -eq 1 ]; then \
+		echo "No Markdown files selected for linting"; \
+		echo "Passed"; \
+		exit 0; \
+	elif [ $$status -ne 0 ]; then \
+		echo "Failed"; \
+		exit $$status; \
+	else \
+		echo "Passed"; \
+	fi;
 
 install:
 	$(MAKE) -f Makefile.sp sp-install ADDPREREQS='pyyaml gitpython'
