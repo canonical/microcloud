@@ -299,6 +299,7 @@ jobs:
     with:
       working-directory: './doc'
       makefile: 'Makefile'
+      python-version: '3.12'
 
   snap:
     name: Trigger snap edge build
