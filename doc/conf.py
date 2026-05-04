@@ -186,6 +186,7 @@ exclude_patterns = [
     'Thumbs.db',
     '.DS_Store',
     '.sphinx',
+    '.venv',
     'reference/release-notes/release-notes-template.md',
     "integration",
     'README.md',
