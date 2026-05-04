@@ -69,6 +69,7 @@ scalable
 SDN
 snapd
 SSD
+subfolders
 subnet
 subnets
 SVG
