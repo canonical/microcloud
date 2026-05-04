@@ -1,12 +1,3 @@
-# This Makefile stub allows you to customize starter pack (SP) targets.
-# Consider this file as a bridge between your project
-# and the starter pack's predefined targets that reside in Makefile.sp.
-#
-# You can add your own, non-SP targets here or override SP targets
-# to fit your project's needs. For example, you can define and use targets
-# named "install" or "run", but continue to use SP targets like "sp-install"
-# or "sp-run" when working on the documentation.
-
 current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
 # Set the path prefix and MicroCloud component versions corresponding to each MicroCloud docs version
@@ -16,30 +7,78 @@ MICROCEPHVERSION = origin/main
 MICROOVNVERSION  = origin/main
 
 SPHINX_DIR       ?= .sphinx
-DOCS_SOURCEDIR   ?= .
-DOCS_VENVDIR     ?= $(SPHINX_DIR)/venv
+SPHINX_OPTS      ?= -c . -d $(SPHINX_DIR)/.doctrees -j auto
+SPHINX_BUILD     ?= $(DOCS_VENVDIR)/bin/sphinx-build
+SPHINX_HOST      ?= 127.0.0.1
+SPHINX_PORT      ?= 8000
+DOCS_VENVDIR     ?= .venv
 DOCS_VENV        ?= $(DOCS_VENVDIR)/bin/activate
-INTEGRATION_DIR  ?= integration
+DOCS_SOURCEDIR   ?= .
+DOCS_BUILDDIR    ?= _build
+
+PA11Y_CMD        ?= $(SPHINX_DIR)/node_modules/pa11y/bin/pa11y.js --config $(SPHINX_DIR)/pa11y.json
+TARGET        = *
+ALLFILES      = *.rst **/*.rst
+INTEGRATION_DIR ?= integration
 
 # Put it first so that "make" without argument is like "make help".
 help:
-	@echo "\n" \
-        "------------------------------------------------------------- \n" \
-        "* watch, build and serve the documentation:  make run \n" \
-        "* only build:                                make html \n" \
-        "* only serve:                                make serve \n" \
-        "* clean built doc files:                     make clean-doc \n" \
-        "* clean full environment:                    make clean \n" \
-        "* check links:                               make linkcheck \n" \
-        "* check spelling:                            make spelling \n" \
-        "* check spelling (without building again):   make spellcheck \n" \
-        "* check inclusive language:                  make woke \n" \
-        "* check accessibility:                       make pa11y \n" \
-        "* check style guide compliance:              make vale \n" \
-        "* check style guide compliance on target:    make vale TARGET=* \n" \
-        "* check markdown:                            make lint-md \n" \
-        "* other possible targets:                    make <TAB twice> \n" \
-        "------------------------------------------------------------- \n"
+	@echo
+	@echo "-------------------------------------------------------------"
+	@echo "* watch, build and serve the documentation:  make run"
+	@echo "* only build:                                make html"
+	@echo "* only serve:                                make serve"
+	@echo "* clean built doc files:                     make clean-doc"
+	@echo "* clean full environment:                    make clean"
+	@echo "* check links:                               make linkcheck"
+	@echo "* check markdown:                            make lint-md"
+	@echo "* check spelling:                            make spelling"
+	@echo "* check spelling (without building again):   make spellcheck"
+	@echo "* check inclusive language:                  make woke"
+	@echo "* check accessibility:                       make pa11y"
+	@echo "* check style guide compliance:              make vale"
+	@echo "* check style guide compliance on target:    make vale TARGET=*"
+	@echo "* other possible targets:                    make <TAB twice>"
+	@echo "-------------------------------------------------------------"
+	@echo
+
+.PHONY: help full-help html epub linkcheck spelling spellcheck woke \
+        vale pa11y run serve install pa11y-install \
+		clean clean-doc lint-md lint \
+		integrate clean-integrate html html-rtd microcloud \
+		serve-microcloud woke-install pymarkdownlnt-install
+
+full-help: $(DOCS_VENVDIR)
+	@. $(DOCS_VENV); $(SPHINX_BUILD) -M help "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) $(O)
+	@echo "\n\033[1;31mNOTE: This help texts shows unsupported targets!\033[0m"
+	@echo "Run 'make help' to see supported targets."
+
+# If requirements are updated, venv should be rebuilt and timestamped.
+$(DOCS_VENVDIR):
+	@echo "... setting up virtualenv"
+	python3 -m venv $(DOCS_VENVDIR) || { echo "You must install python3-venv before you can build the documentation."; exit 1; }
+	. $(DOCS_VENV); pip install $(PIPOPTS) --require-virtualenv \
+	    --upgrade -r requirements.txt \
+            --log $(DOCS_VENVDIR)/pip_install.log
+	@test ! -f $(DOCS_VENVDIR)/pip_list.txt || \
+            mv $(DOCS_VENVDIR)/pip_list.txt $(DOCS_VENVDIR)/pip_list.txt.bak
+	@. $(DOCS_VENV); pip list --local --format=freeze > $(DOCS_VENVDIR)/pip_list.txt
+	@touch $(DOCS_VENVDIR)
+
+pa11y-install:
+	@command -v $(PA11Y_CMD) >/dev/null || { \
+			echo "Installing \"pa11y\" from npm..."; echo; \
+			mkdir -p $(SPHINX_DIR)/node_modules/ ; \
+			npm install --prefix $(SPHINX_DIR) pa11y; \
+		}
+
+pymarkdownlnt-install: install
+	@. $(DOCS_VENV); test -d $(DOCS_VENVDIR)/lib/python*/site-packages/pymarkdown || pip install pymarkdownlnt==0.9.35
+
+install: $(DOCS_VENVDIR)
+
+run: install
+	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
 integrate:
 	# Pull the other repositories
@@ -75,52 +114,59 @@ integrate:
 	# Override the MicroOVN tag with the circle of friends one (for consistency)
 	cp .sphinx/_integration/tag.png integration/microovn/docs/.sphinx/_static/microovn.png
 
+# `html` builds the integrated docs.
+html: integrate install
+	mkdir -p $(current_dir)/_build
+	cd integration/lxd/doc/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/lxd
+	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
+	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
+	. $(DOCS_VENV); $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(current_dir)/_build" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+
+# `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
+# This target is used by the Read the Docs build.
+html-rtd: install
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
+	. $(DOCS_VENV); PATH_PREFIX=$(PATH_PREFIX) $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(READTHEDOCS_OUTPUT)/html" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+
+epub: install
+	. $(DOCS_VENV); $(SPHINX_BUILD) -b epub "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+
+# `microcloud` builds only the MicroCloud docs, as a stand-alone doc set.
+microcloud: install
+	. $(DOCS_VENV); SINGLE_BUILD=True $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+
+# `serve` rebuilds the integrated docs and serves them.
+serve: html
+	cd "$(DOCS_BUILDDIR)"; python3 -m http.server --bind $(SPHINX_HOST) $(SPHINX_PORT)
+
+# `serve-microcloud` rebuilds the MicroCloud docs as a stand-alone doc set and serves them.
+serve-microcloud: microcloud
+	cd "$(DOCS_BUILDDIR)"; python3 -m http.server --bind $(SPHINX_HOST) $(SPHINX_PORT)
+	
+clean: clean-integrate clean-doc
+	@test ! -e "$(DOCS_VENVDIR)" -o -d "$(DOCS_VENVDIR)" -a "$(abspath $(DOCS_VENVDIR))" != "$(DOCS_VENVDIR)"
+	rm -rf $(DOCS_VENVDIR)
+	rm -rf $(SPHINX_DIR)/node_modules/
+	rm -rf $(SPHINX_DIR)/styles
+	rm -rf $(SPHINX_DIR)/vale.ini
+
+clean-doc:
+	git clean -fx "$(DOCS_BUILDDIR)"
+	rm -rf $(SPHINX_DIR)/.doctrees
+	
 clean-integrate:
 	rm -rf integration/lxd
 	rm -rf integration/microceph
 	rm -rf integration/microovn
 
-clean: clean-integrate
-	$(MAKE) -f Makefile.sp sp-clean
+linkcheck: install
+	. $(DOCS_VENV) ; $(SPHINX_BUILD) -b linkcheck -q "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) || { grep --color -F "[broken]" "$(DOCS_BUILDDIR)/output.txt"; exit 1; }
+	exit 0
 
-# `html` builds the integrated docs.
-html: integrate
-	mkdir -p $(current_dir)/_build
-	cd integration/lxd/doc/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/lxd
-	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
-	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
-	$(MAKE) -f Makefile.sp sp-html BUILDDIR=$(current_dir)/_build ADDPREREQS='gitpython pyyaml'
-
-# `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
-# This target is used by the Read the Docs build.
-html-rtd:
-	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
-	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
-	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
-	ADDPREREQS='gitpython pyyaml' PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -f Makefile.sp sp-html BUILDDIR=$(READTHEDOCS_OUTPUT)/html
-
-# `spelling` checks only the MicroCloud docs.
-spelling: clean-doc microcloud
-	$(MAKE) -f Makefile.sp sp-spellcheck
-
-# `microcloud` builds only the MicroCloud docs, as a stand-alone doc set.
-microcloud:
-	$(MAKE) -f Makefile.sp sp-html SINGLE_BUILD=True
-
-.PHONY: run
-run:
-	$(MAKE) -f Makefile.sp sp-run LOCAL_SPHINX_BUILD=True ADDPREREQS='gitpython pyyaml' SPHINXOPTS="--ignore './index.html' -c . -d .sphinx/.doctrees -j auto"
-
-# `serve` rebuilds the integrated docs and serves them.
-serve: html
-	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
-
-# `serve-microcloud` rebuilds the MicroCloud docs as a stand-along doc set and serves them.
-serve-microcloud: microcloud
-	cd $(current_dir)/_build/; python3 -m http.server --bind 127.0.0.1 8000
-
-pymarkdownlnt-install: install
-	@. $(DOCS_VENV); test -d $(DOCS_VENVDIR)/lib/python*/site-packages/pymarkdown || pip install pymarkdownlnt==0.9.35
+pa11y: pa11y-install html
+	find $(DOCS_BUILDDIR) -name *.html -print0 | xargs -n 1 -0 $(PA11Y_CMD)
 
 # Without --return-code-scheme explicit, pymarkdownlnt returns 1 for multiple scenarios
 # By using the explicit scheme, it only returns 1 when no files are found,
@@ -148,8 +194,32 @@ lint lint-md: pymarkdownlnt-install
 		echo "Passed"; \
 	fi;
 
-install:
-	$(MAKE) -f Makefile.sp sp-install ADDPREREQS='pyyaml gitpython'
-	
+
+woke: woke-install
+	woke $(ALLFILES) --exit-1-on-failure \
+	    -c https://github.com/canonical/Inclusive-naming/raw/main/config.yml
+
+woke-install:
+	@type woke >/dev/null 2>&1 || \
+	    { echo "Installing \"woke\" snap... \n"; sudo snap install woke; }
+
+vale: install
+	@. $(DOCS_VENV); test -d $(DOCS_VENVDIR)/lib/python*/site-packages/vale || pip install vale
+	@. $(DOCS_VENV); test -f $(SPHINX_DIR)/vale.ini || python3 $(SPHINX_DIR)/get_vale_conf.py
+	@. $(DOCS_VENV); find $(DOCS_VENVDIR)/lib/python*/site-packages/vale/vale_bin -size 195c -exec vale --config "$(SPHINX_DIR)/vale.ini" $(TARGET) > /dev/null \;
+	@echo ""
+	@echo "Running Vale against $(TARGET). To change target set TARGET= with make command"
+	@echo ""
+	@. $(DOCS_VENV); vale --config "$(SPHINX_DIR)/vale.ini" --glob='*.{md,txt,rst}' $(TARGET)
+# `spelling` checks only the MicroCloud docs.
+spelling: clean-doc microcloud spellcheck
+
+spellcheck: install
+	. $(DOCS_VENV); python3 -m pyspelling -c $(SPHINX_DIR)/spellingcheck.yaml -j $(shell nproc)
+
+
+# Catch-all target: route all unknown targets to Sphinx using the new
+# "make mode" option.  $(O) is meant as a shortcut for $(SPHINX_OPTS).
 %:
-	$(MAKE) -f Makefile.sp sp-$@
+	$(MAKE) --no-print-directory install
+	. $(DOCS_VENV); $(SPHINX_BUILD) -M $@ "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) $(O)
