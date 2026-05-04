@@ -1,7 +1,6 @@
 /*env*/
 .venv/
 .sphinx/warnings.txt
-.sphinx/.wordlist.dic
 .sphinx/.doctrees/
 .sphinx/node_modules/
 package*.json
@@ -13,6 +12,5 @@ __pycache__
 .sphinx/styles/*
 .sphinx/vale.ini
 integration/
-
 .sphinx/deps/
 _static/swagger-ui
