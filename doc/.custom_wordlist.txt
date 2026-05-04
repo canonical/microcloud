@@ -79,6 +79,7 @@ SDN
 snapd
 SSD
 SSL
+subfolders
 subnet
 subnets
 SVG

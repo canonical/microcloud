@@ -33,7 +33,7 @@ Removing a cluster member with `--force` will not attempt to perform any clean-u
 
 ## Reducing the cluster to one member
 
-When shrinking the cluster down to one member, you must also clean up the Ceph monmap before proceeding, even when using the `--force` flag.
+When shrinking the cluster down to one member, you must also clean up the Ceph monitor map (`monmap`) before proceeding, even when using the `--force` flag.
 
 ```bash
 sudo microceph.ceph mon remove <name>

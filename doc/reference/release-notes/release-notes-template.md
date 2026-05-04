@@ -9,7 +9,7 @@ myst:
 
 % NOTE: This is a basic template for MicroCloud release notes. It is excluded from the Sphinx build of the documentation site.
 
-% Uncomment one of the two sentences below, and delete the other.
+% Remove the comment prefix (%) from one of the two sentences below, and delete the other.
 % This is a {ref}`feature release <ref-releases-microcloud-feature>` and is not recommended for production use.
 % This is a {ref}`LTS release <ref-releases-microcloud-lts>` and is recommended for production use.
 
