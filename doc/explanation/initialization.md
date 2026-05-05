@@ -45,9 +45,9 @@ The bootstrapping process consists of the following steps:
 After the initialization is complete, you can look at the LXD configuration to confirm the setup.
 
 ```{terminal}
-:input: lxc cluster list
 :host: micro01
 :scroll:
+lxc cluster list
 
 +---------+------------------------------------+-----------------+--------------+----------------+-------------+--------+-------------------+
 |  NAME   |                 URL                |      ROLES      | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
@@ -59,7 +59,13 @@ After the initialization is complete, you can look at the LXD configuration to c
 +---------+------------------------------------+-----------------+--------------+----------------+-------------+--------+-------------------+
 | micro03 | https://[2001:db8:d:100::171]:8443 | database        | aarch64      | default        |             | ONLINE | Fully operational |
 +---------+------------------------------------+-----------------+--------------+----------------+-------------+--------+-------------------+
-:input: lxc storage list
+```
+
+```{terminal}
+:host: micro01
+:scroll:
+lxc storage list
+
 +-----------+--------+--------------------------------------------+---------+---------+
 |  NAME     | DRIVER |         DESCRIPTION                        | USED BY |  STATE  |
 +-----------+--------+--------------------------------------------+---------+---------+
@@ -69,7 +75,13 @@ After the initialization is complete, you can look at the LXD configuration to c
 +-----------+--------+--------------------------------------------+---------+---------+
 | remote-fs | cephfs | Distributed file-system storage using Ceph | 7       | CREATED |
 +-----------+--------+--------------------------------------------+---------+---------+
-:input: lxc network list
+```
+
+```{terminal}
+:host: micro01
+:scroll:
+lxc network list
+
 +----------+----------+---------+-----------------+---------------------------+-------------+---------+---------+
 |   NAME   |   TYPE   | MANAGED |      IPV4       |           IPV6            | DESCRIPTION | USED BY |  STATE  |
 +----------+----------+---------+-----------------+---------------------------+-------------+---------+---------+
@@ -81,7 +93,13 @@ After the initialization is complete, you can look at the LXD configuration to c
 +----------+----------+---------+-----------------+---------------------------+-------------+---------+---------+
 | eth0.200 | vlan     | NO      |                 |                           |             | 1       |         |
 +----------+----------+---------+-----------------+---------------------------+-------------+---------+---------+
-:input: lxc profile show default
+```
+
+```{terminal}
+:host: micro01
+:scroll:
+lxc profile show default
+
 config: {}
 description: ""
 devices:

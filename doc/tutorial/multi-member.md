@@ -23,9 +23,9 @@ MicroCloud requires LXD version 5.21:
    1. Run {command}`snap version` to find out if snap is installed on your system:
 
       ```{terminal}
-      :input: snap version
       :user: ubuntu
       :host: lxd-host
+      snap version
 
       snap    2.59.4
       snapd   2.59.4
@@ -137,9 +137,9 @@ Complete the following steps to create the required disks in a LXD storage pool:
 1. Check that the disks have been created correctly:
 
    ```{terminal}
-   :input: lxc storage volume list disks
    :user: ubuntu
    :host: lxd-host
+   lxc storage volume list disks
 
    +--------+---------+-------------+--------------+---------+
    |  TYPE  |  NAME   | DESCRIPTION | CONTENT-TYPE | USED BY |
@@ -348,10 +348,10 @@ See the full process here for the initiating side:
 (initialization-process)=
 
 ```{terminal}
-:input: microcloud init
 :user: root
 :host: micro1
 :scroll:
+microcloud init
 
 Do you want to set up more than one cluster member? (yes/no) [default=yes]: yes
 Select an address for MicroCloud's internal traffic:
@@ -498,10 +498,10 @@ MicroCloud is ready
 See the full process here for one of the joining sides (`micro2`):
 
 ```{terminal}
-:input: microcloud join
 :user: root
 :host: micro2
 :scroll:
+microcloud join
 
 Select an address for MicroCloud's internal traffic:
 Space to select; enter to confirm; type to filter results.
@@ -542,10 +542,10 @@ We continue using `micro1`, but you will see the same results on the others.
 1. Inspect the cluster setup:
 
    ```{terminal}
-   :input: lxc cluster list
    :user: root
    :host: micro1
    :scroll:
+   lxc cluster list
 
    +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    |  NAME  |            URL           |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
@@ -559,7 +559,14 @@ We continue using `micro1`, but you will see the same results on the others.
    +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    | micro4 | https://10.1.123.40:8443 | database-standby | x86_64       | default        |             | ONLINE | Fully operational |
    +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
-   :input: microcloud cluster list
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   microcloud cluster list
+
    +--------+------------------+----------+------------------------------------------------------------------+--------+
    |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
    +--------+------------------+----------+------------------------------------------------------------------+--------+
@@ -571,7 +578,14 @@ We continue using `micro1`, but you will see the same results on the others.
    +--------+------------------+----------+------------------------------------------------------------------+--------+
    | micro4 | 10.1.123.40:9443 | stand-by | 649ec21815135104f1faa5fca099daddf995f554119c6e34706a2b31681ad1d7 | ONLINE |
    +--------+------------------+----------+------------------------------------------------------------------+--------+
-   :input: microceph cluster list
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   microceph cluster list
+
    +--------+------------------+----------+------------------------------------------------------------------+--------+
    |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
    +--------+------------------+----------+------------------------------------------------------------------+--------+
@@ -583,7 +597,14 @@ We continue using `micro1`, but you will see the same results on the others.
    +--------+------------------+----------+------------------------------------------------------------------+--------+
    | micro4 | 10.1.123.40:7443 | stand-by | 9b75b396f6d59481b8c14221942d775cff4d27c5621b0b541eb5ba3245618093 | ONLINE |
    +--------+------------------+----------+------------------------------------------------------------------+--------+
-   :input: microovn cluster list
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   microovn cluster list
+
    +--------+------------------+----------+------------------------------------------------------------------+--------+
    |  NAME  |      ADDRESS     | ROLE     |                           FINGERPRINT                            | STATUS |
    +--------+------------------+----------+------------------------------------------------------------------+--------+
@@ -600,10 +621,10 @@ We continue using `micro1`, but you will see the same results on the others.
 1. Inspect the storage setup:
 
    ```{terminal}
-   :input: lxc storage list
    :user: root
    :host: micro1
    :scroll:
+   lxc storage list
 
    +-----------+--------+--------------------------------------------+---------+---------+
    |  NAME     | DRIVER |         DESCRIPTION                        | USED BY |  STATE  |
@@ -614,7 +635,14 @@ We continue using `micro1`, but you will see the same results on the others.
    +-----------+--------+--------------------------------------------+---------+---------+
    | remote-fs | cephfs | Distributed file-system storage using Ceph | 1       | CREATED |
    +-----------+--------+--------------------------------------------+---------+---------+
-   :input: lxc storage info local
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   lxc storage info local
+
    info:
      description: Local storage on ZFS
      driver: zfs
@@ -631,7 +659,14 @@ We continue using `micro1`, but you will see the same results on the others.
      - images (location "micro2")
      - images (location "micro3")
      - images (location "micro4")
-   :input: lxc storage info remote
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   lxc storage info remote
+
    info:
      description: Distributed storage on Ceph
      driver: ceph
@@ -641,7 +676,14 @@ We continue using `micro1`, but you will see the same results on the others.
    used by:
      profiles:
      - default
-   :input: lxc storage info remote-fs
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   lxc storage info remote-fs
+
    info:
      description: Distributed file-system storage using CephFS
      driver: cephfs
@@ -654,10 +696,10 @@ We continue using `micro1`, but you will see the same results on the others.
 1. Inspect the OVN network setup:
 
    ```{terminal}
-   :input: lxc network list
    :user: root
    :host: micro1
    :scroll:
+   lxc network list
 
    +---------+----------+---------+-----------------+--------------------------+-------------+---------+---------+
    |  NAME   |   TYPE   | MANAGED |      IPV4       |           IPV6           | DESCRIPTION | USED BY |  STATE  |
@@ -674,7 +716,14 @@ We continue using `micro1`, but you will see the same results on the others.
    +---------+----------+---------+-----------------+--------------------------+-------------+---------+---------+
    | lxdovn1 | bridge   | NO      |                 |                          |             | 0       |         |
    +---------+----------+---------+-----------------+--------------------------+-------------+---------+---------+
-   :input: lxc network show default
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   lxc network show default
+
    config:
      bridge.mtu: "1442"
      ipv4.address: 198.51.100.1/24
@@ -705,10 +754,10 @@ We continue using `micro1`, but you will see the same results on the others.
    1. Ping that IPv4 address.
    
    ```{terminal}
-   :input: ping 192.0.2.100
    :user: root
    :host: micro1
    :scroll:
+   ping 192.0.2.100
 
    PING 192.0.2.100 (192.0.2.100) 56(84) bytes of data.
    64 bytes from 192.0.2.100: icmp_seq=1 ttl=253 time=2.05 ms
@@ -718,24 +767,15 @@ We continue using `micro1`, but you will see the same results on the others.
    --- 192.0.2.100 ping statistics ---
    4 packets transmitted, 3 received, 25% packet loss, time 3005ms
    rtt min/avg/max/mdev = 1.777/1.945/2.052/0.120 ms
-   :input: ping6 -n 2001:db8:e647:610d:216:3eff:fe96:ed5c
-   PING 2001:db8:e647:610d:216:3eff:fe96:ed5c(2001:db8:e647:610d:216:3eff:fe96:ed5c) 56 data bytes
-   64 bytes from 2001:db8:e647:610d:216:3eff:fe96:ed5c: icmp_seq=1 ttl=253 time=1.61 ms
-   64 bytes from 2001:db8:e647:610d:216:3eff:fe96:ed5c: icmp_seq=2 ttl=253 time=1.99 ms
-   64 bytes from 2001:db8:e647:610d:216:3eff:fe96:ed5c: icmp_seq=3 ttl=253 time=15.7 ms
-   ^C
-   --- 2001:db8:e647:610d:216:3eff:fe96:ed5c ping statistics ---
-   3 packets transmitted, 3 received, 0% packet loss, time 2004ms
-   rtt min/avg/max/mdev = 1.606/6.432/15.704/6.558 ms
    ```
 
 1. Inspect the default profile:
 
    ```{terminal}
-   :input: lxc profile show default
    :user: root
    :host: micro1
    :scroll:
+   lxc profile show default
 
    config: {}
    description: ""
@@ -772,10 +812,10 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
    Note that the instances are running on different cluster members.
 
    ```{terminal}
-   :input: lxc list
    :user: root
    :host: micro1
    :scroll:
+   lxc list
 
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
    | NAME |  STATE  |        IPV4         |                     IPV6                     |      TYPE       | SNAPSHOTS | LOCATION |
@@ -792,10 +832,10 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
    Note that the instance volumes are located on the specified storage pools.
 
    ```{terminal}
-   :input: lxc storage volume list remote
    :user: root
    :host: micro1
    :scroll:
+   lxc storage volume list remote
 
    +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
    | TYPE | NAME | DESCRIPTION | CONTENT-TYPE | USED BY | LOCATION |
@@ -808,7 +848,14 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
    +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
    | virtual-machine | u3                                                               |             | block        | 1       |          |
    +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
-   :input: lxc storage volume list local
+   ```
+
+   ```{terminal}
+   :user: root
+   :host: micro1
+   :scroll:
+   lxc storage volume list local
+
    +-----------+------------------------------------------------------------------+-------------+--------------+---------+----------+
    |   TYPE    |                               NAME                               | DESCRIPTION | CONTENT-TYPE | USED BY | LOCATION |
    +-----------+------------------------------------------------------------------+-------------+--------------+---------+----------+
@@ -842,10 +889,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Check the list of running instances:
 
    ```{terminal}
-   :input: lxc list
    :user: root
    :host: micro1
    :scroll:
+   lxc list
 
    +------+---------+---------------------+----------------------------------------------+-----------------+-----------+----------+
    | NAME |  STATE  |        IPV4         |                    IPV6                      |      TYPE       | SNAPSHOTS | LOCATION |
@@ -865,10 +912,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Ping the IPv4 address of `u2`:
 
    ```{terminal}
-   :input: ping 198.51.100.3
    :user: root
    :host: u1
    :scroll:
+   ping 198.51.100.3
 
    PING 198.51.100.3 (198.51.100.3) 56(84) bytes of data.
    64 bytes from 198.51.100.3: icmp_seq=1 ttl=64 time=1.33 ms
@@ -883,10 +930,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Ping the IPv6 address of `u3`:
 
    ```{terminal}
-   :input: ping6 -n 2001:db8:d960:91cf:216:3eff:fe66:f24b
    :user: root
    :host: u1
    :scroll:
+   ping6 -n 2001:db8:d960:91cf:216:3eff:fe66:f24b
 
    PING 2001:db8:d960:91cf:216:3eff:fe66:f24b(2001:db8:d960:91cf:216:3eff:fe66:f24b) 56 data bytes
    64 bytes from 2001:db8:d960:91cf:216:3eff:fe66:f24b: icmp_seq=1 ttl=64 time=16.8 ms
@@ -901,10 +948,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Confirm that the instance has connectivity to the outside world:
 
    ```{terminal}
-   :input: ping www.example.com
    :user: root
    :host: u1
    :scroll:
+   ping www.example.com
 
    PING www.example.com (93.184.216.34) 56(84) bytes of data.
    64 bytes from 93.184.216.34 (93.184.216.34): icmp_seq=1 ttl=49 time=111 ms
@@ -929,10 +976,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Show information about the new network:
 
    ```{terminal}
-   :input: lxc network show isolated
    :user: root
    :host: micro1
    :scroll:
+   lxc network show isolated
 
    config:
      bridge.mtu: "1442"
@@ -959,10 +1006,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Check that you can ping the `volatile.network.ipv4.address`:
 
    ```{terminal}
-   :input: ping 192.0.2.101
    :user: root
    :host: micro1
    :scroll:
+   ping 192.0.2.101
 
    PING 192.0.2.101 (192.0.2.101) 56(84) bytes of data.
    64 bytes from 192.0.2.101: icmp_seq=1 ttl=253 time=1.25 ms
@@ -985,10 +1032,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Confirm that the instance has connectivity to the outside world:
 
    ```{terminal}
-   :input: ping www.example.com
    :user: root
    :host: u4
    :scroll:
+   ping www.example.com
 
    PING www.example.com (93.184.216.34) 56(84) bytes of data.
    64 bytes from 93.184.216.34 (93.184.216.34): icmp_seq=1 ttl=49 time=95.6 ms
@@ -1003,10 +1050,10 @@ You can, however, create a different network to isolate some instances from othe
 1. Ping the IPv4 address of `u2`:
 
    ```{terminal}
-   :input: ping 198.51.100.3
    :user: root
    :host: u4
    :scroll:
+   ping 198.51.100.3
 
    PING 198.51.100.3 (198.51.100.3) 56(84) bytes of data.
    ^C
@@ -1024,10 +1071,10 @@ See {ref}`lxd:access-ui` for more information.
 1. Check the LXD cluster list to determine the IP addresses of the cluster members:
 
    ```{terminal}
-   :input: lxc cluster list
    :user: root
    :host: micro1
    :scroll:
+   lxc cluster list
 
    +--------+--------------------------+------------------+--------------+----------------+-------------+--------+-------------------+
    |  NAME  |            URL           |      ROLES       | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
