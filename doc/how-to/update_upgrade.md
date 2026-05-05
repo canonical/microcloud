@@ -68,9 +68,9 @@ sudo snap refresh <snap>> --cohort="+"
 After you set this flag, `snap list <snap>` shows `in-cohort` in the `Notes` column. Example:
 
 ```{terminal}
-:input: snap list lxd
 :user: root
 :host: instance
+snap list lxd
 
 Name  Version         Rev    Tracking     Publisher   Notes
 lxd   5.21.3-c5ae129  33110  5.21/stable  canonical✓  in-cohort
