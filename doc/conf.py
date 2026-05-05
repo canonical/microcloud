@@ -41,13 +41,13 @@ html_baseurl = os.environ.get('READTHEDOCS_CANONICAL_URL', '/')
 # OpenGraph metadata used for social sharing previews
 ogp_site_url = html_baseurl
 ogp_site_name = html_title
-ogp_image = 'https://documentation.ubuntu.com/microcloud/latest/_static/tag.png'
+ogp_image = 'https://documentation.ubuntu.com/microcloud/latest/_static/microcloud_tag.png'
 
 html_favicon = '.sphinx/_static/favicon.png'
 
 html_context = {
     'product_page': 'canonical.com/microcloud',
-    'product_tag': '_static/tag.png',
+    'product_tag': '_static/microcloud_tag.png',
 
     'discourse': 'https://discourse.ubuntu.com/c/lxd/microcloud/',
     'discourse_prefix': {
@@ -158,28 +158,23 @@ linkcheck_timeout = 45
 # Configuration extras #
 ########################
 
-# Additional MyST extensions, if any
-myst_enable_extensions = [
-    'substitution',
-    'deflist',
-    'linkify'
-]
-
 extensions = [
-    'sphinx_design',
-    'sphinx_copybutton',
-    'sphinxcontrib.jquery',
-    'sphinx_reredirects',
-    'myst_parser',
-    'sphinxext.opengraph',
-    'sphinx_tabs.tabs',
-    'canonical.youtube-links',
-    'canonical.related-links',
-    'canonical.custom-rst-roles',
-    'canonical.terminal-output',
+    'canonical_sphinx',
     'notfound.extension',
+    'sphinx_design',
+    'sphinx_reredirects',
+    'sphinx_tabs.tabs',
+    'sphinxcontrib.jquery',
+    'sphinxext.opengraph',
+    'sphinx_related_links',
+    'sphinx_roles',
+    'sphinx_terminal',
+    'sphinx_youtube_links',
+    'sphinxcontrib.cairosvgconverter',
+    "sphinx_last_updated_by_git",
     'sphinx.ext.intersphinx',
     'sphinx_sitemap',
+    'myst_parser',
 ]
 
 # Excludes files or directories from processing
@@ -195,20 +190,15 @@ exclude_patterns = [
 ]
 
 html_css_files = [
-    'custom.css',
-    'header.css',
-    'github_issue_links.css',
-    'furo_colors.css',
-    'footer.css',
     'https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css',
 ]
 
+if os.environ.get('SINGLE_BUILD') != 'True':
+    html_css_files.append('override-header.css')
+
 html_js_files = [
-    'header-nav.js',
-    'footer.js',
     'https://assets.ubuntu.com/v1/287a5e8f-bundle.js',
     'rtd-versions-flyout.js',
-    'github_issue_links.js',
 ]
 
 # Feedback button at the top; enabled by default
@@ -248,17 +238,6 @@ if builder == 'dirhtml' or builder == 'html':
     if os.environ.get('SINGLE_BUILD') != 'True':
         templates_path.insert(0, 'integration/microcloud/_templates')
     notfound_template = '404.html'
-
-# Theme configuration
-html_theme = 'furo'
-html_last_updated_fmt = ''
-html_permalinks_icon = '¶'
-
-if html_title == '':
-    html_theme_options = {
-        'sidebar_hide_name': True
-        }
-
 
 ##########################################
 ### Misc MicroCloud custom configuration #
@@ -304,7 +283,7 @@ if os.environ.get('SINGLE_BUILD') != 'True':
     exec(compile(source=open('.sphinx/_integration/add_config.py').read(), filename='.sphinx/_integration/add_config.py', mode='exec'))
     # MicroCloud docs are at the URL root, so override the relative paths to sibling doc sets
     html_context['lxd_path'] = "lxd"
-    html_context['lxd_tag'] = "lxd/_static/tag.png"
+    html_context['lxd_tag'] = "lxd/_static/lxd_tag.png"
     html_context['microceph_path'] = "microceph"
     html_context['microceph_tag'] = "microceph/_static/tag.png"
     html_context['microovn_path'] = "microovn"
