@@ -43,7 +43,7 @@ ogp_site_url = html_baseurl
 ogp_site_name = html_title
 ogp_image = 'https://documentation.ubuntu.com/microcloud/latest/_static/microcloud_tag.png'
 
-html_favicon = '.sphinx/_static/favicon.png'
+html_favicon = '_static/favicon.png'
 
 html_context = {
     'product_page': 'canonical.com/microcloud',
@@ -108,7 +108,7 @@ sitemap_excludes = [
 # Template and asset locations
 #######################
 
-html_static_path = ['.sphinx/_static', '_static']
+html_static_path = ['_static']
 
 
 #############
@@ -234,7 +234,7 @@ if '-b' in sys.argv:
 
 # Setting templates_path for epub makes the build fail
 if builder == 'dirhtml' or builder == 'html':
-    templates_path = ['.sphinx/_templates']
+    templates_path = ['_templates']
     if os.environ.get('SINGLE_BUILD') != 'True':
         templates_path.insert(0, 'integration/microcloud/_templates')
     notfound_template = '404.html'
