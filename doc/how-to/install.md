@@ -88,6 +88,11 @@ For detailed information, refer to {ref}`reference-requirements`.
 
 Install all required {ref}`snaps <reference-requirements-software-snaps>` on each machine intended as a MicroCloud cluster member. Enter the following commands on all machines:
 
+```{admonition} Snap channels
+:class: note
+The snap channels shown below install the current {ref}`LTS release <ref-releases-microcloud-lts>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current feature release <ref-releases-microcloud-feature>` of MicroCloud instead, refer to the [install guide for that version](https://documentation.ubuntu.com/microcloud/latest/how-to/install/).
+```
+
 ```bash
 sudo snap install lxd --channel=5.21/stable --cohort="+"
 sudo snap install microceph --channel=squid/stable --cohort="+"

@@ -9,7 +9,7 @@ You can seek support from the LXD developers as well as the wider community thro
 
 ### Forum
 
-Ask questions or engage in discussions in our [Discourse forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
+Ask questions or engage in discussions in our [Discourse forum](https://discourse.ubuntu.com/c/project/lxd/microcloud/145).
 
 ### Documentation
 
@@ -27,5 +27,5 @@ You can find additional resources on the [MicroCloud website](https://canonical.
 
 LTS releases of MicroCloud receive standard support for five years, which means they receive continuous updates. Commercial support for MicroCloud is provided as part of [Ubuntu Pro](https://ubuntu.com/pro) (both Infra-only and full Ubuntu Pro). See the [full service description](https://ubuntu.com/legal/ubuntu-pro-description) for details.
 
-Managed solutions and firefighting support are also available for MicroCloud deployments. Visit [Managed services](https://ubuntu.com/managed) for details.
+Managed solutions and firefighting support are also available for MicroCloud deployments. Visit [Managed services](https://ubuntu.com/managed-infrastructure) for details.
 

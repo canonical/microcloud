@@ -30,7 +30,7 @@ Clarify concepts or common questions based on your own experience.
 Report documentation issues by opening an issue in [GitHub](https://github.com/canonical/microcloud/issues).
 : - We will evaluate and update the documentation as needed.
 
-Ask questions or suggest improvements in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
+Ask questions or suggest improvements in the [MicroCloud forum](https://discourse.ubuntu.com/c/project/lxd/microcloud/145).
 : - We monitor discussions and update the documentation when necessary.
 
 If you contribute images to `doc/images`:
@@ -39,9 +39,9 @@ If you contribute images to `doc/images`:
 
 ### Documentation framework
 
-The MicroCloud documentation and its integrated documentation sets are built with [Sphinx](https://www.sphinx-doc.org/) and hosted on [Read the Docs](https://about.readthedocs.com/). For structuring, all use the [Diátaxis](https://diataxis.fr/) approach.
+The MicroCloud documentation and its integrated documentation sets are built with [Sphinx](https://www.sphinx-doc.org/en/master/) and hosted on [Read the Docs](https://about.readthedocs.com/). For structuring, all use the [Diátaxis](https://diataxis.fr/) approach.
 
-The MicroCloud and LXD documentation sets are written in [Markdown](https://commonmark.org/) with [MyST](https://myst-parser.readthedocs.io/) extensions. For syntax help and guidelines, see the [MyST style guide](https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com/style-guide-myst/) and the [documentation cheat sheet](cheat-sheet-myst) ([source](https://raw.githubusercontent.com/canonical/microcloud/main/doc/doc-cheat-sheet-myst.md)).
+The MicroCloud and LXD documentation sets are written in [Markdown](https://commonmark.org/) with [MyST](https://myst-parser.readthedocs.io/en/latest/) extensions. For syntax help and guidelines, see the [MyST syntax guide](https://canonical-sphinx-stack.readthedocs-hosted.com/latest/reference/myst-syntax/) and the [documentation cheat sheet](cheat-sheet-myst) ([source](https://raw.githubusercontent.com/canonical/microcloud/main/doc/doc-cheat-sheet-myst.md)).
 
 The MicroCeph and MicroOVN documentation sets are written in a documentation markup language called [reStructuredText](https://docutils.sourceforge.io/rst.html) (`.rst`). Differences in functionality are few; however, syntax differs.
 

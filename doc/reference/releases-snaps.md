@@ -24,7 +24,7 @@ Refer to {ref}`howto-update-upgrade` and {ref}`howto-snap` for additional detail
 (ref-releases-microcloud)=
 ## MicroCloud releases
 
-The MicroCloud team maintains both Long Term Support (LTS) and feature releases in parallel. Release notes are published on [Discourse](https://discourse.ubuntu.com/c/lxd/microcloud/145/).
+The MicroCloud team maintains both Long Term Support (LTS) and feature releases in parallel. Release notes are published on [Discourse](https://discourse.ubuntu.com/c/project/lxd/microcloud/145).
 
 (ref-releases-microcloud-lts)=
 ### LTS releases

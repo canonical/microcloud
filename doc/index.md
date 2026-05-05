@@ -58,7 +58,7 @@ MicroCloud is a member of the [Canonical](https://canonical.com) family. It’s 
 ### Get involved
 
 - {ref}`Support <howto-support>`
-- [Discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145)
+- [Discussion forum](https://discourse.ubuntu.com/c/project/lxd/microcloud/145)
 - {ref}`Contribute <howto-contribute>`
 
 ### Releases

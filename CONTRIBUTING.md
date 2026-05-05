@@ -5,17 +5,17 @@
 The MicroCloud team welcomes contributions through pull requests, issue reports, and discussions.
 
 - Contribute to the code or documentation, report bugs, or request features in the [GitHub repository](https://github.com/canonical/microcloud).
-- Ask questions or join discussions in the [MicroCloud forum](https://discourse.ubuntu.com/c/lxd/microcloud/145).
+- Ask questions or join discussions in the [MicroCloud forum](https://discourse.ubuntu.com/c/project/lxd/microcloud/145).
 
 Review the following guidelines before contributing to the project.
 
 ## Code of Conduct
 
-All contributors must adhere to the [Ubuntu Code of Conduct](https://ubuntu.com/community/ethos/code-of-conduct).
+All contributors must adhere to the [Ubuntu Code of Conduct](https://ubuntu.com/community/docs/ethos/code-of-conduct).
 
 ## License and copyright
 
-All external contributors must sign the [Canonical contributor license agreement (CCLA)](https://ubuntu.com/legal/contributors), which grants Canonical permission to use the contributions.
+All external contributors must sign the [Canonical contributor license agreement (CCLA)](https://canonical.com/legal/contributors), which grants Canonical permission to use the contributions.
 
 - You retain copyright ownership of your contributions (no copyright assignment).
 - By default, contributions are licensed under the project's **AGPL-3.0-only** license.
