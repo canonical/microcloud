@@ -91,27 +91,32 @@ integrate:
 
 	cd integration/ && ( git -C microovn fetch || git clone https://github.com/canonical/microovn )
 	git -C integration/microovn reset --hard $(MICROOVNVERSION)
+
 	# Create a directory for files to override in MicroCloud docs
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
-	mkdir -p integration/microceph/docs/.sphinx/_templates integration/microceph/docs/.sphinx/_static
+	mkdir -p integration/microceph/docs/_templates integration/microceph/docs/_static
+	
 	# Copy the header HTML and CSS files for the doc sets  
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp .sphinx/_integration/override-header.css integration/microcloud/_static/
 	cp .sphinx/_integration/lxd.html integration/lxd/doc/_templates/header.html
 	cp .sphinx/_integration/override-header.css integration/lxd/doc/_static/
 	cp .sphinx/_integration/microceph.html integration/microceph/docs/_templates/header.html
-	cp .sphinx/_integration/override-header.css integration/microceph/docs/.sphinx/_static/
+	cp .sphinx/_integration/override-header.css integration/microceph/docs/_static/
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
+
 	# Copy the search JavaScript file
 	cp .sphinx/_integration/rtd-search.js integration/microcloud/_static/
 	cp .sphinx/_integration/rtd-search.js integration/lxd/doc/_static/
-	cp .sphinx/_integration/rtd-search.js integration/microceph/docs/.sphinx/_static/
+	cp .sphinx/_integration/rtd-search.js integration/microceph/docs/_static/
 	cp .sphinx/_integration/rtd-search.js integration/microovn/docs/.sphinx/_static/
+
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microovn/docs/custom_conf.py
+
 	# Override the MicroOVN tag with the circle of friends one (for consistency)
 	cp .sphinx/_integration/tag.png integration/microovn/docs/.sphinx/_static/microovn.png
 
