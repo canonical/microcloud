@@ -100,11 +100,6 @@ jobs:
           make deps
           make build-test
 
-          # Include dqlite libs in dependencies for system tests.
-          mkdir /home/runner/go/bin/dqlite
-          cp -r ~/go/deps/dqlite/include /home/runner/go/bin/dqlite/include
-          cp -r ~/go/deps/dqlite/.libs /home/runner/go/bin/dqlite/libs
-
       - name: Run static analysis
         run: make check-static
 
@@ -123,6 +118,13 @@ jobs:
           name: coverage-unit
           path: ${{env.GOCOVERDIR}}
         if: env.GOCOVERDIR != ''
+
+      - name: Prepare dqlite dependencies for system tests
+        run: |
+          # Include dqlite libs in dependencies for system tests.
+          mkdir /home/runner/go/bin/dqlite
+          mv ~/go/deps/dqlite/include /home/runner/go/bin/dqlite/include
+          mv ~/go/deps/dqlite/.libs /home/runner/go/bin/dqlite/libs
 
       - name: Upload system test dependencies
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
