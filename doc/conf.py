@@ -13,8 +13,6 @@ import re
 sys.path.append('./')
 sys.path.append('.sphinx/')
 
-from redirects import redirects
-
 with open('../version/version.go') as f:
     match = re.search(r'RawVersion = "([^"]+)"', f.read())
     version = match.group(1) if match else ''
@@ -115,7 +113,16 @@ html_static_path = ['_static']
 # Redirects #
 #############
 
-# minae: Redirects is imported from redirects.py
+# Add redirects to the 'redirects.txt' file
+# https://sphinxext-rediraffe.readthedocs.io/en/latest/
+
+# To set up redirects in the Read the Docs project dashboard:
+# https://docs.readthedocs.io/en/stable/guides/redirects.html
+
+rediraffe_redirects = "redirects.txt"
+
+# Strips '/index.html' from destination URLs when building with 'dirhtml'
+rediraffe_dir_only = True
 
 ###########################
 # Link checker exceptions #
@@ -162,7 +169,7 @@ extensions = [
     'canonical_sphinx',
     'notfound.extension',
     'sphinx_design',
-    'sphinx_reredirects',
+    "sphinx_rerediraffe",
     'sphinx_tabs.tabs',
     'sphinxcontrib.jquery',
     'sphinxext.opengraph',

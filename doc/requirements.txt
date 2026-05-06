@@ -6,10 +6,10 @@ myst-parser~=4.0    # v5.0.0 causes version conflicts
 sphinx-autobuild==2025.8.25
 sphinx-design==0.6.1
 sphinx-notfound-page~=1.1
-sphinx-reredirects==0.1.6
 sphinx-tabs~=3.5
 sphinxcontrib-jquery~=4.1
 sphinxext-opengraph~=0.13
+sphinx-rerediraffe>=0.0.3, <1.0.0
 
 # Extra extensions, previously bundled as canonical-sphinx-extensions
 sphinx-config-options~=0.1
