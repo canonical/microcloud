@@ -165,6 +165,7 @@ clean-doc:
 clean-integrate:
 	rm -rf integration/lxd
 	rm -rf integration/microceph
+	rm -rf integration/microcloud
 	rm -rf integration/microovn
 
 linkcheck: install
