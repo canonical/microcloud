@@ -305,6 +305,32 @@ if os.environ.get('SINGLE_BUILD') != 'True':
     html_static_path.append('integration/microcloud/_static')
     tags.add('integrated')
 
+# SwaggerUI configuration
+if os.environ.get('READTHEDOCS'):
+    swagger_url_scheme = '/microcloud/latest/api/#{{path}}'
+else:
+    swagger_url_scheme = '/api/#{{path}}'
+
+myst_url_schemes = {
+    'http': None,
+    'https': None,
+    'swagger': swagger_url_scheme,
+}
+
+# Download and link swagger-ui files
+if not os.path.isdir('.sphinx/deps/swagger-ui'):
+    Repo.clone_from('https://github.com/swagger-api/swagger-ui', '.sphinx/deps/swagger-ui', depth=1)
+
+os.makedirs('_static/swagger-ui/', exist_ok=True)
+
+if not os.path.islink('_static/swagger-ui/swagger-ui-bundle.js'):
+    os.symlink('../../.sphinx/deps/swagger-ui/dist/swagger-ui-bundle.js', '_static/swagger-ui/swagger-ui-bundle.js')
+if not os.path.islink('_static/swagger-ui/swagger-ui-standalone-preset.js'):
+    os.symlink('../../.sphinx/deps/swagger-ui/dist/swagger-ui-standalone-preset.js', '_static/swagger-ui/swagger-ui-standalone-preset.js')
+if not os.path.islink('_static/swagger-ui/swagger-ui.css'):
+    os.symlink('../../.sphinx/deps/swagger-ui/dist/swagger-ui.css', '_static/swagger-ui/swagger-ui.css')
+
+
 # Version label shown in the RTD flyout next to "default", in parentheses.
 # Set the FLYOUT_DEFAULT_VERSION_LABEL environment variable in the RTD project dashboard.
 html_context['flyout_default_version_label'] = os.environ.get('FLYOUT_DEFAULT_VERSION_LABEL', '')
