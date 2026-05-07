@@ -136,6 +136,8 @@ linkcheck_ignore = [
     'https://ceph.io',
     # Cloudflare protection on SourceForge domains often block linkcheck
     r'https://.*\.sourceforge\.(net|io)/.*',
+    # These links often fail due to infra issues or protection measures 
+    r'https://ubuntu\.com.*',
     # Ignore so that we can link change log in release notes before a release is ready
     r'https://github\.com/canonical/microcloud/compare.*',
 ]
