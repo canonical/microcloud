@@ -106,12 +106,6 @@ integrate:
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
 
-	# Copy the search JavaScript file
-	cp .sphinx/_integration/rtd-search.js integration/microcloud/_static/
-	cp .sphinx/_integration/rtd-search.js integration/lxd/doc/_static/
-	cp .sphinx/_integration/rtd-search.js integration/microceph/docs/_static/
-	cp .sphinx/_integration/rtd-search.js integration/microovn/docs/.sphinx/_static/
-
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/conf.py

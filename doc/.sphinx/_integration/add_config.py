@@ -11,7 +11,6 @@ html_context['microovn_tag'] = "../microovn/_static/microovn.png"
 
 if project == "LXD":
     html_baseurl = "https://documentation.ubuntu.com/lxd/latest/"
-    html_js_files.append('rtd-search.js')
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
     tags.add('integrated')
 elif project == "MicroCeph":
@@ -21,12 +20,9 @@ elif project == "MicroCeph":
     # Override default header styles
     html_static_path = globals().get('html_static_path', []) + ["_static"]
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
-    # Add rtd-search.js to the list of JS files
-    html_js_files = globals().get('html_js_files', []) + ['rtd-search.js']
     # Add "integrated" to the list of custom tags
     tags.add('integrated')
 elif project == "MicroOVN":
     html_baseurl = "https://canonical-microovn.readthedocs-hosted.com/en/latest/"
-    custom_html_js_files.append('rtd-search.js')
     custom_tags.append('integrated')
 
