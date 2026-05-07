@@ -23,7 +23,7 @@ with open('../version/version.go') as f:
 #######################
 
 project = 'MicroCloud'
-author = "Canonical Ltd."
+author = 'Canonical Ltd.'
 
 # Sidebar documentation title; best kept reasonably short
 # To disable the title, set to an empty string.
@@ -67,7 +67,7 @@ html_context = {
     # This feature is deprecated and will be removed in the future
     'display_contributors': False,
 
-    'sequential_nav': "both",
+    'sequential_nav': 'both',
 }
 
 html_extra_path = ['_extra']
@@ -79,7 +79,7 @@ html_theme_options = {
 
 # Project slug
 # Required if your project is hosted on documentation.ubuntu.com
-slug = "microcloud"
+slug = 'microcloud'
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
@@ -119,7 +119,7 @@ html_static_path = ['_static']
 # To set up redirects in the Read the Docs project dashboard:
 # https://docs.readthedocs.io/en/stable/guides/redirects.html
 
-rediraffe_redirects = "redirects.txt"
+rediraffe_redirects = 'redirects.txt'
 
 # Strips '/index.html' from destination URLs when building with 'dirhtml'
 rediraffe_dir_only = True
@@ -135,9 +135,9 @@ linkcheck_ignore = [
     # These links may fail from time to time
     'https://ceph.io',
     # Cloudflare protection on SourceForge domains often block linkcheck
-    r"https://.*\.sourceforge\.(net|io)/.*",
+    r'https://.*\.sourceforge\.(net|io)/.*',
     # Ignore so that we can link change log in release notes before a release is ready
-    r"https://github\.com/canonical/microcloud/compare.*",
+    r'https://github\.com/canonical/microcloud/compare.*',
 ]
 
 # Pages on which to ignore anchors (check the link without the anchor)
@@ -169,7 +169,7 @@ extensions = [
     'canonical_sphinx',
     'notfound.extension',
     'sphinx_design',
-    "sphinx_rerediraffe",
+    'sphinx_rerediraffe',
     'sphinx_tabs.tabs',
     'sphinxcontrib.jquery',
     'sphinxext.opengraph',
@@ -178,7 +178,7 @@ extensions = [
     'sphinx_terminal',
     'sphinx_youtube_links',
     'sphinxcontrib.cairosvgconverter',
-    "sphinx_last_updated_by_git",
+    'sphinx_last_updated_by_git',
     'sphinx.ext.intersphinx',
     'sphinx_sitemap',
     'myst_parser',
@@ -192,7 +192,7 @@ exclude_patterns = [
     '.sphinx',
     '.venv',
     'reference/release-notes/release-notes-template.md',
-    "integration",
+    'integration',
     'README.md',
 ]
 
@@ -289,12 +289,12 @@ intersphinx_mapping.update(base_intersphinx)
 if os.environ.get('SINGLE_BUILD') != 'True':
     exec(compile(source=open('.sphinx/_integration/add_config.py').read(), filename='.sphinx/_integration/add_config.py', mode='exec'))
     # MicroCloud docs are at the URL root, so override the relative paths to sibling doc sets
-    html_context['lxd_path'] = "lxd"
-    html_context['lxd_tag'] = "lxd/_static/lxd_tag.png"
-    html_context['microceph_path'] = "microceph"
-    html_context['microceph_tag'] = "microceph/_static/tag.png"
-    html_context['microovn_path'] = "microovn"
-    html_context['microovn_tag'] = "microovn/_static/microovn.png"
+    html_context['lxd_path'] = 'lxd'
+    html_context['lxd_tag'] = 'lxd/_static/lxd_tag.png'
+    html_context['microceph_path'] = 'microceph'
+    html_context['microceph_tag'] = 'microceph/_static/tag.png'
+    html_context['microovn_path'] = 'microovn'
+    html_context['microovn_tag'] = 'microovn/_static/microovn.png'
     html_static_path.append('integration/microcloud/_static')
     tags.add('integrated')
 
