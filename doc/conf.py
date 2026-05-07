@@ -224,8 +224,8 @@ rst_prolog = '''
 '''
 
 # Load substitutions from YAML file
-if os.path.exists('./substitutions.yaml'):
-    with open('./substitutions.yaml', 'r') as fd:
+if os.path.exists('./reuse/substitutions.yaml'):
+    with open('./reuse/substitutions.yaml', 'r') as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
 ############################################################
