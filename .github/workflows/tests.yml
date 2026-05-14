@@ -280,7 +280,7 @@ jobs:
           go tool covdata percent -i="${GOCOVERDIR}"
 
       - name: Run TICS
-        uses: tiobe/tics-github-action@3300ccc8de3c938cb83dc940ec4d07096c1bf185 # v3.9.1
+        uses: tiobe/tics-github-action@016a4d79f3027fe7b4a2901619a58c745ab7cadf # v3.10.0
         with:
           mode: qserver
           project: microcloud
