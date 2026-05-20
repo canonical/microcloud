@@ -228,29 +228,12 @@ Terms that should not be checked by the spelling checker: {spellexception}`Purpo
 A single-line terminal view that separates input from output:
 
 ```{terminal}
-   :input: command
-   :user: root
-   :host: vampyr
-   :dir: /home/user/directory/
+:user: root
+:host: vampyr
+:dir: /home/user/directory/
+the input command
 
 the output
 ```
 
-A multi-line version of the same:
-
-```{terminal}
-   :user: root
-   :host: vampyr
-   :dir: /home/user/directory/
-
-:input: command 1
-output 1
-:input: command 2
-output 2
-```
-
-A link to a YouTube video:
-
-```{youtube} https://www.youtube.com/watch?v=iMLiK1fX4I0
-   :title: Demo
-```
+For more information, see the [`sphinx-terminal` README](https://github.com/canonical/sphinx-terminal/blob/main/README.md).

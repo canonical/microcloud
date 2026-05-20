@@ -1,136 +1,236 @@
-import sys
+import datetime
 import os
-import requests
-from urllib.parse import urlparse
-from git import Repo, InvalidGitRepositoryError
-import time
+import yaml
+
+############################
+# MicroCloud custom configuration #
+############################
+
+import sys
+from git import Repo
+import re
 
 sys.path.append('./')
-from custom_conf import *
 sys.path.append('.sphinx/')
-from build_requirements import *
 
-# Configuration file for the Sphinx documentation builder.
-# You should not do any modifications to this file. Put your custom
-# configuration into the custom_conf.py file.
-# If you need to change this file, contribute the changes upstream.
-#
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+with open('../version/version.go') as f:
+    match = re.search(r'RawVersion = "([^"]+)"', f.read())
+    version = match.group(1) if match else ''
 
-############################################################
-### Extensions
-############################################################
 
-extensions = [
-    'sphinx_design',
-    'sphinx_copybutton',
-    'sphinxcontrib.jquery',
-]
+#######################
+# Project information #
+#######################
 
-# Only add redirects extension if any redirects are specified.
-if AreRedirectsDefined():
-    extensions.append('sphinx_reredirects')
+project = 'MicroCloud'
+author = 'Canonical Ltd.'
 
-# Only add myst extensions if any configuration is present.
-if IsMyStParserUsed():
-    extensions.append('myst_parser')
+# Sidebar documentation title; best kept reasonably short
+# To disable the title, set to an empty string.
+html_title = project + ' documentation ' + version
 
-    # Additional MyST syntax
-    myst_enable_extensions = [
-        'substitution',
-        'deflist',
-        'linkify'
-    ]
-    myst_enable_extensions.extend(custom_myst_extensions)
+# Copyright string; shown at the bottom of the page
+copyright = '2014-%s AGPL-3.0, %s' % (datetime.date.today().year, author)
 
-# Only add Open Graph extension if any configuration is present.
-if IsOpenGraphConfigured():
-    extensions.append('sphinxext.opengraph')
+# Use RTD canonical URL to ensure duplicate pages have a single canonical URL
+# that includes the version (such as /latest/); helps SEO.
+html_baseurl = os.environ.get('READTHEDOCS_CANONICAL_URL', '/')
 
-extensions.extend(custom_extensions)
-extensions = DeduplicateExtensions(extensions)
+# OpenGraph metadata used for social sharing previews
+ogp_site_url = html_baseurl
+ogp_site_name = html_title
+ogp_image = 'https://documentation.ubuntu.com/microcloud/latest/_static/microcloud_tag.png'
 
-### Configuration for extensions
+html_favicon = '_static/favicon.png'
 
-# Used for related links
-if not 'discourse_prefix' in html_context and 'discourse' in html_context:
-    html_context['discourse_prefix'] = html_context['discourse'] + '/t/'
+html_context = {
+    'product_page': 'canonical.com/microcloud',
+    'product_tag': '_static/microcloud_tag.png',
 
-# The URL prefix for the notfound extension depends on whether the documentation uses versions.
-# For documentation on documentation.ubuntu.com, we also must add the slug.
-url_version = ''
-url_lang = ''
+    'discourse': 'https://discourse.ubuntu.com/c/lxd/microcloud/',
+    'discourse_prefix': {
+        'ubuntu': 'https://discourse.ubuntu.com/t/',
+        'lxc': 'https://discuss.linuxcontainers.org/t/',
+    },
 
-# Determine if the URL uses versions and language
-if 'READTHEDOCS_CANONICAL_URL' in os.environ and os.environ['READTHEDOCS_CANONICAL_URL']:
-    url_parts = os.environ['READTHEDOCS_CANONICAL_URL'].split('/')
+    'mattermost': '',
+    'matrix': '',
 
-    if len(url_parts) >= 2 and 'READTHEDOCS_VERSION' in os.environ and os.environ['READTHEDOCS_VERSION'] == url_parts[-2]:
-        url_version = url_parts[-2] + '/'
+    'github_url': 'https://github.com/canonical/microcloud',
+    'repo_default_branch': 'main',
+    'repo_folder': '/doc/',
 
-    if len(url_parts) >= 3 and 'READTHEDOCS_LANGUAGE' in os.environ and os.environ['READTHEDOCS_LANGUAGE'] == url_parts[-3]:
-        url_lang = url_parts[-3] + '/'
+    # Required for feedback button
+    'github_issues': 'enabled',
 
-# Set notfound_urls_prefix to the slug (if defined) and the version/language affix
-if slug:
-    notfound_urls_prefix = '/' + slug  + '/' + url_lang + url_version
-elif len(url_lang + url_version) > 0:
-    notfound_urls_prefix = '/' + url_lang + url_version
-else:
-    notfound_urls_prefix = ''
+    # Enables listing contributors on individual pages
+    # This feature is deprecated and will be removed in the future
+    'display_contributors': False,
 
-notfound_context = {
-    'title': 'Page not found',
-    'body': '<p><strong>Sorry, but the documentation page that you are looking for was not found.</strong></p>\n\n<p>Documentation changes over time, and pages are moved around. We try to redirect you to the updated content where possible, but unfortunately, that didn\'t work this time (maybe because the content you were looking for does not exist in this version of the documentation).</p>\n<p>You can try to use the navigation to locate the content you\'re looking for, or search for a similar page.</p>\n',
+    'sequential_nav': 'both',
 }
 
-# Default image for OGP (to prevent font errors, see
-# https://github.com/canonical/sphinx-docs-starter-pack/pull/54 )
-if not 'ogp_image' in locals():
-    ogp_image = 'https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg'
+html_extra_path = ['_extra']
 
-############################################################
-### General configuration
-############################################################
+# Enables the pencil icon to edit pages on GitHub, shown at the top of each page
+html_theme_options = {
+    'source_edit_link': html_context['github_url']
+}
 
+# Project slug
+# Required if your project is hosted on documentation.ubuntu.com
+slug = 'microcloud'
+
+#######################
+# Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
+#######################
+
+# sphinx-sitemap uses html_baseurl (set earlier in this file) to generate the full URL for each page:
+
+sitemap_url_scheme = '{link}'
+
+# Include `lastmod` dates in the sitemap:
+sitemap_show_lastmod = True
+
+# Exclude generated pages from the sitemap:
+sitemap_excludes = [
+    '404/',
+    'genindex/',
+    'search/',
+]
+
+# Add more pages to sitemap_excludes if needed. Wildcards are supported.
+# For example, to exclude module pages generated by autodoc, add '_modules/*'.
+
+#######################
+# Template and asset locations
+#######################
+
+html_static_path = ['_static']
+
+
+#############
+# Redirects #
+#############
+
+# Add redirects to the 'redirects.txt' file
+# https://sphinxext-rediraffe.readthedocs.io/en/latest/
+
+# To set up redirects in the Read the Docs project dashboard:
+# https://docs.readthedocs.io/en/stable/guides/redirects.html
+
+rediraffe_redirects = 'redirects.txt'
+
+# Strips '/index.html' from destination URLs when building with 'dirhtml'
+rediraffe_dir_only = True
+
+###########################
+# Link checker exceptions #
+###########################
+
+# Always ignore these links
+linkcheck_ignore = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+    # These links may fail from time to time
+    'https://ceph.io',
+    # Cloudflare protection on SourceForge domains often block linkcheck
+    r'https://.*\.sourceforge\.(net|io)/.*',
+    # These links often fail due to infra issues or protection measures 
+    r'https://ubuntu\.com.*',
+    # Ignore so that we can link change log in release notes before a release is ready
+    r'https://github\.com/canonical/microcloud/compare.*',
+]
+
+# Pages on which to ignore anchors (check the link without the anchor)
+linkcheck_anchors_ignore_for_url = [
+    r'https://snapcraft\.io/docs/.*',
+    r'https://github\.com/.*',
+    r'https://charmhub\.io/.*',
+]
+
+# Increase linkcheck rate limit timeout max, default when unset is 300
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-linkcheck_timeout
+linkcheck_rate_limit_timeout = 600
+
+# Increase linkcheck retries, default when unset is 1
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-linkcheck_retries
+linkcheck_retries = 3
+
+# Increase the duration, in seconds, that the linkcheck builder will wait for a response after each hyperlink request.
+# Default when unset is 30
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-linkcheck_timeout
+linkcheck_timeout = 45
+
+
+########################
+# Configuration extras #
+########################
+
+extensions = [
+    'canonical_sphinx',
+    'notfound.extension',
+    'sphinx_design',
+    'sphinx_rerediraffe',
+    'sphinx_tabs.tabs',
+    'sphinxcontrib.jquery',
+    'sphinxext.opengraph',
+    'sphinx_related_links',
+    'sphinx_roles',
+    'sphinx_terminal',
+    'sphinx_youtube_links',
+    'sphinxcontrib.cairosvgconverter',
+    'sphinx_last_updated_by_git',
+    'sphinx.ext.intersphinx',
+    'sphinx_sitemap',
+    'myst_parser',
+]
+
+# Excludes files or directories from processing
 exclude_patterns = [
     '_build',
     'Thumbs.db',
     '.DS_Store',
     '.sphinx',
+    '.venv',
     'reference/release-notes/release-notes-template.md',
+    'integration',
+    'README.md',
 ]
-exclude_patterns.extend(custom_excludes)
 
-rst_epilog = '''
-.. include:: /reuse/links.txt
+html_css_files = [
+    'https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css',
+]
+
+if os.environ.get('SINGLE_BUILD') != 'True':
+    html_css_files.append('override-header.css')
+
+html_js_files = [
+    'https://assets.ubuntu.com/v1/287a5e8f-bundle.js',
+    'rtd-versions-flyout.js',
+]
+
+# Feedback button at the top; enabled by default
+# To disable the button, uncomment the line below:
+
+# disable_feedback_button = True
+
+# Define a :center: role that can be used to center the content of table cells.
+rst_prolog = '''
+.. role:: center
+   :class: align-center
+.. role:: h2
+    :class: hclass2
+.. role:: woke-ignore
+    :class: woke-ignore
+.. role:: vale-ignore
+    :class: vale-ignore
 '''
-if 'custom_rst_epilog' in locals():
-    rst_epilog = custom_rst_epilog
 
-source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
-}
-
-if not 'conf_py_path' in html_context and 'github_folder' in html_context:
-    html_context['conf_py_path'] = html_context['github_folder']
-
-# For ignoring specific links
-linkcheck_anchors_ignore_for_url = [
-    r'https://github\.com/.*',
-    r'https://charmhub\.io/.*',
-]
-linkcheck_anchors_ignore_for_url.extend(custom_linkcheck_anchors_ignore_for_url)
-
-# Tags cannot be added directly in custom_conf.py, so add them here
-for tag in custom_tags:
-    tags.add(tag)
-
-# html_context['get_contribs'] is a function and cannot be
-# cached (see https://github.com/sphinx-doc/sphinx/issues/12300)
-suppress_warnings = ["config.cache"]
+# Load substitutions from YAML file
+if os.path.exists('./reuse/substitutions.yaml'):
+    with open('./reuse/substitutions.yaml', 'r') as fd:
+        myst_substitutions = yaml.safe_load(fd.read())
 
 ############################################################
 ### Styling
@@ -143,79 +243,89 @@ if '-b' in sys.argv:
 
 # Setting templates_path for epub makes the build fail
 if builder == 'dirhtml' or builder == 'html':
-    templates_path = ['.sphinx/_templates']
-    if 'custom_templates_path' in globals():
-        templates_path = custom_templates_path + templates_path
+    templates_path = ['_templates']
+    if os.environ.get('SINGLE_BUILD') != 'True':
+        templates_path.insert(0, 'integration/microcloud/_templates')
     notfound_template = '404.html'
 
-# Theme configuration
-html_theme = 'furo'
-html_last_updated_fmt = ''
-html_permalinks_icon = '¶'
+##########################################
+### Misc MicroCloud custom configuration #
+##########################################
 
-if html_title == '':
-    html_theme_options = {
-        'sidebar_hide_name': True
-        }
+# Use custom 404 page text
+notfound_context = {
+    'title': 'Page not found',
+    'body': '<p><strong>Sorry, but the documentation page that you are looking for was not found.</strong></p>\n\n<p>Documentation changes over time, and pages are moved around. We try to redirect you to the updated content where possible, but unfortunately, that didn\'t work this time (maybe because the content you were looking for does not exist in this version of the documentation).</p>\n<p>You can try to use the navigation to locate the content you\'re looking for, or search for a similar page.</p>\n',
+}
 
-############################################################
-### Additional files
-############################################################
+# Intersphinx setup differs for different builds to optimize use with integrated docs  
+if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
+    intersphinx_mapping = {
+        'lxd': ('https://documentation.ubuntu.com/lxd/latest/', None),
+        'microceph': ('https://documentation.ubuntu.com/canonical-microceph/latest/', None),
+        'microovn': ('https://canonical-microovn.readthedocs-hosted.com/en/latest/', None),
+    }
+elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
+    intersphinx_mapping = {
+        'lxd': (os.environ['PATH_PREFIX'] + 'lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
+        'microceph': (os.environ['PATH_PREFIX'] + 'microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
+        'microovn': (os.environ['PATH_PREFIX'] + 'microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
+    }
+else:
+    intersphinx_mapping = {
+        'lxd': ('/lxd/', '_build/lxd/objects.inv'),
+        'microceph': ('/microceph/', '_build/microceph/objects.inv'),
+        'microovn': ('/microovn/', '_build/microovn/objects.inv'),
+    }
 
-html_extra_path = ['_extra']
+# Add intersphinx mappings for docs sets not part of the MicroCloud integrated docs here:
 
-html_static_path = ['.sphinx/_static', '_static']
-if 'custom_html_static_path' in globals():
-    html_static_path = html_static_path + custom_html_static_path
+base_intersphinx = {
+    'ceph': ('https://docs.ceph.com/en/latest/', None),
+    'snap': ('https://snapcraft.io/docs/', None),
+}
 
-html_css_files = [
-    'custom.css',
-    'header.css',
-    'github_issue_links.css',
-    'furo_colors.css',
-    'footer.css'
-]
-html_css_files.extend(custom_html_css_files)
+intersphinx_mapping.update(base_intersphinx)
 
-html_js_files = ['header-nav.js', 'footer.js']
-if 'github_issues' in html_context and html_context['github_issues'] and not disable_feedback_button:
-    html_js_files.append('github_issue_links.js')
-html_js_files.extend(custom_html_js_files)
+# Update html_context for integrated builds and add the "integrated" tag
+if os.environ.get('SINGLE_BUILD') != 'True':
+    exec(compile(source=open('.sphinx/_integration/add_config.py').read(), filename='.sphinx/_integration/add_config.py', mode='exec'))
+    # MicroCloud docs are at the URL root, so override the relative paths to sibling doc sets
+    html_context['lxd_path'] = 'lxd'
+    html_context['lxd_tag'] = 'lxd/_static/lxd_tag.png'
+    html_context['microceph_path'] = 'microceph'
+    html_context['microceph_tag'] = 'microceph/_static/tag.png'
+    html_context['microovn_path'] = 'microovn'
+    html_context['microovn_tag'] = 'microovn/_static/microovn.png'
+    html_static_path.append('integration/microcloud/_static')
+    tags.add('integrated')
 
-#############################################################
-# Display the contributors
+# SwaggerUI configuration
+if os.environ.get('READTHEDOCS'):
+    swagger_url_scheme = '/microcloud/latest/api/#{{path}}'
+else:
+    swagger_url_scheme = '/api/#{{path}}'
 
-def get_contributors_for_file(github_url, github_folder, pagename, page_source_suffix, display_contributors_since=None):
-    filename = f"{pagename}{page_source_suffix}"
-    paths=html_context['github_folder'][1:] + filename
+myst_url_schemes = {
+    'http': None,
+    'https': None,
+    'swagger': swagger_url_scheme,
+}
 
-    try:
-        repo = Repo(".")
-    except InvalidGitRepositoryError:
-        cwd = os.getcwd()
-        ghfolder = html_context['github_folder'][:-1]
-        if ghfolder and cwd.endswith(ghfolder):
-            repo = Repo(cwd.rpartition(ghfolder)[0])
-        else:
-            print("The local Git repository could not be found.")
-            return
+# Download and link swagger-ui files
+if not os.path.isdir('.sphinx/deps/swagger-ui'):
+    Repo.clone_from('https://github.com/swagger-api/swagger-ui', '.sphinx/deps/swagger-ui', depth=1)
 
-    since = display_contributors_since if display_contributors_since and display_contributors_since.strip() else None
+os.makedirs('_static/swagger-ui/', exist_ok=True)
 
-    commits = repo.iter_commits(paths=paths, since=since)
+if not os.path.islink('_static/swagger-ui/swagger-ui-bundle.js'):
+    os.symlink('../../.sphinx/deps/swagger-ui/dist/swagger-ui-bundle.js', '_static/swagger-ui/swagger-ui-bundle.js')
+if not os.path.islink('_static/swagger-ui/swagger-ui-standalone-preset.js'):
+    os.symlink('../../.sphinx/deps/swagger-ui/dist/swagger-ui-standalone-preset.js', '_static/swagger-ui/swagger-ui-standalone-preset.js')
+if not os.path.islink('_static/swagger-ui/swagger-ui.css'):
+    os.symlink('../../.sphinx/deps/swagger-ui/dist/swagger-ui.css', '_static/swagger-ui/swagger-ui.css')
 
-    contributors_dict = {}
-    for commit in commits:
-        contributor = commit.author.name
-        if contributor not in contributors_dict or commit.committed_date > contributors_dict[contributor]['date']:
-            contributors_dict[contributor] = {
-                'date': commit.committed_date,
-                'sha': commit.hexsha
-            }
-    # The github_page contains the link to the contributor's latest commit.
-    contributors_list = [{'name': name, 'github_page': f"{github_url}/commit/{data['sha']}"} for name, data in contributors_dict.items()]
-    sorted_contributors_list = sorted(contributors_list, key=lambda x: x['name'])
-    return sorted_contributors_list
 
-html_context['get_contribs'] = get_contributors_for_file
-#############################################################
+# Version label shown in the RTD flyout next to "default", in parentheses.
+# Set the FLYOUT_DEFAULT_VERSION_LABEL environment variable in the RTD project dashboard.
+html_context['flyout_default_version_label'] = os.environ.get('FLYOUT_DEFAULT_VERSION_LABEL', '')

@@ -15,12 +15,7 @@ build:
       - git fetch --unshallow || true
       - cd doc && make GOTOOLCHAIN=auto integrate
       - cd doc/integration/lxd/ && GOTOOLCHAIN=auto go build -ldflags "-s -w" -o trimpath -o lxc.bin ./lxc
-      # Pretend that woke is installed - we don't need it for building
-      # (workaround until https://github.com/canonical/microovn/pull/168 is merged
-      # and https://github.com/canonical/microceph/pull/400 is restored)
-      - ln -s /bin/true doc/integration/microovn/docs/woke
-      - ln -s /bin/true doc/integration/microceph/docs/woke
-      - make GOTOOLCHAIN=auto doc-html-rtd PATH=$PATH:.
+      - cd doc && make GOTOOLCHAIN=auto html-rtd PATH=$PATH:.
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -35,4 +30,4 @@ sphinx:
 # Optionally declare the Python requirements required to build your docs
 python:
    install:
-   - requirements: doc/.sphinx/requirements.txt
+   - requirements: doc/requirements.txt
