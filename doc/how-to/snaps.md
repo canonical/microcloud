@@ -23,9 +23,9 @@ snap list <microcloud|lxd|microceph|microovn>
 Sample output:
 
 ```{terminal}
-:input: snap list microcloud
 :user: root
 :host: instance
+snap list microcloud
 
 Name        Version        Rev   Tracking  Publisher   Notes
 microcloud  2.1.0-3e8b183  1144  2/stable  canonical✓  in-cohort,held
@@ -67,6 +67,7 @@ For more information about managing snap services, visit {ref}`snap:how-to-guide
 ## Related topics
 
 How-to guides:
+
 - {ref}`howto-update-upgrade`
 - {ref}`howto-install`
 

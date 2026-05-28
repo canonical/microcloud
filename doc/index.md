@@ -2,8 +2,7 @@
 myst:
   html_meta:
     description: MicroCloud is a lightweight, open source cloud platform built on LXD, MicroCeph, and MicroOVN, ideal for private cloud, edge computing, and test labs.
-discourse: lxc:[Introducing&#32;MicroCloud](15871)
-relatedlinks: "[Install&#32;MicroCloud&#32;on&#32;Linux&#32;|&#32;Snap&#32;Store](https://snapcraft.io/microcloud)"
+relatedlinks: "[MicroCloud:&#32;your&#32;open&#32;source&#32;cloud&#32;platform](https://canonical.com/microcloud)"
 ---
 
 (home)=
@@ -51,6 +50,17 @@ Also, while each component's documentation includes instructions for removing cl
 
 ---
 
+## How this documentation is organized
+
+This documentation uses the [Diátaxis documentation structure](https://diataxis.fr/).
+
+- The {ref}`tutorials` introduce you to MicroCloud concepts and usage.
+- The {ref}`howto` provide detailed setup and usage instructions, including how to access the UI and manage cluster members.
+- The {ref}`reference` guides provide technical details, release notes, and common CLI commands.
+- The {ref}`explanation` section includes topic overviews and detailed explanations of key concepts, such as local versus distributed storage.
+
+---
+
 ## Project and community
 
 MicroCloud is a member of the [Canonical](https://canonical.com) family. It’s an open source project that warmly welcomes community contributions, suggestions, fixes, and constructive feedback.
@@ -58,7 +68,7 @@ MicroCloud is a member of the [Canonical](https://canonical.com) family. It’s 
 ### Get involved
 
 - {ref}`Support <howto-support>`
-- [Discussion forum](https://discourse.ubuntu.com/c/lxd/microcloud/145)
+- [Discussion forum](https://discourse.ubuntu.com/c/project/lxd/microcloud/145)
 - {ref}`Contribute <howto-contribute>`
 
 ### Releases
@@ -73,15 +83,12 @@ MicroCloud is a member of the [Canonical](https://canonical.com) family. It’s 
 
 Thinking about using MicroCloud for your next project? [Get in touch](https://canonical.com/microcloud/contact-us)!
 
-
-
-
 ```{toctree}
 :hidden:
 :maxdepth: 2
 
 self
-Tutorials </tutorial/index>
+/tutorial/index
 /how-to/index
 /reference/index
 /explanation/index

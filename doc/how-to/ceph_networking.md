@@ -111,10 +111,10 @@ The following instructions build on our {ref}`multi-member tutorial <tutorial-mu
    1. Inspect the Ceph configuration file:
 
       ```{terminal}
-      :input: microceph.ceph config dump
       :user: root
       :host: micro1
       :scroll:
+      microceph.ceph config dump
 
       WHO     MASK  LEVEL     OPTION                       VALUE        RO
       global        advanced  cluster_network              10.0.1.0/24  *
@@ -125,11 +125,10 @@ The following instructions build on our {ref}`multi-member tutorial <tutorial-mu
    1. Inspect your Ceph-related network traffic:
 
       ```{terminal}
-      :input: lxc launch ubuntu:22.04 u5 -s remote
       :user: root
       :host: micro1
       :scroll:
-
+      lxc launch ubuntu:22.04 u5 -s remote
       Creating c1
       Starting c1
       ```
@@ -137,10 +136,10 @@ The following instructions build on our {ref}`multi-member tutorial <tutorial-mu
    1. At the same time, observe the Ceph traffic on the `enp7s0` (or `enp8s0` in a fully disaggregated setup) interface (on any cluster member) using `tcpdump`:
 
       ```{terminal}
-      :input: tcpdump -i enp7s0
       :user: root
       :host: micro2
       :scroll:
+      tcpdump -i enp7s0
 
       17:48:48.600971 IP 10.0.1.4.6804 > micro1.48746: Flags [P.], seq 329386555:329422755, ack 245889462, win 24576, options [nop,nop,TS val 3552095031 ecr 3647909539], length 36200
       17:48:48.601012 IP micro1.48746 > 10.0.1.4.6804: Flags [.], ack 329386555, win 24317, options [nop,nop,TS val 3647909564 ecr 3552095031], length 0

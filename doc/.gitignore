@@ -1,8 +1,6 @@
 /*env*/
-.sphinx/venv/
-.sphinx/requirements.txt
+.venv/
 .sphinx/warnings.txt
-.sphinx/.wordlist.dic
 .sphinx/.doctrees/
 .sphinx/node_modules/
 package*.json

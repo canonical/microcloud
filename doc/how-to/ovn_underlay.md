@@ -68,10 +68,10 @@ The following instructions build on our {ref}`multi-member tutorial <tutorial-mu
    1. Inspect the OVN southbound encapsulation parameters:
 
      ```{terminal}
-       :input: microovn.ovn-sbctl --columns=ip,type find Encap type=geneve
        :user: root
        :host: micro1
        :scroll:
+       microovn.ovn-sbctl --columns=ip,type find Encap type=geneve
 
        ip                  : "10.77.55.2"
        type                : geneve

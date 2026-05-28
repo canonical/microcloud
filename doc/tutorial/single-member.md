@@ -103,9 +103,10 @@ sudo microcloud init
 MicroCloud will ask if you want to set up more than one cluster member. Enter `no`:
 
 ```{terminal}
-:input: sudo microcloud init
 :user: ubuntu
 :host: micro1
+sudo microcloud init
+
 Waiting for services to start ...
 Do you want to set up more than one cluster member? (yes/no) [default=yes]: no
 ```
@@ -116,6 +117,8 @@ Do you want to set up more than one cluster member? (yes/no) [default=yes]: no
 Next, MicroCloud needs to configure the network interface to use for internal traffic. If there is only one interface suitable for internal traffic, MicroCloud detects its address automatically and shows output similar to the following:
 
 ```{terminal}
+:output-only:
+
  Using address 192.0.2.10 for MicroCloud
 ```
 
@@ -127,6 +130,8 @@ If there are multiple suitable interfaces, MicroCloud instead shows a list of op
 Next, MicroCloud will ask about local storage:
 
 ```{terminal}
+:output-only:
+
 Would you like to set up local storage? (yes/no) [default=yes]:
 ```
 
@@ -139,6 +144,8 @@ Next, MicroCloud will ask you to select which disks to wipe. If the disk you cho
 Next, MicroCloud will ask about distributed storage:
 
 ```{terminal}
+:output-only:
+
 Would you like to set up distributed storage? (yes/no) [default=yes]:
 ```
 
@@ -149,6 +156,8 @@ MicroCloud will again ask you to select which disks to wipe. If the disk you cho
 You'll see the following error message, and you'll be asked if you want to change the disk selection. Do not accept the default this time. Enter `no`:
 
 ```{terminal}
+:output-only:
+
 ! Warning: Disk configuration does not meet recommendations for fault tolerance. At least 3 systems must supply disks (1 currently supplying). Continuing with this configuration will inhibit MicroCloud's ability to retain data on system failure
 Change disk selection? (yes/no) [default=yes]: no
 ```
@@ -158,6 +167,8 @@ A working distributed storage setup requires a multi-member cluster with at leas
 Next, MicroCloud will ask about disk encryption:
 
 ```{terminal}
+:output-only:
+
 Do you want to encrypt the selected disks? (yes/no) [default=no]:
 ```
 
@@ -171,6 +182,8 @@ The next set of questions configures {ref}`CephFS remote storage <lxd:storage-ce
 First, MicroCloud will ask if you want to set up this feature:
 
 ```{terminal}
+:output-only:
+
 Would you like to set up CephFS remote storage? (yes/no) [default=yes]:
 ```
 
@@ -185,6 +198,8 @@ If you did not set up local storage _and_ you set up CephFS storage, there will 
 Next, you'll be prompted to select the CIDR subnet for Ceph internal and public traffic:
 
 ```{terminal}
+:output-only:
+
 What subnet (IPv4/IPv6 CIDR) would you like your Ceph internal traffic on? [default=192.0.2.0/24]:
 What subnet (either IPv4 or IPv6 CIDR notation) would you like your Ceph public traffic on? [default=192.0.2.0/24]:
 ```
@@ -204,6 +219,8 @@ Next, you'll set up the uplink network that provides external connectivity from 
 MicroCloud will ask:
 
 ```{terminal}
+:output-only:
+
 Configure distributed networking? (yes/no) [default=yes]:
 ```
 
@@ -214,12 +231,16 @@ You'll then be prompted to select the network interface to use for external conn
 Next, MicroCloud will ask you to enter the IPv4 gateway address for your uplink network, in CIDR format as shown in the example below. Be sure to replace the example IPv4 gateway for your own uplink network.
 
 ```{terminal}
+:output-only:
+
 Specify the IPv4 gateway (CIDR) on the uplink network: 198.51.100.1/24
 ```
 
 Next, you'll be asked to enter the first and last IPv4 addresses to use from the uplink network's subnet. Replace the addresses in the example below with your own:
 
 ```{terminal}
+:output-only:
+
 Specify the first IPv4 address in the range to use on the uplink network: 198.51.100.100
 Specify the last IPv4 address in the range to use on the uplink network: 198.51.100.200
 ```
@@ -227,6 +248,8 @@ Specify the last IPv4 address in the range to use on the uplink network: 198.51.
 MicroCloud will ask for an IPv6 gateway as well, in CIDR format:
 
 ```{terminal}
+:output-only:
+
 Specify the IPv6 gateway (CIDR) on the uplink network (empty to skip IPv6):
 ```
 
@@ -235,6 +258,8 @@ Enter the address. If you do not have an IPv6 address, press {kbd}`Enter` to ski
 Finally, MicroCloud will ask for the DNS addresses for domain name resolution. Example:
 
 ```{terminal}
+:output-only:
+
 Specify the DNS addresses (comma-separated IPv4 / IPv6 addresses) for the distributed network (default: 198.51.100.1,2001:db8:100::1):
 ```
 
@@ -248,6 +273,8 @@ Otherwise, you can optionally enter the address of an external trusted DNS resol
 Finally, MicroCloud will ask about underlay networking:
 
 ```{terminal}
+:output-only:
+
 Configure dedicated underlay networking? (yes/no) [default=no]:
 ```
 
@@ -261,6 +288,8 @@ MicroCloud and MicroOVN support using a dedicated underlay network for OVN traff
 You should then see the following output:
 
 ```{terminal}
+:output-only:
+
 Initializing new services ...
  Local MicroCloud is ready
  Local MicroOVN is ready
@@ -297,10 +326,10 @@ Try them out, one at a time, and observe what information is provided by each to
 
 
 ```{terminal}
-:input: lxc cluster list
 :user: ubuntu
 :host: micro1
 :scroll:
+lxc cluster list
 
 To start your first container, try: lxc launch ubuntu:24.04
 Or for a virtual machine: lxc launch ubuntu:24.04 --vm
@@ -310,22 +339,40 @@ Or for a virtual machine: lxc launch ubuntu:24.04 --vm
 | micro1 | https://192.0.2.10:8443  | database-leader | x86_64      | default        |             | ONLINE | Fully operational |
 |        |                          | database        |              |                |             |        |                   |
 +--------+--------------------------+-----------------+--------------+----------------+-------------+--------+-------------------+
+```
 
-:input: sudo microcloud cluster list
+```{terminal}
+:user: ubuntu
+:host: micro1
+:scroll:
+sudo microcloud cluster list
+
 ┌────────┬──────────────────┬───────┬──────────────────────────────────────────────────────────────────┬────────┐
 │  NAME  │     ADDRESS      │ ROLE  │                           FINGERPRINT                            │ STATUS │
 ├────────┼──────────────────┼───────┼──────────────────────────────────────────────────────────────────┼────────┤
 │ micro1 │ 192.0.2.10:9443  │ voter │ d665dbe177f6da7f3fa8df2469956b61b6b5ec28b3f1967ac2270cfe8ee2f3ad │ ONLINE │
 └────────┴──────────────────┴───────┴──────────────────────────────────────────────────────────────────┴────────┘
+```
 
-:input: sudo microceph cluster list
+```{terminal}
+:user: ubuntu
+:host: micro1
+:scroll:
+sudo microceph cluster list
+
 +--------+------------------+-------+------------------------------------------------------------------+--------+
 |  NAME  |     ADDRESS      | ROLE  |                           FINGERPRINT                            | STATUS |
 +--------+------------------+-------+------------------------------------------------------------------+--------+
 | micro1 | 192.0.2.10:7443 | voter | dd4c358ee0f298775c7a71b903925bc6ce2ba8110662aa0ff8521cc680fd63df | ONLINE |
 +--------+------------------+-------+------------------------------------------------------------------+--------+
+```
 
-:input: sudo microovn cluster list
+```{terminal}
+:user: ubuntu
+:host: micro1
+:scroll:
+sudo microovn cluster list
+
 +--------+------------------+-------+------------------------------------------------------------------+--------+
 |  NAME  |     ADDRESS      | ROLE  |                           FINGERPRINT                            | STATUS |
 +--------+------------------+-------+------------------------------------------------------------------+--------+
@@ -354,9 +401,10 @@ lxc storage list
 You should see a pool for each storage option that you set up during MicroCloud initialization. If you did not configure local storage, you can expect that the list will not contain a local storage pool.
 
 ```{terminal}
-:input: lxc storage list
 :user: ubuntu
 :host: micro1
+lxc storage list
+
 +-----------+--------+----------------------------------------------+---------+---------+
 |   NAME    | DRIVER |                 DESCRIPTION                  | USED BY |  STATE  |
 +-----------+--------+----------------------------------------------+---------+---------+
@@ -371,9 +419,9 @@ You should see a pool for each storage option that you set up during MicroCloud 
 Use the following command to view details on any of your storage pools:
 
 ```{terminal}
-:input: lxc storage info <storage pool name>
 :user: ubuntu
 :host: micro1
+lxc storage info <storage pool name>
 ```
 
 Example:
@@ -396,10 +444,10 @@ lxc network list
 You'll see output similar to this, along with any additional network interfaces on your machine:
 
 ```{terminal}
-:input: lxc network list
 :user: ubuntu
 :host: micro1
 :scroll:
+lxc network list
 
 +---------+----------+---------+----------------+---------------------------+---------------------+---------+---------+
 |  NAME   |   TYPE   | MANAGED |     IPV4       |           IPV6            |     DESCRIPTION     | USED BY |  STATE  |
@@ -421,9 +469,9 @@ lxc network show default
 You should see output similar to this:
 
 ```{terminal}
-:input: lxc network show default
 :user: ubuntu
 :host: micro1
+lxc network show default
 
 name: default
 description: Default OVN network
@@ -454,7 +502,7 @@ Confirm that you can ping the virtual router:
 ```{terminal}
 :user: ubuntu
 :host: micro1
-:input: ping -c 4 <IPv4 address of virtual router>
+ping -c 4 <IPv4 address of virtual router>
 ```
 
 (tutorial-single-launch-instances)=
@@ -497,8 +545,8 @@ You should see output similar to this:
 ```{terminal}
 :user: ubuntu
 :host: micro1
-:input: lxc list
 :scroll:
+lxc list
 
 +------+---------+---------------------+-------------------------------------------------+-----------------+-----------+----------+
 | NAME |  STATE  |        IPV4         |                      IPV6                       |      TYPE       | SNAPSHOTS | LOCATION |
@@ -523,8 +571,9 @@ Expect output similar to this:
 ```{terminal}
 :user: ubuntu
 :host: micro1
-:input: lxc storage volume list remote
 :scroll:
+lxc storage volume list remote
+
 +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
 |      TYPE       |                               NAME                               | DESCRIPTION | CONTENT-TYPE | USED BY | LOCATION |
 +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
@@ -536,7 +585,14 @@ Expect output similar to this:
 +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
 | virtual-machine | u3                                                               |             | block        | 1       |          |
 +-----------------+------------------------------------------------------------------+-------------+--------------+---------+----------+
-:input: lxc storage volume list local
+```
+
+```{terminal}
+:user: ubuntu
+:host: micro1
+:scroll:
+lxc storage volume list local
+
 +-----------+------------------------------------------------------------------+-------------+--------------+---------+----------+
 |   TYPE    |                               NAME                               | DESCRIPTION | CONTENT-TYPE | USED BY | LOCATION |
 +-----------+------------------------------------------------------------------+-------------+--------------+---------+----------+
@@ -579,7 +635,7 @@ From within that shell, ping the IPv4 address of your `u2` instance. If you did 
 ```{terminal}
 :user: root
 :host: u1
-:input: ping -c 4 <IPv4 address of your u2 or u3 instance>
+ping -c 4 <IPv4 address of your u2 or u3 instance>
 ```
 
 Next, ping the IPv6 address of your `u3` instance:
@@ -587,7 +643,7 @@ Next, ping the IPv6 address of your `u3` instance:
 ```{terminal}
 :user: root
 :host: u1
-:input: ping -c 4 <IPv6 address of your u3 instance>
+ping -c 4 <IPv6 address of your u3 instance>
 ```
 
 Check if the `u1` instance also has connectivity to the outside world by pinging an external IP. The example below pings the public Google DNS server IP address:
@@ -632,7 +688,7 @@ Check that you can ping the `volatile.network.ipv4.address` for the new `isolate
 ```{terminal}
 :user: ubuntu
 :host: micro1
-:input: ping -c 4 <volatile.network.ipv4.address of 'isolated'>
+ping -c 4 <volatile.network.ipv4.address of 'isolated'>
 ```
 
 Launch a new Ubuntu container that uses the new network:
@@ -659,7 +715,7 @@ Next, try to ping the IPv4 address of one of the other instances, such as `u1`:
 ```{terminal}
 :user: ubuntu
 :host: micro1
-:input: ping -c 4 <IPv4 address of another instance>
+ping -c 4 <IPv4 address of another instance>
 ```
 
 This ping should fail. Other instances should not be reachable because they are on a different OVN subnet.
@@ -691,8 +747,8 @@ Example:
 ```{terminal}
 :user: ubuntu
 :host: micro1
-:input: lxc cluster list
 :scroll:
+lxc cluster list
 
 +--------+--------------------------+-----------------+--------------+----------------+-------------+--------+-------------------+
 |  NAME  |           URL            |      ROLES      | ARCHITECTURE | FAILURE DOMAIN | DESCRIPTION | STATE  |      MESSAGE      |
