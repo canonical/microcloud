@@ -80,16 +80,14 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 		}
 
 	case types.MicroCeph:
-		regex := regexp.MustCompile(`\d+\.\d+\.\d+`)
-		match := regex.FindString(daemonVersion)
+		match := regexp.MustCompile(`[0-9]+\.[0-9]+(?:\.[0-9]+)?`).FindString(daemonVersion)
 		if match == "" {
-			return fmt.Errorf("%s version format not supported (%s)", serviceType, daemonVersion)
+			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
 		}
 
-		daemonVersion = semver.Canonical("v" + match)
-		expectedVersion := semver.Canonical("v" + microCephMinVersion)
-		if semver.Compare(semver.MajorMinor(daemonVersion), semver.MajorMinor(expectedVersion)) != 0 {
-			return fmt.Errorf("%s version %q is not supported", serviceType, daemonVersion)
+		err := compareVersion(match, microCephMinVersion, serviceType)
+		if err != nil {
+			return err
 		}
 	}
 
