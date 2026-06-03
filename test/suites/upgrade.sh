@@ -22,7 +22,7 @@ test_upgrade() {
   # Perform upgrade test from MicroCloud 2 to 3.
   if [ "${MICROCLOUD_SNAP_CHANNEL}" = "2/candidate" ]; then
     # Use the edge channels to catch issues early in the release process.
-    microceph_target="squid/edge"
+    microceph_target="tentacle/edge"
     microovn_target="latest/edge"
     lxd_target="6/edge"
     microcloud_target="3/edge"
