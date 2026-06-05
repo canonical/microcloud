@@ -75,9 +75,9 @@ html_context = {
 }
 
 # Enables the pencil icon to edit pages on GitHub, shown at the top of each page
-html_theme_options = {
-    'source_edit_link': html_context['github_url']
-}
+# html_theme_options = {
+#     'source_edit_link': html_context['github_url']
+# }
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
