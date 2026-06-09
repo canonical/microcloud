@@ -1106,8 +1106,12 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 	}
 
 	if warningMessage != "" {
+		// Be concrete and notify the user that we cannot configure MicroOVN at this stage.
+		tui.PrintWarning("Cannot configure MicroOVN")
+
+		// Ask to continue and print a second warning here (the actual warning message) which contains some more reasoning.
 		question := "Continue anyway?"
-		wantsContinue, err := c.asker.AskBoolWarn(warningMessage, question, true)
+		wantsContinue, err := c.asker.AskBoolWarn(warningMessage, question, false)
 		if err != nil {
 			return err
 		}
