@@ -1111,7 +1111,7 @@ func (c *initConfig) askOVNNetwork(sh *service.Handler) error {
 
 		// Ask to continue and print a second warning here (the actual warning message) which contains some more reasoning.
 		question := "Continue anyway?"
-		wantsContinue, err := c.asker.AskBoolWarn(warningMessage, question, true)
+		wantsContinue, err := c.asker.AskBoolWarn(warningMessage, question, false)
 		if err != nil {
 			return err
 		}
