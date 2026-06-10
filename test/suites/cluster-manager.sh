@@ -51,6 +51,12 @@ test_cluster_manager() {
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show 2>&1 | grep "Error: Cluster manager not found" -q
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager join "$token" | grep "Successfully joined cluster manager" -q
 
+  echo "==> Tunnel config for cluster manager"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set reverse-tunnel true
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get reverse-tunnel | grep "true" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager unset reverse-tunnel
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get reverse-tunnel | grep "false" -q
+
   echo "==> Stop dummy cluster manager"
   lxc exec micro01 -- sh -c "pgrep -f 'openssl s_server -accept 3000' | xargs kill" || true
 

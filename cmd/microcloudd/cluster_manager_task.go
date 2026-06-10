@@ -99,7 +99,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	payload := types.ClusterManagerPostStatus{}
 
 	lxdService := sh.Services[types.LXD].(*service.LXDService)
-	lxdClient, err := lxdService.Client(context.Background())
+	lxdClient, err := lxdService.Client(ctx)
 	if err != nil {
 		logger.Error("Failed to get LXD client", logger.Ctx{"err": err})
 		return nextUpdate

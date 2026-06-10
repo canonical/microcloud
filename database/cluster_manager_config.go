@@ -16,6 +16,9 @@ const ClusterManagerDefaultName = "default"
 // UpdateIntervalSecondsKey is the key for the update interval configuration.
 const UpdateIntervalSecondsKey = "update-interval-seconds"
 
+// ReverseTunnelKey is the key for enabling or disabling the websocket in configuration.
+const ReverseTunnelKey = "reverse-tunnel"
+
 // UpdateIntervalDefaultSeconds is the interval for the status update task if none is defined in the database.
 const UpdateIntervalDefaultSeconds = 60
 
