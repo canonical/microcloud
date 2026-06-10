@@ -140,6 +140,8 @@ linkcheck_ignore = [
     r'https://.*\.sourceforge\.(net|io)/.*',
     # These links often fail due to infra issues or protection measures 
     r'https://ubuntu\.com.*',
+    r'https://canonical\.com.*',
+    r'https://snapcraft\.io.*',
     # Ignore so that we can link change log in release notes before a release is ready
     r'https://github\.com/canonical/microcloud/compare.*',
 ]
