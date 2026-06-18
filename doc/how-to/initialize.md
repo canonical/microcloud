@@ -276,18 +276,18 @@ lxc storage volume create remote-fs backups # for instances operations
 lxc storage volume create remote-fs images # for images operations
 ```
 
-Once the storage volumes are created, set them as the values for the {ref}`configuration options <lxd:server-options-misc>` of `storage.images_volume` and `storage.backups_volume`. This example syntax uses `remote-fs` as the storage pool, along with volumes named `images` and `backup`:
+Once the storage volumes are created, set them as the values for the `storage.images_volume` and `storage.backups_volume` {ref}`configuration options <lxd:server-options-misc>`.
+This example syntax uses `remote-fs` as the storage pool, along with volumes named `images` and `backups`.
+Repeat these steps for each cluster member:
 
 ```bash
-lxc config set storage.images_volume=remote-fs/images
-lxc config set storage.backups_volume=remote-fs/backups
+lxc config set storage.images_volume=remote-fs/images --target <cluster member>
+lxc config set storage.backups_volume=remote-fs/backups --target <cluster member>
 ```
 
 To view the set values, run:
 
 ```bash
-lxc config get storage.backups_volume
-lxc config get storage.images_volume
+lxc config get storage.backups_volume --target <cluster member>
+lxc config get storage.images_volume --target <cluster member>
 ```
-
-Repeat these steps on each cluster member.
