@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/client"
@@ -19,8 +21,8 @@ import (
 )
 
 // SendClusterManagerStatusMessageTask starts a go routine, that sends periodic status messages to cluster manager.
-func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handler, s microTypes.State) {
-	go func(ctx context.Context, sh *service.Handler, s microTypes.State) {
+func SendClusterManagerStatusMessageTask(ctx context.Context, g *errgroup.Group, sh *service.Handler, s microTypes.State) {
+	g.Go(func() error {
 		ticker := time.NewTicker(database.UpdateIntervalDefaultSeconds * time.Second)
 		defer ticker.Stop()
 
@@ -33,15 +35,15 @@ func SendClusterManagerStatusMessageTask(ctx context.Context, sh *service.Handle
 				}
 
 			case <-ctx.Done():
-				return // exit the loop and close the go routine
+				return nil // exit the loop and close the go routine
 			}
 		}
-	}(ctx, sh, s)
+	})
 }
 
 func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s microTypes.State) time.Duration {
 	logger.Debug("Starting sendClusterManagerStatusMessage")
-	var nextUpdate time.Duration = 0
+	var nextUpdate = time.Duration(database.UpdateIntervalDefaultSeconds) * time.Second
 
 	cloud := sh.Services[types.MicroCloud].(*service.CloudService)
 	isInitialized, err := cloud.IsInitialized(ctx)
@@ -55,9 +57,9 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
-	clusterManager, clusterManagerConfig, err := database.LoadClusterManager(s, ctx, database.ClusterManagerDefaultName)
+	clusterManager, err := database.LoadClusterManager(s, ctx, database.ClusterManagerDefaultName)
 	if err != nil {
-		if err.Error() == "Cluster manager not found" {
+		if api.StatusErrorCheck(err, http.StatusNotFound) {
 			logger.Debug("Cluster manager not configured, skipping status message")
 			return nextUpdate
 		}
@@ -66,17 +68,14 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
-	for _, config := range clusterManagerConfig {
-		if config.Key == database.UpdateIntervalSecondsKey {
-			interval, err := time.ParseDuration(config.Value + "s")
-			if err != nil {
-				logger.Error("Failed to parse update interval", logger.Ctx{"err": err})
-				return nextUpdate
-			}
-
-			nextUpdate = interval
-			break
-		}
+	nextUpdateFromDb, err := database.LoadClusterManagerUpdateIntervalSeconds(s, ctx, clusterManager.ID)
+	if err != nil && api.StatusErrorCheck(err, http.StatusNotFound) {
+		nextUpdate = time.Duration(database.UpdateIntervalDefaultSeconds) * time.Second
+	} else if err != nil {
+		logger.Error("Failed to fetch cluster manager update interval", logger.Ctx{"err": err})
+		return nextUpdate
+	} else {
+		nextUpdate = *nextUpdateFromDb
 	}
 
 	leaderClient, err := s.Database().Leader(ctx)
@@ -99,7 +98,7 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 	payload := types.ClusterManagerPostStatus{}
 
 	lxdService := sh.Services[types.LXD].(*service.LXDService)
-	lxdClient, err := lxdService.Client(context.Background())
+	lxdClient, err := lxdService.Client(ctx)
 	if err != nil {
 		logger.Error("Failed to get LXD client", logger.Ctx{"err": err})
 		return nextUpdate
