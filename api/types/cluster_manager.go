@@ -1,6 +1,7 @@
 package types
 
 import (
+	"net/http"
 	"time"
 )
 
@@ -54,7 +55,11 @@ type ClusterManagerPut struct {
 
 	// Interval in seconds to send status messages to the cluster manager
 	// Example: 60
-	UpdateInterval *string `json:"update_interval" yaml:"update_interval"`
+	UpdateIntervalSeconds *string `json:"update_interval_seconds" yaml:"update_interval_seconds"`
+
+	// Enables or disables the reverse tunnel to the cluster manager
+	// Example: true, false
+	ReverseTunnel *bool `json:"reverse_tunnel" yaml:"reverse_tunnel"`
 }
 
 // StatusDistribution represents the distribution of items.
@@ -99,4 +104,22 @@ type ClusterManagerJoin struct {
 	ClusterName        string `json:"cluster_name" yaml:"cluster_name"`
 	ClusterCertificate string `json:"cluster_certificate" yaml:"cluster_certificate"`
 	Token              string `json:"token" yaml:"token"`
+}
+
+// ClusterManagerTunnelRequest represents the request received through the tunnel.
+type ClusterManagerTunnelRequest struct {
+	UUID    string      `json:"uuid"`
+	Method  string      `json:"method"`
+	Path    string      `json:"path"`
+	Headers http.Header `json:"headers"`
+	Body    []byte      `json:"body"`
+}
+
+// ClusterManagerTunnelResponse represents the response sent through the tunnel.
+type ClusterManagerTunnelResponse struct {
+	UUID    string         `json:"uuid"`
+	Status  int            `json:"status"`
+	Headers http.Header    `json:"headers"`
+	Cookies []*http.Cookie `json:"cookies"`
+	Body    []byte         `json:"body"`
 }
