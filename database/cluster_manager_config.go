@@ -3,7 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
@@ -14,31 +16,105 @@ import (
 const ClusterManagerDefaultName = "default"
 
 // UpdateIntervalSecondsKey is the key for the update interval configuration.
-const UpdateIntervalSecondsKey = "update-interval-seconds"
+const UpdateIntervalSecondsKey = "update_interval_seconds"
+
+// ReverseTunnelKey is the key for enabling or disabling the websocket in configuration.
+const ReverseTunnelKey = "reverse_tunnel"
 
 // UpdateIntervalDefaultSeconds is the interval for the status update task if none is defined in the database.
 const UpdateIntervalDefaultSeconds = 60
 
 // LoadClusterManager loads the cluster manager configuration from the database.
-func LoadClusterManager(state types.State, ctx context.Context, name string) (*ClusterManager, []ClusterManagerConfig, error) {
+func LoadClusterManager(state types.State, ctx context.Context, name string) (*ClusterManager, error) {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
+	return clusterManager, nil
+}
+
+// LoadClusterManagerConfigs loads all cluster manager configurations from the database.
+func LoadClusterManagerConfigs(state types.State, ctx context.Context, clusterManagerId int64) ([]ClusterManagerConfig, error) {
 	var clusterManagerConfig []ClusterManagerConfig
+	var err error
 	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		clusterManagerConfig, err = GetClusterManagerConfig(ctx, tx, ClusterManagerConfigFilter{
-			ClusterManagerID: &clusterManager.ID,
+			ClusterManagerID: &clusterManagerId,
 		})
 
 		return err
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return clusterManager, clusterManagerConfig, nil
+	return clusterManagerConfig, nil
+}
+
+// LoadClusterManagerSingleConfig loads a single cluster manager configuration by key from the database.
+func LoadClusterManagerSingleConfig(state types.State, ctx context.Context, clusterManagerId int64, configKey string) (*ClusterManagerConfig, error) {
+	var clusterManagerConfig []ClusterManagerConfig
+	var err error
+	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		clusterManagerConfig, err = GetClusterManagerConfig(ctx, tx, ClusterManagerConfigFilter{
+			ClusterManagerID: &clusterManagerId,
+			Key:              &configKey,
+		})
+
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(clusterManagerConfig) == 0 {
+		return nil, nil
+	}
+
+	if len(clusterManagerConfig) > 1 {
+		return nil, errors.New("Cannot load cluster manager config: multiple rows found for the same key")
+	}
+
+	return &clusterManagerConfig[0], nil
+}
+
+// LoadClusterManagerUpdateIntervalSeconds loads the cluster manager update interval configuration from the database.
+func LoadClusterManagerUpdateIntervalSeconds(state types.State, ctx context.Context, clusterManagerId int64) (*time.Duration, error) {
+	updateIntervalConfig, err := LoadClusterManagerSingleConfig(state, ctx, clusterManagerId, UpdateIntervalSecondsKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if updateIntervalConfig == nil {
+		return nil, api.StatusErrorf(http.StatusNotFound, "update interval not found")
+	}
+
+	updateInterval, err := time.ParseDuration(updateIntervalConfig.Value + "s")
+	if err != nil {
+		return nil, err
+	}
+
+	return &updateInterval, nil
+}
+
+// LoadClusterManagerReverseTunnel loads the cluster manager reverse tunnel configuration from the database.
+func LoadClusterManagerReverseTunnel(state types.State, ctx context.Context, clusterManagerId int64) (bool, error) {
+	reverseTunnelConfig, err := LoadClusterManagerSingleConfig(state, ctx, clusterManagerId, ReverseTunnelKey)
+	if err != nil {
+		return false, err
+	}
+
+	if reverseTunnelConfig == nil {
+		return false, nil
+	}
+
+	reverseTunnel, err := strconv.ParseBool(reverseTunnelConfig.Value)
+	if err != nil {
+		return false, err
+	}
+
+	return reverseTunnel, nil
 }
 
 // StoreClusterManager stores the cluster manager configuration in the database.
@@ -61,7 +137,12 @@ func RemoveClusterManager(state types.State, ctx context.Context, clusterManager
 
 // StoreClusterManagerConfig stores the cluster manager configuration in the database.
 func StoreClusterManagerConfig(state types.State, ctx context.Context, name string, key string, value string) error {
-	clusterManager, clusterManagerConfig, err := LoadClusterManager(state, ctx, name)
+	clusterManager, err := LoadClusterManager(state, ctx, name)
+	if err != nil {
+		return err
+	}
+
+	clusterManagerConfig, err := LoadClusterManagerConfigs(state, ctx, clusterManager.ID)
 	if err != nil {
 		return err
 	}
