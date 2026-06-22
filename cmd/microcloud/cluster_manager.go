@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	cli "github.com/canonical/lxd/shared/cmd"
+	"github.com/canonical/lxd/shared/validate"
 	"github.com/canonical/microcluster/v3/microcluster"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/spf13/cobra"
@@ -201,11 +202,11 @@ func (c *cmdClusterManagerGet) command() *cobra.Command {
 	cmd.Use = "get"
 	cmd.Short = "Get specific cluster manager configuration by key."
 	cmd.Example = cli.FormatSection("", `microcloud cluster-manager get addresses
-microcloud cluster-manager get certificate-fingerprint
-microcloud cluster-manager get update-interval-seconds
-microcloud cluster-manager get status-last-success-time
-microcloud cluster-manager get status-last-error-time
-microcloud cluster-manager get status-last-error-response`)
+microcloud cluster-manager get certificate_fingerprint
+microcloud cluster-manager get update_interval_seconds
+microcloud cluster-manager get status_last_success_time
+microcloud cluster-manager get status_last_error_time
+microcloud cluster-manager get status_last_error_response`)
 
 	cmd.RunE = c.run
 
@@ -233,20 +234,26 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 	switch key {
 	case "addresses":
 		fmt.Printf("%s\n", strings.Join(clusterManager.Addresses, ", "))
-	case "certificate-fingerprint":
+	case "certificate_fingerprint":
 		fmt.Printf("%s\n", clusterManager.CertificateFingerprint)
-	case "update-interval-seconds":
+	case "update_interval_seconds":
 		value, ok := clusterManager.Config[database.UpdateIntervalSecondsKey]
 		if ok {
 			fmt.Printf("%s\n", value)
 		}
 
-	case "status-last-success-time":
+	case "status_last_success_time":
 		fmt.Printf("%s\n", clusterManager.StatusLastSuccessTime)
-	case "status-last-error-time":
+	case "status_last_error_time":
 		fmt.Printf("%s\n", clusterManager.StatusLastErrorTime)
-	case "status-last-error-response":
+	case "status_last_error_response":
 		fmt.Printf("%s\n", clusterManager.StatusLastErrorResponse)
+	case "reverse_tunnel":
+		value, ok := clusterManager.Config[database.ReverseTunnelKey]
+		if ok {
+			fmt.Printf("%s\n", value)
+		}
+
 	default:
 		return errors.New("Invalid key")
 	}
@@ -265,8 +272,9 @@ func (c *cmdClusterManagerSet) command() *cobra.Command {
 	cmd.Use = "set"
 	cmd.Short = "Set specific cluster manager configuration key."
 	cmd.Example = cli.FormatSection("", `microcloud cluster-manager set addresses example.com:8443
-microcloud cluster-manager set certificate-fingerprint abababababababababababababababababababababababababababababababab
-microcloud cluster-manager set update-interval-seconds 50`)
+microcloud cluster-manager set certificate_fingerprint abababababababababababababababababababababababababababababababab
+microcloud cluster-manager set update_interval_seconds 50
+microcloud cluster-manager set reverse_tunnel true`)
 
 	cmd.RunE = c.run
 
@@ -291,10 +299,18 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 	switch key {
 	case "addresses":
 		payload.Addresses = []string{value}
-	case "certificate-fingerprint":
+	case "certificate_fingerprint":
 		payload.CertificateFingerprint = &value
-	case "update-interval-seconds":
-		payload.UpdateInterval = &value
+	case "update_interval_seconds":
+		payload.UpdateIntervalSeconds = &value
+	case "reverse_tunnel":
+		err := validate.IsBool(value)
+		if err != nil {
+			return errors.New("Invalid value for reverse_tunnel, expected 'true' or 'false'")
+		}
+
+		enabled := value == "true" || value == "yes" || value == "on" || value == "1"
+		payload.ReverseTunnel = &enabled
 	default:
 		return errors.New("Invalid key")
 	}
@@ -317,7 +333,7 @@ func (c *cmdClusterManagerUnset) command() *cobra.Command {
 	cmd := &cobra.Command{}
 	cmd.Use = "unset"
 	cmd.Short = "Unset specific cluster manager configuration key."
-	cmd.Example = cli.FormatSection("", `microcloud cluster-manager unset update-interval-seconds`)
+	cmd.Example = cli.FormatSection("", `microcloud cluster-manager unset update_interval_seconds`)
 
 	cmd.RunE = c.run
 
@@ -339,9 +355,13 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 	payload := types.ClusterManagerPut{}
 
 	switch key {
-	case "update-interval-seconds":
-		emptyString := ""
-		payload.UpdateInterval = &emptyString
+	case "update_interval_seconds":
+		payload.UpdateIntervalSeconds = new("")
+
+	case "reverse_tunnel":
+		disabled := false
+		payload.ReverseTunnel = &disabled
+
 	default:
 		return errors.New("Invalid key")
 	}
