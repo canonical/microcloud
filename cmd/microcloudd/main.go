@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/microcluster/v3/microcluster"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/canonical/microcloud/microcloud/api"
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -160,6 +161,8 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var backgroundTasks *errgroup.Group
+
 	dargs := microcluster.DaemonArgs{
 		Version:           version.RawVersion,
 		HeartbeatInterval: c.flagHeartbeatInterval,
@@ -184,7 +187,10 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 				return setHandlerAddress(state.Address().Host)
 			},
 			OnStart: func(ctx context.Context, state microTypes.State) error {
-				SendClusterManagerStatusMessageTask(ctx, s, state)
+				g, backgroundTasksCtx := errgroup.WithContext(ctx)
+				backgroundTasks = g
+				ReconcileClusterManagerTunnel(backgroundTasksCtx, backgroundTasks, s, state)
+				SendClusterManagerStatusMessageTask(backgroundTasksCtx, backgroundTasks, s, state)
 
 				// If we are already initialized, there's nothing to do.
 				err := state.Database().IsOpen(ctx)
@@ -245,6 +251,18 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 				err = c.UpdateServer(newServer, etag)
 				if err != nil {
 					logger.Error("Failed to update LXD configuration on start", logger.Ctx{"error": err})
+				}
+
+				return nil
+			},
+			OnStop: func(ctx context.Context, state microTypes.State) error {
+				if backgroundTasks == nil {
+					return nil
+				}
+
+				err := backgroundTasks.Wait()
+				if err != nil {
+					return fmt.Errorf("Failed stopping background tasks: %w", err)
 				}
 
 				return nil
