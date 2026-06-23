@@ -196,3 +196,15 @@ variable "instance_create_timeout" {
   type        = string
   default     = "15m"
 }
+
+variable "enable_secureboot_config" {
+  description = "Whether to set security.secureboot on VMs (disable on hosts that do not support this key)"
+  type        = bool
+  default     = false
+}
+
+variable "vm_secureboot" {
+  description = "Value for security.secureboot when enable_secureboot_config is true"
+  type        = bool
+  default     = false
+}
