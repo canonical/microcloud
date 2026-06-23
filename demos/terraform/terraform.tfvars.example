@@ -21,6 +21,11 @@ session_timeout = 900
 lookup_timeout = 300
 instance_create_timeout = "25m"
 
+# Support security.secureboot for VMs.
+# Leave this disabled unless your host supports the key.
+enable_secureboot_config = false
+vm_secureboot = false
+
 # VM Configuration
 vm_count = 4
 vm_names = ["micro1", "micro2", "micro3", "micro4"]
