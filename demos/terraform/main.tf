@@ -2,7 +2,7 @@ terraform {
   required_providers {
     lxd = {
       source  = "terraform-lxd/lxd"
-      version = "~> 2.5.0"
+      version = "~> 2.6.2"
     }
     random = {
       source  = "hashicorp/random"
@@ -89,19 +89,23 @@ resource "lxd_instance" "microcloud" {
     create = var.instance_create_timeout
   }
 
-  config = {
-    "security.secureboot" = "false"
-    "cloud-init.user-data" = templatefile("${path.module}/cloud-init.yaml.tpl", {
-      hostname             = var.vm_names[count.index]
-      lookup_interface     = var.lookup_interface
-      uplink_device_name   = var.uplink_device_name
-      ovn_uplink_interface = var.ovn_uplink_interface
-      microceph_channel    = var.microceph_channel
-      microovn_channel     = var.microovn_channel
-      microcloud_channel   = var.microcloud_channel
-      lxd_channel          = var.lxd_channel
-    })
-  }
+  config = merge(
+    {
+      "cloud-init.user-data" = templatefile("${path.module}/cloud-init.yaml.tpl", {
+        hostname             = var.vm_names[count.index]
+        lookup_interface     = var.lookup_interface
+        uplink_device_name   = var.uplink_device_name
+        ovn_uplink_interface = var.ovn_uplink_interface
+        microceph_channel    = var.microceph_channel
+        microovn_channel     = var.microovn_channel
+        microcloud_channel   = var.microcloud_channel
+        lxd_channel          = var.lxd_channel
+      })
+    },
+    var.enable_secureboot_config ? {
+      "security.secureboot" = tostring(var.vm_secureboot)
+    } : {}
+  )
 
   limits = {
     cpu    = var.cpu_per_instance
