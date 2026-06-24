@@ -45,7 +45,7 @@ locals {
   }
 }
 
-resource "lxd_network" "microbr0" {
+resource "lxd_network" "microbr" {
   name = var.network_name
 
   config = {
@@ -122,7 +122,7 @@ resource "lxd_instance" "microcloud" {
     type = "nic"
     properties = {
       nictype = "bridged"
-      parent  = lxd_network.microbr0.name
+      parent  = lxd_network.microbr.name
     }
   }
 
@@ -203,7 +203,7 @@ resource "lxd_instance" "microcloud" {
 
   depends_on = [
     data.lxd_network.lookup_bridge,
-    lxd_network.microbr0,
+    lxd_network.microbr,
     lxd_volume.local_disk,
     lxd_volume.ceph_disk
   ]
