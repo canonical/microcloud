@@ -32,17 +32,14 @@ locals {
 
   systems = [
     for i, name in var.vm_names : {
-      name     = name
-      ip       = cidrhost(local.lookup_subnet, var.ip_base_offset + (i * var.ip_increment))
-      has_ceph = contains(var.ceph_nodes, name)
+      name        = name
+      ip          = cidrhost(local.lookup_subnet, var.ip_base_offset + (i * var.ip_increment))
+      has_ceph    = contains(var.ceph_nodes, name)
+      disk_number = var.disk_number_start + i
     }
   ]
 
-  ceph_disk_mapping = {
-    for i, system in local.systems : i => length([
-      for j, s in local.systems : j if j < i && s.has_ceph
-    ]) if system.has_ceph
-  }
+  ceph_systems = [for s in local.systems : s if s.has_ceph]
 }
 
 resource "lxd_network" "microbr" {
@@ -57,8 +54,8 @@ resource "lxd_network" "microbr" {
 }
 
 resource "lxd_volume" "local_disk" {
-  count        = var.vm_count
-  name         = "${var.local_disk_name_prefix}${count.index + 1}"
+  count        = length(local.systems)
+  name         = "${var.local_disk_name_prefix}${local.systems[count.index].disk_number}"
   pool         = var.storage_pool
   type         = "custom"
   content_type = "block"
@@ -68,8 +65,8 @@ resource "lxd_volume" "local_disk" {
 }
 
 resource "lxd_volume" "ceph_disk" {
-  count        = length([for system in local.systems : system if system.has_ceph])
-  name         = "${var.ceph_disk_name_prefix}${count.index + 1}"
+  count        = length(local.ceph_systems)
+  name         = "${var.ceph_disk_name_prefix}${local.ceph_systems[count.index].disk_number}"
   pool         = var.storage_pool
   type         = "custom"
   content_type = "block"
@@ -79,7 +76,7 @@ resource "lxd_volume" "ceph_disk" {
 }
 
 resource "lxd_instance" "microcloud" {
-  count            = var.vm_count
+  count            = length(local.systems)
   name             = var.vm_names[count.index]
   image            = var.ubuntu_image
   type             = "virtual-machine"
@@ -142,7 +139,7 @@ resource "lxd_instance" "microcloud" {
       type = "disk"
       properties = {
         pool   = var.storage_pool
-        source = lxd_volume.ceph_disk[local.ceph_disk_mapping[count.index]].name
+        source = lxd_volume.ceph_disk[index(local.ceph_systems[*].name, local.systems[count.index].name)].name
       }
     }
   }
