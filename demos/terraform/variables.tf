@@ -148,13 +148,6 @@ variable "lookup_bridge" {
   default     = "lxdbr0"
 }
 
-
-variable "vm_count" {
-  description = "Number of VMs to create"
-  type        = number
-  default     = 4
-}
-
 variable "ip_base_offset" {
   description = "Base IP address offset for the first VM"
   type        = number
@@ -177,6 +170,12 @@ variable "ceph_disk_name_prefix" {
   description = "Prefix for Ceph disk volume names"
   type        = string
   default     = "remote"
+}
+
+variable "disk_number_start" {
+  description = "Starting number for disk names (e.g., 1 for local1/remote1, 5 for local5/remote5)"
+  type        = number
+  default     = 1
 }
 
 variable "initiator" {
