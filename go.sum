@@ -16,8 +16,8 @@ github.com/canonical/lxd v0.0.0-20260609123505-f2e76ad73c19 h1:MiYKsD/YKjt7UFU04
 github.com/canonical/lxd v0.0.0-20260609123505-f2e76ad73c19/go.mod h1:2/vfGcxHmeDPH9MrXgVIaot8Vde03CVcr7p8ejbfxt4=
 github.com/canonical/microceph/microceph v0.0.0-20260609072127-5c2760d8fb76 h1:se9OQnfsaaWdzNef7NA1D1CdSH2ZfDTEe5JwqcFwzuU=
 github.com/canonical/microceph/microceph v0.0.0-20260609072127-5c2760d8fb76/go.mod h1:YPYJ8waBynRIwtkrGcXROYIWjZfCnOBgSDPLEd23T98=
-github.com/canonical/microcluster/v3 v3.0.2 h1:/wPrReFuQu6clY0OlpXBV2nYXmywYXVOjTx7T6Kj7YY=
-github.com/canonical/microcluster/v3 v3.0.2/go.mod h1:51SGm0L8T1ihKqllE/EH75DxOip4IW+eO7JJBsBnTGI=
+github.com/canonical/microcluster/v3 v3.0.3-0.20260623152555-f69e20909c0a h1:CipoviJs42WZZHd9Rgb7nbbcccYSIdjGmWNYcr6w3eI=
+github.com/canonical/microcluster/v3 v3.0.3-0.20260623152555-f69e20909c0a/go.mod h1:hRmKGnvcR0qy0z3Xx/0vzpz2dYuinmt4XwXBiQ7PMLs=
 github.com/canonical/microovn/microovn v0.0.0-20260515123945-085fb21507ad h1:chyi4x9WGfokc1AZlGsdJjJs5ebTsgl30m8IQLWZSYs=
 github.com/canonical/microovn/microovn v0.0.0-20260515123945-085fb21507ad/go.mod h1:CNuq7WwiH+YcCwjPsYDew/gedrjVT1ebCwwnUSVGuVU=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
