@@ -96,7 +96,7 @@ integrate:
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
 	mkdir -p integration/microceph/docs/_templates integration/microceph/docs/_static
 	
-	# Copy the header HTML and CSS files for the doc sets  
+	# Copy the header HTML and CSS files for the doc sets
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp .sphinx/_integration/override-header.css integration/microcloud/_static/
 	cp .sphinx/_integration/lxd.html integration/lxd/doc/_templates/header.html
@@ -105,6 +105,9 @@ integrate:
 	cp .sphinx/_integration/override-header.css integration/microceph/docs/_static/
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
+
+	# Copy the JavaScript to overwrite links
+	cp _static/js/overwrite_links.js integration/lxd/doc/_static/js/overwrite_links.js
 
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
