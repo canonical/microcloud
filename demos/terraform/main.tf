@@ -90,7 +90,6 @@ resource "lxd_instance" "microcloud" {
   }
 
   config = {
-    "security.secureboot" = "false"
     "cloud-init.user-data" = templatefile("${path.module}/cloud-init.yaml.tpl", {
       hostname             = var.vm_names[count.index]
       lookup_interface     = var.lookup_interface
