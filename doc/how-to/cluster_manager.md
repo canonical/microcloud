@@ -58,7 +58,7 @@ Once you have configured the OIDC client on the provider side and obtained these
 (howto-cluster-manager-install)=
 ## Install the Cluster Manager model and set up its charms
 
-First, add a new `cluster-manager` Juju [model](https://documentation.ubuntu.com/juju/3.6/howto/manage-models/):
+First, add a new `cluster-manager` Juju [model](https://canonical.com/juju/docs/juju-cli/3.6/howto/manage-models/):
 
 ```bash
 juju add-model cluster-manager
