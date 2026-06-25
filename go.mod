@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/canonical/lxd v0.0.0-20260609123505-f2e76ad73c19
 	github.com/canonical/microceph/microceph v0.0.0-20260609072127-5c2760d8fb76
-	github.com/canonical/microcluster/v3 v3.0.2
+	github.com/canonical/microcluster/v3 v3.0.3-0.20260623152555-f69e20909c0a
 	github.com/canonical/microovn/microovn v0.0.0-20260515123945-085fb21507ad
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10

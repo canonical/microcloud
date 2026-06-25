@@ -49,7 +49,12 @@ func clusterManagerGet(state types.State, r *http.Request) types.Response {
 		return types.SmartError(err)
 	}
 
-	clusterManager, clusterManagerConfig, err := database.LoadClusterManager(state, r.Context(), name)
+	clusterManager, err := database.LoadClusterManager(state, r.Context(), name)
+	if err != nil {
+		return types.SmartError(err)
+	}
+
+	clusterManagerConfig, err := database.LoadClusterManagerConfigs(state, r.Context(), clusterManager.ID)
 	if err != nil {
 		return types.SmartError(err)
 	}
@@ -97,7 +102,7 @@ func clusterManagerPost(sh *service.Handler) func(state types.State, r *http.Req
 		}
 
 		// ensure cluster manager is not already configured
-		existingClusterManager, _, err := database.LoadClusterManager(state, r.Context(), args.Name)
+		existingClusterManager, err := database.LoadClusterManager(state, r.Context(), args.Name)
 		if err != nil {
 			if api.StatusErrorCheck(err, http.StatusNotFound) {
 				// ignore, this is the expected path
@@ -163,7 +168,7 @@ func clusterManagerPut(state types.State, r *http.Request) types.Response {
 		return types.SmartError(err)
 	}
 
-	clusterManager, _, err := database.LoadClusterManager(state, r.Context(), name)
+	clusterManager, err := database.LoadClusterManager(state, r.Context(), name)
 	if err != nil {
 		return types.SmartError(err)
 	}
@@ -191,8 +196,16 @@ func clusterManagerPut(state types.State, r *http.Request) types.Response {
 		}
 	}
 
-	if args.UpdateInterval != nil {
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateInterval)
+	if args.UpdateIntervalSeconds != nil {
+		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateIntervalSeconds)
+		if err != nil {
+			return types.SmartError(err)
+		}
+	}
+
+	if args.ReverseTunnel != nil {
+		reverseTunnelValue := strconv.FormatBool(*args.ReverseTunnel)
+		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.ReverseTunnelKey, reverseTunnelValue)
 		if err != nil {
 			return types.SmartError(err)
 		}
@@ -215,7 +228,7 @@ func clusterManagerDelete(sh *service.Handler) func(state types.State, r *http.R
 			return types.SmartError(err)
 		}
 
-		clusterManager, _, err := database.LoadClusterManager(state, r.Context(), name)
+		clusterManager, err := database.LoadClusterManager(state, r.Context(), name)
 		if err != nil {
 			return types.SmartError(err)
 		}
