@@ -48,4 +48,4 @@ The {doc}`MicroCeph security documentation <microceph:snap/explanation/security/
 (exp-security-microovn)=
 ## MicroOVN
 
-MicroOVN secures its network endpoints using the TLS protocol (version 1.2 or higher), along with P-384 elliptic curve keys. For details, refer to the {doc}`MicroOVN documentation on its use of cryptography <microovn:reference/cryptography>`. Also see the {doc}`MicroOVN security process documentation <microovn:reference/security>`.
+MicroOVN secures its network endpoints using the TLS protocol (version 1.2 or higher), along with P-384 elliptic curve keys. For details, refer to the MicroOVN documentation on {doc}`cryptography <microovn:reference/cryptography>`, {doc}`working with TLS <microovn:how-to/tls>`, and the {doc}`MicroOVN security process <microovn:reference/security>`.
