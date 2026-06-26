@@ -3,10 +3,10 @@ module github.com/canonical/microcloud/microcloud
 go 1.26.4
 
 require (
-	github.com/canonical/lxd v0.0.0-20260609123505-f2e76ad73c19
-	github.com/canonical/microceph/microceph v0.0.0-20260609072127-5c2760d8fb76
-	github.com/canonical/microcluster/v3 v3.0.3-0.20260623152555-f69e20909c0a
-	github.com/canonical/microovn/microovn v0.0.0-20260515123945-085fb21507ad
+	github.com/canonical/lxd v0.0.0-20260625143544-57c2e6b8b5c2
+	github.com/canonical/microceph/microceph v0.0.0-20260625103310-c87edf7941d3
+	github.com/canonical/microcluster/v3 v3.1.0
+	github.com/canonical/microovn/microovn v0.0.0-20260625133719-7943959a6689
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -55,7 +55,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
-	github.com/mattn/go-sqlite3 v1.14.45 // indirect
+	github.com/mattn/go-sqlite3 v1.14.47 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
