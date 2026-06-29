@@ -14,6 +14,8 @@ MicroCloud {ref}`further enforces security <exp-security-microcloud>` through th
 
 MicroCloud runs on Ubuntu and benefits from all [Ubuntu platform security measures](https://ubuntu.com/security), including kernel hardening, signed packages, and continuous security maintenance. For production environments, we recommend using a recent Ubuntu LTS release to ensure long-term support and predictable security updates.
 
+Ubuntu LTS releases subscribed to Ubuntu Pro can use the [Ubuntu Security Guide (USG)](https://documentation.ubuntu.com/security/compliance/usg/) for CIS hardening. Refer to the LXD documentation on {ref}`lxd:howto-security-harden-cis` for related details about auditing LXD hosts with USG.
+
 (exp-security-snaps)=
 ## Snaps
 
@@ -46,4 +48,4 @@ The {doc}`MicroCeph security documentation <microceph:snap/explanation/security/
 (exp-security-microovn)=
 ## MicroOVN
 
-MicroOVN secures its network endpoints using the TLS protocol (version 1.2 or higher), along with P-384 elliptic curve keys. For details, refer to the {doc}`MicroOVN documentation on its use of cryptography <microovn:reference/cryptography>`. Also see the {doc}`MicroOVN security process documentation <microovn:reference/security>`.
+MicroOVN secures its network endpoints using the TLS protocol (version 1.2 or higher), along with P-384 elliptic curve keys. For details, refer to the MicroOVN documentation on {doc}`cryptography <microovn:reference/cryptography>`, {doc}`working with TLS <microovn:how-to/tls>`, and the {doc}`MicroOVN security process <microovn:reference/security>`.
