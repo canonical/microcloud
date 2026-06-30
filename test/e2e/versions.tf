@@ -7,3 +7,10 @@ terraform {
     }
   }
 }
+
+provider "lxd" {
+  remote {
+    name    = "local"
+    address = "unix://"
+  }
+}
