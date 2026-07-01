@@ -235,6 +235,11 @@ func (s CephService) PoolSetReplicationFactor(ctx context.Context, data cephType
 		return err
 	}
 
+	// On the GH runners it was observed that setting the pool replication factor can take
+	// longer than the default of 30s if no deadline is set on the context.
+	ctx, cancel := context.WithTimeout(ctx, cephJobTimeout)
+	defer cancel()
+
 	err = c.Query(ctx, "PUT", types.APIVersion, &api.NewURL().Path("pools-op").URL, data, nil)
 	if err != nil {
 		return fmt.Errorf("Failed setting replication factor: %w", err)
