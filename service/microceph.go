@@ -22,6 +22,9 @@ import (
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 )
 
+// cephJobTimeout is the maximum time we allow for a Ceph job to complete before the context gets canceled.
+const cephJobTimeout = 5 * time.Minute
+
 // CephService is a MicroCeph service.
 type CephService struct {
 	m *microcluster.MicroCluster
@@ -148,7 +151,7 @@ func (s CephService) AddDisk(ctx context.Context, data cephTypes.DisksPost, targ
 	// In the pipeline runners we often see runtimes > 1 minute.
 	// To prevent any issues with slow environments set a more forgiving upper limit.
 	// As long as the MicroCeph API doesn't return an error, the process is still running and we have to wait for it.
-	ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancel = context.WithTimeout(ctx, cephJobTimeout)
 	defer cancel()
 
 	err = c.Query(ctx, "POST", types.APIVersion, &api.NewURL().Path("disks").URL, data, &response)
@@ -231,6 +234,11 @@ func (s CephService) PoolSetReplicationFactor(ctx context.Context, data cephType
 	if err != nil {
 		return err
 	}
+
+	// On the GH runners it was observed that setting the pool replication factor can take
+	// longer than the default of 30s if no deadline is set on the context.
+	ctx, cancel := context.WithTimeout(ctx, cephJobTimeout)
+	defer cancel()
 
 	err = c.Query(ctx, "PUT", types.APIVersion, &api.NewURL().Path("pools-op").URL, data, nil)
 	if err != nil {
