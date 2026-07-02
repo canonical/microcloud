@@ -22,7 +22,6 @@ lookup_timeout = 300
 instance_create_timeout = "25m"
 
 # VM Configuration
-vm_count = 4
 vm_names = ["micro1", "micro2", "micro3", "micro4"]
 ceph_nodes = ["micro1", "micro2", "micro3"]
 
@@ -46,6 +45,7 @@ ip_increment = 10
 # Disk Name Configuration
 local_disk_name_prefix = "local"
 ceph_disk_name_prefix = "remote"
+disk_number_start = 1
 
 # MicroCloud Configuration
 initiator = "micro1"
