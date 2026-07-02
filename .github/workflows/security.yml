@@ -76,18 +76,14 @@ jobs:
     if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository_owner == 'canonical' }}
     strategy:
       matrix:
-        include:
-          - channel: "3/edge"
-            branch: "main"
-            version: "3"
-          - channel: "2/stable"
-            branch: "v2-edge"
-            version: "2"
+        version:
+          - "latest"
+          - "2"
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ matrix.branch }}
+          ref: ${{ (matrix.version == 'latest' && 'main') || format('v{0}-edge', matrix.version) }}
           persist-credentials: false
 
       - name: Resolve branch HEAD SHA
@@ -137,4 +133,4 @@ jobs:
         with:
           sarif_file: ${{ matrix.version }}-stable.sarif
           sha: ${{ steps.branch-sha.outputs.sha }}
-          ref: refs/heads/${{ matrix.branch }}
+          ref: refs/heads/${{ (matrix.version == 'latest' && 'main') || format('v{0}-edge', matrix.version) }}
