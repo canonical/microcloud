@@ -83,9 +83,6 @@ jobs:
           - channel: "2/stable"
             branch: "v2-edge"
             version: "2"
-          - channel: "1/stable"
-            branch: "v1-edge"
-            version: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
