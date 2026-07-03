@@ -76,14 +76,16 @@ jobs:
     if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository_owner == 'canonical' }}
     strategy:
       matrix:
-        version:
-          - "latest"
-          - "2"
+        include:
+          - track: 3
+            branch: main
+          - track: 2
+            branch: v2-edge
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ (matrix.version == 'latest' && 'main') || format('v{0}-edge', matrix.version) }}
+          ref: ${{ matrix.branch }}
           persist-credentials: false
 
       - name: Resolve branch HEAD SHA
@@ -94,7 +96,7 @@ jobs:
         env:
           SNAP_NAME: ${{ github.event.repository.name }}
         run: |
-          snap download "${SNAP_NAME}" --channel=${{ matrix.version }}/stable --cohort="+"
+          snap download "${SNAP_NAME}" --channel=${{ matrix.track }}/stable --cohort="+"
           unsquashfs ./${SNAP_NAME}*.snap
 
       - name: Run Trivy vulnerability scanner
@@ -105,7 +107,7 @@ jobs:
           scanners: vuln,secret,misconfig
           format: sarif
           severity: LOW,MEDIUM,HIGH,CRITICAL
-          output: ${{ matrix.version }}-stable.sarif
+          output: ${{ matrix.branch }}.sarif
 
       - name: Flag snap scanning alerts and tag KEV alerts
         run: |
@@ -125,12 +127,12 @@ jobs:
               else
                 .
               end
-            )' ${{ matrix.version }}-stable.sarif > ${{ matrix.version }}-modified.sarif
-          mv ${{ matrix.version }}-modified.sarif ${{ matrix.version }}-stable.sarif
+            )' ${{ matrix.branch }}.sarif > ${{ matrix.branch }}-modified.sarif
+          mv ${{ matrix.branch }}-modified.sarif ${{ matrix.branch }}.sarif
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
-          sarif_file: ${{ matrix.version }}-stable.sarif
+          sarif_file: ${{ matrix.branch }}.sarif
           sha: ${{ steps.branch-sha.outputs.sha }}
-          ref: refs/heads/${{ (matrix.version == 'latest' && 'main') || format('v{0}-edge', matrix.version) }}
+          ref: refs/heads/${{ matrix.branch }}
