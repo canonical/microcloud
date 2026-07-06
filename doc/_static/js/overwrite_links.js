@@ -1,26 +1,26 @@
  // Replace oldDomain with newDomain
- const oldDomain = 'canonical-microcloud-documentation.readthedocs-hosted.com';
- const newDomain = 'canonical.com/microcloud/docs';
+ const microcloud_oldDomain = 'canonical-microcloud-documentation.readthedocs-hosted.com';
+ const microcloud_newDomain = 'canonical.com/microcloud/docs';
 
- function escapeRegExp(value) {
+ function microcloud_escapeRegExp(value) {
      return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  }
 
- function overwriteMatchingAnchorUrls(container) {
+ function microcloud_overwriteMatchingAnchorUrls(container) {
      if (!container) return;
 
      const anchors = container.querySelectorAll('a[href], link[href]');
-     const oldDomainRegex = new RegExp(escapeRegExp(oldDomain), 'g');
+     const oldDomainRegex = new RegExp(microcloud_escapeRegExp(microcloud_oldDomain), 'g');
 
      anchors.forEach(anchor => {
-         anchor.href = anchor.href.replace(oldDomainRegex, newDomain);
+         anchor.href = anchor.href.replace(oldDomainRegex, microcloud_newDomain);
      });
  }
 
- overwriteMatchingAnchorUrls(document.querySelector('header'));
+ microcloud_overwriteMatchingAnchorUrls(document.querySelector('header'));
 
  // Use a MutationObserver to wait for the RTD flyout element to appear in the DOM
- const observer = new MutationObserver(function(mutations, obs) {
+ const microcloud_observer = new MutationObserver(function(mutations, obs) {
 
      const rtdFlyout = document.querySelector('readthedocs-flyout');
      if (!rtdFlyout) return;
@@ -31,8 +31,8 @@
          const shadowRoot = rtdFlyout.shadowRoot;
          if (!shadowRoot) return;
 
-         overwriteMatchingAnchorUrls(shadowRoot);
+         microcloud_overwriteMatchingAnchorUrls(shadowRoot);
      });
  });
 
- observer.observe(document.body, { childList: true, subtree: true });
+ microcloud_observer.observe(document.body, { childList: true, subtree: true });
