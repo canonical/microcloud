@@ -23,6 +23,6 @@ elif project == "MicroCeph":
     # Add "integrated" to the list of custom tags
     tags.add('integrated')
 elif project == "MicroOVN":
-    html_baseurl = "https://canonical-microovn.readthedocs-hosted.com/en/24.03/"
+    html_baseurl = "https://ubuntu.com/docs/microovn/24.03/"
     custom_tags.append('integrated')
 
