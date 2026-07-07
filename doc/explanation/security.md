@@ -26,7 +26,7 @@ All snaps are digitally signed using {ref}`assertions <snap:explanation-security
 (exp-security-reporting)=
 ## Security reporting and disclosure
 
-Report potential security issues privately through GitHub by [filing a security advisory](https://github.com/canonical/microcloud/security/advisories/new). Please include a clear description of the issue, affected MicroCloud versions, reproduction steps, and any known mitigation strategies.
+MicroCloud adheres to the [Ubuntu disclosure policy](https://ubuntu.com/security/disclosure-policy). Report potential security issues privately through GitHub by [filing a security advisory](https://github.com/canonical/microcloud/security/advisories/new). Please include a clear description of the issue, affected MicroCloud versions, reproduction steps, and any known mitigation strategies. Refer to the [MicroCloud security policy](https://github.com/canonical/microcloud/blob/main/SECURITY.md) for details.
 
 (exp-security-microcloud)=
 ## MicroCloud
