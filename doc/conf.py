@@ -259,7 +259,7 @@ notfound_context = {
 # Intersphinx setup differs for different builds to optimize use with integrated docs  
 if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     intersphinx_mapping = {
-        'lxd': ('https://documentation.ubuntu.com/lxd/stable-5.21/', None),
+        'lxd': ('https://canonical.com/lxd/docs/v5.21/', None),
         'microceph': ('https://documentation.ubuntu.com/canonical-microceph/v19.2.0-squid/', None),
         'microovn': ('https://ubuntu.com/docs/microovn/24.03/', None),
     }

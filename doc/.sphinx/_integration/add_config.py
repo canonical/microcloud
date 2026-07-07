@@ -10,7 +10,7 @@ html_context['microovn_path'] = "../microovn"
 html_context['microovn_tag'] = "../microovn/_static/microovn.png"
 
 if project == "LXD":
-    html_baseurl = "https://documentation.ubuntu.com/lxd/stable-5.21/"
+    html_baseurl = "https://canonical.com/lxd/docs/v5.21/"
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
     tags.add('integrated')
 elif project == "MicroCeph":
