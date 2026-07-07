@@ -17,7 +17,9 @@ MicroCloud runs on Ubuntu and benefits from all [Ubuntu platform security measur
 Ubuntu LTS releases subscribed to Ubuntu Pro can use the [Ubuntu Security Guide (USG)](https://documentation.ubuntu.com/security/compliance/usg/) for CIS hardening. Refer to the LXD documentation on {ref}`lxd:howto-security-harden-cis` for related details about auditing LXD hosts with USG.
 
 (exp-security-snaps)=
-## Snaps
+## Snaps and supported versions
+
+The MicroCloud team maintains both Long Term Support (LTS) and feature releases. See {ref}`ref-releases-snaps` and our {ref}`ref-release-notes` for details about the currently supported releases.
 
 MicroCloud and its components are distributed as [snaps](https://snapcraft.io/docs), which enhances security by providing a confined environment with a streamlined update mechanism. Both LTS and feature channels receive regular security updates through Canonical’s official infrastructure.
 
