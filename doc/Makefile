@@ -118,7 +118,7 @@ integrate:
 html: integrate install
 	mkdir -p $(current_dir)/_build
 	cd integration/lxd/doc/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/lxd
-	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
+	cd integration/microceph/docs/ && $(MAKE) html DOCS_BUILDDIR=$(current_dir)/_build/microceph
 	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
 	. $(DOCS_VENV); $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(current_dir)/_build" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
 
@@ -126,7 +126,7 @@ html: integrate install
 # This target is used by the Read the Docs build.
 html-rtd: install
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/lxd/doc/ html-rtd BUILDDIR=$(READTHEDOCS_OUTPUT)/html/lxd
-	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
+	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html DOCS_BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
 	. $(DOCS_VENV); PATH_PREFIX=$(PATH_PREFIX) $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(READTHEDOCS_OUTPUT)/html" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
 
