@@ -15,8 +15,6 @@ if project == "LXD":
     tags.add('integrated')
 elif project == "MicroCeph":
     html_baseurl = "https://documentation.ubuntu.com/microceph/v19.2.0-squid/"
-    # Override default header templates
-    templates_path = globals().get('templates_path', []) + ["_templates"]
     # Override default header styles
     html_static_path = globals().get('html_static_path', []) + ["_static"]
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
