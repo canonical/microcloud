@@ -7,6 +7,8 @@ You can remove a cluster member from a MicroCloud at any time, as long as at lea
 sudo microcloud remove <name>
 ```
 
+Run {command}`microcloud status` on any of the remaining cluster members to verify the removal.
+
 Before removing the cluster member, ensure that there are no LXD instances, storage volumes, or MicroCeph OSDs located on it.
 
 See {ref}`how to remove instances <lxd:instances-manage-delete>` in the LXD documentation.
