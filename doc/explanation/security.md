@@ -17,7 +17,9 @@ MicroCloud runs on Ubuntu and benefits from all [Ubuntu platform security measur
 Ubuntu LTS releases subscribed to Ubuntu Pro can use the [Ubuntu Security Guide (USG)](https://documentation.ubuntu.com/security/compliance/usg/) for CIS hardening. Refer to the LXD documentation on {ref}`lxd:howto-security-harden-cis` for related details about auditing LXD hosts with USG.
 
 (exp-security-snaps)=
-## Snaps
+## Snaps and supported versions
+
+The MicroCloud team maintains both Long Term Support (LTS) and feature releases. See {ref}`ref-releases-snaps` and our {ref}`ref-release-notes` for details about the currently supported releases.
 
 MicroCloud and its components are distributed as [snaps](https://snapcraft.io/docs), which enhances security by providing a confined environment with a streamlined update mechanism. Both LTS and feature channels receive regular security updates through Canonical’s official infrastructure.
 
@@ -26,14 +28,20 @@ All snaps are digitally signed using {ref}`assertions <snap:explanation-security
 (exp-security-reporting)=
 ## Security reporting and disclosure
 
-Report potential security issues privately through GitHub by [filing a security advisory](https://github.com/canonical/microcloud/security/advisories/new). Please include a clear description of the issue, affected MicroCloud versions, reproduction steps, and any known mitigation strategies.
+MicroCloud adheres to the [Ubuntu disclosure policy](https://ubuntu.com/security/disclosure-policy). Report potential security issues privately through GitHub by [filing a security advisory](https://github.com/canonical/microcloud/security/advisories/new). Please include a clear description of the issue, affected MicroCloud versions, reproduction steps, and any known mitigation strategies. Refer to the [MicroCloud security policy](https://github.com/canonical/microcloud/blob/main/SECURITY.md) for details.
 
 (exp-security-microcloud)=
 ## MicroCloud
 
+### Cryptography
+
 MicroCloud manages cluster membership and encrypted communication through mTLS and certificate-based identities. When a machine joins a cluster, it verifies the cluster’s certificate fingerprint and receives the complete set of member certificates, establishing a consistent trust store.
 
 During the join process, MicroCloud uses an **explicit trust establishment mechanism** designed to prevent secret leakage and mitigate {spellexception}`man-in-the-middle` attacks. This mechanism uses a Hash-Based Message Authentication Code (HMAC) to sign the messages exchanged between the machine that initiates the join process and the joining peers. The shared secret used for joining is never transmitted over the network. The join process also enforces rate limits and session timeouts to reduce the risk of replay and brute-force attacks. For further information, refer to the [public specification](https://discourse.ubuntu.com/t/explicit-trust-establishment-mechanism-for-microcloud/44261).
+
+### Logging
+
+MicroCloud creates logs through systemd. These logs can be accessed with `sudo snap logs microcloud`.
 
 (exp-security-lxd)=
 ## LXD
