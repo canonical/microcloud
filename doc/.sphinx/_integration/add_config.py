@@ -17,7 +17,8 @@ elif project == "MicroCeph":
     html_baseurl = "https://documentation.ubuntu.com/microceph/v19.2.0-squid/"
     # Override default header styles
     html_static_path = globals().get('html_static_path', []) + ["_static"]
-    html_css_files = globals().get('html_css_files', []) + ['override-header.css']
+    html_css_files = globals().get('html_css_files', []) + ['override-header.css', 'https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css']
+    html_js_files = globals().get('html_js_files', []) + ['https://assets.ubuntu.com/v1/287a5e8f-bundle.js']
     # Add "integrated" to the list of custom tags
     tags.add('integrated')
 elif project == "MicroOVN":

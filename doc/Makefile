@@ -108,6 +108,7 @@ integrate:
 	cp .sphinx/_integration/microceph.html integration/microceph/docs/.sphinx/_templates/header.html
 	cp _templates/google-tag.html integration/microceph/docs/.sphinx/_templates/
 	cp .sphinx/_integration/override-header.css integration/microceph/docs/.sphinx/_static/
+	cp .sphinx/_integration/microceph_footer.html integration/microceph/docs/.sphinx/_templates/footer.html
 
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp _templates/google-tag.html integration/microovn/docs/.sphinx/_templates/
