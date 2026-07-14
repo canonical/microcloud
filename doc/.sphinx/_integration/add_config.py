@@ -12,6 +12,7 @@ html_context['microovn_tag'] = "../microovn/_static/microovn.png"
 if project == "LXD":
     html_baseurl = "https://canonical.com/lxd/docs/latest/"
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
+    html_js_files = globals().get('html_js_files', []) + ['js/overwrite_microcloud_links.js']
     tags.add('integrated')
 elif project == "MicroCeph":
     html_baseurl = "https://documentation.ubuntu.com/microceph/latest/"
@@ -20,9 +21,13 @@ elif project == "MicroCeph":
     # Override default header styles
     html_static_path = globals().get('html_static_path', []) + ["_static"]
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
+    # Add js to overwrite MicroCloud links
+    html_js_files = globals().get('html_js_files', []) + ['overwrite_microcloud_links.js']
     # Add "integrated" to the list of custom tags
     tags.add('integrated')
 elif project == "MicroOVN":
     html_baseurl = "https://ubuntu.com/docs/microovn/latest/"
-    custom_tags.append('integrated')
-
+    tags.add('integrated')
+    html_static_path = globals().get('html_static_path', []) + ["_static"]
+    # Add js to overwrite MicroCloud links
+    html_js_files = globals().get('html_js_files', []) + ['overwrite_microcloud_links.js']
