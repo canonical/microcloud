@@ -32,14 +32,18 @@ html_title = project + ' documentation ' + version
 # Copyright string; shown at the bottom of the page
 copyright = '2014-%s AGPL-3.0, %s' % (datetime.date.today().year, author)
 
-# Use RTD canonical URL to ensure duplicate pages have a single canonical URL
-# that includes the version (such as /latest/); helps SEO.
-html_baseurl = os.environ.get('READTHEDOCS_CANONICAL_URL', '/')
+# Documentation website URL
+
+version_slug = f'{os.environ.get("READTHEDOCS_VERSION", "local")}'
+
+slug = 'microcloud/docs'
+
+html_baseurl = f'https://canonical.com/microcloud/docs/{version_slug}/'
 
 # OpenGraph metadata used for social sharing previews
 ogp_site_url = html_baseurl
 ogp_site_name = html_title
-ogp_image = 'https://documentation.ubuntu.com/microcloud/latest/_static/microcloud_tag.png'
+ogp_image = f'https://canonical.com/microcloud/docs/{version_slug}/_static/microcloud_tag.png'
 
 html_favicon = '_static/favicon.png'
 
@@ -71,13 +75,9 @@ html_context = {
 }
 
 # Enables the pencil icon to edit pages on GitHub, shown at the top of each page
-html_theme_options = {
-    'source_edit_link': html_context['github_url']
-}
-
-# Project slug
-# Required if your project is hosted on documentation.ubuntu.com
-slug = 'microcloud'
+# html_theme_options = {
+#     'source_edit_link': html_context['github_url']
+# }
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
@@ -205,7 +205,8 @@ if os.environ.get('SINGLE_BUILD') != 'True':
 
 html_js_files = [
     'https://assets.ubuntu.com/v1/287a5e8f-bundle.js',
-    'rtd-versions-flyout.js',
+    'js/rtd-versions-flyout.js',
+    "js/overwrite_links.js",
 ]
 
 # Feedback button at the top; enabled by default

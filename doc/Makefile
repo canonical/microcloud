@@ -117,10 +117,17 @@ integrate:
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/conf.py
-	cat .sphinx/_integration/add_config.py >> integration/microovn/docs/custom_conf.py
+	cat .sphinx/_integration/add_config.py >> integration/microovn/docs/conf.py
 
 	# Override the MicroOVN tag with the circle of friends one (for consistency)
 	cp .sphinx/_integration/tag.png integration/microovn/docs/.sphinx/_static/microovn.png
+
+	# Copy MicroCloud `overwrite_links.js` to all repos
+	cp _static/js/overwrite_links.js integration/lxd/doc/_static/js/overwrite_microcloud_links.js
+	mkdir -p integration/microceph/docs/_static
+	cp _static/js/overwrite_links.js integration/microceph/docs/_static/overwrite_microcloud_links.js
+	mkdir -p integration/microovn/docs/_static
+	cp _static/js/overwrite_links.js integration/microovn/docs/_static/overwrite_microcloud_links.js
 
 # `html` builds the integrated docs.
 html: integrate install
