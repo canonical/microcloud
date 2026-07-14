@@ -59,6 +59,7 @@ Manage multiple clusters </how-to/cluster_manager>
 Recover MicroCloud </how-to/recover>
 Update and upgrade </how-to/update_upgrade>
 Manage the snaps </how-to/snaps>
+Decommission a MicroCloud </how-to/decommission>
 ```
 
 ## Engage with us
