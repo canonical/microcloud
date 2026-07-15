@@ -1,5 +1,5 @@
  // Replace oldDomain with newDomain
- const microcloud_oldDomain = 'canonical-microcloud-documentation.readthedocs-hosted.com';
+ const microcloud_oldDomain = 'canonical-microcloud.readthedocs-hosted.com';
  const microcloud_newDomain = 'canonical.com/microcloud/docs';
 
  function microcloud_escapeRegExp(value) {
