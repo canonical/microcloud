@@ -90,7 +90,7 @@ Install all required {ref}`snaps <reference-requirements-software-snaps>` on eac
 
 ```{admonition} Snap channels
 :class: note
-The snap channels shown below install the current {ref}`LTS release <ref-releases-microcloud-lts>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current feature release <ref-releases-microcloud-feature>` of MicroCloud instead, refer to the [install guide for that version](https://documentation.ubuntu.com/microcloud/latest/how-to/install/).
+The snap channels shown below install the current {ref}`LTS release <ref-releases-microcloud-lts>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current feature release <ref-releases-microcloud-feature>` of MicroCloud instead, refer to the [install guide for that version](https://canonical.com/microcloud/docs/latest/how-to/install/).
 ```
 
 ```bash

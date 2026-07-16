@@ -21,7 +21,7 @@ MicroCloud is designed for small-scale private clouds and hybrid cloud extension
 
 MicroCloud can be deployed on machines running Ubuntu 22.04 or newer. A MicroCloud cluster can consist of a single cluster member for a testing deployment, and requires a minimum of 3 cluster members for a production deployment.
 
-See: [Pre-deployment requirements](https://documentation.ubuntu.com/microcloud/latest/microcloud/how-to/install/#pre-deployment-requirements) in the MicroCloud documentation for a full list of requirements.
+See: [Pre-deployment requirements](https://canonical.com/microcloud/docs/latest/how-to/install/#pre-deployment-requirements) in the MicroCloud documentation for a full list of requirements.
 
 
 ## **How to get started**
@@ -46,13 +46,13 @@ microcloud join
 
 Following the CLI prompts, a working MicroCloud will be ready within minutes.
 
-The MicroCloud snap drives three other snaps ([LXD](https://documentation.ubuntu.com/microcloud/latest/lxd/), [MicroCeph](https://documentation.ubuntu.com/microcloud/latest/microceph/), and [MicroOVN](https://documentation.ubuntu.com/microcloud/latest/microovn/)), enabling automated deployment of a highly available LXD cluster for compute, with Ceph as the storage driver and OVN as the managed network.
+The MicroCloud snap drives three other snaps ([LXD](https://canonical.com/microcloud/docs/latest/lxd/), [MicroCeph](https://canonical.com/microcloud/docs/latest/microceph/), and [MicroOVN](https://canonical.com/microcloud/docs/latest/microovn/)), enabling automated deployment of a highly available LXD cluster for compute, with Ceph as the storage driver and OVN as the managed network.
 
 During initialization, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
 
 At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
-For more information, see the MicroCloud documentation for [installation](https://documentation.ubuntu.com/microcloud/latest/microcloud/how-to/install/) and [initialization](https://documentation.ubuntu.com/microcloud/latest/microcloud/how-to/initialize/). You can also [follow a tutorial](https://documentation.ubuntu.com/microcloud/latest/microcloud/tutorial/get_started/) that demonstrates the basics of MicroCloud.
+For more information, see the MicroCloud documentation for [installation](https://canonical.com/microcloud/docs/latest/how-to/install/) and [initialization](https://canonical.com/microcloud/docs/latest/how-to/initialize/). You can also [follow a tutorial](https://canonical.com/microcloud/docs/latest/tutorial/) that demonstrates the basics of MicroCloud.
 
 ## **What about networking?**
 
@@ -66,7 +66,7 @@ You can optionally add the following dedicated networks:
 
 ### **RESOURCES:**
 
-- Documentation: https://documentation.ubuntu.com/microcloud/latest/microcloud/
+- Documentation: <https://canonical.com/microcloud/docs/latest/>
 - Find the package at the Snap Store:
 
  [![Snapcraft logo](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
