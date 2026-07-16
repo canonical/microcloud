@@ -13,7 +13,7 @@ Ask questions or engage in discussions in our [Discourse forum](https://discours
 
 ### Documentation
 
-Access the [official documentation](https://documentation.ubuntu.com/microcloud/latest/).
+Access the [official documentation](https://canonical.com/microcloud/docs/latest/).
 
 ### Bug reports and feature requests
 
