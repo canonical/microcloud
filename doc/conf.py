@@ -272,9 +272,9 @@ if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     }
 elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
     intersphinx_mapping = {
-        'lxd': (os.environ['PATH_PREFIX'] + 'lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
-        'microceph': (os.environ['PATH_PREFIX'] + 'microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
-        'microovn': (os.environ['PATH_PREFIX'] + 'microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
+        'lxd': (html_baseurl + 'lxd/', os.environ['READTHEDOCS_OUTPUT'] + 'html/lxd/objects.inv'),
+        'microceph': (html_baseurl + 'microceph/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microceph/objects.inv'),
+        'microovn': (html_baseurl + 'microovn/', os.environ['READTHEDOCS_OUTPUT'] + 'html/microovn/objects.inv'),
     }
 else:
     intersphinx_mapping = {
