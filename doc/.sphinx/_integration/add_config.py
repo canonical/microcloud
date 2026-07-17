@@ -14,6 +14,8 @@ if project == "LXD":
     html_css_files = globals().get('html_css_files', []) + ['override-header.css']
     html_js_files = globals().get('html_js_files', []) + ['js/overwrite_microcloud_links.js']
     tags.add('integrated')
+    # Prevent indexing of integrated docs
+    html_context['seo_noindex'] = True
 elif project == "MicroCeph":
     html_baseurl = "https://documentation.ubuntu.com/microceph/latest/"
     # Override default header templates
@@ -25,9 +27,13 @@ elif project == "MicroCeph":
     html_js_files = globals().get('html_js_files', []) + ['overwrite_microcloud_links.js']
     # Add "integrated" to the list of custom tags
     tags.add('integrated')
+    # Prevent indexing of integrated docs
+    html_context['seo_noindex'] = True
 elif project == "MicroOVN":
     html_baseurl = "https://ubuntu.com/docs/microovn/latest/"
     tags.add('integrated')
     html_static_path = globals().get('html_static_path', []) + ["_static"]
     # Add js to overwrite MicroCloud links
     html_js_files = globals().get('html_js_files', []) + ['overwrite_microcloud_links.js']
+    # Prevent indexing of integrated docs
+    html_context['seo_noindex'] = True

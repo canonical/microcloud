@@ -157,6 +157,10 @@ integrate: integrate-precheck
 	cp _templates/google-tag.html integration/microovn/docs/.sphinx/_templates/
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
 
+	# Set up `noindex` tags for MicroCeph and MicroOVN pages
+	cp .sphinx/_integration/microceph-base.html integration/microceph/docs/_templates/base.html
+	cat .sphinx/_integration/microovn-extrahead.html >> integration/microovn/docs/.sphinx/_templates/base.html
+
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
 	cat .sphinx/_integration/add_config.py >> integration/microceph/docs/conf.py
