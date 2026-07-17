@@ -7,6 +7,8 @@ You can remove a cluster member from a MicroCloud at any time, as long as at lea
 sudo microcloud remove <name>
 ```
 
+Run {command}`microcloud status` on any of the remaining cluster members to verify the removal.
+
 Before removing the cluster member, ensure that there are no LXD instances, storage volumes, or MicroCeph OSDs located on it.
 
 See {ref}`how to remove instances <lxd:instances-manage-delete>` in the LXD documentation.
@@ -31,6 +33,7 @@ If the machine is no longer reachable over the network, you can also add the `--
 Removing a cluster member with `--force` will not attempt to perform any clean-up of the removed machine. All services will need to be fully re-installed before they can be re-initialized. Resources allocated to the MicroCloud like disks and network interfaces may need to be re-initialized as well.
 ```
 
+(howto-member-remove-reduce-cluster)=
 ## Reducing the cluster to one member
 
 When shrinking the cluster down to one member, you must also clean up the Ceph monitor map (`monmap`) before proceeding, even when using the `--force` flag.
