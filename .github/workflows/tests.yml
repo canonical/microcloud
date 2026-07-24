@@ -300,20 +300,13 @@ jobs:
       python-version: '3.12'
 
   snap:
-    name: Trigger snap edge build
+    name: Trigger snap build
     runs-on: ubuntu-24.04
     needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
     if: ${{ github.repository_owner == 'canonical' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-      PACKAGE: "microcloud"
-      REPO: "git+ssh://lxdbot@git.launchpad.net/~microcloud-snap/microcloud"
-      BRANCH: >-
-        ${{ fromJson('{
-          "main": "latest-edge",
-          "v2-edge": "v2-edge",
-          "v1-edge": "v1-edge",
-        }')[github.ref_name] }}
+      LATEST_MAJOR_VERSION: 3
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -324,19 +317,84 @@ jobs:
       #      available through the SSH_AUTH_SOCK environment variable.
       - uses: canonical/lxd-pkg-snap/.github/actions/lp-snap-build@latest-edge # zizmor: ignore[unpinned-uses]
         with:
+          repo: "git+ssh://lxdbot@git.launchpad.net/~microcloud-snap/microcloud"
           ssh-key: ${{ secrets.LAUNCHPAD_LXD_BOT_KEY }} # zizmor: ignore[secrets-outside-env]
 
       - name: Trigger Launchpad snap build
         run: |
           set -eux
-          echo "${PATH}"
+          set -o pipefail
+
+          # Record current commit hash.
           localRev="$(git rev-parse HEAD)"
-          cd ~/"${PACKAGE}-pkg-snap-lp"
-          lxd-snapcraft -package "${PACKAGE}" -set-version "git-${localRev:0:7}" -set-source-commit "${localRev}"
+
+          # Extract a strict major.minor[.patch] version.
+          version="$(sed -nE 's/^const RawVersion = "([0-9]+\.[0-9]+(\.[0-9]+)?)"$/\1/p' "${GITHUB_WORKSPACE}/version/version.go")"
+
+          if [ -z "${version}" ]; then
+            echo "ERROR: Invalid version format in version/version.go. Expected format: n.n or n.n.n" >&2
+            exit 1
+          fi
+
+          # Code branch                              Launchpad branch
+          # main                                  -> latest-edge
+          # vX-edge                               -> vX-edge
+          # release-${LATEST_MAJOR_VERSION}.Y(.Z) -> latest-candidate
+          # release-X.Y(.Z)                       -> vX-candidate
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            BRANCH="latest-edge"
+          elif [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+-edge$ ]]; then
+            BRANCH="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_REF_NAME}" =~ ^release-${LATEST_MAJOR_VERSION}\.[0-9]+(\.[0-9]+)?$ ]]; then
+            BRANCH="latest-candidate"
+          elif [[ "${GITHUB_REF_NAME}" =~ ^release-([0-9]+)\.[0-9]+(\.[0-9]+)?$ ]]; then
+            BRANCH="v${BASH_REMATCH[1]}-candidate"
+          else
+            echo "ERROR: Unsupported GITHUB_REF_NAME pattern: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+          # Determine snap version and grade based on edge or candidate.
+          grade="devel"
+          if [[ "${BRANCH}" == *"-candidate" ]]; then
+            versionString="${version}-${localRev:0:7}"
+            grade="stable"
+          else
+            versionString="git-${localRev:0:7}"
+          fi
+
+          cd "${GITHUB_WORKSPACE}/snap"
+
+          # Fail unless exactly one `version: git` line exists, then replace it.
+          match_count="$(grep -cxF 'version: git' snapcraft.yaml || true)"
+          if [ "${match_count}" -ne 1 ]; then
+            echo "ERROR: Expected exactly one 'version: git' line in snapcraft.yaml, found ${match_count}" >&2
+            exit 1
+          fi
+
+          sed -i -e "s/^version: git$/version: ${versionString}/" snapcraft.yaml
+
+          if [ "${grade}" = "stable" ]; then
+            # Fail unless exactly one `grade: devel` line exists, then replace it.
+            match_count="$(grep -cxF 'grade: devel' snapcraft.yaml || true)"
+            if [ "${match_count}" -ne 1 ]; then
+              echo "ERROR: Expected exactly one 'grade: devel' line in snapcraft.yaml, found ${match_count}" >&2
+              exit 1
+            fi
+
+            sed -i -e "s/^grade: devel$/grade: stable/" snapcraft.yaml
+          fi
+
           git add snapcraft.yaml
-          git commit --quiet -s --allow-empty -m "Automatic upstream build (${BRANCH})" -m "Upstream commit: ${localRev}"
+          git commit --quiet -s -m "Automatic upstream build (${BRANCH})" -m "Upstream commit: ${localRev} (version: ${versionString})"
           git show
-          git push --quiet
+
+          # Pack all objects and generate a bitmap index
+          # right before the push so that pack generation benefits from full bitmap coverage.
+          git config --local pack.useBitmaps true
+          git gc --prune=now
+
+          git push --quiet --force launchpad HEAD:"${BRANCH}"
 
           # Unload the SSH key from the agent now that the push is done, to
           # prevent accidental usage in any subsequent steps within this job.

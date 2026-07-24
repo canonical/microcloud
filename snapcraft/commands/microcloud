@@ -1,0 +1,20 @@
+#!/bin/sh
+MICROCLOUD="microcloud"
+if [ -x "${SNAP_COMMON}/microcloud.debug" ]; then
+    MICROCLOUD="${SNAP_COMMON}/microcloud.debug"
+    GOCOVERDIR="${SNAP_COMMON}/data/cover"
+    export GOCOVERDIR
+    mkdir -p "${GOCOVERDIR}"
+fi
+
+# Change the location of $VIMRUNTIME root to be able to define the defaults.vim file.
+# This is to prevent seeing the message 'E1187: Failed to source defaults.vim'
+# which is caused by not having the 'vim-runtime' package.
+# Also see https://bugs.launchpad.net/ubuntu/+source/vim/+bug/1968912.
+export VIMRUNTIME="${SNAP}/usr/share/vim/vim91"
+export EDITOR="vim.tiny -Z --clean"
+
+# Run the CLI from an accessible directory which allows reads.
+# When launching VIM it tries to access the $PWD regardless of the --clean setting.
+cd "$SNAP_USER_DATA" || exit
+exec "${MICROCLOUD}" --state-dir "${SNAP_COMMON}/state" "$@"
