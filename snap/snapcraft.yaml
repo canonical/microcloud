@@ -1,0 +1,134 @@
+name: microcloud
+base: core24
+assumes:
+ - snapd2.59
+version: git
+grade: devel
+license: AGPL-3.0-only
+
+title: MicroCloud
+summary: Deploy a low-touch, open source cloud platform in minutes with MicroCloud.
+description: |-
+  MicroCloud creates a lightweight cluster of machines that operates as a scalable private cloud. It combines LXD for virtualization, MicroCeph for distributed storage, and MicroOVN for networking—all automatically configured by the **MicroCloud snap** for reproducible, scalable deployments.
+
+  With MicroCloud, you can eliminate the complexity of manual setup and quickly benefit from high availability, streamlined security updates, and fine-grained access control for multi-tenancy. Cluster members can run full virtual machines or lightweight system containers with bare-metal performance. Manage it through your choice of client interfaces, including a graphical UI and CLI.
+
+  MicroCloud is designed for small-scale private clouds and hybrid cloud extensions. Its efficiency and simplicity also make it an excellent choice for edge computing, test labs, and other resource-constrained use cases.
+
+  **MicroCloud supports single-node deployments, but at least 3 nodes are recommended for high availability.**
+
+  Once the simple bootstrapping is completed, users can launch, run and manage their workloads, and otherwise utilize regular LXD functionalities.
+
+  To get started, LXD, MicroCeph, MicroOVN and MicroCloud snaps are needed. Users can install them at once with the command:
+
+  `snap install lxd microceph microcloud microovn`
+
+  The bootstrapping process starts with running
+
+  `microcloud init` on the initiating member
+  and `microcloud join` on the joining members if you're using more than one system.
+
+  Following the simple CLI prompts, a working MicroCloud will be ready within minutes.
+
+contact: lxd@lists.canonical.com
+issues: https://github.com/canonical/microcloud/issues
+source-code: https://github.com/canonical/microcloud
+website:
+  - https://canonical.com/microcloud
+  - https://documentation.ubuntu.com/microcloud/latest/microcloud/
+confinement: strict
+
+apps:
+  # Service
+  daemon:
+    command: commands/daemon.start
+    daemon: simple
+    plugs:
+      - lxd
+      - microceph
+      - microovn
+      - network
+      - network-bind
+
+  # Commands
+  microcloud:
+    command: commands/microcloud
+    plugs:
+      - network
+
+parts:
+  dqlite:
+    source: https://github.com/canonical/dqlite
+    source-branch: main
+    source-depth: 1
+    source-type: git
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+      - --enable-build-raft
+    stage-packages:
+      - liblz4-1
+      - libsqlite3-0
+      - libuv1
+    build-packages:
+      - liblz4-dev
+      - libsqlite3-dev
+      - libuv1-dev
+      - pkg-config
+    organize:
+      usr/lib/: lib/
+    prime:
+      - lib/libdqlite*so*
+      - lib/*/libuv*
+      #- lib/*/liblz4.so*  # use liblz4.so from the base snap
+
+  microcloud:
+    source: .
+    after:
+      - dqlite
+    build-snaps:
+      - go
+    plugin: nil
+    override-pull: |
+      craftctl default
+      set -ex
+
+      # Download the dependencies
+      go get -v -tags=agent ./...
+    override-build: |
+      set -ex
+
+      # Setup build environment
+      export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
+      export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
+      export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
+      # Build the binaries
+      go build -trimpath -o "${CRAFT_PART_INSTALL}/bin/microcloud" -tags=agent ./cmd/microcloud
+      go build -trimpath -o "${CRAFT_PART_INSTALL}/bin/microcloudd" -tags=agent,libsqlite3 ./cmd/microcloudd
+
+      # Workaround for https://bugs.launchpad.net/ubuntu/+source/vim/+bug/1968912
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/share/vim/vim91"
+      touch "${CRAFT_PART_INSTALL}/usr/share/vim/vim91/defaults.vim"
+    prime:
+      - bin/microcloud
+      - bin/microcloudd
+      - usr/share/vim/vim91/defaults.vim
+
+  strip:
+    after:
+      - dqlite
+      - microcloud
+    plugin: nil
+    override-prime: |
+      set -x
+
+      # Strip binaries
+      find "${CRAFT_PRIME}"/bin -type f -exec strip -s {} +
+
+      # Strip libraries
+      find "${CRAFT_PRIME}"/lib -type f -exec strip -s {} +
+
+  wrappers:
+    plugin: dump
+    source: snapcraft/
