@@ -20,7 +20,13 @@ VALE_DIR         ?= $(DOCS_VENVDIR)/lib/python*/site-packages/vale
 VALE_CONFIG      ?= $(SPHINX_DIR)/vale.ini
 PA11Y_CMD        ?= $(SPHINX_DIR)/node_modules/pa11y/bin/pa11y.js --config $(SPHINX_DIR)/pa11y.json
 CHECK_PATH       ?= $(filter-out $(DOCS_VENVDIR),$(wildcard *))
+
+# Integration setup
 INTEGRATION_DIR ?= integration
+# 404 page customization
+LOCAL_404_FILE ?= $(DOCS_BUILDDIR)/404/index.html
+RTD_404_FILE ?= $(READTHEDOCS_OUTPUT)/html/404/index.html
+NAV_404_HREF ?= /microcloud/docs/$(or $(READTHEDOCS_VERSION),local)/
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -174,6 +180,9 @@ html: integrate install
 	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
 	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
 	. $(DOCS_VENV); $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(current_dir)/_build" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+	sed -e 's|<a href="#"><div class="brand">|<a href="$(NAV_404_HREF)"><div class="brand">|' \
+		-e 's|<a class="sidebar-brand" href="#">|<a class="sidebar-brand" href="$(NAV_404_HREF)">|' \
+		"$(LOCAL_404_FILE)" > "$(LOCAL_404_FILE).tmp" && mv "$(LOCAL_404_FILE).tmp" "$(LOCAL_404_FILE)"
 
 # `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
 # This target is used by the Read the Docs build.
@@ -182,6 +191,9 @@ html-rtd: install
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
 	. $(DOCS_VENV); PATH_PREFIX=$(PATH_PREFIX) $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(READTHEDOCS_OUTPUT)/html" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+	sed -e 's|<a href="#"><div class="brand">|<a href="$(NAV_404_HREF)"><div class="brand">|' \
+		-e 's|<a class="sidebar-brand" href="#">|<a class="sidebar-brand" href="$(NAV_404_HREF)">|' \
+		"$(RTD_404_FILE)" > "$(RTD_404_FILE).tmp" && mv "$(RTD_404_FILE).tmp" "$(RTD_404_FILE)"
 
 epub: install
 	. $(DOCS_VENV); $(SPHINX_BUILD) -b epub "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
