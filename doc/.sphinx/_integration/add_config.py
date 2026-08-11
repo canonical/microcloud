@@ -17,7 +17,7 @@ if project == "LXD":
     # Prevent indexing of integrated docs
     html_context['seo_noindex'] = True
 elif project == "MicroCeph":
-    html_baseurl = "https://documentation.ubuntu.com/microceph/v19.2.0-squid/"
+    html_baseurl = "https://canonical.com/ceph/docs/v19.2.0-squid/"
     # Override default header styles
     html_static_path = globals().get('html_static_path', []) + ["_static"]
     html_css_files = globals().get('html_css_files', []) + [
