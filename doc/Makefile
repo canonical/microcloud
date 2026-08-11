@@ -112,6 +112,12 @@ integrate-pull:
 # - MicroOVN tag: The integrated docs use the circle of friends logo by
 #   overwriting the MicroOVN logo. Check that the MicroOVN logo is located where
 #   expected.
+# - SEO noindex tags:
+#     - LXD: verify upstream `base.html`, with `seo_noindex` check and `noindex`
+#       tag
+#     - MicroCeph: verify that there is no `base.html` file in the upstream docs
+#     - MicroOVN: verify upstream base.html file, that extends furo and does not
+#       already have an extrahead block
 integrate-precheck: integrate-pull
 	@echo "Running integration prechecks ..."
 
@@ -134,6 +140,25 @@ integrate-precheck: integrate-pull
 	@echo "Checking for MicroOVN tag ..."
 	@test -f integration/microovn/docs/.sphinx/_static/microovn.png || \
 		{ echo "ERROR: MicroOVN tag not found. Update the integration."; exit 1; }
+
+	@echo "Checking noindex tag setup ..."
+	@echo "- Checking LXD noindex setup..."
+	@test -f integration/lxd/doc/_templates/base.html || \
+		{ echo "ERROR: No base.html file in LXD docs. Update the noindex integration."; exit 1; }
+	@grep -q 'seo_noindex' integration/lxd/doc/_templates/base.html || \
+		{ echo "ERROR: LXD's base.html does not check seo_noindex. Update the noindex integration."; exit 1; }
+	@grep -q 'content="noindex"' integration/lxd/doc/_templates/base.html || \
+		{ echo "ERROR: LXD's base.html does not contain the noindex tag. Update the noindex integration."; exit 1; }
+	@echo "- Checking MicroCeph noindex setup..."
+	@test ! -f integration/microceph/docs/_templates/base.html || \
+		{ echo "ERROR: MicroCeph docs now include base.html. Update the noindex integration."; exit 1; }
+	@echo "- Checking MicroOVN noindex setup..."
+	@test -f integration/microovn/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: No base.html file in MicroOVN docs. Update the noindex integration."; exit 1; }
+	@grep -q 'extends "furo/base.html"' integration/microovn/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: MicroOVN base.html no longer extends furo/base.html. Update the noindex integration."; exit 1; }
+	@! grep -q 'extrahead' integration/microovn/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: MicroOVN base.html defines extrahead block. Update the noindex integration."; exit 1; }
 
 integrate: integrate-precheck
 	# Create a directory for files to override in MicroCloud docs
