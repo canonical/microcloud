@@ -10,9 +10,7 @@ myst:
 
 The MicroCloud snap drives three other snaps ({doc}`lxd:index`, {doc}`microceph:index`, and {doc}`microovn:index`), enabling automated deployment of a highly available LXD cluster for compute, with Ceph as the storage driver and OVN as the managed network.
 
-During initialization, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup.
-
-At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
+MicroCloud starts with a single cluster member, requires 3 members for {ref}`high availability <exp-microcloud-ha>`, and can scale to 50-member clusters. During initialization, MicroCloud scrapes the other servers for details and then prompts you to add disks to Ceph and configure the networking setup. At the end of this, you’ll have an OVN cluster, a Ceph cluster, and a LXD cluster. LXD itself will have been configured with both networking and storage suitable for use in a cluster.
 
 (exp-microcloud-lxd)=
 ## LXD cluster

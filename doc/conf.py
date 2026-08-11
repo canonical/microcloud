@@ -132,10 +132,14 @@ linkcheck_ignore = [
     'http://localhost:8000',
     # These links may fail from time to time
     'https://ceph.io',
+    # Rejects us always with a "Connection aborted"
+    r'https://charmhub\.io/.*',
     # Cloudflare protection on SourceForge domains often block linkcheck
     r'https://.*\.sourceforge\.(net|io)/.*',
     # These links often fail due to infra issues or protection measures 
     r'https://ubuntu\.com.*',
+    r'https://canonical\.com.*',
+    r'https://snapcraft\.io.*',
     # Ignore so that we can link change log in release notes before a release is ready
     r'https://github\.com/canonical/microcloud/compare.*',
 ]
