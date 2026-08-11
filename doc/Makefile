@@ -53,7 +53,8 @@ help:
         vale pa11y run serve install pa11y-install   \
         vale-install clean clean-doc lint-md lint \
         integrate clean-integrate html html-rtd microcloud \
-        serve-microcloud pymarkdownlnt-install
+        serve-microcloud pymarkdownlnt-install \
+        integrate-pull integrate-precheck
 
 full-help: $(DOCS_VENVDIR)
 	@. $(DOCS_VENV); $(SPHINX_BUILD) -M help "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) $(O)
@@ -87,7 +88,7 @@ install: $(DOCS_VENVDIR)
 run: install
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
-integrate:
+integrate-pull:
 	# Pull the other repositories
 	cd integration/ && ( git -C lxd fetch || git clone https://github.com/canonical/lxd )
 	git -C integration/lxd reset --hard $(LXDVERSION)
@@ -98,10 +99,47 @@ integrate:
 	cd integration/ && ( git -C microovn fetch || git clone https://github.com/canonical/microovn )
 	git -C integration/microovn reset --hard $(MICROOVNVERSION)
 
+# Integration prechecks
+#
+# - Header templates: Check that header.html files exist in expected locations.
+#   If these files are missing, then the upstream repo may have reorganized the
+#   templates. The integrate rule will copy the integrated docs header, but that
+#   header may not end up being used in the built documentation.
+# - Configuration files: Check that `conf.py` files exist in expected locations.
+#   If the configuration files are missing, then they may have been moved, and
+#   appending `add_conf.py` with `>>` may create new `conf.py` files that will
+#   not be used by the upstream configuration.
+# - MicroOVN tag: The integrated docs use the circle of friends logo by
+#   overwriting the MicroOVN logo. Check that the MicroOVN logo is located where
+#   expected.
+integrate-precheck: integrate-pull
+	@echo "Running integration prechecks ..."
+
+	@echo "Checking for template files ..."
+	@test -f integration/lxd/doc/_templates/header.html || \
+		{ echo "ERROR: LXD header.html template not found. Update the integration."; exit 1; }
+	@test -f integration/microceph/docs/_templates/header.html || \
+		{ echo "ERROR: MicroCeph header.html template not found. Update the integration."; exit 1; }
+	@test -f integration/microovn/docs/.sphinx/_templates/header.html || \
+		{ echo "ERROR: MicroOVN header.html template not found. Update the integration."; exit 1; }
+
+	@echo "Checking for configuration files ..."
+	@test -f integration/lxd/doc/conf.py || \
+		{ echo "ERROR: LXD conf.py not found. Update the integration."; exit 1; }
+	@test -f integration/microceph/docs/conf.py || \
+		{ echo "ERROR: MicroCeph conf.py not found. Update the integration."; exit 1; }
+	@test -f integration/microovn/docs/conf.py || \
+		{ echo "ERROR: MicroOVN conf.py not found. Update the integration."; exit 1; }
+
+	@echo "Checking for MicroOVN tag ..."
+	@test -f integration/microovn/docs/.sphinx/_static/microovn.png || \
+		{ echo "ERROR: MicroOVN tag not found. Update the integration."; exit 1; }
+
+integrate: integrate-precheck
 	# Create a directory for files to override in MicroCloud docs
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
 	mkdir -p integration/microceph/docs/_templates integration/microceph/docs/_static
-	
+
 	# Copy the header HTML, CSS files, and Google Tag Manager for the doc sets
 	cp .sphinx/_integration/microcloud.html integration/microcloud/_templates/header.html
 	cp _templates/google-tag.html integration/microcloud/_templates/
