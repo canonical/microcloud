@@ -15,7 +15,7 @@ if project == "LXD":
     html_js_files = globals().get('html_js_files', []) + ['js/overwrite_microcloud_links.js']
     tags.add('integrated')
 elif project == "MicroCeph":
-    html_baseurl = "https://documentation.ubuntu.com/microceph/latest/"
+    html_baseurl = "https://canonical.com/ceph/docs/latest/"
     # Override default header templates
     templates_path = globals().get('templates_path', []) + ["_templates"]
     # Override default header styles

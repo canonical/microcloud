@@ -271,7 +271,7 @@ notfound_context = {
 if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     intersphinx_mapping = {
         'lxd': ('https://canonical.com/lxd/docs/latest/', None),
-        'microceph': ('https://documentation.ubuntu.com/microceph/latest/', None),
+        'microceph': ('https://canonical.com/ceph/docs/latest/', None),
         'microovn': ('https://ubuntu.com/docs/microovn/latest/', None),
     }
 elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
