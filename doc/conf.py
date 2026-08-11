@@ -9,6 +9,7 @@ import yaml
 import sys
 from git import Repo
 import re
+from urllib.parse import urlparse
 
 sys.path.append('./')
 sys.path.append('.sphinx/')
@@ -72,6 +73,9 @@ html_context = {
     'display_contributors': False,
 
     'sequential_nav': 'both',
+
+    # Prefix for top navigation menu URLs on 404 pages
+    'nav404_prefix': urlparse(html_baseurl).path,
 }
 
 html_extra_path = ['_extra']
