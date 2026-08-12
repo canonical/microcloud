@@ -289,14 +289,23 @@ evacuation() {
         fi
 
         lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}"
-    done
 
-    echo -n "Allow time for stopped instances to start back again "
-    for _ in $(seq 20); do
-        echo -n "."
-        sleep 1
+        echo -n "Allow time for stopped instances on ${member} to start back again and have an IPv4 address"
+        for instance in $(instanceListByMember "${member}"); do
+            attempts=0
+            while [ -z "$(getIPv4 "${instance}")" ]; do
+                echo -n "."
+                sleep 1
+                attempts=$((attempts + 1))
+                if [ "${attempts}" -ge 30 ]; then
+                    echo " FAILED"
+                    exit 1
+                fi
+            done
+        done
+
+        echo " DONE"
     done
-    echo " DONE"
 }
 
 
