@@ -202,6 +202,11 @@ instanceList() {
     lxc list --project e2e-testing -f csv -c n "${REMOTE}:"
 }
 
+instanceListByMember() {
+    local member="${1}"
+    lxc list --project e2e-testing -f csv -c n "${REMOTE}:" location="${member}"
+}
+
 clusterMembers() {
     local state="${1}"
     [ "${state}" = "ALL" ] && state=".*"
