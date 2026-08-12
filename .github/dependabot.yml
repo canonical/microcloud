@@ -28,6 +28,23 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: "pip"
+    directory: "/doc"
+    ignore:
+      # Pinned intentionally: myst-parser v5.0.0 causes version conflicts.
+      - dependency-name: "myst-parser"
+        versions: [">=5.0.0"]
+    labels: []
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+    cooldown:
+      default-days: 7
+    groups:
+      pip:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directories:
       - "/"
@@ -53,5 +70,22 @@ updates:
       default-days: 7
     groups:
       gomod:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pip"
+    directory: "/doc"
+    ignore:
+      # Pinned intentionally: myst-parser v5.0.0 causes version conflicts.
+      - dependency-name: "myst-parser"
+        versions: [">=5.0.0"]
+    labels: []
+    schedule:
+      interval: "weekly"
+    target-branch: "v2-edge"
+    cooldown:
+      default-days: 7
+    groups:
+      pip:
         patterns:
           - "*"
