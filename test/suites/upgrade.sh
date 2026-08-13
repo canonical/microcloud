@@ -175,9 +175,8 @@ ceph:
     # Second upgrade MicroOVN.
     for m in micro01 micro02 micro03; do
       lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
-    done
 
-    for m in micro01 micro02 micro03; do
+      # Before proceeding with the next member, wait for ${m} to stabilize.
       retries=0
       while true; do
         if [ "${retries}" -gt 60 ]; then
