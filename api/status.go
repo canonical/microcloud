@@ -87,7 +87,7 @@ func statusGet(sh *service.Handler) endpointHandler {
 			case types.LXD:
 				clusterMembers, err := lxdStatus(r.Context(), s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name, "err": err})
 				}
 
 				statusMu.Lock()
@@ -96,7 +96,7 @@ func statusGet(sh *service.Handler) endpointHandler {
 			case types.MicroCeph:
 				clusterMembers, osds, cephServices, err := cephStatus(r.Context(), s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name, "err": err})
 				}
 
 				status.OSDs = osds
@@ -108,7 +108,7 @@ func statusGet(sh *service.Handler) endpointHandler {
 			case types.MicroOVN:
 				clusterMembers, ovnServices, err := ovnStatus(r.Context(), s)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name, "err": err})
 				}
 
 				status.OVNServices = ovnServices
@@ -121,7 +121,7 @@ func statusGet(sh *service.Handler) endpointHandler {
 
 				clusterMembers, err := microStatus(r.Context(), m)
 				if err != nil {
-					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name})
+					logger.Error("Failed to get service status", logger.Ctx{"type": s.Type(), "name": sh.Name, "err": err})
 				}
 
 				statusMu.Lock()
