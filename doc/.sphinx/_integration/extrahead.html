@@ -1,0 +1,7 @@
+{% block extrahead %}
+  {{ super() }}
+  {% if seo_noindex %}
+  {# Prevent indexing of integrated docs. #}
+  <meta name="robots" content="noindex">
+  {% endif %}
+{% endblock %}

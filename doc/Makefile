@@ -20,7 +20,13 @@ VALE_DIR         ?= $(DOCS_VENVDIR)/lib/python*/site-packages/vale
 VALE_CONFIG      ?= $(SPHINX_DIR)/vale.ini
 PA11Y_CMD        ?= $(SPHINX_DIR)/node_modules/pa11y/bin/pa11y.js --config $(SPHINX_DIR)/pa11y.json
 CHECK_PATH       ?= $(filter-out $(DOCS_VENVDIR),$(wildcard *))
+
+# Integration setup
 INTEGRATION_DIR ?= integration
+# 404 page customization
+LOCAL_404_FILE ?= $(DOCS_BUILDDIR)/404/index.html
+RTD_404_FILE ?= $(READTHEDOCS_OUTPUT)/html/404/index.html
+NAV_404_HREF ?= /microcloud/docs/$(or $(READTHEDOCS_VERSION),local)/
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -47,7 +53,8 @@ help:
         vale pa11y run serve install pa11y-install   \
         vale-install clean clean-doc lint-md lint \
         integrate clean-integrate html html-rtd microcloud \
-        serve-microcloud pymarkdownlnt-install
+        serve-microcloud pymarkdownlnt-install \
+        integrate-pull integrate-precheck
 
 full-help: $(DOCS_VENVDIR)
 	@. $(DOCS_VENV); $(SPHINX_BUILD) -M help "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) $(O)
@@ -81,7 +88,7 @@ install: $(DOCS_VENVDIR)
 run: install
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
-integrate:
+integrate-pull:
 	# Pull the other repositories
 	cd integration/ && ( git -C lxd fetch || git clone https://github.com/canonical/lxd )
 	git -C integration/lxd reset --hard $(LXDVERSION)
@@ -92,6 +99,71 @@ integrate:
 	cd integration/ && ( git -C microovn fetch || git clone https://github.com/canonical/microovn )
 	git -C integration/microovn reset --hard $(MICROOVNVERSION)
 
+# Integration prechecks
+#
+# - Header templates: Check that header.html files exist in expected locations.
+#   If these files are missing, then the upstream repo may have reorganized the
+#   templates. The integrate rule will copy the integrated docs header, but that
+#   header may not end up being used in the built documentation.
+# - Configuration files: Check that `conf.py` files exist in expected locations.
+#   If the configuration files are missing, then they may have been moved, and
+#   appending `add_conf.py` with `>>` may create new `conf.py` files that will
+#   not be used by the upstream configuration.
+# - MicroOVN tag: The integrated docs use the circle of friends logo by
+#   overwriting the MicroOVN logo. Check that the MicroOVN logo is located where
+#   expected.
+# - SEO noindex tags:
+#     - LXD: verify upstream `base.html`, with `seo_noindex` check and `noindex`
+#       tag
+#     - MicroOVN and MicroOVN: verify upstream base.html file, that extends furo
+#       and does not already have an extrahead block
+integrate-precheck: integrate-pull
+	@echo "Running integration prechecks ..."
+
+	@echo "Checking for template files ..."
+	@test -f integration/lxd/doc/_templates/header.html || \
+		{ echo "ERROR: LXD header.html template not found. Update the integration."; exit 1; }
+	@test -f integration/microceph/docs/.sphinx/_templates/header.html || \
+		{ echo "ERROR: MicroCeph header.html template not found. Update the integration."; exit 1; }
+	@test -f integration/microovn/docs/.sphinx/_templates/header.html || \
+		{ echo "ERROR: MicroOVN header.html template not found. Update the integration."; exit 1; }
+
+	@echo "Checking for configuration files ..."
+	@test -f integration/lxd/doc/conf.py || \
+		{ echo "ERROR: LXD conf.py not found. Update the integration."; exit 1; }
+	@test -f integration/microceph/docs/conf.py || \
+		{ echo "ERROR: MicroCeph conf.py not found. Update the integration."; exit 1; }
+	@test -f integration/microovn/docs/conf.py || \
+		{ echo "ERROR: MicroOVN conf.py not found. Update the integration."; exit 1; }
+
+	@echo "Checking for MicroOVN tag ..."
+	@test -f integration/microovn/docs/.sphinx/_static/microovn.png || \
+		{ echo "ERROR: MicroOVN tag not found. Update the integration."; exit 1; }
+
+	@echo "Checking noindex tag setup ..."
+	@echo "- Checking LXD noindex setup..."
+	@test -f integration/lxd/doc/_templates/base.html || \
+		{ echo "ERROR: No base.html file in LXD docs. Update the noindex integration."; exit 1; }
+	@grep -q 'seo_noindex' integration/lxd/doc/_templates/base.html || \
+		{ echo "ERROR: LXD's base.html does not check seo_noindex. Update the noindex integration."; exit 1; }
+	@grep -q 'content="noindex"' integration/lxd/doc/_templates/base.html || \
+		{ echo "ERROR: LXD's base.html does not contain the noindex tag. Update the noindex integration."; exit 1; }
+	@echo "- Checking MicroCeph noindex setup..."
+	@test -f integration/microceph/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: No base.html file in MicroCeph docs. Update the noindex integration."; exit 1; }
+	@grep -q 'extends "furo/base.html"' integration/microceph/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: MicroCeph base.html no longer extends furo/base.html. Update the noindex integration."; exit 1; }
+	@! grep -q 'extrahead' integration/microceph/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: MicroCeph base.html defines extrahead block. Update the noindex integration."; exit 1; }
+	@echo "- Checking MicroOVN noindex setup..."
+	@test -f integration/microovn/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: No base.html file in MicroOVN docs. Update the noindex integration."; exit 1; }
+	@grep -q 'extends "furo/base.html"' integration/microovn/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: MicroOVN base.html no longer extends furo/base.html. Update the noindex integration."; exit 1; }
+	@! grep -q 'extrahead' integration/microovn/docs/.sphinx/_templates/base.html || \
+		{ echo "ERROR: MicroOVN base.html defines extrahead block. Update the noindex integration."; exit 1; }
+
+integrate: integrate-precheck
 	# Create a directory for files to override in MicroCloud docs
 	mkdir -p integration/microcloud/_templates/ integration/microcloud/_static
 	mkdir -p integration/microceph/docs/_static
@@ -113,6 +185,10 @@ integrate:
 	cp .sphinx/_integration/microovn.html integration/microovn/docs/.sphinx/_templates/header.html
 	cp _templates/google-tag.html integration/microovn/docs/.sphinx/_templates/
 	cp .sphinx/_integration/header.css integration/microovn/docs/.sphinx/_static/
+
+	# Set up `noindex` tags for MicroCeph and MicroOVN pages
+	cat .sphinx/_integration/extrahead.html >> integration/microceph/docs/.sphinx/_templates/base.html
+	cat .sphinx/_integration/extrahead.html >> integration/microovn/docs/.sphinx/_templates/base.html
 
 	# Add information about where to find the tags/docs to the doc sets
 	cat .sphinx/_integration/add_config.py >> integration/lxd/doc/conf.py
@@ -136,6 +212,14 @@ html: integrate install
 	cd integration/microceph/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microceph
 	cd integration/microovn/docs/ && $(MAKE) html BUILDDIR=$(current_dir)/_build/microovn
 	. $(DOCS_VENV); $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(current_dir)/_build" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+	@echo "Checking 404 page setup ..."
+	@grep -q '<a href="#"><div class="brand">' "$(LOCAL_404_FILE)" || \
+		{ echo "ERROR: brand pattern not found in $(LOCAL_404_FILE). Update the 404 page customization."; exit 1; }
+	@grep -q '<a class="sidebar-brand" href="#">' "$(LOCAL_404_FILE)" || \
+		{ echo "ERROR: sidebar-brand pattern not found in $(LOCAL_404_FILE). Update the 404 page customization."; exit 1; }
+	sed -e 's|<a href="#"><div class="brand">|<a href="$(NAV_404_HREF)"><div class="brand">|' \
+		-e 's|<a class="sidebar-brand" href="#">|<a class="sidebar-brand" href="$(NAV_404_HREF)">|' \
+		"$(LOCAL_404_FILE)" > "$(LOCAL_404_FILE).tmp" && mv "$(LOCAL_404_FILE).tmp" "$(LOCAL_404_FILE)"
 
 # `html-rtd` builds the integrated docs, with the correct paths for Read the Docs.
 # This target is used by the Read the Docs build.
@@ -144,6 +228,14 @@ html-rtd: install
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microceph/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microceph
 	PATH_PREFIX=$(PATH_PREFIX) $(MAKE) -C integration/microovn/docs/ html BUILDDIR=$(READTHEDOCS_OUTPUT)/html/microovn
 	. $(DOCS_VENV); PATH_PREFIX=$(PATH_PREFIX) $(SPHINX_BUILD) -W --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(READTHEDOCS_OUTPUT)/html" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+	@echo "Checking 404 page setup ..."
+	@grep -q '<a href="#"><div class="brand">' "$(RTD_404_FILE)" || \
+		{ echo "ERROR: brand pattern not found in $(RTD_404_FILE). Update the 404 page customization."; exit 1; }
+	@grep -q '<a class="sidebar-brand" href="#">' "$(RTD_404_FILE)" || \
+		{ echo "ERROR: sidebar-brand pattern not found in $(RTD_404_FILE). Update the 404 page customization."; exit 1; }
+	sed -e 's|<a href="#"><div class="brand">|<a href="$(NAV_404_HREF)"><div class="brand">|' \
+		-e 's|<a class="sidebar-brand" href="#">|<a class="sidebar-brand" href="$(NAV_404_HREF)">|' \
+		"$(RTD_404_FILE)" > "$(RTD_404_FILE).tmp" && mv "$(RTD_404_FILE).tmp" "$(RTD_404_FILE)"
 
 epub: install
 	. $(DOCS_VENV); $(SPHINX_BUILD) -b epub "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
