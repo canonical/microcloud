@@ -19,6 +19,7 @@ done
 set -- "${ARGS[@]}"
 
 REMOTE="${REMOTE:-${1:-""}}"
+PROJECT="${PROJECT:-e2e-testing}"
 DESTROY="${DESTROY:-prompt}"
 EVACUATION_COUNTS="${EVACUATION_COUNTS:-1}"
 
@@ -173,15 +174,15 @@ apply() {
     # 2025-04-01T14:38:07.671+0000 7f8284b55640 -1 librbd::image::OpenRequest: failed to find snapshot readonly
     # 2025-04-01T14:38:07.671+0000 7f826bfff640 -1 librbd::image::CloneRequest: 0x55b8434ed7c0 handle_open_parent: failed to open parent image: (2) No such file or directory
     # rbd: clone error: (2) No such file or directory)
-    retry terraform apply -auto-approve -var "remote=${REMOTE}"
+    retry terraform apply -auto-approve -var "remote=${REMOTE}" -var "project=${PROJECT}"
 }
 
 destroy() {
     echo "terraform destroy"
     if [ "${DESTROY}" = "prompt" ]; then
-        terraform destroy -var "remote=${REMOTE}"
+        terraform destroy -var "remote=${REMOTE}" -var "project=${PROJECT}"
     elif [ "${DESTROY}" = "yes" ]; then
-        terraform destroy -auto-approve -var "remote=${REMOTE}"
+        terraform destroy -auto-approve -var "remote=${REMOTE}" -var "project=${PROJECT}"
     elif [ "${DESTROY}" = "no" ] ; then
         echo "Skipping destroy"
     else
@@ -199,12 +200,12 @@ setup() {
 }
 
 instanceList() {
-    lxc list --project e2e-testing -f csv -c n "${REMOTE}:"
+    lxc list --project "${PROJECT}" -f csv -c n "${REMOTE}:"
 }
 
 instanceListByMember() {
     local member="${1}"
-    lxc list --project e2e-testing -f csv -c n "${REMOTE}:" location="${member}"
+    lxc list --project "${PROJECT}" -f csv -c n "${REMOTE}:" location="${member}"
 }
 
 clusterMembers() {
@@ -212,7 +213,7 @@ clusterMembers() {
     [ "${state}" = "ALL" ] && state=".*"
     # XXX: cannot use the column number for the member state as if multiple
     # roles are provided, the column number will change
-    lxc cluster list --project e2e-testing -f csv "${REMOTE}:" | awk -F, "/,${state},/ {print \$1}"
+    lxc cluster list --project "${PROJECT}" -f csv "${REMOTE}:" | awk -F, "/,${state},/ {print \$1}"
 }
 
 randomPick() {
@@ -225,7 +226,7 @@ randomPick() {
 
 getIPv4() {
     local instance="${1}"
-    lxc list --project e2e-testing -f csv -c 4 "${REMOTE}:" name="${instance}" | cut -d" " -f1
+    lxc list --project "${PROJECT}" -f csv -c 4 "${REMOTE}:" name="${instance}" | cut -d" " -f1
 }
 
 checkConnectivity() {
@@ -242,7 +243,7 @@ checkConnectivity() {
         dstIPv4="$(getIPv4 "${dst}")"
 
         echo -n " ● ${src} => ${dst} (${dstIPv4}):"
-        lxc exec --project e2e-testing "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"
+        lxc exec --project "${PROJECT}" "${REMOTE}:${src}" -- bash -c "grep -qm1 ^SSH- < /dev/tcp/${dstIPv4}/22"
     }
 
     # Use the retry function in case the target isn't yet reachable.
@@ -275,7 +276,7 @@ evacuation() {
 
     for member in $(clusterMembers ONLINE); do
         echo "Evacuating ${member}"
-        lxc cluster evacuate --project e2e-testing --force "${REMOTE}:${member}"
+        lxc cluster evacuate --project "${PROJECT}" --force "${REMOTE}:${member}"
 
         echo "Waiting for ${member} to be rebooted"
         if [ -x "./reboot" ]; then
@@ -288,7 +289,7 @@ evacuation() {
             read -rp "Press enter to continue with the evacuation test"
         fi
 
-        lxc cluster restore --project e2e-testing --force "${REMOTE}:${member}"
+        lxc cluster restore --project "${PROJECT}" --force "${REMOTE}:${member}"
 
         echo -n "Allow time for stopped instances on ${member} to start back again and have an IPv4 address"
         for instance in $(instanceListByMember "${member}"); do
