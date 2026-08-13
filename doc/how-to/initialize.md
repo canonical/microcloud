@@ -182,13 +182,7 @@ If you want to automate the initialization process, you can provide a preseed co
     cat <preseed_file> | microcloud preseed
 
 Make sure to distribute and run the same preseed configuration on all systems that should be part of the MicroCloud.
-
-The preseed YAML file must use the following syntax:
-
-```{literalinclude} preseed.yaml
-:language: YAML
-:emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-87
-```
+See the {ref}`full reference <ref-preseed-full-configuration-example>` for possible configuration options or the minimal example below.
 
 ### Minimal preseed using multicast discovery
 
