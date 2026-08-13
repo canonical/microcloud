@@ -105,3 +105,11 @@ EVACUATION_COUNTS=0 ./run mc
 # do multuple rolling reboots/evacuation tests:
 EVACUATION_COUNTS=5 ./run mc
 ```
+
+### HTML report
+
+Passing `--report` to the `run` script will generate a brief HTML report upon completion (whether the tests pass or fail). The report file is created in the current directory.
+
+```sh
+./run --report mc
+```
