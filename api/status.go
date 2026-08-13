@@ -47,7 +47,7 @@ func statusGet(sh *service.Handler) endpointHandler {
 			err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
 				memberStatuses, err := client.GetStatus(ctx, c)
 				if err != nil {
-					logger.Error("Failed to get status for cluster member", logger.Ctx{"error": err, "address": c.URL()})
+					logger.Error("Failed to get status for cluster member", logger.Ctx{"err": err, "address": c.URL()})
 
 					return nil
 				}
