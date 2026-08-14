@@ -37,7 +37,7 @@ func main() {
 
 	asker, err := setupAsker(ctx)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Fprintf(os.Stderr, "Failed setting up asker: %v\n", err)
 		os.Exit(1)
 	}
 
