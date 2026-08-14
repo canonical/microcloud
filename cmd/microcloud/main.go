@@ -62,6 +62,14 @@ func main() {
 
 	app.SetVersionTemplate("{{.Version}}\n")
 
+	// Don't display the --state-dir flag in the help output.
+	// It is used by the snaps "microcloud" wrapper command but never by the user directly.
+	err = app.PersistentFlags().MarkHidden("state-dir")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot hide --state-dir flag: %v\n", err)
+		os.Exit(1)
+	}
+
 	var cmdInit = cmdInit{common: &commonCmd}
 	app.AddCommand(cmdInit.command())
 
