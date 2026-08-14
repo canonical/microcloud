@@ -219,6 +219,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          detached: true
+
       - name: System test
         uses: ./.github/actions/system-test
 

@@ -174,6 +174,11 @@ ceph:
 
     # Second upgrade MicroOVN.
     for m in micro01 micro02 micro03; do
+      echo "don't perform microovn upgrade"
+      lxc exec "${m}" -- microovn status
+      lxc exec "${m}" -- microovn cluster list
+      lxc exec "${m}" -- snap changes
+
       lxc exec "${m}" -- snap refresh microovn --channel "${microovn_target}"
 
       # Before proceeding with the next member, wait for ${m} to stabilize.
