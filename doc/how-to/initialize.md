@@ -182,13 +182,7 @@ If you want to automate the initialization process, you can provide a preseed co
     cat <preseed_file> | microcloud preseed
 
 Make sure to distribute and run the same preseed configuration on all systems that should be part of the MicroCloud.
-
-The preseed YAML file must use the following syntax:
-
-```{literalinclude} preseed.yaml
-:language: YAML
-:emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-87
-```
+See the {ref}`full reference <ref-preseed-full-configuration-example>` for possible configuration options or the minimal example below.
 
 ### Minimal preseed using multicast discovery
 
@@ -237,6 +231,40 @@ ovn:
 ```{admonition} Possible final step
 :class: note
 If you initialized MicroCloud without local storage _and_ with CephFS storage, continue to the section below to complete your initialization.
+```
+
+### Use storage disk filters
+
+You may not know the exact disk paths used for local and remote storage when crafting the preseed file.
+In such cases, you can add disk filters for local and remote storage configuration.
+By using those filters, you can narrow down the list of available disks to the ones eligible based on the given rules.
+
+For example you might want to use all disks for local storage which are of type `nvme` and use a model description `<vendor>`:
+
+```yaml
+storage:
+  local:
+    - find: type == nvme && model == "<vendor>"
+```
+
+As another example, you can filter for remote (Ceph) storage disks with size greater than 1TiB and  model description `<vendor2>`, and ensure there are at least six disks (maximum eight) selected across all members:
+
+```yaml
+storage:
+  ceph:
+    - find: size > 1TiB && model == "<vendor2>"
+      find_min: 6
+      find_max: 8
+```
+
+See the {ref}`list of filters <ref-preseed-filters>` for a full reference.
+
+```{admonition} Finding the right filters
+:class: note
+If you want to see the actual filter values for your system(s) for further refinement of the preseed file, you can run `lxc query /1.0/resources | jq .storage.disks` on any of the MicroCloud members prior to initialization.
+
+The response will show all the disks available to MicroCloud on this member.
+Repeat the command on every member for a full list of disks across the cluster.
 ```
 
 (howto-initialize-images-backups)=
