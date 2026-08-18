@@ -550,16 +550,19 @@ validate_system_lxd_ovn() {
 
   echo "    ${name} Validating OVN network"
 
-  num_conns=3
-  if [ "${num_peers}" -lt "${num_conns}" ]; then
-    num_conns="${num_peers}"
+  # Check if the connection string is set correctly.
+  if ! check_api_extension ovn_dynamic_northbound_connection "${name}"; then
+    num_conns=3
+    if [ "${num_peers}" -lt "${num_conns}" ]; then
+      num_conns="${num_peers}"
+    fi
+
+    [ "$(lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | wc -l)" = "${num_conns}" ]
+
+    # Make sure there's no empty addresses.
+    ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
+    ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
   fi
-
-  [ "$(lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | wc -l)" = "${num_conns}" ]
-
-  # Make sure there's no empty addresses.
-  ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl:$' || false
-  ! lxc config get network.ovn.northbound_connection --target "${name}" | sed -e 's/,/\n/g' | grep -q '^ssl::' || false
 
   # Check that the created UPLINK network has the right DNS servers.
   if [ -n "${dns_namesersers}" ] ; then
