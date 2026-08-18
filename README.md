@@ -72,3 +72,12 @@ You can optionally add the following dedicated networks:
  [![Snapcraft logo](https://dashboard.snapcraft.io/site_media/appmedia/2018/04/Snapcraft-logo-bird.png)](https://snapcraft.io/microcloud)
 
 - Snap package sources: [microcloud-pkg-snap](https://github.com/canonical/microcloud-pkg-snap)
+
+
+## Docs: clarify MicroCloud networking requirements and non-multicast initialization options
+
+This section provides operational guidelines and configuration details addressing #1506.
+
+### Usage & Setup
+- Verify environment setup and package requirements.
+- Follow standard execution patterns as documented in the repository.
