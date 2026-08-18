@@ -885,8 +885,18 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 
 	fmt.Println("Configuring cluster-wide devices ...")
 
-	var ovnConfig string
-	if s.Services[types.MicroOVN] != nil {
+	// Update LXD's global config.
+	server, _, err := lxdClient.GetServer()
+	if err != nil {
+		return err
+	}
+
+	config := make(map[string]string)
+
+	// LXD can dynamically determine the OVN northbound DB connection string from MicroOVN's `ovn.env` file.
+	// This feature was added with the ovn_dynamic_northbound_connection API extension.
+	// Only set the connection string in case of an older LXD.
+	if s.Services[types.MicroOVN] != nil && !lxdClient.HasExtension("ovn_dynamic_northbound_connection") {
 		serviceOVN := s.Services[types.MicroOVN].(*service.OVNService)
 
 		services, err := serviceOVN.GetServices(context.Background())
@@ -911,14 +921,7 @@ func (c *initConfig) setupCluster(s *service.Handler) error {
 			}
 		}
 
-		ovnConfig = strings.Join(conns, ",")
-	}
-
-	config := map[string]string{"network.ovn.northbound_connection": ovnConfig}
-	// Update LXD's global config.
-	server, _, err := lxdClient.GetServer()
-	if err != nil {
-		return err
+		config["network.ovn.northbound_connection"] = strings.Join(conns, ",")
 	}
 
 	newServer := server.Writable()
