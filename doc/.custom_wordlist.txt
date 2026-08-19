@@ -30,6 +30,7 @@ frontend
 GbE
 GiB
 HA
+hardcoding
 HMAC
 HTTPS
 HWE
@@ -48,6 +49,7 @@ MicroCeph
 MicroCloud
 MicroCloud's
 MicroOVN
+monmap
 mTLS
 multicast
 NAT
