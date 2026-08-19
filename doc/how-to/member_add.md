@@ -31,13 +31,7 @@ In the list of systems, include only the new machine and set either `initiator` 
 that is already part of the MicroCloud.
 
 Distribute and run the same preseed configuration on both the machine being added, and the cluster member used for the `initiator` or `initiator_address`.
-
-The preseed YAML file must use the following syntax:
-
-```{literalinclude} preseed.yaml
-:language: YAML
-:emphasize-lines: 1-4,7-10,13-14,17-19,22,25-27,30-35,63-66,72,79-88
-```
+See the {ref}`full reference <ref-preseed-full-configuration-example>` for possible configuration options or the minimal example below.
 
 ### Minimal preseed using multicast discovery
 

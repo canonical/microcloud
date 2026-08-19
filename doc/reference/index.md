@@ -19,6 +19,16 @@ Consult this command reference to work with MicroCloud through the CLI.
 /reference/commands
 ```
 
+## Preseed
+
+Consult this preseed reference for a detailed explanation of the various configuration options.
+
+```{toctree}
+:maxdepth: 1
+
+/reference/preseed
+```
+
 ## Requirements and releases
 
 ```{toctree}
