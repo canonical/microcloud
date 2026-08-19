@@ -28,6 +28,7 @@ frontend
 GbE
 GiB
 HA
+hardcoding
 HMAC
 HWE
 init
@@ -44,6 +45,7 @@ MicroCeph
 MicroCloud
 MicroCloud's
 MicroOVN
+monmap
 mTLS
 multicast
 NAT
