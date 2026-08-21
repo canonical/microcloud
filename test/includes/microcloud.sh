@@ -891,7 +891,7 @@ cluster_reset() {
   (
     set -eu
     if [ "${SKIP_SETUP_LOG}" = 1 ]; then
-      exec > /dev/null 2>&1
+      exec > /dev/null
     fi
 
     lxc exec "${name}" -- sh -c "
@@ -935,8 +935,8 @@ cluster_reset() {
             microceph.ceph osd out \${osd}
             microceph.ceph osd down \${osd} --definitely-dead
             pkill -f \"ceph-osd .* --id \${osd}\"
-            microceph.ceph osd purge \${osd} --yes-i-really-mean-it --force
-            microceph.ceph osd destroy \${osd} --yes-i-really-mean-it --force
+            microceph.ceph osd purge \${osd} --yes-i-really-really-mean-it --force
+            microceph.ceph osd destroy \${osd} --yes-i-really-really-mean-it --force
             rm -rf /var/snap/microceph/common/data/osd/ceph-\${osd}
           done
         fi
