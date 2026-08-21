@@ -25,6 +25,7 @@ For full instructions on updating or upgrading MicroCloud, refer to {ref}`howto-
 
 ```{toctree}
 :titlesonly:
+MicroCloud 3.3 </reference/release-notes/release-notes-3.3>
 MicroCloud 3.2 </reference/release-notes/release-notes-3.2>
 MicroCloud 3.1 </reference/release-notes/release-notes-3.1>
 MicroCloud 2.1.3 LTS </reference/release-notes/release-notes-2.1.3>
