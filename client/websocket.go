@@ -51,7 +51,10 @@ func NewWebsocketGateway(ctx context.Context, conn *websocket.Conn) *WebsocketGa
 
 		// Send close control message.
 		// Try to send the cause from the outer context if present.
-		_ = gw.WriteClose(context.Cause(gwCtx))
+		cause := context.Cause(gwCtx)
+		if cause != nil {
+			_ = gw.WriteClose(cause)
+		}
 
 		// Shutdown the read loop.
 		_ = gw.conn.Close()
@@ -81,7 +84,7 @@ func NewWebsocketGateway(ctx context.Context, conn *websocket.Conn) *WebsocketGa
 			decoder := json.NewDecoder(bytes.NewReader(reader))
 			decoder.DisallowUnknownFields()
 			err = decoder.Decode(&controlClose)
-			if err == nil {
+			if err == nil && controlClose.ControlMessage != "" {
 				// Cancel the inner context with the respective error.
 				defer gwCancel(errors.New(controlClose.ControlMessage))
 				return
@@ -109,8 +112,16 @@ func (w *WebsocketGateway) Receive() <-chan []byte {
 func (w *WebsocketGateway) ReceiveWithContext(ctx context.Context, v any) error {
 	var err error
 	select {
-	case bytes := <-w.Receive():
-		err = json.Unmarshal(bytes, v)
+	case data, ok := <-w.Receive():
+		if !ok {
+			if w.ctx.Err() != nil {
+				return context.Cause(w.ctx)
+			}
+
+			return errors.New("WebSocket connection closed")
+		}
+
+		err = json.Unmarshal(data, v)
 	case <-w.ctx.Done():
 		err = context.Cause(w.ctx)
 	case <-ctx.Done():
@@ -139,20 +150,22 @@ func (w *WebsocketGateway) Write(v any) error {
 }
 
 // WriteClose sends our websocket control close message.
-// Unlike the actual websocket control close message this supports message longer than 125 bytes
+// Unlike the actual websocket control close message this supports messages longer than 125 bytes
 // as well as special characters.
-// It waits for the other side to hang up or the gateway's context being cancelled.
 func (w *WebsocketGateway) WriteClose(err error) error {
-	writeErr := w.Write(ControlClose{
+	w.writeLock.Lock()
+	defer w.writeLock.Unlock()
+
+	if err == nil {
+		err = errors.New("Connection closed")
+	}
+
+	writeErr := w.conn.WriteJSON(ControlClose{
 		ControlMessage: err.Error(),
 	})
 	if writeErr != nil {
 		return fmt.Errorf("Failed to write control message: %w", writeErr)
 	}
-
-	// Wait on the other end to hang up.
-	// Our inner context gets cancelled if the websocket connection is closed.
-	<-w.Context().Done()
 
 	return nil
 }
