@@ -176,9 +176,10 @@ jobs:
           - "6/edge"
         microcloud: ["latest/edge"]
         exclude:
-          # Exclude LXD 6 for regular development pipelines to speed up the result cycle.
-          # But launch the LXD 6 tests both for schedules and manual workflow dispatch.
-          - lxd: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && '6/edge' }}
+          # Exclude LXD 5.21 for regular development pipelines to speed up the result cycle.
+          # MicroCloud edge tests should always run with LXD edge. The LTS edge is tested in the weekly schedule.
+          # Launch the LXD 5.21 tests both for schedules and manual workflow dispatch.
+          - lxd: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && '5.21/edge' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
