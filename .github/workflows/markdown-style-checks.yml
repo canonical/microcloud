@@ -18,6 +18,8 @@ on:
   push:
     branches:
     - main
+    - v*-edge
+    - release-*
     paths:
     - 'doc/**'   # Only run on changes to the doc directory
   pull_request:
