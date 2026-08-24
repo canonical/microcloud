@@ -59,7 +59,7 @@ apps:
 parts:
   dqlite:
     source: https://github.com/canonical/dqlite
-    source-branch: main
+    source-commit: 91e3e2f90874e4ec3b45cde965f266342846531b # v1.18.7
     source-depth: 1
     source-type: git
     plugin: autotools
@@ -87,7 +87,7 @@ parts:
     after:
       - dqlite
     build-snaps:
-      - go
+      - go/1.25/stable
     plugin: nil
     override-pull: |
       craftctl default
