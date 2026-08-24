@@ -25,8 +25,10 @@ For full instructions on updating or upgrading MicroCloud, refer to {ref}`howto-
 
 ```{toctree}
 :titlesonly:
+MicroCloud 3.3 <https://documentation.ubuntu.com/microcloud/latest/reference/release-notes/release-notes-3.3/>
 MicroCloud 3.2 <https://documentation.ubuntu.com/microcloud/latest/reference/release-notes/release-notes-3.2/>
 MicroCloud 3.1 <https://documentation.ubuntu.com/microcloud/latest/reference/release-notes/release-notes-3.1/>
+MicroCloud 2.1.4 LTS </reference/release-notes/release-notes-2.1.4>
 MicroCloud 2.1.3 LTS </reference/release-notes/release-notes-2.1.3>
 MicroCloud 2.1.2 LTS <https://discourse.ubuntu.com/t/microcloud-2-1-2-lts-has-been-released/73771/2>
 MicroCloud 2.1.1 LTS <https://discourse.ubuntu.com/t/microcloud-2-1-2-lts-has-been-released/73771>

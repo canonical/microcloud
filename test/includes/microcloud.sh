@@ -551,7 +551,7 @@ validate_system_lxd_ovn() {
   echo "    ${name} Validating OVN network"
 
   # Check if the connection string is set correctly.
-  if ! check_api_extension ovn_dynamic_northbound_connection "${name}"; then
+  if ! check_api_extension ovn_dynamic_northbound_connection; then
     num_conns=3
     if [ "${num_peers}" -lt "${num_conns}" ]; then
       num_conns="${num_peers}"
