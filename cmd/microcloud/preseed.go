@@ -37,32 +37,15 @@ type Preseed struct {
 	SessionTimeout    int64         `yaml:"session_timeout"`
 	Initiator         string        `yaml:"initiator"`
 	InitiatorAddress  string        `yaml:"initiator_address"`
-	Systems           []System      `yaml:"systems"`
+	System            *types.System `yaml:"system"`
 	OVN               InitNetwork   `yaml:"ovn"`
 	Ceph              CephOptions   `yaml:"ceph"`
 	Storage           StorageFilter `yaml:"storage"`
-}
 
-// System represents the structure of the systems we expect to find in the preseed yaml.
-type System struct {
-	Name            string      `yaml:"name"`
-	Address         string      `yaml:"address"`
-	UplinkInterface string      `yaml:"ovn_uplink_interface"`
-	UnderlayIP      string      `yaml:"ovn_underlay_ip"`
-	Storage         InitStorage `yaml:"storage"`
-}
-
-// InitStorage separates the direct paths used for local and ceph disks.
-type InitStorage struct {
-	Local DirectStorage   `yaml:"local"`
-	Ceph  []DirectStorage `yaml:"ceph"`
-}
-
-// DirectStorage is a direct path to a disk, to be used to override DiskFilter.
-type DirectStorage struct {
-	Path    string `yaml:"path"`
-	Wipe    bool   `yaml:"wipe"`
-	Encrypt bool   `yaml:"encrypt"`
+	// Systems is deprecated in favor of System.
+	// If set (and System is unset), the entry matching the local system's host name is used as System.
+	// This is only kept for backward compatibility with preseed files predating the introduction of System.
+	Systems []types.System `yaml:"systems"`
 }
 
 // InitNetwork represents the structure of the network config in the preseed yaml.
