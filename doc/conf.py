@@ -192,6 +192,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx_sitemap',
     'myst_parser',
+    'sphinx_structured_toc',
 ]
 
 # Excludes files or directories from processing
@@ -207,6 +208,7 @@ exclude_patterns = [
 ]
 
 html_css_files = [
+    'domain-list-override.css',
     'https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css',
 ]
 
