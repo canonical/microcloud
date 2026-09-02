@@ -45,6 +45,8 @@ type Preseed struct {
 	// Systems is deprecated in favor of System.
 	// If set (and System is unset), the entry matching the local system's host name is used as System.
 	// This is only kept for backward compatibility with preseed files predating the introduction of System.
+	//
+	// Deprecated: Use System instead to specify the local system's configuration.
 	Systems []types.System `yaml:"systems"`
 }
 
