@@ -106,10 +106,19 @@ How this documentation is organized
 
 This documentation uses the `Diátaxis documentation structure <https://diataxis.fr/>`__.
 
+..
+  Turn spell check off temporarily until this issue is resolved:
+  https://github.com/canonical/documentation-style-guide/issues/207
+  (Remove both `vale off` and `vale on` lines.)
+
+.. vale off
+
 - The :ref:`tutorials` introduce you to MicroCloud concepts and usage.
 - The :ref:`howto` provide detailed setup and usage instructions, including how to access the UI and manage cluster members.
 - The :ref:`reference` guides provide technical details, release notes, and common CLI commands.
 - The :ref:`explanation` section includes topic overviews and detailed explanations of key concepts, such as local versus distributed storage.
+
+.. vale on
 
 ----
 
