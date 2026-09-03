@@ -26,11 +26,11 @@ sphinx-last-updated-by-git~=0.3
 sphinx-sitemap~=2.9
 
 # Vale dependencies
-vale~=3.13
+vale~=3.18
 
 # MicroCloud custom dependencies
-gitpython==3.1.59
-linkify-it-py==2.1.0
+gitpython==3.1.60
+linkify-it-py==2.1.1
 pyyaml==6.0.3
 sphinx-copybutton==0.5.2
 watchfiles==1.2.0
