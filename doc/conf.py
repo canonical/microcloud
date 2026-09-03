@@ -1,6 +1,7 @@
 import datetime
 import os
 import yaml
+import textwrap
 
 ############################
 # MicroCloud custom configuration #
@@ -128,6 +129,22 @@ rediraffe_redirects = 'redirects.txt'
 # Strips '/index.html' from destination URLs when building with 'dirhtml'
 rediraffe_dir_only = True
 
+############################
+# sphinx-llm configuration #
+############################
+
+# This description is included in llms.txt to provide some initial context for your
+# product docs.
+llms_txt_description = textwrap.dedent(
+    """\
+    This is the documentation for MicroCloud, an open source cloud platform.
+    """
+)
+
+# The base URL for references built by sphinx-markdown-builder.
+if os.environ.get("READTHEDOCS"):
+    markdown_http_base = html_baseurl
+
 ###########################
 # Link checker exceptions #
 ###########################
@@ -183,6 +200,7 @@ extensions = [
     'sphinx_tabs.tabs',
     'sphinxcontrib.jquery',
     'sphinxext.opengraph',
+    'sphinx_llm.txt',
     'sphinx_related_links',
     'sphinx_roles',
     'sphinx_terminal',
