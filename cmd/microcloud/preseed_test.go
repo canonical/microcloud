@@ -7,6 +7,8 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/units"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/canonical/microcloud/microcloud/api/types"
 )
 
 type preseedSuite struct {
@@ -21,6 +23,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 	cases := []struct {
 		desc    string
 		preseed Preseed
+		systems []*types.System
 
 		addErr bool
 		err    error
@@ -28,14 +31,15 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		{
 			desc: "No systems",
 			preseed: Preseed{
-				Systems: nil,
-				OVN:     InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
+				Initiator:    "n1",
+				LookupSubnet: "10.0.1.0/24",
+				OVN:          InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
-					Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
+					Ceph:  []DiskFilter{{Find: "def", FindMin: 1, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
+			addErr: false,
 			err:    errors.New("No systems given"),
 		},
 		{
@@ -44,132 +48,124 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 				SessionPassphrase: "foo",
 				Initiator:         "n1",
 				LookupSubnet:      "10.0.1.0/24",
-				Systems:           []System{{Name: "n1"}, {Name: "n1"}},
 			},
-			addErr: true,
-			err:    errors.New(`Duplicate system name "n1"`),
+			systems: []*types.System{{Name: "n1"}, {Name: "n1"}},
+			addErr:  true,
+			err:     errors.New(`Duplicate system name "n1"`),
 		},
 		{
 			desc: "Single node preseed",
 			preseed: Preseed{
 				Initiator:    "n1",
 				LookupSubnet: "10.0.1.0/24",
-				Systems:      []System{{Name: "n1", UplinkInterface: "eth0", Storage: InitStorage{}}},
 				OVN:          InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 1, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: false,
-			err:    nil,
+			systems: []*types.System{{Name: "n1", UplinkInterface: "eth0", Storage: types.InitStorage{}}},
+			addErr:  false,
+			err:     nil,
 		},
 		{
 			desc: "Missing session passphrase",
 			preseed: Preseed{
 				Initiator:    "n1",
 				LookupSubnet: "10.0.1.0/24",
-				Systems:      []System{{Name: "n1"}, {Name: "n2"}},
 			},
-			addErr: true,
-			err:    errors.New(`Missing session passphrase`),
-		},
-		{
-			desc: "Missing initiator's name or address",
-			preseed: Preseed{
-				Systems: []System{{Name: "n1"}},
-			},
-			addErr: true,
-			err:    errors.New(`Missing initiator's name or address`),
+			systems: []*types.System{{Name: "n1"}, {Name: "n2"}},
+			addErr:  true,
+			err:     errors.New(`Missing session passphrase`),
 		},
 		{
 			desc: "Cannot provide both the initiator's name and address",
 			preseed: Preseed{
 				Initiator:        "n1",
 				InitiatorAddress: "1.0.0.1",
-				Systems:          []System{{Name: "n1"}},
 			},
-			addErr: true,
-			err:    errors.New(`Cannot provide both the initiator's name and address`),
+			systems: []*types.System{{Name: "n1"}},
+			addErr:  true,
+			err:     errors.New(`Cannot provide both the initiator's name and address`),
 		},
 		{
 			desc: "Cannot provide both the initiator's address and lookup subnet",
 			preseed: Preseed{
 				InitiatorAddress: "1.0.0.1",
 				LookupSubnet:     "1.0.0.0/24",
-				Systems:          []System{{Name: "n1"}},
 			},
-			addErr: true,
-			err:    errors.New(`Cannot provide both the initiator's address and lookup subnet`),
+			systems: []*types.System{{Name: "n1"}},
+			addErr:  true,
+			err:     errors.New(`Cannot provide both the initiator's address and lookup subnet`),
 		},
 		{
 			desc: "Cannot provide both system address and lookup subnet",
 			preseed: Preseed{
 				Initiator:    "n1",
 				LookupSubnet: "1.0.0.0/24",
-				Systems:      []System{{Name: "n1", Address: "1.0.0.1"}},
 			},
-			addErr: true,
-			err:    errors.New(`Cannot provide both the address for system "n1" and the lookup subnet`),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New(`Cannot provide both the address for system "n1" and the lookup subnet`),
 		},
 		{
-			desc: "Missing initiator address if one system has an address",
-			preseed: Preseed{
-				Systems: []System{{Name: "n1", Address: "1.0.0.1"}},
-			},
-			addErr: true,
-			err:    errors.New("Missing initiator's name or address"),
+			desc:    "Missing initiator address if one system has an address",
+			preseed: Preseed{},
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New("Missing initiator's name or address"),
 		},
 		{
 			desc: "Missing listen address",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1"}, {Name: "n2", Address: "1.0.0.2"}},
 				Storage:           StorageFilter{},
 			},
-			addErr: true,
-			err:    errors.New(`Missing address for system "n1" when the initiator's address is set`),
+			systems: []*types.System{{Name: "n1"}},
+			addErr:  true,
+			err:     errors.New(`Missing address for system "n1" when the initiator's address is set`),
 		},
 		{
 			desc: "Systems missing name",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "", UplinkInterface: "eth0", Address: "1.0.0.1"}, {Name: "n2", UplinkInterface: "eth0", Address: "1.0.0.2"}},
 				OVN:               InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Missing system name"),
+			systems: []*types.System{{Name: "", UplinkInterface: "eth0", Address: "1.0.0.1"}, {Name: "n2", UplinkInterface: "eth0", Address: "1.0.0.2"}},
+			addErr:  true,
+			err:     errors.New("Missing system name"),
 		},
 		{
 			desc: "FindMin too low for ceph filter",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1"}, {Name: "n2", Address: "1.0.0.2"}},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 0, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Remote storage filter cannot be defined with find_min less than 1"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New("Remote storage filter cannot be defined with find_min less than 1"),
 		},
 		{
 			desc: "Ceph direct selection (3) with more systems (4)",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems: []System{
-					{Name: "n1", Address: "1.0.0.1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
-					{Name: "n2", Address: "1.0.0.2", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
-					{Name: "n3", Address: "1.0.0.3", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
-					{Name: "n4", Address: "1.0.0.4"}},
+			},
+			systems: []*types.System{
+				{Name: "n1", Address: "1.0.0.1", Storage: types.InitStorage{Ceph: []types.DirectStorage{{Path: "def"}}}},
+				{Name: "n2", Address: "1.0.0.2", Storage: types.InitStorage{Ceph: []types.DirectStorage{{Path: "def"}}}},
+				{Name: "n3", Address: "1.0.0.3", Storage: types.InitStorage{Ceph: []types.DirectStorage{{Path: "def"}}}},
+				{Name: "n4", Address: "1.0.0.4"},
 			},
 			addErr: false,
 			err:    nil,
@@ -179,11 +175,12 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems: []System{
-					{Name: "n1", Address: "1.0.0.1", Storage: InitStorage{Ceph: []DirectStorage{{Path: "def"}}}},
-					{Name: "n2", Address: "1.0.0.2"},
-					{Name: "n3", Address: "1.0.0.3"},
-					{Name: "n4", Address: "1.0.0.4"}},
+			},
+			systems: []*types.System{
+				{Name: "n1", Address: "1.0.0.1", Storage: types.InitStorage{Ceph: []types.DirectStorage{{Path: "def"}}}},
+				{Name: "n2", Address: "1.0.0.2"},
+				{Name: "n3", Address: "1.0.0.3"},
+				{Name: "n4", Address: "1.0.0.4"},
 			},
 			addErr: false,
 			err:    nil,
@@ -193,7 +190,11 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1", Storage: InitStorage{Local: DirectStorage{Path: "def"}}}, {Name: "n2", Address: "1.0.0.2", Storage: InitStorage{Local: DirectStorage{Path: "def"}}}, {Name: "n3", Address: "1.0.0.3"}},
+			},
+			systems: []*types.System{
+				{Name: "n1", Address: "1.0.0.1", Storage: types.InitStorage{Local: types.DirectStorage{Path: "def"}}},
+				{Name: "n2", Address: "1.0.0.2", Storage: types.InitStorage{Local: types.DirectStorage{Path: "def"}}},
+				{Name: "n3", Address: "1.0.0.3"},
 			},
 			addErr: true,
 			err:    errors.New("Some systems are missing local storage disks"),
@@ -203,64 +204,68 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1"}, {Name: "n2", Address: "1.0.0.2"}},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 3, FindMax: 2, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Invalid local storage filter constraints find_max (2) larger than find_min (3)"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New("Invalid local storage filter constraints find_max (2) larger than find_min (3)"),
 		},
 		{
 			desc: "Invalid zfs filter value",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1"}, {Name: "n2", Address: "1.0.0.2"}},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "", FindMin: 3, FindMax: 2, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Received empty local disk filter"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New("Received empty local disk filter"),
 		},
 		{
 			desc: "Invalid ceph filter min > max",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1"}, {Name: "n2", Address: "1.0.0.2"}, {Name: "n3", Address: "1.0.0.3"}},
 				Storage: StorageFilter{
 					Ceph: []DiskFilter{{Find: "def", FindMin: 4, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Invalid remote storage filter constraints find_max (3) must be larger than find_min (4)"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New("Invalid remote storage filter constraints find_max (3) must be larger than find_min (4)"),
 		},
 		{
 			desc: "Invalid ceph filter constraints",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1"}, {Name: "n2", Address: "1.0.0.2"}, {Name: "n3", Address: "1.0.0.3"}},
 				Storage: StorageFilter{
 					Ceph: []DiskFilter{{Find: "", FindMin: 4, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Received empty remote disk filter"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1"}},
+			addErr:  true,
+			err:     errors.New("Received empty remote disk filter"),
 		},
 		{
 			desc: "Systems missing interface",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1", UplinkInterface: ""}, {Name: "n2", Address: "1.0.0.2", UplinkInterface: "eth0"}, {Name: "n3", Address: "1.0.0.3", UplinkInterface: "eth0"}},
 				OVN:               InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 3, FindMax: 3, Wipe: false}},
 				},
+			},
+			systems: []*types.System{
+				{Name: "n1", Address: "1.0.0.1", UplinkInterface: ""},
+				{Name: "n2", Address: "1.0.0.2", UplinkInterface: "eth0"},
+				{Name: "n3", Address: "1.0.0.3", UplinkInterface: "eth0"},
 			},
 			addErr: true,
 			err:    errors.New("Some systems are missing an uplink interface"),
@@ -270,42 +275,46 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1", UplinkInterface: "eth0"}, {Name: "n2", Address: "1.0.0.2", UplinkInterface: "eth0"}, {Name: "n3", Address: "1.0.0.3", UplinkInterface: "eth0"}},
 				OVN:               InitNetwork{IPv4Range: "10.0.0.100-10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 3, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Cannot specify IPv4 range without IPv4 gateway"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1", UplinkInterface: "eth0"}},
+			addErr:  true,
+			err:     errors.New("Cannot specify IPv4 range without IPv4 gateway"),
 		},
 		{
 			desc: "Invalid OVN IPv4 Ranges",
 			preseed: Preseed{
 				SessionPassphrase: "foo",
 				InitiatorAddress:  "1.0.0.1",
-				Systems:           []System{{Name: "n1", Address: "1.0.0.1", UplinkInterface: "eth0"}, {Name: "n2", Address: "1.0.0.2", UplinkInterface: "eth0"}, {Name: "n3", Address: "1.0.0.3", UplinkInterface: "eth0"}},
 				OVN:               InitNetwork{IPv4Gateway: "10.0.0.1/24", IPv4Range: "10.0.0.100,10.0.0.254", IPv6Gateway: "cafe::1/64"},
 				Storage: StorageFilter{
 					Local: []DiskFilter{{Find: "abc", FindMin: 0, FindMax: 3, Wipe: false}},
 					Ceph:  []DiskFilter{{Find: "def", FindMin: 3, FindMax: 3, Wipe: false}},
 				},
 			},
-			addErr: true,
-			err:    errors.New("Invalid IPv4 range (must be of the form <ip>-<ip>)"),
+			systems: []*types.System{{Name: "n1", Address: "1.0.0.1", UplinkInterface: "eth0"}},
+			addErr:  true,
+			err:     errors.New("Invalid IPv4 range (must be of the form <ip>-<ip>)"),
 		},
 	}
 
 	s.T().Log("Preseed init missing local system")
-	p := Preseed{SessionPassphrase: "foo", InitiatorAddress: "1.0.0.1", Systems: []System{{Name: "B", Address: "1.0.0.1"}, {Name: "C", Address: "1.0.0.2"}}}
-	err := p.validate("A", true)
+	p := Preseed{
+		SessionPassphrase: "foo",
+		InitiatorAddress:  "1.0.0.1",
+	}
+
+	err := p.validate("A", true, []*types.System{{Name: "B", Address: "1.0.0.1"}, {Name: "C", Address: "1.0.0.2"}})
 	s.EqualError(err, "Local MicroCloud must be included in the list of systems when initializing")
 
 	for _, c := range cases {
 		s.T().Log(c.desc)
 
-		err := c.preseed.validate("n1", true)
+		err := c.preseed.validate("n1", true, c.systems)
 		if c.err == nil {
 			s.NoError(err)
 		} else {
@@ -313,7 +322,7 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 		}
 
 		s.T().Logf("%s in add mode", c.desc)
-		err = c.preseed.validate("n0", false)
+		err = c.preseed.validate("n0", false, c.systems)
 		if c.addErr {
 			s.EqualError(err, c.err.Error())
 		} else {
@@ -387,23 +396,13 @@ func (s *preseedSuite) Test_isBootstrap() {
 		isBootstrap bool
 	}{
 		{
-			desc:        "Initiator is in the list of systems",
-			preseed:     Preseed{Initiator: "A", Systems: []System{{Name: "A"}}},
+			desc:        "System is set (bootstrapping a new cluster)",
+			preseed:     Preseed{Initiator: "A", System: &types.System{Name: "A"}},
 			isBootstrap: true,
 		},
 		{
-			desc:        "Initiator is not in the list of systems",
-			preseed:     Preseed{Initiator: "B", Systems: []System{{Name: "A"}}},
-			isBootstrap: false,
-		},
-		{
-			desc:        "Initiator address is in the list of systems",
-			preseed:     Preseed{InitiatorAddress: "1.0.0.1", Systems: []System{{Name: "A", Address: "1.0.0.1"}}},
-			isBootstrap: true,
-		},
-		{
-			desc:        "Initiator address is not in the list of systems",
-			preseed:     Preseed{InitiatorAddress: "1.0.0.2", Systems: []System{{Name: "A", Address: "1.0.0.1"}}},
+			desc:        "System is unset (adding members to an existing cluster)",
+			preseed:     Preseed{Initiator: "A"},
 			isBootstrap: false,
 		},
 	}
@@ -427,7 +426,7 @@ func (s *preseedSuite) Test_address() {
 			desc: "Local address is the one specified in preseed",
 			name: "A",
 			preseed: Preseed{
-				Systems: []System{{Name: "A", Address: "1.0.0.1"}},
+				System: &types.System{Name: "A", Address: "1.0.0.1"},
 			},
 			address: "1.0.0.1",
 		},
@@ -465,5 +464,76 @@ func (s *preseedSuite) Test_address() {
 		} else {
 			s.Equal(c.address, addr)
 		}
+	}
+}
+
+func (s *preseedSuite) Test_resolveLegacySystems() {
+	cases := []struct {
+		desc            string
+		preseed         Preseed
+		name            string
+		expectedSystems int
+		expectedSystem  *types.System
+		err             error
+	}{
+		{
+			desc:            "No legacy systems given",
+			preseed:         Preseed{System: &types.System{Name: "n1"}},
+			name:            "n1",
+			expectedSystems: 0,
+			expectedSystem:  &types.System{Name: "n1"},
+		},
+		{
+			desc: "Cannot specify both system and systems",
+			preseed: Preseed{
+				System:  &types.System{Name: "n1"},
+				Systems: []types.System{{Name: "n1"}},
+			},
+			name: "n1",
+			err:  errors.New(`Cannot specify both "system" and "systems"`),
+		},
+		{
+			desc: "Resolve right system from legacy list",
+			preseed: Preseed{
+				Initiator: "n1",
+				Systems:   []types.System{{Name: "n1", UplinkInterface: "eth0"}, {Name: "n2"}, {Name: "n3"}},
+			},
+			name:            "n1",
+			expectedSystems: 3,
+			expectedSystem:  &types.System{Name: "n1", UplinkInterface: "eth0"},
+		},
+		{
+			desc: "Add mode with new system as the initiator",
+			preseed: Preseed{
+				Initiator: "n1",
+				Systems:   []types.System{{Name: "n4"}},
+			},
+			name:            "n1",
+			expectedSystems: 2,
+		},
+		{
+			desc: "Add mode with ourselves as the joiner",
+			preseed: Preseed{
+				Initiator: "n1",
+				Systems:   []types.System{{Name: "n4"}},
+			},
+			name:            "n4",
+			expectedSystems: 1,
+			expectedSystem:  &types.System{Name: "n4"},
+		},
+	}
+
+	for _, c := range cases {
+		s.T().Log(c.desc)
+
+		expectedSystems, err := c.preseed.resolveLegacySystems(c.name)
+		if c.err != nil {
+			s.EqualError(err, c.err.Error())
+			continue
+		}
+
+		s.NoError(err)
+		s.Equal(c.expectedSystems, expectedSystems)
+		s.Equal(c.expectedSystem, c.preseed.System)
 	}
 }

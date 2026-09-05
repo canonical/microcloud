@@ -35,34 +35,20 @@ type Preseed struct {
 	LookupTimeout     int64         `yaml:"lookup_timeout"`
 	SessionPassphrase string        `yaml:"session_passphrase"`
 	SessionTimeout    int64         `yaml:"session_timeout"`
+	SessionSystems    int           `yaml:"session_systems"`
 	Initiator         string        `yaml:"initiator"`
 	InitiatorAddress  string        `yaml:"initiator_address"`
-	Systems           []System      `yaml:"systems"`
+	System            *types.System `yaml:"system"`
 	OVN               InitNetwork   `yaml:"ovn"`
 	Ceph              CephOptions   `yaml:"ceph"`
 	Storage           StorageFilter `yaml:"storage"`
-}
 
-// System represents the structure of the systems we expect to find in the preseed yaml.
-type System struct {
-	Name            string      `yaml:"name"`
-	Address         string      `yaml:"address"`
-	UplinkInterface string      `yaml:"ovn_uplink_interface"`
-	UnderlayIP      string      `yaml:"ovn_underlay_ip"`
-	Storage         InitStorage `yaml:"storage"`
-}
-
-// InitStorage separates the direct paths used for local and ceph disks.
-type InitStorage struct {
-	Local DirectStorage   `yaml:"local"`
-	Ceph  []DirectStorage `yaml:"ceph"`
-}
-
-// DirectStorage is a direct path to a disk, to be used to override DiskFilter.
-type DirectStorage struct {
-	Path    string `yaml:"path"`
-	Wipe    bool   `yaml:"wipe"`
-	Encrypt bool   `yaml:"encrypt"`
+	// Systems is deprecated in favor of System.
+	// If set (and System is unset), the entry matching the local system's host name is used as System.
+	// This is only kept for backward compatibility with preseed files predating the introduction of System.
+	//
+	// Deprecated: Use System instead to specify the local system's configuration.
+	Systems []types.System `yaml:"systems"`
 }
 
 // InitNetwork represents the structure of the network config in the preseed yaml.
@@ -162,6 +148,21 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return err
 	}
 
+	// Backward compatibility: translate a legacy "systems" list into "system" by picking the entry
+	// matching the local host name and derive a default systems count from the number of systems in that list.
+	legacyExpectedSystems, err := config.resolveLegacySystems(hostname)
+	if err != nil {
+		return err
+	}
+
+	if legacyExpectedSystems > 0 {
+		if config.SessionSystems > 0 {
+			return errors.New(`Cannot use "session_systems" together with the deprecated "systems" list`)
+		}
+
+		config.SessionSystems = legacyExpectedSystems
+	}
+
 	cloudApp, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagMicroCloudDir})
 	if err != nil {
 		return err
@@ -178,11 +179,6 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	}
 
 	c.bootstrap = config.isBootstrap()
-
-	err = config.validate(hostname, c.bootstrap)
-	if err != nil {
-		return err
-	}
 
 	var listenAddr string
 	if status.Ready {
@@ -204,6 +200,10 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 	c.name = hostname
 	c.address = listenIP.String()
 	initiator := config.isInitiator(c.name, c.address)
+
+	if config.SessionSystems == 0 && initiator {
+		return errors.New(`Cannot run preseed without specifying "session_systems" on the initiator`)
+	}
 
 	fmt.Println("Waiting for services to start ...")
 	err = checkInitialized(c.common.FlagMicroCloudDir, initiator && !c.bootstrap, true)
@@ -256,7 +256,8 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 		return errors.New("MicroCloud is already initialized and can only be the initiator")
 	}
 
-	systems, err := config.Parse(s, c, services)
+	// Subtract ourselves from the list of expected systems.
+	systems, err := config.Parse(s, c, services, config.SessionSystems-1)
 	if err != nil {
 		return err
 	}
@@ -327,14 +328,16 @@ func (c *initConfig) RunPreseed(cmd *cobra.Command) error {
 }
 
 // validate validates the unmarshaled preseed input.
-func (p *Preseed) validate(name string, bootstrap bool) error {
+func (p *Preseed) validate(name string, bootstrap bool, systems []*types.System) error {
 	uplinkCount := 0
 	underlayCount := 0
 	directCephCount := 0
 	directLocalCount := 0
 	localInit := false
 
-	if len(p.Systems) < 1 {
+	// In bootstrap mode the initiator has to provide at least one system (itself).
+	// In add mode the initiator doesn't need to provide any system.
+	if len(systems) < 1 && bootstrap {
 		return errors.New("No systems given")
 	}
 
@@ -354,12 +357,13 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 		return errors.New("Cannot provide both the initiator's address and lookup subnet")
 	}
 
-	if len(p.Systems) > 1 && p.SessionPassphrase == "" {
+	// No need for a session passphrase when creating a single node MicroCloud.
+	if len(systems) > 1 && p.SessionPassphrase == "" {
 		return errors.New("Missing session passphrase")
 	}
 
-	systemNames := make([]string, 0, len(p.Systems))
-	for _, system := range p.Systems {
+	systemNames := make([]string, 0, len(systems))
+	for _, system := range systems {
 		if system.Name == "" {
 			return errors.New("Missing system name")
 		}
@@ -420,17 +424,17 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 	containsLocalStorage := false
 	containsCephStorage := false
 	containsUplinks = uplinkCount > 0
-	if containsUplinks && uplinkCount < len(p.Systems) {
+	if containsUplinks && uplinkCount < len(systems) {
 		return errors.New("Some systems are missing an uplink interface")
 	}
 
 	containsUnderlay := underlayCount > 0
-	if containsUnderlay && underlayCount < len(p.Systems) {
+	if containsUnderlay && underlayCount < len(systems) {
 		return errors.New("Some systems are missing an underlay interface")
 	}
 
 	containsLocalStorage = directLocalCount > 0
-	if containsLocalStorage && directLocalCount < len(p.Systems) && len(p.Storage.Local) == 0 {
+	if containsLocalStorage && directLocalCount < len(systems) && len(p.Storage.Local) == 0 {
 		return errors.New("Some systems are missing local storage disks")
 	}
 
@@ -540,35 +544,56 @@ func (p *Preseed) isInitiator(name string, address string) bool {
 }
 
 // isBootstrap returns true if MicroCloud is in bootstrap mode.
-// This is the case if either no initiator address is set
-// or the initiator address is set to an address of a system
-// in the current list of systems in the preseed file.
+// This is the case whenever the local preseed configuration declares its own system.
 func (p *Preseed) isBootstrap() bool {
-	for _, system := range p.Systems {
-		if system.Name == p.Initiator {
-			return true
-		}
+	return p.System != nil
+}
 
-		if system.Address != "" && system.Address == p.InitiatorAddress {
-			return true
+// resolveLegacySystems provides backward compatibility with the deprecated "systems" list format.
+// If "systems" is set, it picks the entry matching the given host name and assigns it to System.
+// It returns the number of systems found in the legacy list or zero if "systems" wasn't set.
+func (p *Preseed) resolveLegacySystems(name string) (int, error) {
+	if len(p.Systems) == 0 {
+		return 0, nil
+	}
+
+	if p.System != nil {
+		return 0, errors.New(`Cannot specify both "system" and "systems"`)
+	}
+
+	var self *types.System
+	found := false
+	for i, system := range p.Systems {
+		if system.Name == name {
+			self = &p.Systems[i]
+			found = true
 		}
 	}
 
-	return false
+	expectedSystems := len(p.Systems)
+	if !found {
+		// When adding members to the MicroCloud, the initiator isn't part of the "systems" list.
+		// Therefore add it to the list of expected systems as it still participates in the add operation.
+		expectedSystems++
+	}
+
+	// Resolve the preseed file to use the updated format only.
+	p.System = self
+	p.Systems = nil
+
+	return expectedSystems, nil
 }
 
-// address either returns the address specified for the respective system
-// or the first address found on the system within the provided lookup subnet.
+// address either returns the address specified for the local system or the first address found on the
+// system within the provided lookup subnet.
 func (p *Preseed) address(name string) (string, error) {
-	// In unicast mode return the address matching the given name.
-	for _, system := range p.Systems {
-		if system.Name == name && system.Address != "" {
-			return system.Address, nil
-		}
+	// In unicast mode return the address of the local system.
+	if p.System != nil && p.System.Name == name && p.System.Address != "" {
+		return p.System.Address, nil
 	}
 
 	// If we are in unicast but weren't able to return the address, it's likely
-	// that the provided name (hostname) doesn't exist in the preseed file.
+	// that the local system's preseed configuration doesn't match the given name (hostname).
 	// This is an error.
 	if p.LookupSubnet == "" {
 		return "", fmt.Errorf("Preseed file does not contain a system with name %q", name)
@@ -669,19 +694,12 @@ func (p *Preseed) findInterfaceAndNetworkForAddress(address string) (*net.Interf
 }
 
 // Parse converts the preseed data into the appropriate set of InitSystem to use when setting up MicroCloud.
-func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map[types.ServiceType]string) (map[string]InitSystem, error) {
-	c.systems = make(map[string]InitSystem, len(p.Systems))
+// It also enriches the local configuration with the configuration provided by joining systems.
+// expectedSystems is the number of joining systems to wait for before proceeding.
+func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map[types.ServiceType]string, expectedSystems int) (map[string]InitSystem, error) {
+	c.systems = make(map[string]InitSystem)
 	if c.bootstrap {
 		c.systems[s.Name] = InitSystem{ServerInfo: multicast.ServerInfo{Name: s.Name}}
-	}
-
-	expectedSystems := make([]string, 0, len(p.Systems))
-	for _, system := range p.Systems {
-		if system.Name == s.Name {
-			continue
-		}
-
-		expectedSystems = append(expectedSystems, system.Name)
 	}
 
 	var err error
@@ -694,23 +712,14 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 	if !initiator {
 		err = c.runSession(context.Background(), s, types.SessionJoining, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.joiningSession(gw, s, installedServices, p.InitiatorAddress, p.SessionPassphrase)
+			return c.joiningSession(gw, s, installedServices, p.InitiatorAddress, p.SessionPassphrase, p.System)
 		})
 		return nil, err
 	}
 
-	if len(expectedSystems) > 0 {
+	if expectedSystems > 0 {
 		if initiator {
-			joiners := []string{}
-			for _, name := range expectedSystems {
-				if name == s.Name {
-					continue
-				}
-
-				joiners = append(joiners, name)
-			}
-
-			fmt.Printf("Searching for joining systems (%s)\n", strings.Join(joiners, ", "))
+			fmt.Printf("Searching for %d joining systems ...\n", expectedSystems)
 		}
 
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
@@ -719,6 +728,23 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Add ourselves to the preseed configuration.
+	if p.System != nil {
+		// It's a single node preseed if no other systems are specified after the join session.
+		if c.preseedSystems == nil {
+			c.preseedSystems = make([]*types.System, 0, 1)
+		}
+
+		c.preseedSystems = append(c.preseedSystems, p.System)
+	}
+
+	// Validate the preseed configuration.
+	// At this stage we have a complete view of both our and the joiner's preseed configuration.
+	err = p.validate(c.name, c.bootstrap, c.preseedSystems)
+	if err != nil {
+		return nil, err
 	}
 
 	for peer, system := range c.systems {
@@ -766,7 +792,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 	ifaceByPeer := map[string]string{}
 	ovnUnderlayNeeded := false
-	for _, cfg := range p.Systems {
+	for _, cfg := range c.preseedSystems {
 		if cfg.UplinkInterface != "" {
 			ifaceByPeer[cfg.Name] = cfg.UplinkInterface
 		}
@@ -837,7 +863,7 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		// Check the preseed underlay network configuration against the available ifaces.
 		if ovnUnderlayNeeded {
 			assignedSystems := map[string]bool{}
-			for _, sys := range p.Systems {
+			for _, sys := range c.preseedSystems {
 				if sys.UnderlayIP == "" {
 					return nil, fmt.Errorf("Underlay IP is not defined for %q", sys.Name)
 				}
@@ -911,9 +937,9 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 	directCephMatches := map[string]int{}
 	directZFSMatches := map[string]int{}
 	for peer, system := range c.systems {
-		directLocal := DirectStorage{}
-		directCeph := []DirectStorage{}
-		for _, sys := range p.Systems {
+		directLocal := types.DirectStorage{}
+		directCeph := []types.DirectStorage{}
+		for _, sys := range c.preseedSystems {
 			if sys.Name == peer {
 				directLocal = sys.Storage.Local
 				directCeph = sys.Storage.Ceph
@@ -955,8 +981,8 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 	checkFilterZFS := map[string]bool{}
 	checkFilterCeph := map[string]bool{}
-	for _, system := range p.Systems {
-		if (DirectStorage{} == system.Storage.Local) {
+	for _, system := range c.preseedSystems {
+		if (types.DirectStorage{} == system.Storage.Local) {
 			checkFilterZFS[system.Name] = true
 		}
 
