@@ -100,7 +100,7 @@ type ClusterManagerPostStatus struct {
 	MemberStatuses    []StatusDistribution `json:"member_statuses"`
 	InstanceStatuses  []StatusDistribution `json:"instance_statuses"`
 	ServerMetrics     []ServerMetrics      `json:"server_metrics"`
-	UIURL             string               `json:"ui_url"`
+	LXDURL            string               `json:"lxd_url"`
 }
 
 // ClusterManagerJoin represents the join payload sent to cluster manager.
