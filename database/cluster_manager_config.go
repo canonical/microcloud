@@ -24,6 +24,9 @@ const ReverseTunnelKey = "reverse_tunnel"
 // UpdateIntervalDefaultSeconds is the interval for the status update task if none is defined in the database.
 const UpdateIntervalDefaultSeconds = 60
 
+// LXDURLKey is the key for the LXD URL configuration.
+const LXDURLKey = "lxd_url"
+
 // LoadClusterManager loads the cluster manager configuration from the database.
 func LoadClusterManager(state types.State, ctx context.Context, name string) (*ClusterManager, error) {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
@@ -115,6 +118,20 @@ func LoadClusterManagerReverseTunnel(state types.State, ctx context.Context, clu
 	}
 
 	return reverseTunnel, nil
+}
+
+// LoadLXDURL loads the LXD URL configuration from the database.
+func LoadLXDURL(state types.State, ctx context.Context, clusterManagerId int64) (string, error) {
+	lxdURLConfig, err := LoadClusterManagerSingleConfig(state, ctx, clusterManagerId, LXDURLKey)
+	if err != nil {
+		return "", err
+	}
+
+	if lxdURLConfig == nil {
+		return "", api.StatusErrorf(http.StatusNotFound, "LXD URL not found")
+	}
+
+	return lxdURLConfig.Value, nil
 }
 
 // StoreClusterManager stores the cluster manager configuration in the database.
