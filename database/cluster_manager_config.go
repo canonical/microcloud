@@ -176,6 +176,116 @@ func StoreClusterManagerConfig(state types.State, ctx context.Context, name stri
 	return err
 }
 
+// StoreClusterManagerConfigs stores multiple cluster manager configuration key/value pairs
+// in the database within a single transaction.
+func StoreClusterManagerConfigs(state types.State, ctx context.Context, name string, configs map[string]string) error {
+	if len(configs) == 0 {
+		return nil
+	}
+
+	clusterManager, err := LoadClusterManager(state, ctx, name)
+	if err != nil {
+		return err
+	}
+
+	clusterManagerConfig, err := LoadClusterManagerConfigs(state, ctx, clusterManager.ID)
+	if err != nil {
+		return err
+	}
+
+	existingConfigs := make(map[string]ClusterManagerConfig, len(clusterManagerConfig))
+	for _, config := range clusterManagerConfig {
+		existingConfigs[config.Key] = config
+	}
+
+	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		for key, value := range configs {
+			existingConfig, hasExistingConfig := existingConfigs[key]
+
+			if value == "" && hasExistingConfig {
+				// clear
+				err = DeleteClusterManagerConfig(ctx, tx, existingConfig.ID)
+			} else if value != "" && !hasExistingConfig {
+				// create
+				_, err = CreateClusterManagerConfig(ctx, tx, ClusterManagerConfig{
+					ClusterManagerID: clusterManager.ID,
+					Key:              key,
+					Value:            value,
+				})
+			} else if value != "" && hasExistingConfig {
+				// update
+				existingConfig.Value = value
+				err = UpdateClusterManagerConfig(ctx, tx, existingConfig.ID, existingConfig)
+			}
+
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	return err
+}
+
+// storeClusterManagerConfigs applies the given configuration changes for the cluster manager
+// within the given transaction.
+func storeClusterManagerConfigs(ctx context.Context, tx *sql.Tx, clusterManagerID int64, existingConfigs map[string]ClusterManagerConfig, configs map[string]string) error {
+	for key, value := range configs {
+		existingConfig, hasExistingConfig := existingConfigs[key]
+
+		var err error
+		if value == "" && hasExistingConfig {
+			// clear
+			err = DeleteClusterManagerConfig(ctx, tx, existingConfig.ID)
+		} else if value != "" && !hasExistingConfig {
+			// create
+			_, err = CreateClusterManagerConfig(ctx, tx, ClusterManagerConfig{
+				ClusterManagerID: clusterManagerID,
+				Key:              key,
+				Value:            value,
+			})
+		} else if value != "" && hasExistingConfig {
+			// update
+			existingConfig.Value = value
+			err = UpdateClusterManagerConfig(ctx, tx, existingConfig.ID, existingConfig)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// StoreClusterManagerWithConfigs updates the cluster manager record and its configuration
+// key/value pairs atomically within a single transaction.
+// The cluster manager record is only updated when updateRecord is true.
+func StoreClusterManagerWithConfigs(state types.State, ctx context.Context, clusterManager ClusterManager, updateRecord bool, configs map[string]string) error {
+	clusterManagerConfig, err := LoadClusterManagerConfigs(state, ctx, clusterManager.ID)
+	if err != nil {
+		return err
+	}
+
+	existingConfigs := make(map[string]ClusterManagerConfig, len(clusterManagerConfig))
+	for _, config := range clusterManagerConfig {
+		existingConfigs[config.Key] = config
+	}
+
+	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if updateRecord {
+			err := UpdateClusterManager(ctx, tx, clusterManager.ID, clusterManager)
+			if err != nil {
+				return err
+			}
+		}
+
+		return storeClusterManagerConfigs(ctx, tx, clusterManager.ID, existingConfigs, configs)
+	})
+	return err
+}
+
 // SetClusterManagerStatusLastSuccess sets the last successful status time in the database.
 func SetClusterManagerStatusLastSuccess(state types.State, ctx context.Context, name string, successTime time.Time) error {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
