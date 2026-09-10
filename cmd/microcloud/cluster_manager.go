@@ -204,6 +204,7 @@ func (c *cmdClusterManagerGet) command() *cobra.Command {
 	cmd.Example = cli.FormatSection("", `microcloud cluster-manager get addresses
 microcloud cluster-manager get certificate_fingerprint
 microcloud cluster-manager get update_interval_seconds
+microcloud cluster-manager get lxd_url
 microcloud cluster-manager get status_last_success_time
 microcloud cluster-manager get status_last_error_time
 microcloud cluster-manager get status_last_error_response`)
@@ -238,6 +239,12 @@ func (c *cmdClusterManagerGet) run(_ *cobra.Command, args []string) error {
 		fmt.Printf("%s\n", clusterManager.CertificateFingerprint)
 	case "update_interval_seconds":
 		value, ok := clusterManager.Config[database.UpdateIntervalSecondsKey]
+		if ok {
+			fmt.Printf("%s\n", value)
+		}
+
+	case "lxd_url":
+		value, ok := clusterManager.Config[database.LXDURLKey]
 		if ok {
 			fmt.Printf("%s\n", value)
 		}
@@ -303,6 +310,8 @@ func (c *cmdClusterManagerSet) run(_ *cobra.Command, args []string) error {
 		payload.CertificateFingerprint = &value
 	case "update_interval_seconds":
 		payload.UpdateIntervalSeconds = &value
+	case "lxd_url":
+		payload.LXDURL = &value
 	case "reverse_tunnel":
 		err := validate.IsBool(value)
 		if err != nil {
@@ -357,6 +366,9 @@ func (c *cmdClusterManagerUnset) run(_ *cobra.Command, args []string) error {
 	switch key {
 	case "update_interval_seconds":
 		payload.UpdateIntervalSeconds = new("")
+
+	case "lxd_url":
+		payload.LXDURL = new("")
 
 	case "reverse_tunnel":
 		disabled := false
