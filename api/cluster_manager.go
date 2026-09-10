@@ -196,16 +196,17 @@ func clusterManagerPut(state types.State, r *http.Request) types.Response {
 		}
 	}
 
+	changedConfigs := make(map[string]string)
 	if args.UpdateIntervalSeconds != nil {
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateIntervalSeconds)
-		if err != nil {
-			return types.SmartError(err)
-		}
+		changedConfigs[database.UpdateIntervalSecondsKey] = *args.UpdateIntervalSeconds
 	}
 
 	if args.ReverseTunnel != nil {
-		reverseTunnelValue := strconv.FormatBool(*args.ReverseTunnel)
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.ReverseTunnelKey, reverseTunnelValue)
+		changedConfigs[database.ReverseTunnelKey] = strconv.FormatBool(*args.ReverseTunnel)
+	}
+
+	if len(changedConfigs) > 0 {
+		err = database.StoreClusterManagerConfigs(state, r.Context(), name, changedConfigs)
 		if err != nil {
 			return types.SmartError(err)
 		}
