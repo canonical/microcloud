@@ -60,6 +60,10 @@ type ClusterManagerPut struct {
 	// Enables or disables the reverse tunnel to the cluster manager
 	// Example: true, false
 	ReverseTunnel *bool `json:"reverse_tunnel" yaml:"reverse_tunnel"`
+
+	// The URL of LXD
+	// Example: https://example.com:8443
+	LXDURL *string `json:"lxd_url" yaml:"lxd_url"`
 }
 
 // StatusDistribution represents the distribution of items.
