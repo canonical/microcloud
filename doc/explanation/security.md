@@ -37,7 +37,27 @@ MicroCloud adheres to the [Ubuntu disclosure policy](https://ubuntu.com/security
 
 MicroCloud manages cluster membership and encrypted communication through mTLS and certificate-based identities. When a machine joins a cluster, it verifies the cluster’s certificate fingerprint and receives the complete set of member certificates, establishing a consistent trust store.
 
-During the join process, MicroCloud uses an **explicit trust establishment mechanism** designed to prevent secret leakage and mitigate {spellexception}`man-in-the-middle` attacks. This mechanism uses a Hash-Based Message Authentication Code (HMAC) to sign the messages exchanged between the machine that initiates the join process and the joining peers. The shared secret used for joining is never transmitted over the network. The join process also enforces rate limits and session timeouts to reduce the risk of replay and brute-force attacks. For further information, refer to the [public specification](https://discourse.ubuntu.com/t/explicit-trust-establishment-mechanism-for-microcloud/44261).
+During the join process, MicroCloud uses an **explicit trust establishment mechanism** designed to prevent secret leakage and mitigate {spellexception}`man-in-the-middle` attacks. This mechanism uses a Hash-Based Message Authentication Code (HMAC) to sign the messages exchanged between the machine that initiates the join process and the joining peers.
+
+```{figure} /images/microcloud_secure_join.svg
+:alt: A diagram of the MicroCloud join process
+:align: center
+:width: 75%
+
+MicroCloud join process
+```
+
+MicroCloud uses a passphrase to generate the HMAC. If you begin the join process in {ref}`interactive mode <howto-initialize-interactive>`, then MicroCloud generates the passphrase as a concatenation of four words randomly selected from the [EFF short list](https://www.eff.org/deeplinks/2016/07/new-wordlists-random-passphrases) of words with unique three-character prefixes. Using this list means that you only need to type the first three characters of each word for the remainder to be guessed with auto-completion. MicroCloud displays this passphrase on the member initiating the process, and you must input the passphrase on the joining member. If, however, you use a {ref}`preseed file <ref-preseed>` to automate the initialization process, then you must specify the passphrase yourself.
+
+On the joining member, MicroCloud uses the [Argon2 function](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-argon2-03#section-3.1) to generate a key from the passphrase and a random salt.[^1] The joiner then sends a request to the initiator that contains the joiner's public certificate, the random salt, and an HMAC created from the Argon2 key and the body of the request. The initiator uses the passphrase to validate the HMAC and, if the HMAC is valid, adds the joiner's certificate to a temporary trust store. The initiator then sends its own public certificate and an HMAC back to the joiner, which similarly uses the passphrase to validate the HMAC.
+
+[^1]: MicroCloud follows the second recommended option for Argon2 [parameter choice](https://www.rfc-editor.org/info/rfc9106/#name-parameter-choice) proposed by RFC 9106: {math}`t=3` iterations, {math}`p=4` lanes, {math}`m=2^{16}` KiB (64 MiB of RAM), and 256-bit tag size.
+
+Once the initiator and joiner have exchanged certificates, they can establish mTLS and use that channel to form the MicroCloud, LXD, MicroCeph, and MicroOVN clusters. The MicroCloud, MicroCeph, and MicroOVN Dqlite clusters are created with [MicroCluster](https://github.com/canonical/microcluster) and the LXD cluster is set up with {ref}`Dqlite <lxd:dqlite-internals>` alone.
+
+The passphrase used for joining is never transmitted over the network. The join process also enforces rate limits and session timeouts to reduce the risk of replay and brute-force attacks.
+
+For further information about how MicroCloud establishes trust, refer to the [public specification](https://discourse.ubuntu.com/t/explicit-trust-establishment-mechanism-for-microcloud/44261).
 
 ### Logging
 
