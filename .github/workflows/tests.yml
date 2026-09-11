@@ -170,7 +170,8 @@ jobs:
           - "terraform_demo"
         # Set of versions to use for the matrix tests.
         os: ["24.04"]
-        microceph: ["tentacle/edge"]
+        # Can be moved back to "tentacle/edge" once https://bugs.launchpad.net/ubuntu/+source/ceph/+bug/2166817 is fixed and propagated in the LXD snap.
+        microceph: ["tentacle/stable"]
         microovn: ["latest/edge"]
         lxd:
           # Both LXD 5.21 and 6 are supported.
