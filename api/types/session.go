@@ -30,6 +30,8 @@ type Session struct {
 	Accepted             bool                   `json:"accepted,omitempty"`
 	LookupTimeout        time.Duration          `json:"lookup_timeout,omitempty"`
 	Error                string                 `json:"error,omitempty"`
+	// System carries the local system's own preseed configuration.
+	System *System `json:"system,omitempty"`
 }
 
 // SessionJoinPost represents a request made to join an active session.
@@ -39,6 +41,14 @@ type SessionJoinPost struct {
 	Address     string                 `json:"address" yaml:"address"`
 	Certificate string                 `json:"certificate" yaml:"certificate"`
 	Services    map[ServiceType]string `json:"services" yaml:"services"`
+	// System carries the joiner's own preseed configuration.
+	// It gets sent to the initiator in response to confirming the intent with the joiner.
+	System *System `json:"system,omitempty" yaml:"system,omitempty"`
+}
+
+// SessionJoinConfirmation represents the joiner's response to the initiator's confirmation of the join intent.
+type SessionJoinConfirmation struct {
+	System *System `json:"system,omitempty"`
 }
 
 // SessionStopPut represents a request made to stop an active session.
