@@ -1,0 +1,23 @@
+# LXD remote corresponding to the MicroCloud deployment to test.
+remote = "mc"
+
+# LXD remote to fetch source images from
+image_remote = "pcr-d"
+
+# LXD project to cache source images into. Only needed when `project` has features.images=false
+# (here, canonical-testing shares images with default).
+image_project = "default"
+
+# Whether to copy the source image's aliases to the cached image copy
+# Set to true if image_remote's images carry aliases
+copy_image_aliases = false
+
+# LXD project/profile to use. By default, a project and profile named e2e-testing
+# are created. Can be configured to reuse an existing project/profile by providing
+# their names here; the project and profile will be created only if they do not already exist.
+project = "canonical-testing"
+profile = "canonical-testing-profile"
+
+# Number of containers/VMs to create per cluster member.
+# containers_per_host = 9
+# vms_per_host = 3
