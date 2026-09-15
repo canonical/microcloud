@@ -24,6 +24,9 @@ const ReverseTunnelKey = "reverse_tunnel"
 // UpdateIntervalDefaultSeconds is the interval for the status update task if none is defined in the database.
 const UpdateIntervalDefaultSeconds = 60
 
+// LXDURLKey is the key for the LXD URL configuration.
+const LXDURLKey = "lxd_url"
+
 // LoadClusterManager loads the cluster manager configuration from the database.
 func LoadClusterManager(state types.State, ctx context.Context, name string) (*ClusterManager, error) {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
@@ -117,6 +120,20 @@ func LoadClusterManagerReverseTunnel(state types.State, ctx context.Context, clu
 	return reverseTunnel, nil
 }
 
+// LoadLXDURL loads the LXD URL configuration from the database.
+func LoadLXDURL(state types.State, ctx context.Context, clusterManagerId int64) (string, error) {
+	lxdURLConfig, err := LoadClusterManagerSingleConfig(state, ctx, clusterManagerId, LXDURLKey)
+	if err != nil {
+		return "", err
+	}
+
+	if lxdURLConfig == nil {
+		return "", api.StatusErrorf(http.StatusNotFound, "LXD URL not found")
+	}
+
+	return lxdURLConfig.Value, nil
+}
+
 // StoreClusterManager stores the cluster manager configuration in the database.
 func StoreClusterManager(state types.State, ctx context.Context, clusterManager ClusterManager) error {
 	err := state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -135,8 +152,13 @@ func RemoveClusterManager(state types.State, ctx context.Context, clusterManager
 	return err
 }
 
-// StoreClusterManagerConfig stores the cluster manager configuration in the database.
-func StoreClusterManagerConfig(state types.State, ctx context.Context, name string, key string, value string) error {
+// StoreClusterManagerConfigs stores multiple cluster manager configuration key/value pairs
+// in the database within a single transaction.
+func StoreClusterManagerConfigs(state types.State, ctx context.Context, name string, configs map[string]string) error {
+	if len(configs) == 0 {
+		return nil
+	}
+
 	clusterManager, err := LoadClusterManager(state, ctx, name)
 	if err != nil {
 		return err
@@ -147,31 +169,37 @@ func StoreClusterManagerConfig(state types.State, ctx context.Context, name stri
 		return err
 	}
 
-	var existingConfig *ClusterManagerConfig = nil
+	existingConfigs := make(map[string]ClusterManagerConfig, len(clusterManagerConfig))
 	for _, config := range clusterManagerConfig {
-		if config.Key == key {
-			existingConfig = &config
-		}
+		existingConfigs[config.Key] = config
 	}
 
 	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if value == "" && existingConfig != nil {
-			// clear
-			err = DeleteClusterManagerConfig(ctx, tx, existingConfig.ID)
-		} else if value != "" && existingConfig == nil {
-			// create
-			_, err = CreateClusterManagerConfig(ctx, tx, ClusterManagerConfig{
-				ClusterManagerID: clusterManager.ID,
-				Key:              key,
-				Value:            value,
-			})
-		} else if value != "" && existingConfig != nil {
-			// update
-			existingConfig.Value = value
-			err = UpdateClusterManagerConfig(ctx, tx, existingConfig.ID, *existingConfig)
+		for key, value := range configs {
+			existingConfig, hasExistingConfig := existingConfigs[key]
+
+			if value == "" && hasExistingConfig {
+				// clear
+				err = DeleteClusterManagerConfig(ctx, tx, existingConfig.ID)
+			} else if value != "" && !hasExistingConfig {
+				// create
+				_, err = CreateClusterManagerConfig(ctx, tx, ClusterManagerConfig{
+					ClusterManagerID: clusterManager.ID,
+					Key:              key,
+					Value:            value,
+				})
+			} else if value != "" && hasExistingConfig {
+				// update
+				existingConfig.Value = value
+				err = UpdateClusterManagerConfig(ctx, tx, existingConfig.ID, existingConfig)
+			}
+
+			if err != nil {
+				return err
+			}
 		}
 
-		return err
+		return nil
 	})
 	return err
 }

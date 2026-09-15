@@ -161,6 +161,26 @@ func clusterManagerPost(sh *service.Handler) func(state types.State, r *http.Req
 	}
 }
 
+// validateLXDURL checks that value is an absolute HTTP or HTTPS URL with a host.
+// A bare host or IP (e.g. "192.168.1.10:8443") without an "http://" or "https://" prefix is
+// rejected.
+func validateLXDURL(value string) error {
+	u, err := url.ParseRequestURI(value)
+	if err != nil {
+		return err
+	}
+
+	if u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("URL %q is missing a scheme or host", value)
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("URL scheme %q must be http or https", value)
+	}
+
+	return nil
+}
+
 // clusterManagerPut updates the cluster manager configuration.
 func clusterManagerPut(state types.State, r *http.Request) types.Response {
 	name, err := nameFromPath(r)
@@ -196,16 +216,28 @@ func clusterManagerPut(state types.State, r *http.Request) types.Response {
 		}
 	}
 
-	if args.UpdateIntervalSeconds != nil {
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateIntervalSeconds)
-		if err != nil {
-			return types.SmartError(err)
+	changedConfigs := make(map[string]string)
+	if args.LXDURL != nil {
+		if *args.LXDURL != "" {
+			err = validateLXDURL(*args.LXDURL)
+			if err != nil {
+				return types.BadRequest(fmt.Errorf("Invalid lxd_url: %w", err))
+			}
 		}
+
+		changedConfigs[database.LXDURLKey] = *args.LXDURL
+	}
+
+	if args.UpdateIntervalSeconds != nil {
+		changedConfigs[database.UpdateIntervalSecondsKey] = *args.UpdateIntervalSeconds
 	}
 
 	if args.ReverseTunnel != nil {
-		reverseTunnelValue := strconv.FormatBool(*args.ReverseTunnel)
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.ReverseTunnelKey, reverseTunnelValue)
+		changedConfigs[database.ReverseTunnelKey] = strconv.FormatBool(*args.ReverseTunnel)
+	}
+
+	if len(changedConfigs) > 0 {
+		err = database.StoreClusterManagerConfigs(state, r.Context(), name, changedConfigs)
 		if err != nil {
 			return types.SmartError(err)
 		}
