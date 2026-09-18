@@ -20,7 +20,7 @@ This section highlights new and improved features in this release.
 The integrated doc set was moved to [canonical.com/microcloud/docs](https://canonical.com/microcloud/docs/).
 It is now located alongside MicroCloud's [product page](https://canonical.com/microcloud).
 
-The changes were split across several PRs, see:
+The changes were split across several pull requests, see:
 
 * https://github.com/canonical/microcloud/pull/1466
 * https://github.com/canonical/microcloud/pull/1397
