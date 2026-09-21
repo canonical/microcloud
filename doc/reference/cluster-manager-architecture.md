@@ -131,6 +131,7 @@ Due to the mTLS requirement, the TCP load balancer passes through TLS traffic an
 The `db-leader` of each connected MicroCloud cluster sends periodic heartbeats to the Cluster Manager, along with data about resource usage and availability. A heartbeat update includes the following information:
 
 - Cluster level details including:
+  - The cluster UUID (`cluster_uuid`), which is the cluster-wide `volatile.uuid` from the LXD server configuration
   - Number of cluster-wide instances and distribution of instance status (such as how many instances are stopped or started)
   - Number of cluster members and distribution of member status (number of members online, number of members in error status, and so on)
   - CPU, memory, and disk utilization for each cluster, as aggregated totals across all cluster members
