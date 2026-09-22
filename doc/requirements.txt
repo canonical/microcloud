@@ -27,12 +27,12 @@ sphinx-sitemap~=2.9
 sphinx-llm==1.1.0
 
 # Vale dependencies
-vale~=3.20
+vale~=3.21
 
 # MicroCloud custom dependencies
-gitpython==3.1.61
+gitpython==3.1.62
 linkify-it-py==2.2.0
 pyyaml==6.0.3
 sphinx-copybutton==0.5.2
 watchfiles==1.2.0
-sphinx-structured-toc==0.1.1
+sphinx-structured-toc==0.2.0
