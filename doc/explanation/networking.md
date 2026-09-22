@@ -76,7 +76,7 @@ A dedicated underlay network serves as the physical infrastructure over which th
 
 ### Alternatives
 
-If you decide to not use MicroOVN, MicroCloud falls back on the [Ubuntu fan](https://wiki.ubuntu.com/FanNetworking) for basic networking. MicroCloud will still be usable, but you will see some limitations, including:
+If you decide to not use MicroOVN, MicroCloud falls back on the [Ubuntu fan](https://github.com/ubuntu/wiki-archives/blob/main/UbuntuWiki/F/FanNetworking.wiki) for basic networking. MicroCloud will still be usable, but you will see some limitations, including:
 
 - When you migrate an instance from one cluster member to another, its IP address changes.
 - Egress traffic leaves from the local cluster member (while OVN provides shared egress).
