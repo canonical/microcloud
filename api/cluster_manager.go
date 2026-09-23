@@ -161,6 +161,26 @@ func clusterManagerPost(sh *service.Handler) func(state types.State, r *http.Req
 	}
 }
 
+// validateLXDURL checks that value is an absolute HTTP or HTTPS URL with a host.
+// A bare host or IP (e.g. "192.168.1.10:8443") without an "http://" or "https://" prefix is
+// rejected.
+func validateLXDURL(value string) error {
+	if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
+		return fmt.Errorf("URL %q must be an absolute URL starting with \"http://\" or \"https://\"", value)
+	}
+
+	u, err := url.ParseRequestURI(value)
+	if err != nil {
+		return err
+	}
+
+	if u.Hostname() == "" {
+		return fmt.Errorf("URL %q is missing a host", value)
+	}
+
+	return nil
+}
+
 // clusterManagerPut updates the cluster manager configuration.
 func clusterManagerPut(state types.State, r *http.Request) types.Response {
 	name, err := nameFromPath(r)
@@ -189,23 +209,30 @@ func clusterManagerPut(state types.State, r *http.Request) types.Response {
 		clusterManager.CertificateFingerprint = *args.CertificateFingerprint
 	}
 
-	if hasChangedAddress || hasChangedFingerprint {
-		err = database.StoreClusterManager(state, r.Context(), *clusterManager)
-		if err != nil {
-			return types.SmartError(err)
+	changedConfigs := make(map[string]string)
+	if args.LXDURL != nil {
+		lxdURL := strings.TrimSpace(*args.LXDURL)
+		if lxdURL != "" {
+			err = validateLXDURL(lxdURL)
+			if err != nil {
+				return types.BadRequest(fmt.Errorf("Invalid lxd_url: %w", err))
+			}
 		}
+
+		changedConfigs[database.LXDURLKey] = lxdURL
 	}
 
 	if args.UpdateIntervalSeconds != nil {
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.UpdateIntervalSecondsKey, *args.UpdateIntervalSeconds)
-		if err != nil {
-			return types.SmartError(err)
-		}
+		changedConfigs[database.UpdateIntervalSecondsKey] = *args.UpdateIntervalSeconds
 	}
 
 	if args.ReverseTunnel != nil {
-		reverseTunnelValue := strconv.FormatBool(*args.ReverseTunnel)
-		err = database.StoreClusterManagerConfig(state, r.Context(), name, database.ReverseTunnelKey, reverseTunnelValue)
+		changedConfigs[database.ReverseTunnelKey] = strconv.FormatBool(*args.ReverseTunnel)
+	}
+
+	hasChangedRecord := hasChangedAddress || hasChangedFingerprint
+	if hasChangedRecord || len(changedConfigs) > 0 {
+		err = database.StoreClusterManagerWithConfigs(state, r.Context(), *clusterManager, hasChangedRecord, changedConfigs)
 		if err != nil {
 			return types.SmartError(err)
 		}

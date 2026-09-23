@@ -87,6 +87,49 @@ PYEOF"
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set update_interval_seconds 60
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show | grep "certificate_fingerprint:" -q
 
+  echo "==> LXD URL config for cluster manager"
+  [ -z "$(lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url)" ]
+
+  echo "==> Accept lxd_url values with an IP host"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url https://192.168.1.10:8443
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://192.168.1.10:8443" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show | grep -F "lxd_url: https://192.168.1.10:8443" -q
+  
+  echo "==> Accept http lxd_url values"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url http://example.com:8443
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "http://example.com:8443" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show | grep -F "lxd_url: http://example.com:8443" -q
+
+  echo "==> Accept https lxd_url values"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url https://example.com:8443
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show | grep "lxd_url: https://example.com:8443" -q
+
+  echo "==> Reject lxd_url values that are not absolute URLs"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url example.com/ui 2>&1 | grep -F "Invalid lxd_url: URL \"example.com/ui\" must be an absolute URL starting with \"http://\" or \"https://\"" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+
+  echo "==> Reject bare IP/host:port lxd_url values without a scheme"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url 192.168.1.10:8443 2>&1 | grep -F "Invalid lxd_url: URL \"192.168.1.10:8443\" must be an absolute URL starting with \"http://\" or \"https://\"" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+
+  echo "==> Reject lxd_url values without an absolute http(s) prefix"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url /path 2>&1 | grep -F "Invalid lxd_url: URL \"/path\" must be an absolute URL starting with \"http://\" or \"https://\"" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url http:/path 2>&1 | grep -F "Invalid lxd_url: URL \"http:/path\" must be an absolute URL starting with \"http://\" or \"https://\"" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+
+  echo "==> Reject lxd_url values with a port but no hostname"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url https://:8443 2>&1 | grep -F "Invalid lxd_url: URL \"https://:8443\" is missing a host" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+
+  echo "==> Reject lxd_url values with a disallowed scheme"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url ftp://example.com 2>&1 | grep -F "Invalid lxd_url: URL \"ftp://example.com\" must be an absolute URL starting with \"http://\" or \"https://\"" -q
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url | grep -F "https://example.com:8443" -q
+
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager unset lxd_url
+  [ -z "$(lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url)" ]
+
   echo "==> Delete cluster manager"
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager delete
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show 2>&1 | grep "Error: Cluster manager not found" -q

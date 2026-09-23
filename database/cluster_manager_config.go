@@ -24,6 +24,9 @@ const ReverseTunnelKey = "reverse_tunnel"
 // UpdateIntervalDefaultSeconds is the interval for the status update task if none is defined in the database.
 const UpdateIntervalDefaultSeconds = 60
 
+// LXDURLKey is the key for the LXD URL configuration.
+const LXDURLKey = "lxd_url"
+
 // LoadClusterManager loads the cluster manager configuration from the database.
 func LoadClusterManager(state types.State, ctx context.Context, name string) (*ClusterManager, error) {
 	clusterManager, err := loadClusterManagerFromDb(ctx, state, name)
@@ -117,13 +120,18 @@ func LoadClusterManagerReverseTunnel(state types.State, ctx context.Context, clu
 	return reverseTunnel, nil
 }
 
-// StoreClusterManager stores the cluster manager configuration in the database.
-func StoreClusterManager(state types.State, ctx context.Context, clusterManager ClusterManager) error {
-	err := state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		err := UpdateClusterManager(ctx, tx, clusterManager.ID, clusterManager)
-		return err
-	})
-	return err
+// LoadLXDURL loads the LXD URL configuration from the database.
+func LoadLXDURL(state types.State, ctx context.Context, clusterManagerId int64) (string, error) {
+	lxdURLConfig, err := LoadClusterManagerSingleConfig(state, ctx, clusterManagerId, LXDURLKey)
+	if err != nil {
+		return "", err
+	}
+
+	if lxdURLConfig == nil {
+		return "", api.StatusErrorf(http.StatusNotFound, "LXD URL not found")
+	}
+
+	return lxdURLConfig.Value, nil
 }
 
 // RemoveClusterManager removes the cluster manager configuration from the database.
@@ -135,43 +143,60 @@ func RemoveClusterManager(state types.State, ctx context.Context, clusterManager
 	return err
 }
 
-// StoreClusterManagerConfig stores the cluster manager configuration in the database.
-func StoreClusterManagerConfig(state types.State, ctx context.Context, name string, key string, value string) error {
-	clusterManager, err := LoadClusterManager(state, ctx, name)
-	if err != nil {
-		return err
+// storeClusterManagerConfigs applies the given configuration changes for the cluster manager
+// within the given transaction.
+func storeClusterManagerConfigs(ctx context.Context, tx *sql.Tx, clusterManagerID int64, existingConfigs map[string]ClusterManagerConfig, configs map[string]string) error {
+	for key, value := range configs {
+		existingConfig, hasExistingConfig := existingConfigs[key]
+
+		var err error
+		if value == "" && hasExistingConfig {
+			// clear
+			err = DeleteClusterManagerConfig(ctx, tx, existingConfig.ID)
+		} else if value != "" && !hasExistingConfig {
+			// create
+			_, err = CreateClusterManagerConfig(ctx, tx, ClusterManagerConfig{
+				ClusterManagerID: clusterManagerID,
+				Key:              key,
+				Value:            value,
+			})
+		} else if value != "" && hasExistingConfig {
+			// update
+			existingConfig.Value = value
+			err = UpdateClusterManagerConfig(ctx, tx, existingConfig.ID, existingConfig)
+		}
+
+		if err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+// StoreClusterManagerWithConfigs updates the cluster manager record and its configuration
+// key/value pairs atomically within a single transaction.
+// The cluster manager record is only updated when updateRecord is true.
+func StoreClusterManagerWithConfigs(state types.State, ctx context.Context, clusterManager ClusterManager, updateRecord bool, configs map[string]string) error {
 	clusterManagerConfig, err := LoadClusterManagerConfigs(state, ctx, clusterManager.ID)
 	if err != nil {
 		return err
 	}
 
-	var existingConfig *ClusterManagerConfig = nil
+	existingConfigs := make(map[string]ClusterManagerConfig, len(clusterManagerConfig))
 	for _, config := range clusterManagerConfig {
-		if config.Key == key {
-			existingConfig = &config
-		}
+		existingConfigs[config.Key] = config
 	}
 
 	err = state.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if value == "" && existingConfig != nil {
-			// clear
-			err = DeleteClusterManagerConfig(ctx, tx, existingConfig.ID)
-		} else if value != "" && existingConfig == nil {
-			// create
-			_, err = CreateClusterManagerConfig(ctx, tx, ClusterManagerConfig{
-				ClusterManagerID: clusterManager.ID,
-				Key:              key,
-				Value:            value,
-			})
-		} else if value != "" && existingConfig != nil {
-			// update
-			existingConfig.Value = value
-			err = UpdateClusterManagerConfig(ctx, tx, existingConfig.ID, *existingConfig)
+		if updateRecord {
+			err := UpdateClusterManager(ctx, tx, clusterManager.ID, clusterManager)
+			if err != nil {
+				return err
+			}
 		}
 
-		return err
+		return storeClusterManagerConfigs(ctx, tx, clusterManager.ID, existingConfigs, configs)
 	})
 	return err
 }
