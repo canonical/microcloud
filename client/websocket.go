@@ -82,8 +82,13 @@ func NewWebsocketGateway(ctx context.Context, conn *websocket.Conn) *WebsocketGa
 			decoder.DisallowUnknownFields()
 			err = decoder.Decode(&controlClose)
 			if err == nil {
-				// Cancel the inner context with the respective error.
-				defer gwCancel(errors.New(controlClose.ControlMessage))
+				var closeErr error
+				if controlClose.ControlMessage != "" {
+					closeErr = errors.New(controlClose.ControlMessage)
+				}
+
+				// Cancel the inner context too with the respective error.
+				defer gwCancel(closeErr)
 				return
 			}
 
@@ -109,8 +114,16 @@ func (w *WebsocketGateway) Receive() <-chan []byte {
 func (w *WebsocketGateway) ReceiveWithContext(ctx context.Context, v any) error {
 	var err error
 	select {
-	case bytes := <-w.Receive():
-		err = json.Unmarshal(bytes, v)
+	case data, ok := <-w.Receive():
+		if !ok {
+			if w.ctx.Err() != nil {
+				return context.Cause(w.ctx)
+			}
+
+			return errors.New("WebSocket connection closed")
+		}
+
+		err = json.Unmarshal(data, v)
 	case <-w.ctx.Done():
 		err = context.Cause(w.ctx)
 	case <-ctx.Done():
@@ -131,20 +144,20 @@ func (w *WebsocketGateway) Write(v any) error {
 	w.writeLock.Lock()
 	defer w.writeLock.Unlock()
 
-	if w.ctx.Err() != nil {
-		return context.Cause(w.ctx)
-	}
-
 	return w.conn.WriteJSON(v)
 }
 
 // WriteClose sends our websocket control close message.
-// Unlike the actual websocket control close message this supports message longer than 125 bytes
+// Unlike the actual websocket control close message this supports messages longer than 125 bytes
 // as well as special characters.
-// It waits for the other side to hang up or the gateway's context being cancelled.
 func (w *WebsocketGateway) WriteClose(err error) error {
+	var msg string
+	if err != nil {
+		msg = err.Error()
+	}
+
 	writeErr := w.Write(ControlClose{
-		ControlMessage: err.Error(),
+		ControlMessage: msg,
 	})
 	if writeErr != nil {
 		return fmt.Errorf("Failed to write control message: %w", writeErr)
