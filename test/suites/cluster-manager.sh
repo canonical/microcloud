@@ -42,15 +42,25 @@ while True:
     data = b''
     while b'\r\n\r\n' not in data:
         data += conn.recv(4096)
+    head, _, rest = data.partition(b'\r\n\r\n')
     headers = {}
-    lines = data.split(b'\r\n')
+    lines = head.split(b'\r\n')
     request_line = lines[0].decode()
     for line in lines[1:]:
         if b':' in line:
             k, v = line.split(b':', 1)
             headers[k.strip().lower()] = v.strip()
     path = request_line.split(' ')[1] if ' ' in request_line else ''
-    if headers.get(b'upgrade', b'').lower() == b'websocket' and path == '/1.0/remote-cluster/ws':
+    if path == '/1.0/remote-cluster/status':
+        length = int(headers.get(b'content-length', b'0').decode())
+        body = rest
+        while len(body) < length:
+            body += conn.recv(4096)
+        with open('status_hits', 'a') as f:
+            f.write(body[:length].decode() + '\n')
+        conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n')
+        import time; time.sleep(1)
+    elif headers.get(b'upgrade', b'').lower() == b'websocket' and path == '/1.0/remote-cluster/ws':
         key = headers.get(b'sec-websocket-key', b'').decode()
         accept = base64.b64encode(hashlib.sha1((key + WS_MAGIC).encode()).digest()).decode()
         response = (
@@ -86,6 +96,34 @@ PYEOF"
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager unset update_interval_seconds
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set update_interval_seconds 60
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show | grep "certificate_fingerprint:" -q
+
+  echo "==> Heartbeat status message includes the cluster UUID"
+  expected_uuid="$(lxc exec micro01 -- lxc query /1.0 | jq -r '.config["volatile.uuid"]')"
+  if [ -z "${expected_uuid}" ] || [ "${expected_uuid}" = "null" ]; then
+    echo "ERROR: Could not read volatile.uuid from LXD server config"
+    exit 1
+  fi
+
+  # Shorten the interval so heartbeats are sent promptly. The first heartbeat may
+  # still take up to one default interval (60s) after joining.
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set update_interval_seconds 5
+  for _i in $(seq 1 80); do
+    if lxc exec micro01 -- test -s status_hits 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+  if ! lxc exec micro01 -- test -s status_hits; then
+    echo "ERROR: Dummy cluster manager never received a heartbeat status message"
+    exit 1
+  fi
+
+  if ! lxc exec micro01 -- grep -q "\"cluster_uuid\":\"${expected_uuid}\"" status_hits; then
+    echo "ERROR: Heartbeat status message does not contain the expected cluster UUID"
+    exit 1
+  fi
+
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set update_interval_seconds 60
 
   echo "==> Delete cluster manager"
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager delete

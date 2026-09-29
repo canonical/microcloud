@@ -104,6 +104,19 @@ func sendClusterManagerStatusMessage(ctx context.Context, sh *service.Handler, s
 		return nextUpdate
 	}
 
+	server, _, err := lxdClient.GetServer()
+	if err != nil {
+		logger.Error("Failed to get LXD server info", logger.Ctx{"err": err})
+		return nextUpdate
+	}
+
+	clusterUUID, ok := server.Config["volatile.uuid"].(string)
+	if !ok || clusterUUID == "" {
+		logger.Warn("LXD server config does not contain a volatile.uuid, sending status message without cluster UUID")
+	}
+
+	payload.ClusterUUID = clusterUUID
+
 	err = enrichInstanceMetrics(lxdClient, &payload)
 	if err != nil {
 		logger.Error("Failed to enrich instance metrics", logger.Ctx{"err": err})
