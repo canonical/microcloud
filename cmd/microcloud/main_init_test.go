@@ -1,10 +1,20 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 
+	"github.com/canonical/lxd/shared"
 	lxdAPI "github.com/canonical/lxd/shared/api"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
+	"github.com/canonical/microcloud/microcloud/api/types"
 	"github.com/canonical/microcloud/microcloud/multicast"
 	"github.com/canonical/microcloud/microcloud/service"
 )
@@ -224,5 +234,195 @@ func TestValidateSystemsMultiSystem(t *testing.T) {
 	err = cfg.validateSystems(handler)
 	if err == nil {
 		t.Fatalf("sys4 with conflicting management IP and ipv6.ovn.ranges passed validation")
+	}
+}
+
+// joinTracker records the tokens issued to peers and the peers that have joined.
+// It checks that a peer's tokens are only issued once every peer before it has joined.
+type joinTracker struct {
+	t *testing.T
+
+	mu     sync.Mutex
+	tokens map[string]string // Token to the peer it was issued for.
+	issued map[string]int    // Peer to the number of tokens issued for it.
+	joined map[string]bool
+}
+
+// issue records a token for the peer and returns it.
+func (j *joinTracker) issue(serviceType types.ServiceType, peer string) string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if j.joined[peer] {
+		j.t.Errorf("Issued %s token for peer %q after it joined", serviceType, peer)
+	}
+
+	token := fmt.Sprintf("%s-%s", serviceType, peer)
+	j.tokens[token] = peer
+	j.issued[peer]++
+
+	return token
+}
+
+// members returns the local system and the peers that have joined.
+func (j *joinTracker) members() map[string]string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	members := map[string]string{"local": "10.0.0.1"}
+	for peer := range j.joined {
+		members[peer] = peer
+	}
+
+	return members
+}
+
+// ServeHTTP answers the join request that waitForJoin sends to a peer.
+// The peer is told apart by the tokens it was asked to join with.
+func (j *joinTracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fail := func(format string, args ...any) {
+		j.t.Errorf(format, args...)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(lxdAPI.Response{Type: lxdAPI.ErrorResponse, Code: http.StatusBadRequest, Error: fmt.Sprintf(format, args...)})
+	}
+
+	path := "/" + string(types.APIVersion) + "/services"
+	if r.Method != http.MethodPut || r.URL.Path != path {
+		fail("Unexpected join request %s %s", r.Method, r.URL.Path)
+		return
+	}
+
+	var cfg types.ServicesPut
+	err := json.NewDecoder(r.Body).Decode(&cfg)
+	if err != nil {
+		fail("Failed to decode join request: %v", err)
+		return
+	}
+
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	peer := ""
+	for _, token := range cfg.Tokens {
+		tokenPeer, ok := j.tokens[token.JoinToken]
+		if !ok || (peer != "" && tokenPeer != peer) {
+			fail("Join request carried %s token %q that was not issued for the joining peer", token.Service, token.JoinToken)
+			return
+		}
+
+		peer = tokenPeer
+	}
+
+	if peer == "" {
+		fail("Join request carried no tokens")
+		return
+	}
+
+	if j.joined[peer] {
+		fail("Peer %q joined twice", peer)
+		return
+	}
+
+	// Only the joining peer and the peers that already joined may have tokens.
+	for tokenPeer := range j.issued {
+		if tokenPeer != peer && !j.joined[tokenPeer] {
+			j.t.Errorf("Token for peer %q was issued before peer %q joined", tokenPeer, peer)
+		}
+	}
+
+	j.joined[peer] = true
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(lxdAPI.Response{Type: lxdAPI.SyncResponse, Status: "Success", StatusCode: http.StatusOK, Metadata: json.RawMessage("null")})
+}
+
+// tokenTestService is a service whose tokens and cluster members are kept by a joinTracker.
+type tokenTestService struct {
+	service.Service
+
+	serviceType types.ServiceType
+	tracker     *joinTracker
+}
+
+func (s *tokenTestService) Type() types.ServiceType {
+	return s.serviceType
+}
+
+func (s *tokenTestService) IssueToken(ctx context.Context, peer string) (string, error) {
+	return s.tracker.issue(s.serviceType, peer), nil
+}
+
+func (s *tokenTestService) DeleteToken(ctx context.Context, tokenName string, address string) error {
+	return nil
+}
+
+func (s *tokenTestService) ClusterMembers(ctx context.Context) (map[string]string, error) {
+	return s.tracker.members(), nil
+}
+
+func TestAddPeersIssuesTokensBeforeEachJoin(t *testing.T) {
+	serviceTypes := []types.ServiceType{types.LXD, types.MicroCeph, types.MicroOVN}
+	peers := []string{"peer1", "peer2", "peer3", "peer4", "peer5"}
+
+	tracker := &joinTracker{t: t, tokens: map[string]string{}, issued: map[string]int{}, joined: map[string]bool{}}
+
+	// The peers answer join requests from a server presenting the cluster certificate in the state directory,
+	// which is what MicroCloud verifies peers against once they are members.
+	stateDir := t.TempDir()
+	clusterCert, err := shared.KeyPairAndCA(stateDir, string(microTypes.ClusterCertificateName), shared.CertServer, shared.CertOptions{})
+	if err != nil {
+		t.Fatalf("Failed to generate cluster certificate: %v", err)
+	}
+
+	server := httptest.NewUnstartedServer(tracker)
+	server.TLS = &tls.Config{Certificates: []tls.Certificate{clusterCert.KeyPair()}}
+	server.StartTLS()
+	t.Cleanup(server.Close)
+
+	cloud, err := service.NewCloudService("local", "10.0.0.1", stateDir)
+	if err != nil {
+		t.Fatalf("Failed to create MicroCloud service: %v", err)
+	}
+
+	handler := &service.Handler{Name: "local", Services: map[types.ServiceType]service.Service{types.MicroCloud: cloud}}
+	for _, serviceType := range serviceTypes {
+		handler.Services[serviceType] = &tokenTestService{serviceType: serviceType, tracker: tracker}
+	}
+
+	// The local system has bootstrapped every service, and the peers have already joined MicroCloud.
+	localServices := map[types.ServiceType]map[string]string{types.MicroCloud: {"local": "10.0.0.1"}}
+	for _, serviceType := range serviceTypes {
+		localServices[serviceType] = map[string]string{"local": "10.0.0.1"}
+	}
+
+	cfg := initConfig{
+		systems: map[string]InitSystem{"local": {ServerInfo: multicast.ServerInfo{Name: "local", Address: "10.0.0.1"}}},
+		state:   map[string]service.SystemInformation{"local": {ExistingServices: localServices}},
+	}
+
+	// Every peer is reached at the test server, which tells them apart by their tokens.
+	address := server.Listener.Addr().String()
+	for _, peer := range peers {
+		localServices[types.MicroCloud][peer] = address
+		cfg.systems[peer] = InitSystem{ServerInfo: multicast.ServerInfo{Name: peer, Address: address}}
+	}
+
+	_, err = cfg.addPeers(handler)
+	if err != nil {
+		t.Fatalf("Failed to add peers: %v", err)
+	}
+
+	for _, peer := range peers {
+		if !tracker.joined[peer] {
+			t.Errorf("Peer %q did not join", peer)
+		}
+
+		if tracker.issued[peer] != len(serviceTypes) {
+			t.Errorf("Issued %d tokens for peer %q, expected %d", tracker.issued[peer], peer, len(serviceTypes))
+		}
+	}
+
+	if tracker.joined["local"] || tracker.issued["local"] != 0 {
+		t.Errorf("Local system should not join or receive tokens")
 	}
 }

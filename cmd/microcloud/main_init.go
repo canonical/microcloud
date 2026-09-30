@@ -479,9 +479,10 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		}
 	}
 
-	// Concurrently issue a token for each joiner.
-	for peer := range c.systems {
+	// issueTokens issues tokens for all services for a single joiner
+	issueTokens := func(peer string) ([]types.ServiceToken, error) {
 		mut := sync.Mutex{}
+		tokens := make([]types.ServiceToken, 0)
 		err := sh.RunConcurrent("", "", func(s service.Service) error {
 			// Skip MicroCloud as the cluster is already formed.
 			if s.Type() == types.MicroCloud {
@@ -518,9 +519,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 					}
 				})
 
-				cfg := joinConfig[peer]
-				cfg.Tokens = append(cfg.Tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
-				joinConfig[peer] = cfg
+				tokens = append(tokens, types.ServiceToken{Service: s.Type(), JoinToken: token})
 				mut.Unlock()
 			}
 
@@ -529,33 +528,53 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		return tokens, nil
+	}
+
+	// joinPeer issues the peer's tokens and joins it to every cluster it isn't already part of.
+	joinPeer := func(peer string) error {
+		tokens, err := issueTokens(peer)
+		if err != nil {
+			return err
+		}
+
+		cfg := joinConfig[peer]
+		cfg.Tokens = append(cfg.Tokens, tokens...)
+		if len(cfg.Tokens) == 0 {
+			return nil
+		}
+
+		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
+		err = waitForJoin(sh, clusterSize, peer, nil, cfg)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(tui.SummarizeResult("Peer %s has joined the cluster", peer))
+
+		return nil
 	}
 
 	fmt.Println("Awaiting cluster formation ...")
 
+	// Peers join one at a time, so issue each peer's tokens right before its join.
+	// Issuing them all up front lets the tokens of the last peers expire on large clusters.
 	// If the local node needs to join an existing cluster, do it first so we can proceed as normal.
-	if len(joinConfig[sh.Name].Tokens) > 0 {
-		cfg := joinConfig[sh.Name]
-		err := waitForJoin(sh, clusterSize, sh.Name, nil, cfg)
-		if err != nil {
-			return nil, err
-		}
-
-		fmt.Println(tui.SummarizeResult("Peer %s has joined the cluster", sh.Name))
+	err := joinPeer(sh.Name)
+	if err != nil {
+		return nil, err
 	}
 
-	for peer, cfg := range joinConfig {
-		if len(cfg.Tokens) == 0 || peer == sh.Name {
+	for peer := range joinConfig {
+		if peer == sh.Name {
 			continue
 		}
 
-		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
-		err := waitForJoin(sh, clusterSize, peer, nil, cfg)
+		err := joinPeer(peer)
 		if err != nil {
 			return nil, err
 		}
-
-		fmt.Println(tui.SummarizeResult("Peer %s has joined the cluster", peer))
 	}
 
 	cleanup := reverter.Clone().Fail
