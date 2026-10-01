@@ -1,0 +1,65 @@
+#!/bin/sh
+set -eu
+
+# config_keys reads the config document returned by snapctl from stdin and prints the names
+# of all config keys set on the snap, one per line (e.g. "daemon.debug").
+# The document uses one tab of indentation per level and puts each key on its own line.
+config_keys() {
+    parents=""
+    while IFS= read -r line; do
+        tabs="${line%%[!	]*}"
+        line="${line#"${tabs}"}"
+        key="$(echo "${line}" | sed -n 's/^"\([^"]*\)": .*$/\1/p')"
+
+        # Skip the empty key wrapping the config document as well as any line not starting with a key.
+        depth="$((${#tabs} - 1))"
+        if [ "${depth}" -lt 1 ] || [ -z "${key}" ]; then
+            continue
+        fi
+
+        if [ "${depth}" -gt 1 ]; then
+            key="$(echo "${parents}" | cut -d. -f1-"$((depth - 1))").${key}"
+        fi
+
+        case "${line}" in
+            *"{}"|*"{},")
+                # Skip empty objects.
+                ;;
+            *"{")
+                parents="${key}"
+                ;;
+            *)
+                echo "${key}"
+                ;;
+        esac
+    done
+}
+
+# Passing the empty key twice makes snapctl return the whole config document nested under the empty key.
+config="$(snapctl get "" "")"
+
+# Reject all config keys which are not supported.
+echo "${config}" | config_keys | while IFS= read -r key; do
+    case "${key}" in
+        daemon.debug|db.trace)
+            ;;
+        *)
+            echo "Unsupported config key \"${key}\": Supported keys are \"daemon.debug\" and \"db.trace\"" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Validate the boolean config keys used when starting the daemon.
+# Changes only get applied after restarting the daemon.
+for key in daemon.debug db.trace; do
+    value="$(snapctl get "${key}")"
+    case "${value}" in
+        ""|true|false)
+            ;;
+        *)
+            echo "Invalid value \"${value}\" for \"${key}\": Must be either \"true\" or \"false\"" >&2
+            exit 1
+            ;;
+    esac
+done
