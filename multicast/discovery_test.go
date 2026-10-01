@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -126,4 +128,50 @@ func (m *multicastSuite) Test_Lookup() {
 		err = discovery.StopResponder()
 		m.Require().NoError(err)
 	}
+}
+
+// errorLogger records the messages of all errors logged.
+type errorLogger struct {
+	logger.Logger
+
+	lock     sync.Mutex
+	messages []string
+}
+
+// Error records the error message.
+func (l *errorLogger) Error(msg string, args ...logger.Ctx) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	l.messages = append(l.messages, msg)
+}
+
+// Messages returns the recorded error messages.
+func (l *errorLogger) Messages() []string {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	return append([]string{}, l.messages...)
+}
+
+func (m *multicastSuite) Test_StopResponder() {
+	errLogger := &errorLogger{Logger: logger.Log}
+	originalLogger := logger.Log
+	logger.Log = errLogger
+	defer func() { logger.Log = originalLogger }()
+
+	discovery := NewDiscovery("lo", 9444)
+
+	err := discovery.Respond(context.Background(), ServerInfo{Version: "2.0"})
+	m.Require().NoError(err)
+
+	err = discovery.StopResponder()
+	m.Require().NoError(err)
+
+	// Stopping the responder cancels its context after the connection got closed.
+	// This must not cause any errors when the responder's routines notice the cancelled context.
+	m.Never(func() bool {
+		return len(errLogger.Messages()) > 0
+	}, 500*time.Millisecond, 10*time.Millisecond)
+	m.Empty(errLogger.Messages())
 }
