@@ -92,19 +92,19 @@ func sessionJoinPost(sh *service.Handler) func(state microTypes.State, r *http.R
 // Also compares each service's daemon version between the joiner and initiator.
 func validateIntent(ctx context.Context, sh *service.Handler, intent types.SessionJoinPost) error {
 	// Reject any peers that are missing our services.
-	for _, service := range sh.Services {
-		intentVersion, ok := intent.Services[service.Type()]
+	for _, s := range sh.Services {
+		intentVersion, ok := intent.Services[s.Type()]
 		if !ok {
-			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(service.Type()))
+			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(s.Type()))
 		}
 
-		version, err := service.GetVersion(ctx)
+		version, err := s.GetVersion(ctx)
 		if err != nil {
-			return fmt.Errorf("Unable to determine initiator's %s version: %w", service.Type(), err)
+			return fmt.Errorf("Unable to determine initiator's %s version: %w", s.Type(), err)
 		}
 
 		if intentVersion != version {
-			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, service.Type(), version, intentVersion)
+			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, s.Type(), version, intentVersion)
 		}
 	}
 
