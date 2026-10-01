@@ -348,8 +348,16 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		availableDisks[name] = state.AvailableDisks
 	}
 
+	// When adding new systems to a cluster which already has the local storage pool,
+	// the new systems have to be set up with a disk for the local storage pool too.
+	requireDisks := useJoinConfig && !c.bootstrap && len(askSystems) > 0
+
 	// Local storage is already set up on every system, or if not every system has a disk.
 	if len(askSystems) == 0 || len(availableDisks) != len(askSystems) {
+		if requireDisks {
+			return errors.New("Cannot set up the existing local storage pool on all new systems. Some systems do not have an available disk")
+		}
+
 		tui.PrintWarning("No disks available for local storage. Skipping configuration")
 
 		return nil
@@ -373,13 +381,15 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
-	wantsDisks, err := c.asker.AskBool("Would you like to set up local storage?", true)
-	if err != nil {
-		return err
-	}
+	if !requireDisks {
+		wantsDisks, err := c.asker.AskBool("Would you like to set up local storage?", true)
+		if err != nil {
+			return err
+		}
 
-	if !wantsDisks {
-		return nil
+		if !wantsDisks {
+			return nil
+		}
 	}
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
