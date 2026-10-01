@@ -374,7 +374,7 @@ test_interactive() {
   export PEERS_FILTER="micro03"
   export REUSE_EXISTING_COUNT=1
   export REUSE_EXISTING="yes"
-  export SETUP_ZFS="yes"
+  export SETUP_ZFS_IMPLICIT="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="no"
@@ -1389,6 +1389,8 @@ test_non_ha() {
   unset IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET
   unset SETUP_CEPHFS
   export EXPECT_PEERS=2
+  unset SETUP_ZFS
+  export SETUP_ZFS_IMPLICIT="yes"
   export SETUP_OVN_IMPLICIT="yes"
   join_session add micro01 micro02 micro03
   for m in micro1 micro2 micro3 ; do

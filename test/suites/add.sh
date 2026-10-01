@@ -57,7 +57,7 @@ test_add_interactive() {
 
   unset_interactive_vars
   export EXPECT_PEERS=1
-  export SETUP_ZFS="yes"
+  export SETUP_ZFS_IMPLICIT="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
@@ -200,7 +200,7 @@ test_add_interactive() {
 
   unset_interactive_vars
   export EXPECT_PEERS=1
-  export SETUP_ZFS="yes"
+  export SETUP_ZFS_IMPLICIT="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
@@ -227,5 +227,38 @@ test_add_interactive() {
   for m in micro01 micro02 micro03 micro04 ; do
     validate_system_lxd "${m}" 4 disk1 1 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,fd42:1:1234:1234::1
     validate_system_microceph "${m}" 1 "${default_cluster_subnet}" disk2
+  done
+
+  reset_systems 4 2 1
+  echo "Test growing a MicroCloud with local storage fails if the new system has no available disk"
+  unset_interactive_vars
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="yes"
+  export ZFS_FILTER="lxd_disk1"
+  export ZFS_WIPE="yes"
+  export SETUP_CEPH="no"
+  export SETUP_OVN_EXPLICIT="no"
+
+  join_session init micro01 micro02 micro03
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+
+  # Detach all disks from micro04 so none of them is available for the local storage pool.
+  for n in 1 2; do
+    lxc storage volume detach zpool "micro04-disk${n}" micro04
+  done
+
+  unset_interactive_vars
+  export EXPECT_PEERS=1
+  export SETUP_ZFS_IMPLICIT="yes"
+  export ZFS_FILTER="lxd_disk1"
+  ! join_session add micro01 micro04 || false
+  lxc exec micro01 -- tail -1 out | grep "System \"micro04\" is ineligible for local storage" -q
+  lxc exec micro04 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
+
+  # Delete the detached disks as reset_systems only cleans up the disks attached to the systems.
+  for n in 1 2; do
+    lxc storage volume delete zpool "micro04-disk${n}"
   done
 }
