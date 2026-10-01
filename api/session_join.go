@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -103,8 +104,12 @@ func validateIntent(ctx context.Context, sh *service.Handler, intent types.Sessi
 			return fmt.Errorf("Unable to determine initiator's %s version: %w", s.Type(), err)
 		}
 
-		if intentVersion != version {
+		if !service.VersionsCompatible(s.Type(), version, intentVersion) {
 			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, s.Type(), version, intentVersion)
+		}
+
+		if intentVersion != version {
+			logger.Warn("Accepting peer with a different but compatible version", logger.Ctx{"name": intent.Name, "service": s.Type(), "version": version, "peerVersion": intentVersion})
 		}
 	}
 
