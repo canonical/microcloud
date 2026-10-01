@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/canonical/lxd/shared"
+
 	"github.com/canonical/microcloud/microcloud/api/types"
 	cloudClient "github.com/canonical/microcloud/microcloud/client"
 	"github.com/canonical/microcloud/microcloud/multicast"
@@ -27,6 +29,7 @@ type Session struct {
 	gw             *cloudClient.WebsocketGateway
 	role           types.SessionRole
 	discovery      *multicast.Discovery
+	system         *types.System
 
 	joinIntentFingerprints []string
 	joinIntents            chan types.SessionJoinPost
@@ -112,6 +115,35 @@ func (s *Session) Allow(name string, cert x509.Certificate) {
 	s.trustStore[name] = cert
 }
 
+// SetSystem records the local system's own preseed configuration.
+// It allows the session to pass this configuration to the initiator.
+func (s *Session) SetSystem(system *types.System) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.system = system
+}
+
+// System returns a copy of the local system's own preseed configuration.
+func (s *Session) System() (*types.System, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	// During interactive sessions, the system does not get populated.
+	// Therefore simply return nil without an error.
+	if s.system == nil {
+		return nil, nil
+	}
+
+	systemCopy := &types.System{}
+	err := shared.DeepCopy(s.system, systemCopy)
+	if err != nil {
+		return nil, err
+	}
+
+	return systemCopy, nil
+}
+
 // TemporaryTrustStore returns the temporary truststore of the current trust establishment session.
 func (s *Session) TemporaryTrustStore() map[string]x509.Certificate {
 	s.lock.RLock()
@@ -188,6 +220,7 @@ func (s *Session) Stop(cause error) error {
 	s.trustStore = make(map[string]x509.Certificate, 0)
 	s.joinIntentFingerprints = []string{}
 	s.failedAttempts = 0
+	s.system = nil
 
 	// For idempotency don't try to close the channels twice.
 	select {

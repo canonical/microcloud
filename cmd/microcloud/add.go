@@ -110,7 +110,7 @@ func (c *cmdAdd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	err = cfg.runSession(context.Background(), s, types.SessionInitiating, cfg.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-		return cfg.initiatingSession(gw, s, services, "", nil)
+		return cfg.initiatingSession(gw, s, services, "", 0)
 	})
 	if err != nil {
 		return err
