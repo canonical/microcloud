@@ -4,7 +4,7 @@ MicroCloud is an open source cloud platform written in Go. It orchestrates a clu
 
 ## Prerequisites
 
-MicroCloud requires Go 1.26.2 or higher.
+MicroCloud requires the Go version declared in `go.mod`.
 
 - CGO native dependency: `dqlite`. Fetch and build it once with:
 
