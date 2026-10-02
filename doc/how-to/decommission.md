@@ -1,13 +1,13 @@
 ---
 myst:
   html_meta:
-    description: Follow these steps to securely decommission a MicroCloud cluster member or cluster.
+    description: How to securely decommission a MicroCloud cluster member or cluster.
 ---
 
 (howto-decommission)=
 # How to securely decommission a MicroCloud deployment
 
-```{important}
+```{caution}
 This process will erase all data associated with your MicroCloud deployment.
 Make copies of any data that you need to preserve before proceeding.
 Refer to {ref}`lxd:instances-backup` and {ref}`lxd:howto-storage-backup-volume` for relevant details.
@@ -34,7 +34,7 @@ sudo microcloud remove --force <offline_member_name>
 (howto-decommission-revoke-remote)=
 ## Revoke remote access
 
-List all identities that have access to LXD, then delete each identity:
+List all identities that have access to LXD, then delete each one:
 
 ```bash
 lxc auth identity list
@@ -45,8 +45,11 @@ lxc auth identity delete <type>/<name_or_identifier>
 ## List projects
 
 Replicators, instances, profiles, and custom volumes are scoped by {ref}`project <lxd:projects>`.
-For deployments with more than one project, you must repeat some steps for **each** project, each time using the `--project` flag.
-You do not need to use the `--project` flag to decommission deployments with only one project.
+By default, LXD commands only affect project-scoped entities on the currently active project.
+Use the `--project` flag to target a different project.
+
+If your deployment has more than one project, you must repeat project-scoped commands with the `--project` flag.
+You do not need to use the `--project` flag to delete entities on the currently active project (for example, `default`).
 
 Run this command to get a list of all projects:
 
@@ -54,30 +57,36 @@ Run this command to get a list of all projects:
 lxc project list
 ```
 
-````{note}
 You can also delete a project (except the `default` project) and all of its project-level entities with:
 
 ```bash
 lxc project delete <project_name> --force
 ```
-````
 
 (howto-decommission-delete-replicators)=
 ## Delete replicators and cluster links
 
-For each project, list all replicators, then delete each replicator:
+For each project, list all replicators, then delete each one:
 
 ```bash
 lxc replicator list --project <project_name>
 lxc replicator delete <replicator_name> --project <project_name>
 ```
 
-Likewise, list all cluster links, then delete each cluster link (cluster links are not scoped by project, so you do not need to use the `--project` flag):
+```{important}
+Deleting a replicator does not delete the replica project on the remote cluster.
+To prevent unauthorized data recovery, you must decommission both clusters.
+```
+
+Likewise, list all cluster links, then delete each one (cluster links are not scoped by project, so you do not need to use the `--project` flag):
 
 ```bash
 lxc cluster link list
 lxc cluster link delete <cluster_link_name>
 ```
+
+To fully revoke the trust relationship established by cluster links, delete any corresponding cluster links or identities on the other clusters.
+See the {ref}`guide to deleting cluster links <lxd:howto-cluster-links-delete>` for details.
 
 (howto-decommission-delete-data)=
 ## Delete data
@@ -98,7 +107,7 @@ For each project, stop all instances:
 lxc stop --all --project <project_name>
 ```
 
-Next, for each project, list all instances, then delete each instance:
+Next, for each project, list all instances, then delete each one:
 
 ```bash
 lxc list --project <project_name>
@@ -134,7 +143,8 @@ lxc profile delete <profile_name> --project <project_name>
 You cannot delete a storage pool used by an instance, profile, or custom volume.
 You must, therefore, remove any disk devices used by the `default` profiles in order to delete any storage pools or custom volumes referenced by those devices.
 
-At a minimum, the `default` profile of the `default` project has a disk device named `root` that references a storage pool.
+For example, on deployments configured with a new storage pool during the {ref}`interactive initialization process <howto-initialize-interactive>`, the `default` profile of the `default` project has a disk device named `root` that references a storage pool.
+
 Remove this device with:
 
 ```bash
@@ -180,9 +190,7 @@ lxc storage volume delete <pool_name> <volume_name> --project <project_name>
 (howto-decommission-delete-pools)=
 ### Delete storage pools
 
-```{note}
 Storage pools are not scoped by project, so you do not need to use the `--project` flag with `lxc storage` commands.
-```
 
 List all storage pools, then delete each one:
 
@@ -197,7 +205,6 @@ lxc storage delete <pool_name>
 Delete data from any external systems that you used to monitor {ref}`LXD events <lxd:howto-security-events>`, {ref}`LXD metrics <lxd:metrics>`, or {ref}`Ceph logging <microceph:secure-deployment-best-practices>`, such as [Loki](https://grafana.com/oss/loki/), [Prometheus](https://prometheus.io/), or [Grafana](https://grafana.com/).
 Refer to the documentation for those systems for details.
 
-
 (howto-decommission-remove-microceph-osds)=
 ## Remove MicroCeph OSDs
 
@@ -210,18 +217,15 @@ sudo microceph disk remove <osd_id>
 
 Finally, verify that the OSDs have been removed:
 
-```
+```bash
 microceph disk list
 ```
 
-````{note}
 If you are unable to remove an OSD, use the `--bypass-safety-checks` flag:
 
 ```bash
 sudo microceph disk remove <osd_id> --bypass-safety-checks
 ```
-````
-
 
 (howto-decommission-remove-remaining-members)=
 ## Remove remaining cluster members
@@ -241,9 +245,7 @@ sudo microcloud remove <member_name>
 
 However, before reducing the cluster from two members to one member, you must {ref}`clean up the Ceph monitor map <howto-member-remove-reduce-cluster>`.
 
-```{note}
 As you remove each member, you can run `microcloud status` on the remaining cluster members to verify the removal.
-```
 
 (howto-decommission-remove-microcloud)=
 ## Remove snaps
@@ -288,6 +290,6 @@ If you are decommissioning an entire MicroCloud, apply your data destruction pol
 For clusters {ref}`configured with OIDC <lxd:howto-oidc>`, consult your OIDC identity provider for the steps to remove any data associated with your profile.
 Likewise, if you used {ref}`ACME services to issue server certificates <lxd:authentication-server-certificate>`, refer to the service provider for the steps to remove any associated data.
 
-```{important}
+```{caution}
 Sanitized data is irreversibly destroyed and cannot be recovered.
 ```
