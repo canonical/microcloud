@@ -57,7 +57,7 @@ test_add_interactive() {
 
   unset_interactive_vars
   export EXPECT_PEERS=1
-  export SETUP_ZFS="yes"
+  export SETUP_ZFS_IMPLICIT="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
@@ -200,7 +200,7 @@ test_add_interactive() {
 
   unset_interactive_vars
   export EXPECT_PEERS=1
-  export SETUP_ZFS="yes"
+  export SETUP_ZFS_IMPLICIT="yes"
   export ZFS_FILTER="lxd_disk1"
   export ZFS_WIPE="yes"
   export SETUP_CEPH="yes"
