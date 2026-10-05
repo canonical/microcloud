@@ -1,5 +1,5 @@
 name: microcloud
-base: core24
+base: core26
 assumes:
  - snapd2.59
 version: git
