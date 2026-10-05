@@ -87,7 +87,7 @@ parts:
     after:
       - dqlite
     build-snaps:
-      - go
+      - go/1.27/stable
     plugin: nil
     override-pull: |
       craftctl default
