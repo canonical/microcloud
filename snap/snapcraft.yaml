@@ -1,7 +1,7 @@
 name: microcloud
 base: core26
 assumes:
- - snapd2.59
+ - snapd2.75
 version: git
 grade: devel
 license: AGPL-3.0-only
