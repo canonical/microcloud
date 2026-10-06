@@ -125,6 +125,15 @@ PYEOF"
 
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set update_interval_seconds 60
 
+  echo "==> LXD URL is empty by default"
+  [ -z "$(lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url)" ]
+
+  echo "==> Set LXD URL"
+  lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager set lxd_url https://example.com:8443
+
+  echo "==> Get LXD URL"
+  [ "$(lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager get lxd_url)" = "https://example.com:8443" ]
+
   echo "==> Delete cluster manager"
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager delete
   lxc exec micro01 --env TEST_CONSOLE=0 -- microcloud cluster-manager show 2>&1 | grep "Error: Cluster manager not found" -q
