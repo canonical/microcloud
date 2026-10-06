@@ -71,7 +71,7 @@ Furthermore, MicroCloud's snap-based updates help keep deployments consistent at
 
 MicroCloud achieves high availability (HA) through its distributed architecture: LXD for the control plane and workload management, MicroCeph for replicated, self-healing storage, and MicroOVN for redundant and distributed networking.
 
-LXD provides control plane HA by allowing each cluster member to manage the cluster. If one member goes down, another can serve requests in its place. For data plane HA, LXD also provides automatic {ref}`cluster healing <lxd:cluster-healing>`. For more information, refer to the LXD documentation on {ref}`lxd:clusters-high-availability`.
+LXD provides control plane HA by allowing each cluster member to manage the cluster. If one member goes down, another can serve requests in its place. For more information, refer to the LXD documentation on {ref}`lxd:clusters-high-availability`.
 
 Using distributed storage with MicroCeph means that data is replicated across the cluster, so even if one member goes offline, its data remains available on others. Ceph's {doc}`Controlled Replication Under Scalable Hashing (CRUSH) algorithm <ceph:rados/operations/crush-map>` automatically redistributes data when parts of the system fail, maintaining availability. For more information, refer to the {ref}`MicroCloud storage requirements for high availability <reference-requirements-storage-ha>` and the {ref}`MicroCeph documentation on its failure domain management <microceph:cluster-scaling>`.
 
