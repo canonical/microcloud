@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
 
       - name: Check for changes
-        uses: ./.github/actions/check-changes
+        uses: $/.github/actions/check-changes
         id: check
         with:
           glob: ":!doc/*"
@@ -95,7 +95,7 @@ jobs:
         if: github.event_name == 'pull_request'
 
       - name: Install MicroCloud build dependencies
-        uses: ./.github/actions/install-builddeps
+        uses: $/.github/actions/install-builddeps
 
       - name: Build
         run: |
@@ -190,7 +190,7 @@ jobs:
           persist-credentials: false
 
       - name: System test
-        uses: ./.github/actions/system-test
+        uses: $/.github/actions/system-test
         with:
           setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
           setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
@@ -224,7 +224,7 @@ jobs:
           persist-credentials: false
 
       - name: System test
-        uses: ./.github/actions/system-test
+        uses: $/.github/actions/system-test
 
   tics:
     name: Tiobe TICS
@@ -268,7 +268,7 @@ jobs:
           path: /home/runner/go/bin
 
       - name: Install MicroCloud build dependencies
-        uses: ./.github/actions/install-builddeps
+        uses: $/.github/actions/install-builddeps
 
       - name: Install dependencies
         run: |

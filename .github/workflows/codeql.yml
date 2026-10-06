@@ -90,7 +90,7 @@ jobs:
 
     - name: Install MicroCloud build dependencies
       if: matrix.language == 'go'
-      uses: ./.github/actions/install-builddeps
+      uses: $/.github/actions/install-builddeps
 
     - name: Build
       if: matrix.language == 'go'
