@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
 
       - name: Check for changes
-        uses: ./.github/actions/check-changes
+        uses: $/.github/actions/check-changes
         id: check
         with:
           glob: ":!doc/*"
@@ -65,6 +65,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
+        # zizmor: ignore[cache-poisoning]
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
@@ -95,7 +96,7 @@ jobs:
         if: github.event_name == 'pull_request'
 
       - name: Install MicroCloud build dependencies
-        uses: ./.github/actions/install-builddeps
+        uses: $/.github/actions/install-builddeps
 
       - name: Build
         run: |
@@ -190,7 +191,7 @@ jobs:
           persist-credentials: false
 
       - name: System test
-        uses: ./.github/actions/system-test
+        uses: $/.github/actions/system-test
         with:
           setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
           setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
@@ -224,7 +225,7 @@ jobs:
           persist-credentials: false
 
       - name: System test
-        uses: ./.github/actions/system-test
+        uses: $/.github/actions/system-test
 
   tics:
     name: Tiobe TICS
@@ -243,6 +244,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
+        # zizmor: ignore[cache-poisoning]
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
@@ -268,7 +270,7 @@ jobs:
           path: /home/runner/go/bin
 
       - name: Install MicroCloud build dependencies
-        uses: ./.github/actions/install-builddeps
+        uses: $/.github/actions/install-builddeps
 
       - name: Install dependencies
         run: |
@@ -297,7 +299,7 @@ jobs:
 
   doc-tests:
     name: Documentation
-    uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@aaeaf091e8f55145184ad897cb9834f224bd31de # main
+    uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@309dd382b6a07cbd23d84e3912fb05e6bc1f4ffb
     with:
       working-directory: './doc'
       makefile: 'Makefile'
