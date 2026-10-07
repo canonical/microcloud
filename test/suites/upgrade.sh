@@ -24,15 +24,9 @@ test_upgrade() {
     # Use the edge channels to catch issues early in the release process.
     # Can be moved back to "tentacle/edge" once https://bugs.launchpad.net/ubuntu/+source/ceph/+bug/2166817 is fixed and propagated in the LXD snap.
     microceph_target="tentacle/stable"
-    microovn_target="latest/edge"
+    microovn_target="26.03/edge"
     lxd_target="6/edge"
     microcloud_target="3/edge"
-
-    # MicroOVN latest/edge currently doesn't work with 22.04.
-    # See https://bugs.launchpad.net/microovn/+bug/2144013.
-    if [ "${BASE_OS}" = "22.04" ]; then
-      microovn_target="24.03/edge"
-    fi
 
     addr=$(lxc ls micro01 -f json -c4 | jq -r '.[0].state.network.enp5s0.addresses[] | select(.family == "inet") | .address')
 
