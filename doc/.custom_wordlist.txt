@@ -41,6 +41,7 @@ IPs
 IPv
 Keycloak
 lifecycle
+loopback
 LTS
 LXD
 LXD's
