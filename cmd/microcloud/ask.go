@@ -404,7 +404,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		sort.Sort(cli.SortColumnsNaturally(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 		table := tui.NewSelectableTable(header, data)
-		answers, err := table.Render(context.Background(), c.asker, "Select exactly one disk from each cluster member:")
+		answers, err := table.Render(context.Background(), c.asker, "Select exactly one disk from each cluster member for local storage:")
 		if err != nil {
 			return err
 		}
