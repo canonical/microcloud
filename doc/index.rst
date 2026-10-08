@@ -61,6 +61,10 @@ In this documentation
       :doc:`Overview <explanation/security>` slice
       :doc:`Initialization process <explanation/initialization>`
 
+   .. slice:: Observability
+
+      :doc:`Configure metric and log collection with the charm <how-to/charm_metrics>` slice
+
    .. slice:: Setup
 
       :doc:`Requirements <reference/requirements>` slice

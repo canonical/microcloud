@@ -46,6 +46,17 @@ Configure OVN underlay </how-to/ovn_underlay>
 Add a service </how-to/add_service>
 ```
 
+## Monitor clusters
+
+Use the MicroCloud charm to collect metrics and logs from an already-deployed
+MicroCloud cluster with Juju and the Canonical Observability Stack (COS).
+
+```{toctree}
+:maxdepth: 1
+
+Configure metric and log collection with the charm </how-to/charm_metrics>
+```
+
 ## Manage clusters and cluster members
 
 As your needs change, manage clusters and cluster members to keep your
