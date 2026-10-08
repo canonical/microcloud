@@ -11,6 +11,7 @@
 | ---------- | ----------- | ---------- | --------------- | -------- |
 | 22.04      | 2.1*        | 5.21*      | Squid           | 24.03    |
 | 24.04      | 2.1*        | 5.21*      | Squid           | 24.03    |
+| 26.04      | 3.4*        | 6.10*      | Tentacle        | 26.03    |
 ```
 
 `*` For MicroCloud and LXD, the most recent {ref}`feature releases <ref-releases-microcloud-feature>` (after the last LTS) are also supported.
@@ -43,7 +44,12 @@ Standard support for an LTS release starts at full support for its first two yea
 - **Full support**: Bugfixes and security updates are provided regularly.
 - **Maintenance support**: High impact bugfixes and critical security updates are provided as needed.
 
-The only currently supported MicroCloud LTS release is 2.1._z_. This LTS is supported until June 2029 and is currently in full support phase.
+The currently supported MicroCloud LTS releases are 2.1._z_ and 3.4._z_:
+
+- 3.4._z_ is supported until June 2031.
+    - Currently in full support phase.
+- 2.1._z_ is supported until June 2029.
+    - Currently in maintenance support phase.
 
 (ref-releases-microcloud-feature)=
 ### Feature releases
