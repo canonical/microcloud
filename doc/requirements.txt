@@ -15,7 +15,7 @@ sphinx-rerediraffe>=0.0.4, <1.0.0
 sphinx-config-options~=0.1
 sphinx-filtered-toctree~=0.1
 sphinx-related-links~=0.1
-sphinx-roles~=0.1
+sphinx-roles~=1.0
 sphinx-terminal~=1.1
 sphinx-youtube-links~=0.1
 
@@ -30,7 +30,7 @@ sphinx-llm==1.1.0
 vale~=3.22
 
 # MicroCloud custom dependencies
-gitpython==3.1.62
+gitpython==3.2.0
 linkify-it-py==2.2.0
 pyyaml==6.0.3
 sphinx-copybutton==0.5.2
