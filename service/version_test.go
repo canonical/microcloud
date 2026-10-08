@@ -119,19 +119,19 @@ func (s *versionSuite) Test_validateVersions() {
 
 		{
 			desc:      "Unsupported MicroOVN with lower minor",
-			version:   "24.02",
+			version:   "26.02",
 			service:   types.MicroOVN,
 			expectErr: true,
 		},
 		{
 			desc:      "Supported MicroOVN with larger major version",
-			version:   "25.09",
+			version:   "999.03",
 			service:   types.MicroOVN,
 			expectErr: false,
 		},
 		{
 			desc:      "Supported MicroCeph with larger major version",
-			version:   "ceph-version: 20.2.0-0ubuntu0.24.04.1~bpo24.04.1~ppa202602041400; microceph-git: e6eb74a064",
+			version:   "ceph-version: 999.2.0-0ubuntu0.24.04.1~bpo24.04.1~ppa202602041400; microceph-git: e6eb74a064",
 			service:   types.MicroCeph,
 			expectErr: false,
 		},

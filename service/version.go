@@ -13,13 +13,13 @@ import (
 
 const (
 	// lxdMinVersion is the minimum version of LXD that fully supports all MicroCloud features.
-	lxdMinVersion = "5.21"
+	lxdMinVersion = "6.9"
 
 	// microCephMinVersion is the minimum version of MicroCeph that fully supports all MicroCloud features.
-	microCephMinVersion = "19.2"
+	microCephMinVersion = "20.2"
 
 	// microOVNMinVersion is the minimum version of MicroOVN that fully supports all MicroCloud features.
-	microOVNMinVersion = "24.03"
+	microOVNMinVersion = "26.03"
 )
 
 func cleanVersion(version string) string {
