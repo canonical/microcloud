@@ -54,7 +54,7 @@ jobs:
   code-tests:
     if: ${{ (needs.changes.outputs.except_docs == 'true' || github.event_name == 'schedule') && github.repository_owner == 'canonical' }}
     name: Code
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs: [changes]
     steps:
       - name: Checkout
@@ -146,7 +146,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository_owner == 'canonical' }}
     name: System (core)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: code-tests
     strategy:
       fail-fast: false
@@ -170,7 +170,7 @@ jobs:
           - "reuse_cluster"
           - "terraform_demo"
         # Set of versions to use for the matrix tests.
-        os: ["24.04"]
+        os: ["26.04"]
         # Can be moved back to "tentacle/edge" once https://bugs.launchpad.net/ubuntu/+source/ceph/+bug/2166817 is fixed and propagated in the LXD snap.
         microceph: ["tentacle/stable"]
         microovn: ["latest/edge"]
@@ -204,7 +204,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ github.repository_owner == 'canonical' }}
     name: System (upgrade)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: code-tests
     strategy:
       fail-fast: false
@@ -229,7 +229,7 @@ jobs:
 
   tics:
     name: Tiobe TICS
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs: [system-tests-core, system-tests-upgrade]
     env:
       CGO_CFLAGS: "-I/home/runner/go/bin/dqlite/include/"
@@ -307,7 +307,7 @@ jobs:
 
   snap:
     name: Trigger snap build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
     if: ${{ github.repository_owner == 'canonical' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
