@@ -269,6 +269,9 @@ ceph:
     # Upgrade micro04.
     lxc exec micro04 -- snap refresh microceph --channel "${microceph_target}"
     lxc exec micro04 -- snap refresh microovn --channel "${microovn_target}"
+    # Workaround to prevent an error during refresh (https://github.com/canonical/concierge/issues/20).
+    # Run configure hook of "lxd" snap if present (run hook "configure": error: cannot communicate with server: Post "http://localhost/v2/snapctl": dial unix /run/snapd-snap.socket: connect: no such file or directory)
+    lxc exec micro04 -- snap stop lxd
     lxc exec micro04 -- snap refresh lxd --channel "${lxd_target}"
     lxc exec micro04 -- snap refresh microcloud --channel "${microcloud_target}"
     set_debug_binaries "micro04"
