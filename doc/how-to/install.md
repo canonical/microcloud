@@ -88,15 +88,14 @@ For detailed information, refer to {ref}`reference-requirements`.
 
 Install all required {ref}`snaps <reference-requirements-software-snaps>` on each machine intended as a MicroCloud cluster member. Enter the following commands on all machines:
 
-```{admonition} Snap channels
-:class: note
-The snap channels shown below install the current {ref}`feature release <ref-releases-microcloud-feature>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current LTS release <ref-releases-microcloud-lts>` of MicroCloud instead, refer to the [install guide for that version](https://canonical.com/microcloud/docs/default/how-to/install/).
+```note
+The snap channels shown below install the current {ref}`LTS release <ref-releases-microcloud-lts>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current feature release <ref-releases-microcloud-feature>` of MicroCloud instead, refer to the [install guide for that version](https://canonical.com/microcloud/docs/latest/how-to/install/).
 ```
 
 ```bash
 sudo snap install lxd --channel=6/stable --cohort="+"
-sudo snap install microceph --channel=squid/stable --cohort="+"
-sudo snap install microovn --channel=24.03/stable --cohort="+"
+sudo snap install microceph --channel=tentacle/stable --cohort="+"
+sudo snap install microovn --channel=26.03/stable --cohort="+"
 sudo snap install microcloud --channel=3/stable --cohort="+"
 ```
 
@@ -133,7 +132,7 @@ sudo snap refresh <snap> --cohort="+" --channel=<target channel>
 Example:
 
 ```bash
-sudo snap refresh microcloud --cohort="+" --channel=2/stable
+sudo snap refresh microcloud --cohort="+" --channel=3/stable
 ```
 
 (howto-install-specify-channel)=
