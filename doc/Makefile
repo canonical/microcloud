@@ -2,9 +2,9 @@ current_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
 # Set the path prefix and MicroCloud component versions corresponding to each MicroCloud docs version
 PATH_PREFIX      = /microcloud/latest/
-LXDVERSION       = origin/main
-MICROCEPHVERSION = origin/main
-MICROOVNVERSION  = origin/main
+LXDVERSION       = origin/stable-6
+MICROCEPHVERSION = e2fac9a75f140249aa5312a99e85c799f9125557 # origin/main.
+MICROOVNVERSION  = origin/branch-26.03
 
 SPHINX_DIR       ?= .sphinx
 SPHINX_OPTS      ?= -c . -d $(SPHINX_DIR)/.doctrees -j auto
@@ -248,7 +248,7 @@ serve: html
 # `serve-microcloud` rebuilds the MicroCloud docs as a stand-alone doc set and serves them.
 serve-microcloud: microcloud
 	cd "$(DOCS_BUILDDIR)"; python3 -m http.server --bind $(SPHINX_HOST) $(SPHINX_PORT)
-	
+
 clean: clean-integrate clean-doc
 	@test ! -e "$(DOCS_VENVDIR)" -o -d "$(DOCS_VENVDIR)" -a "$(abspath $(DOCS_VENVDIR))" != "$(DOCS_VENVDIR)"
 	rm -rf $(DOCS_VENVDIR)
@@ -259,7 +259,7 @@ clean: clean-integrate clean-doc
 clean-doc:
 	git clean -fx "$(DOCS_BUILDDIR)"
 	rm -rf $(SPHINX_DIR)/.doctrees
-	
+
 clean-integrate:
 	rm -rf integration/lxd
 	rm -rf integration/microceph
