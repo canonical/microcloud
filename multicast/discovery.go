@@ -76,7 +76,10 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 	go func() {
 		<-ctx.Done()
 		err := d.responderConn.Close()
-		if err != nil {
+		// Ignore errors if the connection is already closed.
+		// This happens if the responder got stopped using StopResponder
+		// which closes the connection before cancelling the context.
+		if err != nil && !errors.Is(err, net.ErrClosed) {
 			logger.Error("Failed to close network endpoint after context got cancelled", logger.Ctx{"err": err})
 		}
 	}()
