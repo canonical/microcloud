@@ -3,7 +3,7 @@
 # unset_interactive_vars: Unsets all variables related to the test console.
 unset_interactive_vars() {
   unset SKIP_LOOKUP LOOKUP_IFACE SKIP_SERVICE EXPECT_PEERS PEERS_FILTER REUSE_EXISTING REUSE_EXISTING_COUNT \
-    SETUP_ZFS ZFS_FILTER ZFS_WIPE \
+    SETUP_ZFS SETUP_ZFS_IMPLICIT ZFS_FILTER ZFS_WIPE \
     SETUP_CEPH CEPH_FILTER CEPH_WIPE CEPH_ENCRYPT SETUP_CEPHFS CEPH_CLUSTER_NETWORK CEPH_PUBLIC_NETWORK \
     PROCEED_WITH_NO_OVERLAY_NETWORKING SETUP_OVN_EXPLICIT SETUP_OVN_IMPLICIT OVN_UNDERLAY_NETWORK OVN_UNDERLAY_FILTER OVN_WARNING OVN_FILTER IPV4_SUBNET IPV4_START IPV4_END DNS_ADDRESSES IPV6_SUBNET \
     REPLACE_PROFILE CEPH_RETRY_HA MULTI_NODE
@@ -32,6 +32,7 @@ microcloud_interactive() {
   REUSE_EXISTING=${REUSE_EXISTING:-}              # (yes/no) incorporate an existing clustered service.
   REUSE_EXISTING_COUNT=${REUSE_EXISTING_COUNT:-0} # (number) number of existing clusters to incorporate.
   SETUP_ZFS=${SETUP_ZFS:-}                       # (yes/no) input for initiating ZFS storage pool setup.
+  SETUP_ZFS_IMPLICIT=${SETUP_ZFS_IMPLICIT:-}     # (yes/no) input for implicitly initiating ZFS storage pool setup when adding systems as it doesn't ask to set up local storage if the pool already exists.
   ZFS_FILTER=${ZFS_FILTER:-}                     # filter string for ZFS disks.
   ZFS_WIPE=${ZFS_WIPE:-}                         # (yes/no) to wipe all disks.
   SETUP_CEPH=${SETUP_CEPH:-}                     # (yes/no) input for initiating Ceph storage pool setup.
@@ -90,15 +91,20 @@ EOF
   done
 fi
 
-if [ -n "${SETUP_ZFS}" ]; then
-  setup="${setup}
+if [ -n "${SETUP_ZFS}" ] || [ -n "${SETUP_ZFS_IMPLICIT}" ]; then
+  if [ -n "${SETUP_ZFS}" ]; then
+    setup="${setup}
 ${SETUP_ZFS}                                            # add local disks (yes/no)
-$([ "${SETUP_ZFS}" = "yes" ] && printf "table:wait 300ms")    # wait for the table to populate
+"
+  fi
+
+  setup="${setup}
+$([ "${SETUP_ZFS}" = "yes" ] || [ "${SETUP_ZFS_IMPLICIT}" = "yes" ] && printf "table:wait 300ms")    # wait for the table to populate
 $([ -n "${ZFS_FILTER}" ] && printf "table:filter %s" "${ZFS_FILTER}")          # filter zfs disks
-$([ "${SETUP_ZFS}" = "yes" ] && printf "table:select-all")    # select all disk matching the filter
-$([ "${SETUP_ZFS}" = "yes" ] && printf -- "table:done" )
+$([ "${SETUP_ZFS}" = "yes" ] || [ "${SETUP_ZFS_IMPLICIT}" = "yes" ] && printf "table:select-all")    # select all disk matching the filter
+$([ "${SETUP_ZFS}" = "yes" ] || [ "${SETUP_ZFS_IMPLICIT}" = "yes" ] && printf -- "table:done" )
 $([ "${ZFS_WIPE}"  = "yes" ] && printf "table:select-all")    # wipe all disks
-$([ "${SETUP_ZFS}" = "yes" ] && printf -- "table:done")
+$([ "${SETUP_ZFS}" = "yes" ] || [ "${SETUP_ZFS_IMPLICIT}" = "yes" ] && printf -- "table:done")
 $(true)                                                 # workaround for set -e
 "
 fi
