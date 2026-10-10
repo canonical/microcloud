@@ -22,6 +22,10 @@ const (
 	microOVNMinVersion = "26.03"
 )
 
+// cephVersionRegex matches the Ceph package version within the version reported by MicroCeph.
+// MicroCeph reports its version in the format "ceph-version: <package version>; microceph-git: <git version>".
+var cephVersionRegex = regexp.MustCompile(`ceph-version:\s*([^;\s]+)`)
+
 func cleanVersion(version string) string {
 	// Account for semantic version with major, minor and patch number.
 	versionCleaned := make([]string, 0, 3)
@@ -93,4 +97,26 @@ func validateVersion(serviceType types.ServiceType, daemonVersion string) error 
 	}
 
 	return nil
+}
+
+// VersionsCompatible returns whether the given versions of a service are compatible for clustering.
+// The versions are compatible if they are equal.
+// For MicroCeph only the Ceph package version is compared as the snaps of the same
+// release can be built from different MicroCeph commits on each architecture.
+func VersionsCompatible(serviceType types.ServiceType, version string, otherVersion string) bool {
+	if version == otherVersion {
+		return true
+	}
+
+	if serviceType != types.MicroCeph {
+		return false
+	}
+
+	cephVersion := cephVersionRegex.FindStringSubmatch(version)
+	otherCephVersion := cephVersionRegex.FindStringSubmatch(otherVersion)
+	if cephVersion == nil || otherCephVersion == nil {
+		return false
+	}
+
+	return cephVersion[1] == otherCephVersion[1]
 }
