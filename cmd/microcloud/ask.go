@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"slices"
@@ -352,12 +353,17 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	// the new systems have to be set up with a disk for the local storage pool too.
 	requireDisks := useJoinConfig && !c.bootstrap && len(askSystems) > 0
 
+	if requireDisks {
+		for _, name := range slices.Sorted(maps.Keys(askSystems)) {
+			_, ok := availableDisks[name]
+			if !ok {
+				return fmt.Errorf("System %q is ineligible for local storage. At least one available disk is required as the cluster already has a local storage pool", name)
+			}
+		}
+	}
+
 	// Local storage is already set up on every system, or if not every system has a disk.
 	if len(askSystems) == 0 || len(availableDisks) != len(askSystems) {
-		if requireDisks {
-			return errors.New("Cannot set up the existing local storage pool on all new systems. Some systems do not have an available disk")
-		}
-
 		tui.PrintWarning("No disks available for local storage. Skipping configuration")
 
 		return nil
