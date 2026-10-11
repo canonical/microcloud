@@ -32,7 +32,7 @@ func (c *initConfig) runSession(ctx context.Context, s *service.Handler, role ty
 	return f(cloudClient.NewWebsocketGateway(ctx, conn))
 }
 
-func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, passphrase string, expectedSystems []string) error {
+func (c *initConfig) initiatingSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, passphrase string, expectedSystems int) error {
 	session := types.Session{
 		Address:    c.address,
 		Interface:  c.lookupIface.Name,
@@ -126,6 +126,11 @@ Verify the fingerprint %s is displayed on joining systems.
 		return errors.New("Join confirmations didn't get accepted on all systems")
 	}
 
+	if len(session.ConfirmedIntents) > 0 {
+		// Get the joiners preseed configuration from the confirmed intent.
+		confirmedIntents = session.ConfirmedIntents
+	}
+
 	for _, joinIntent := range confirmedIntents {
 		certBlock, _ := pem.Decode([]byte(joinIntent.Certificate))
 		if certBlock == nil {
@@ -149,6 +154,15 @@ Verify the fingerprint %s is displayed on joining systems.
 				Certificate: remoteCert,
 			},
 		}
+
+		// Record the joiner's preseed configuration so it can be used once the session is closed.
+		if joinIntent.System != nil {
+			if c.preseedSystems == nil {
+				c.preseedSystems = make([]*types.System, 0, 1)
+			}
+
+			c.preseedSystems = append(c.preseedSystems, joinIntent.System)
+		}
 	}
 
 	if !c.autoSetup && len(c.systems) > 0 {
@@ -165,7 +179,7 @@ Verify the fingerprint %s is displayed on joining systems.
 	return nil
 }
 
-func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, initiatorAddress string, passphrase string) error {
+func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *service.Handler, services map[types.ServiceType]string, initiatorAddress string, passphrase string, system *types.System) error {
 	session := types.Session{
 		Passphrase:       passphrase,
 		Address:          sh.Address(),
@@ -173,6 +187,7 @@ func (c *initConfig) joiningSession(gw *cloudClient.WebsocketGateway, sh *servic
 		Interface:        c.lookupIface.Name,
 		Services:         services,
 		LookupTimeout:    c.lookupTimeout,
+		System:           system,
 	}
 
 	err := gw.Write(session)

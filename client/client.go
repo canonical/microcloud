@@ -100,7 +100,8 @@ func JoinServices(ctx context.Context, c microTypes.Client, data types.ServicesP
 }
 
 // JoinIntent sends the join intent to a potential cluster.
-func JoinIntent(ctx context.Context, c microTypes.Client, data types.SessionJoinPost) (*x509.Certificate, error) {
+// It returns the peer's certificate along with its parsed response.
+func JoinIntent(ctx context.Context, c microTypes.Client, data types.SessionJoinPost) (*x509.Certificate, *types.SessionJoinConfirmation, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -113,7 +114,7 @@ func JoinIntent(ctx context.Context, c microTypes.Client, data types.SessionJoin
 	// The JSON marshaller doesn't add a newline.
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to marshal join intent: %w", err)
+		return nil, nil, fmt.Errorf("Failed to marshal join intent: %w", err)
 	}
 
 	path := api.NewURL().Path("session", "join")
@@ -121,20 +122,28 @@ func JoinIntent(ctx context.Context, c microTypes.Client, data types.SessionJoin
 	// We can pass a reader to indicate to the query functions the body is already marshalled.
 	resp, err := c.QueryRaw(queryCtx, "POST", types.APIVersion, &path.URL, bytes.NewBuffer(dataBytes))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to send join intent: %w", err)
+		return nil, nil, fmt.Errorf("Failed to send join intent: %w", err)
 	}
 
 	// Parse the response to check for errors.
-	_, err = microTypes.ParseResponse(resp)
+	apiResp, err := microTypes.ParseResponse(resp)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(resp.TLS.PeerCertificates) == 0 {
-		return nil, errors.New("Peer's certificate is missing")
+		return nil, nil, errors.New("Peer's certificate is missing")
 	}
 
-	return resp.TLS.PeerCertificates[0], nil
+	confirmation := types.SessionJoinConfirmation{}
+	if len(apiResp.Metadata) > 0 {
+		err = json.Unmarshal(apiResp.Metadata, &confirmation)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to parse join intent confirmation: %w", err)
+		}
+	}
+
+	return resp.TLS.PeerCertificates[0], &confirmation, nil
 }
 
 // RemoteIssueToken issues a token on the remote MicroCloud.

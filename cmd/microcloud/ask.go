@@ -1731,7 +1731,7 @@ func (c *initConfig) askPassphrase() (string, error) {
 	return format(password)
 }
 
-func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSystems []string) ([]types.SessionJoinPost, error) {
+func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSystems int) ([]types.SessionJoinPost, error) {
 	header := []string{"NAME", "ADDRESS", "FINGERPRINT"}
 	rows := [][]string{}
 	table := tui.NewSelectableTable(header, rows)
@@ -1783,13 +1783,10 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 					break
 				}
 
-				// Skip systems which aren't listed in the preseed.
-				if !slices.Contains(expectedSystems, session.Intent.Name) {
-					continue
-				}
-
 				joinIntents[session.Intent.Name] = session.Intent
-				if len(joinIntents) == len(expectedSystems) {
+
+				// If a specific number of systems is expected, stop as soon as we reached it.
+				if expectedSystems > 0 && len(joinIntents) >= expectedSystems {
 					renderCancel()
 				}
 
@@ -1836,11 +1833,9 @@ func (c *initConfig) askJoinIntents(gw *cloudClient.WebsocketGateway, expectedSy
 		case <-renderCtx.Done():
 		}
 
-		for _, name := range expectedSystems {
-			_, ok := joinIntents[name]
-			if !ok {
-				return nil, fmt.Errorf("System %q hasn't reached out", name)
-			}
+		joinIntentsLength := len(joinIntents)
+		if joinIntentsLength != expectedSystems {
+			return nil, fmt.Errorf("Only %d out of %d system(s) reached out", joinIntentsLength, expectedSystems)
 		}
 
 		for _, intent := range joinIntents {
