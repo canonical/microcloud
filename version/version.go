@@ -3,10 +3,10 @@ package version
 
 // RawVersion is the current daemon version of MicroCloud.
 // LTS versions also include the patch number.
-const RawVersion = "3.3"
+const RawVersion = "3.4.0"
 
 // LTS should be set if the current version is an LTS (long-term support) version.
-const LTS = false
+const LTS = true
 
 // Version appends "LTS" to the raw version string if MicroCloud is an LTS version.
 func Version() string {
