@@ -312,7 +312,7 @@ jobs:
     if: ${{ github.repository_owner == 'canonical' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-      LATEST_MAJOR_VERSION: 3
+      LATEST_MAJOR_VERSION: 4
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
