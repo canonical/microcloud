@@ -59,13 +59,18 @@ The charm provides a `cos-agent` endpoint for metrics and a `logging` endpoint f
 
 If COS runs in a separate model (the common case for a dedicated observability stack), [offer](https://canonical.com/juju/docs/juju-cli/3.6/howto/manage-relations/#add-a-cross-model-relation) the Prometheus, Loki, and Grafana endpoints from the COS model:
 
-    juju offer prometheus:receive-remote-write
+    juju offer <backend-app>:receive-remote-write
     juju offer loki:logging
     juju offer grafana:grafana-dashboard
 
+```{note}
+Replace `<backend-app>` with the app name of your metrics backend depending on whether or not you have deployed COS Lite or COS (Prometheus or Mimir).
+In case of COS lite, use `prometheus`.
+```
+
 Then switch to the MicroCloud model and consume the offers:
 
-    juju consume <cos-controller>:<user>/<cos-model>.prometheus
+    juju consume <cos-controller>:<user>/<cos-model>.<backend-app>
     juju consume <cos-controller>:<user>/<cos-model>.loki
     juju consume <cos-controller>:<user>/<cos-model>.grafana
 
@@ -74,7 +79,7 @@ Deploy the collector and add the relations to the MicroCloud model:
     juju deploy opentelemetry-collector
     juju relate opentelemetry-collector microcloud:cos-agent
     juju relate opentelemetry-collector microcloud:logging
-    juju relate opentelemetry-collector prometheus
+    juju relate opentelemetry-collector <backend-app>
     juju relate opentelemetry-collector loki
     juju relate opentelemetry-collector grafana
 
