@@ -13,7 +13,7 @@ import (
 
 const (
 	// lxdMinVersion is the minimum version of LXD that fully supports all MicroCloud features.
-	lxdMinVersion = "6.9"
+	lxdMinVersion = "6.10"
 
 	// microCephMinVersion is the minimum version of MicroCeph that fully supports all MicroCloud features.
 	microCephMinVersion = "20.2"
