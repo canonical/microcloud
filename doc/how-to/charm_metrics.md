@@ -93,9 +93,9 @@ Run the following command to add the config to the `opentelemetry-collector` cha
     juju config opentelemetry-collector processors="$(cat <<'EOF'
     attributes/lxd-loki-labels:
     actions:
-        - action: upsert
-          key: loki.attribute.labels
-          value: "instance, app, location, name, project, type"
+      - action: upsert
+        key: loki.attribute.labels
+        value: "instance, app, location, name, project, type"
     EOF
     )"
 
