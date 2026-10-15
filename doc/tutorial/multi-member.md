@@ -393,7 +393,7 @@ Up/down to move; right to select all; left to select none.
  Selected "micro4" at "10.1.123.40"
 
 Would you like to set up local storage? (yes/no) [default=yes]: yes
-Select exactly one disk from each cluster member:
+Select exactly one disk from each cluster member for local storage:
 Space to select; enter to confirm; type to filter results.
 Up/down to move; right to select all; left to select none.
        +----------+---------------+----------+------+------------------------------------------------------+

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"slices"
@@ -348,6 +349,19 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		availableDisks[name] = state.AvailableDisks
 	}
 
+	// When adding new systems to a cluster which already has the local storage pool,
+	// the new systems have to be set up with a disk for the local storage pool too.
+	requireDisks := useJoinConfig && !c.bootstrap && len(askSystems) > 0
+
+	if requireDisks {
+		for _, name := range slices.Sorted(maps.Keys(askSystems)) {
+			_, ok := availableDisks[name]
+			if !ok {
+				return fmt.Errorf("System %q is ineligible for local storage. At least one available disk is required as the cluster already has a local storage pool", name)
+			}
+		}
+	}
+
 	// Local storage is already set up on every system, or if not every system has a disk.
 	if len(askSystems) == 0 || len(availableDisks) != len(askSystems) {
 		tui.PrintWarning("No disks available for local storage. Skipping configuration")
@@ -373,13 +387,15 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
-	wantsDisks, err := c.asker.AskBool("Would you like to set up local storage?", true)
-	if err != nil {
-		return err
-	}
+	if !requireDisks {
+		wantsDisks, err := c.asker.AskBool("Would you like to set up local storage?", true)
+		if err != nil {
+			return err
+		}
 
-	if !wantsDisks {
-		return nil
+		if !wantsDisks {
+			return nil
+		}
 	}
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
@@ -394,7 +410,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		sort.Sort(cli.SortColumnsNaturally(data))
 		header := []string{"LOCATION", "MODEL", "CAPACITY", "TYPE", "PATH"}
 		table := tui.NewSelectableTable(header, data)
-		answers, err := table.Render(context.Background(), c.asker, "Select exactly one disk from each cluster member:")
+		answers, err := table.Render(context.Background(), c.asker, "Select exactly one disk from each cluster member for local storage:")
 		if err != nil {
 			return err
 		}
