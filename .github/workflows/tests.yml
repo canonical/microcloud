@@ -309,7 +309,7 @@ jobs:
     name: Trigger snap build
     runs-on: ubuntu-26.04
     needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
-    if: ${{ github.repository_owner == 'canonical' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       LATEST_MAJOR_VERSION: 4
