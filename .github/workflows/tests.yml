@@ -317,7 +317,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # A non-shallow clone is needed for the push to Launchpad.
+          # A non-shallow clone is needed for the rebase with the microcloud-private branch
           fetch-depth: 0
           persist-credentials: false
 
@@ -333,8 +333,18 @@ jobs:
           set -eux
           set -o pipefail
 
-          # Record current commit hash.
+          # Record current commit hash before rebasing microcloud-private so the snap version retains the correct hash.
           localRev="$(git rev-parse HEAD)"
+
+          # Add the private MicroCloud repository and rebase to incorporate private security fixes.
+          git remote add microcloud-private git@github.com:canonical/microcloud-private.git
+          git fetch microcloud-private "${GITHUB_REF_NAME}"
+          git checkout --quiet -B "microcloud-private-${GITHUB_REF_NAME}" "microcloud-private/${GITHUB_REF_NAME}"
+          git rebase --quiet --no-stat "origin/${GITHUB_REF_NAME}"
+
+          # Sync the rebased microcloud-private branch back to the microcloud-private repo so that it is kept in sync with the public repo.
+          # Do this before any snapcraft.yaml modifications made below.
+          git push --quiet --force microcloud-private HEAD:"${GITHUB_REF_NAME}"
 
           # Extract a strict major.minor[.patch] version.
           version="$(sed -nE 's/^const RawVersion = "([0-9]+\.[0-9]+(\.[0-9]+)?)"$/\1/p' "${GITHUB_WORKSPACE}/version/version.go")"
@@ -397,7 +407,7 @@ jobs:
           git commit --quiet -s -m "Automatic upstream build (${BRANCH})" -m "Upstream commit: ${localRev} (version: ${versionString})"
           git show
 
-          # Pack all objects and generate a bitmap index
+          # Pack all objects (including microcloud-private ones) and generate a bitmap index
           # right before the push so that pack generation benefits from full bitmap coverage.
           git config --local pack.useBitmaps true
           git gc --prune=now
