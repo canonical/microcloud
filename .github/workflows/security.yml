@@ -78,7 +78,7 @@ jobs:
       matrix:
         include:
           - track: 3
-            branch: main
+            branch: v3-edge
           - track: 2
             branch: v2-edge
     steps:
