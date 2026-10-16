@@ -34,22 +34,24 @@ func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
 		}
 
 		// Use certificate based authentication between cluster members.
-		if r.TLS != nil {
-			trustedCerts := s.Truststore().RemoteCertificatesNative()
-			for _, cert := range r.TLS.PeerCertificates {
-				// First evaluate the permanent turst store.
-				trusted, _ := util.CheckMutualTLS(*cert, trustedCerts)
-				if trusted {
-					return f(s, r)
-				}
+		trustedCerts := s.Truststore().RemoteCertificatesNative()
 
-				// Second evaluate the temporary trust store.
-				// This is the fallback during the forming of the cluster.
-				trusted, _ = util.CheckMutualTLS(*cert, sh.TemporaryTrustStore())
-				if trusted {
-					return f(s, r)
-				}
-			}
+		peerCertificate, err := GetPeerCertificate(r)
+		if err != nil {
+			return types.BadRequest(err)
+		}
+
+		// First evaluate the permanent trust store.
+		trusted, _ := util.CheckMutualTLS(*peerCertificate, trustedCerts)
+		if trusted {
+			return f(s, r)
+		}
+
+		// Second evaluate the temporary trust store.
+		// This is the fallback during the forming of the cluster.
+		trusted, _ = util.CheckMutualTLS(*peerCertificate, sh.TemporaryTrustStore())
+		if trusted {
+			return f(s, r)
 		}
 
 		return types.Forbidden(errors.New("Failed to authenticate using mTLS"))
