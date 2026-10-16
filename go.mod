@@ -1,6 +1,6 @@
 module github.com/canonical/microcloud/microcloud
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/canonical/lxd v0.0.0-20261006094727-26e5294e7f31
