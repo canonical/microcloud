@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/microcloud/microcloud/api/types"
@@ -92,19 +93,23 @@ func sessionJoinPost(sh *service.Handler) func(state microTypes.State, r *http.R
 // Also compares each service's daemon version between the joiner and initiator.
 func validateIntent(ctx context.Context, sh *service.Handler, intent types.SessionJoinPost) error {
 	// Reject any peers that are missing our services.
-	for _, service := range sh.Services {
-		intentVersion, ok := intent.Services[service.Type()]
+	for _, s := range sh.Services {
+		intentVersion, ok := intent.Services[s.Type()]
 		if !ok {
-			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(service.Type()))
+			return fmt.Errorf("Rejecting peer %q due to missing services (%s)", intent.Name, string(s.Type()))
 		}
 
-		version, err := service.GetVersion(ctx)
+		version, err := s.GetVersion(ctx)
 		if err != nil {
-			return fmt.Errorf("Unable to determine initiator's %s version: %w", service.Type(), err)
+			return fmt.Errorf("Unable to determine initiator's %s version: %w", s.Type(), err)
+		}
+
+		if !service.VersionsCompatible(s.Type(), version, intentVersion) {
+			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, s.Type(), version, intentVersion)
 		}
 
 		if intentVersion != version {
-			return fmt.Errorf("Rejecting peer %q due to invalid %s version. (Want: %q, Detected: %q)", intent.Name, service.Type(), version, intentVersion)
+			logger.Warn("Accepting peer with a different but compatible version", logger.Ctx{"name": intent.Name, "service": s.Type(), "version": version, "peerVersion": intentVersion})
 		}
 	}
 

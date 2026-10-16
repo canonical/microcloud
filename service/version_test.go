@@ -148,3 +148,76 @@ func (s *versionSuite) Test_validateVersions() {
 		}
 	}
 }
+
+func (s *versionSuite) Test_VersionsCompatible() {
+	cases := []struct {
+		desc         string
+		service      types.ServiceType
+		version      string
+		otherVersion string
+		compatible   bool
+	}{
+		{
+			desc:         "Equal LXD versions are compatible",
+			service:      types.LXD,
+			version:      "6.5",
+			otherVersion: "6.5",
+			compatible:   true,
+		},
+		{
+			desc:         "Different LXD versions are incompatible",
+			service:      types.LXD,
+			version:      "6.5",
+			otherVersion: "6.6",
+			compatible:   false,
+		},
+		{
+			desc:         "Different MicroOVN versions are incompatible",
+			service:      types.MicroOVN,
+			version:      "24.03.2-a2c59c105b",
+			otherVersion: "24.03.2-0123456789",
+			compatible:   false,
+		},
+		{
+			desc:         "Equal MicroCeph versions are compatible",
+			service:      types.MicroCeph,
+			version:      "ceph-version: 19.2.3-0ubuntu0.24.04.3; microceph-git: 897bcdd902",
+			otherVersion: "ceph-version: 19.2.3-0ubuntu0.24.04.3; microceph-git: 897bcdd902",
+			compatible:   true,
+		},
+		{
+			desc:         "MicroCeph versions with equal Ceph version but different git version are compatible",
+			service:      types.MicroCeph,
+			version:      "ceph-version: 19.2.3-0ubuntu0.24.04.3; microceph-git: 897bcdd902",
+			otherVersion: "ceph-version: 19.2.3-0ubuntu0.24.04.3; microceph-git: d95f07173f",
+			compatible:   true,
+		},
+		{
+			desc:         "MicroCeph versions with different Ceph version are incompatible",
+			service:      types.MicroCeph,
+			version:      "ceph-version: 19.2.3-0ubuntu0.24.04.3; microceph-git: 897bcdd902",
+			otherVersion: "ceph-version: 19.2.3-0ubuntu0.24.04.4; microceph-git: 897bcdd902",
+			compatible:   false,
+		},
+		{
+			desc:         "MicroCeph versions without Ceph version are incompatible if not equal",
+			service:      types.MicroCeph,
+			version:      "897bcdd902",
+			otherVersion: "d95f07173f",
+			compatible:   false,
+		},
+		{
+			desc:         "MicroCeph version without Ceph version is incompatible with one that has it",
+			service:      types.MicroCeph,
+			version:      "ceph-version: 19.2.3-0ubuntu0.24.04.3; microceph-git: 897bcdd902",
+			otherVersion: "d95f07173f",
+			compatible:   false,
+		},
+	}
+
+	for i, c := range cases {
+		s.T().Logf("%d: %s", i, c.desc)
+
+		s.Equal(c.compatible, VersionsCompatible(c.service, c.version, c.otherVersion))
+	}
+}
