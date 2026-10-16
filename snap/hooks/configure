@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+# Validate the boolean config keys used when starting the daemon.
+# Changes only get applied after restarting the daemon.
+for key in daemon.debug db.trace; do
+    value="$(snapctl get "${key}")"
+    case "${value}" in
+        ""|true|false)
+            ;;
+        *)
+            echo "Invalid value \"${value}\" for \"${key}\": Must be either \"true\" or \"false\"" >&2
+            exit 1
+            ;;
+    esac
+done
