@@ -1,11 +1,13 @@
 package api
 
 import (
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/trust"
 	"github.com/canonical/microcluster/v3/microcluster/types"
@@ -15,6 +17,12 @@ import (
 
 // endpointHandler is just a convenience for writing clean return types.
 type endpointHandler func(types.State, *http.Request) types.Response
+
+// ErrNoCertificate is returned if the request does not contain a certificate.
+var ErrNoCertificate = errors.New("No certificate present in request")
+
+// ErrNoTLS is returned if the request does not have a TLS connection.
+var ErrNoTLS = errors.New("No TLS connection state")
 
 // authHandlerMTLS ensures a request has been authenticated using mTLS.
 func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
@@ -88,4 +96,17 @@ func authHandlerHMAC(sh *service.Handler, f endpointHandler) endpointHandler {
 
 		return f(s, r)
 	}
+}
+
+// GetPeerCertificate returns the first peer certificate in the request TLS connection states peer certificate list.
+func GetPeerCertificate(r *http.Request) (*x509.Certificate, error) {
+	if r.TLS == nil {
+		return nil, api.StatusErrorf(http.StatusBadRequest, "%w", ErrNoTLS)
+	}
+
+	if len(r.TLS.PeerCertificates) == 0 {
+		return nil, api.StatusErrorf(http.StatusBadRequest, "%w", ErrNoCertificate)
+	}
+
+	return r.TLS.PeerCertificates[0], nil
 }
