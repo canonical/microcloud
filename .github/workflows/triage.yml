@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   label:
-    if: github.event.pull_request
+    if: github.event.pull_request && github.repository == 'canonical/microcloud'
     permissions:
       contents: read  # for actions/labeler to determine modified files
       pull-requests: write  # for actions/labeler to add labels to PRs
