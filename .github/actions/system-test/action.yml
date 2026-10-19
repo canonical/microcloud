@@ -190,4 +190,4 @@ runs:
       with:
         name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
         path: ${{ env.GOCOVERDIR }}
-      if: env.GOCOVERDIR != ''
+      if: env.GOCOVERDIR != '' && github.repository == 'canonical/microcloud'
