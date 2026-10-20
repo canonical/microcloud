@@ -56,6 +56,8 @@ jobs:
     name: Code
     runs-on: ubuntu-22.04
     needs: [changes]
+    outputs:
+      runner: ${{ steps.select-runner.outputs.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -138,6 +140,15 @@ jobs:
             /home/runner/go/bin/dqlite
           retention-days: 1
 
+      - name: Select runner
+        id: select-runner
+        run: |
+          if [ "${{ github.repository }}" = "canonical/microcloud-private" ]; then
+            echo "runner=self-hosted-linux-amd64-resolute-large" >> $GITHUB_OUTPUT
+          else
+            echo "runner=ubuntu-24.04" >> $GITHUB_OUTPUT
+          fi
+
   system-tests-core:
     env:
       DEBUG: "1"
@@ -145,7 +156,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ ( github.event_name != 'schedule' || github.repository == 'canonical/microcloud' ) && github.repository_owner == 'canonical' }}
     name: System (core)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ needs.code-tests.outputs.runner }}
     needs: code-tests
     strategy:
       fail-fast: false
@@ -201,7 +212,7 @@ jobs:
       SNAPSHOT_RESTORE: "1"
     if: ${{ ( github.event_name != 'schedule' || github.repository == 'canonical/microcloud' ) && github.repository_owner == 'canonical' }}
     name: System (upgrade)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ needs.code-tests.outputs.runner }}
     needs: code-tests
     strategy:
       fail-fast: false
