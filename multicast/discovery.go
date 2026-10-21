@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
@@ -31,6 +32,7 @@ type Discovery struct {
 	group           net.IP
 	responderConn   *ipv4.PacketConn
 	responderCancel context.CancelFunc
+	responderWG     sync.WaitGroup
 }
 
 // NewDiscovery returns a new instance of Discovery which allows to lookup peers
@@ -73,7 +75,10 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 
 	// Close the network endpoint if the outer context got cancelled.
 	// This allows existing the endpoint's blocking read using ReadFrom.
+	d.responderWG.Add(1)
 	go func() {
+		defer d.responderWG.Done()
+
 		<-ctx.Done()
 		err := d.responderConn.Close()
 		// Ignore errors if the connection is already closed.
@@ -86,7 +91,10 @@ func (d *Discovery) Respond(ctx context.Context, info ServerInfo) error {
 
 	// Respond on received multicast datagrams.
 	// The routine exits if the connection gets closed.
+	d.responderWG.Add(1)
 	go func() {
+		defer d.responderWG.Done()
+
 		for {
 			// See the comment on the sender (lookup) for the reasoning about using 500.
 			b := make([]byte, 500)
@@ -157,6 +165,9 @@ func (d *Discovery) StopResponder() error {
 			d.responderCancel()
 		}
 	}
+
+	// Wait for all routines of the responder to return.
+	d.responderWG.Wait()
 
 	return nil
 }
