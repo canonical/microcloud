@@ -1,4 +1,4 @@
-GOMIN=1.27.1
+GOMIN=1.27.2
 GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
@@ -81,6 +81,7 @@ update-gomod:
 	go get -t -v -u ./...
 
 	# Static pins
+	go get github.com/canonical/microovn/microovn@branch-26.03 # 26.03 LTS.
 	go get github.com/olekukonko/tablewriter@v0.0.5 # Due to breaking API in later versions
 
 	go mod tidy -go=$(GOMIN)
