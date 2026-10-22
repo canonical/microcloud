@@ -88,6 +88,9 @@ Network interface for intra-cluster traffic
    This network interface can be, for example, a dedicated physical network interface, a VLAN, or a virtual function on an {abbr}`SR-IOV (Single root I/O virtualization)`-capable network interface.
    It serves as the dedicated network interface for MicroCloud and is used for multicast discovery (during setup) and all internal traffic between the MicroCloud, OVN, and Ceph members.
 
+   The address you select for internal traffic is also the address that LXD advertises for each cluster member.
+   Users accessing LXD, whether through the LXD CLI, the LXD API, or the LXD UI, therefore usually connect to the cluster through this network too.
+
 (reference-requirements-network-interfaces-uplink)=
 Network interface to connect to the uplink network
 :  MicroCloud requires one network interface for connecting OVN to the uplink network.
