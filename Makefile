@@ -1,4 +1,4 @@
-GOMIN=1.27.1
+GOMIN=1.27.2
 GOCOVERDIR ?= $(shell go env GOCOVERDIR)
 GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
