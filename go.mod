@@ -3,10 +3,10 @@ module github.com/canonical/microcloud/microcloud
 go 1.27.2
 
 require (
-	github.com/canonical/lxd v0.0.0-20261006094727-26e5294e7f31
-	github.com/canonical/microceph/microceph v0.0.0-20261005145422-1a089ff39038
-	github.com/canonical/microcluster/v3 v3.1.2
-	github.com/canonical/microovn/microovn v0.0.0-20260923132423-c5945cb0625d
+	github.com/canonical/lxd v0.0.0-20261022080141-2d6f47bafc5d
+	github.com/canonical/microceph/microceph v0.0.0-20261022000805-0de307ae8f0d
+	github.com/canonical/microcluster/v3 v3.1.3
+	github.com/canonical/microovn/microovn v0.0.0-20261014103553-25d6cfa30e61
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -39,8 +39,8 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/fvbommel/sortorder v1.2.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
+	github.com/fvbommel/sortorder v1.2.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -53,7 +53,7 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-runewidth v0.0.30 // indirect
+	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/mattn/go-sqlite3 v1.14.52 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
@@ -68,7 +68,7 @@ require (
 	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect
-	github.com/zitadel/oidc/v3 v3.51.12 // indirect
+	github.com/zitadel/oidc/v3 v3.51.16 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
