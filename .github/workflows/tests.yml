@@ -16,7 +16,7 @@ env:
   LD_LIBRARY_PATH: /home/runner/go/deps/dqlite/.libs/
   CGO_LDFLAGS_ALLOW: (-Wl,-wrap,pthread_create)|(-Wl,-z,now)
   # Use the github.workspace variable to adapt the cover directory path based on the used runner.
-  GOCOVERDIR: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && format('{0}/cover', github.workspace) || '' }}
+  GOCOVERDIR: ${{ github.repository == 'canonical/microcloud' && ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && format('{0}/cover', github.workspace) || '' }}
 
 permissions:
   contents: read
@@ -33,7 +33,7 @@ defaults:
 
 jobs:
   changes:
-    if: ${{ github.repository_owner == 'canonical' }}
+    if: ${{ ( github.event_name != 'schedule' || github.repository == 'canonical/microcloud' ) && github.repository_owner == 'canonical' }}
     name: Changes
     runs-on: ubuntu-slim
     outputs:
@@ -52,10 +52,12 @@ jobs:
           glob: ":!doc/*"
 
   code-tests:
-    if: ${{ (needs.changes.outputs.except_docs == 'true' || github.event_name == 'schedule') && github.repository_owner == 'canonical' }}
+    if: ${{ (needs.changes.outputs.except_docs == 'true' || ( github.event_name == 'schedule' && github.repository == 'canonical/microcloud' )) && github.repository_owner == 'canonical' }}
     name: Code
     runs-on: ubuntu-26.04
     needs: [changes]
+    outputs:
+      runner: ${{ steps.select-runner.outputs.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,7 +80,7 @@ jobs:
 
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.repository == 'canonical/microcloud'
 
       - id: ShellCheck
         name: Differential ShellCheck
@@ -86,14 +88,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           strict-check-on-push: true
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.repository == 'canonical/microcloud'
 
       - name: Upload artifact with ShellCheck defects in SARIF format
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Differential ShellCheck SARIF
           path: ${{ steps.ShellCheck.outputs.sarif }}
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.repository == 'canonical/microcloud'
 
       - name: Install MicroCloud build dependencies
         uses: $/.github/actions/install-builddeps
@@ -120,7 +122,7 @@ jobs:
         with:
           name: coverage-unit
           path: ${{env.GOCOVERDIR}}
-        if: env.GOCOVERDIR != ''
+        if: env.GOCOVERDIR != '' && github.repository == 'canonical/microcloud'
 
       - name: Prepare dqlite dependencies for system tests
         run: |
@@ -139,14 +141,23 @@ jobs:
             /home/runner/go/bin/dqlite
           retention-days: 1
 
+      - name: Select runner
+        id: select-runner
+        run: |
+          if [ "${{ github.repository }}" = "canonical/microcloud-private" ]; then
+            echo "runner=self-hosted-linux-amd64-resolute-large" >> $GITHUB_OUTPUT
+          else
+            echo "runner=ubuntu-26.04" >> $GITHUB_OUTPUT
+          fi
+
   system-tests-core:
     env:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
-    if: ${{ github.repository_owner == 'canonical' }}
+    if: ${{ ( github.event_name != 'schedule' || github.repository == 'canonical/microcloud' ) && github.repository_owner == 'canonical' }}
     name: System (core)
-    runs-on: ubuntu-26.04
+    runs-on: ${{ needs.code-tests.outputs.runner }}
     needs: code-tests
     strategy:
       fail-fast: false
@@ -202,9 +213,9 @@ jobs:
       DEBUG: "1"
       SKIP_VM_LAUNCH: "1"
       SNAPSHOT_RESTORE: "1"
-    if: ${{ github.repository_owner == 'canonical' }}
+    if: ${{ ( github.event_name != 'schedule' || github.repository == 'canonical/microcloud' ) && github.repository_owner == 'canonical' }}
     name: System (upgrade)
-    runs-on: ubuntu-26.04
+    runs-on: ${{ needs.code-tests.outputs.runner }}
     needs: code-tests
     strategy:
       fail-fast: false
@@ -236,7 +247,7 @@ jobs:
       CGO_LDFLAGS: "-L/home/runner/go/bin/dqlite/libs/"
       LD_LIBRARY_PATH: "/home/runner/go/bin/dqlite/libs/"
       CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository_owner == 'canonical' }}
+    if: ${{ ( github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ) && github.ref_name == 'main' && github.repository == 'canonical/microcloud' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -298,6 +309,7 @@ jobs:
           tmpdir: /tmp/tics
 
   doc-tests:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'canonical/microcloud' }}
     name: Documentation
     uses: canonical/documentation-workflows/.github/workflows/documentation-checks.yaml@309dd382b6a07cbd23d84e3912fb05e6bc1f4ffb
     with:
@@ -309,7 +321,7 @@ jobs:
     name: Trigger snap build
     runs-on: ubuntu-26.04
     needs: [code-tests, system-tests-core, system-tests-upgrade, doc-tests]
-    if: ${{ github.repository_owner == 'canonical' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.repository == 'canonical/microcloud' && github.event_name == 'push' && github.actor != 'dependabot[bot]' }}
     env:
       SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       LATEST_MAJOR_VERSION: 4
@@ -317,7 +329,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # A non-shallow clone is needed for the push to Launchpad.
+          # A non-shallow clone is needed for the rebase with the microcloud-private branch
           fetch-depth: 0
           persist-credentials: false
 
@@ -333,8 +345,18 @@ jobs:
           set -eux
           set -o pipefail
 
-          # Record current commit hash.
+          # Record current commit hash before rebasing microcloud-private so the snap version retains the correct hash.
           localRev="$(git rev-parse HEAD)"
+
+          # Add the private MicroCloud repository and rebase to incorporate private security fixes.
+          git remote add microcloud-private git@github.com:canonical/microcloud-private.git
+          git fetch microcloud-private "${GITHUB_REF_NAME}"
+          git checkout --quiet -B "microcloud-private-${GITHUB_REF_NAME}" "microcloud-private/${GITHUB_REF_NAME}"
+          git rebase --quiet --no-stat "origin/${GITHUB_REF_NAME}"
+
+          # Sync the rebased microcloud-private branch back to the microcloud-private repo so that it is kept in sync with the public repo.
+          # Do this before any snapcraft.yaml modifications made below.
+          git push --quiet --force microcloud-private HEAD:"${GITHUB_REF_NAME}"
 
           # Extract a strict major.minor[.patch] version.
           version="$(sed -nE 's/^const RawVersion = "([0-9]+\.[0-9]+(\.[0-9]+)?)"$/\1/p' "${GITHUB_WORKSPACE}/version/version.go")"
@@ -397,7 +419,7 @@ jobs:
           git commit --quiet -s -m "Automatic upstream build (${BRANCH})" -m "Upstream commit: ${localRev} (version: ${versionString})"
           git show
 
-          # Pack all objects and generate a bitmap index
+          # Pack all objects (including microcloud-private ones) and generate a bitmap index
           # right before the push so that pack generation benefits from full bitmap coverage.
           git config --local pack.useBitmaps true
           git gc --prune=now
