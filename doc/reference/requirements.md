@@ -134,6 +134,8 @@ We recommend an LTS version of Ubuntu 22.04 or newer. Production deployments sub
 
 If you intend to use ZFS storage, use a non-HWE (Hardware Enabled) variant of Ubuntu 22.04.
 
+If you do not set up distributed networking with MicroOVN, MicroCloud falls back on the Ubuntu fan for networking (see {ref}`exp-networking`), which requires the `vxlan` kernel module.
+
 Also see LXD's {doc}`lxd:requirements` and Ceph's {doc}`ceph:start/os-recommendations`.
 
 (reference-requirements-software-snaps)=
