@@ -125,6 +125,28 @@ To configure external connectivity, MicroCloud requires an uplink network that s
 
 The IP addresses of the cluster members must not change after installation, so they must be configured as static addresses.
 
+(reference-requirements-network-ports)=
+### Network ports
+
+MicroCloud and its components use the following ports for their APIs on each cluster member.
+Make sure that no other services use these ports, and that they are reachable between all cluster members:
+
+| Port | Protocol | Used by                                       |
+| ---- | -------- | --------------------------------------------- |
+| 6443 | TCP      | MicroOVN                                      |
+| 7443 | TCP      | MicroCeph                                     |
+| 8443 | TCP      | LXD (API and UI)                              |
+| 9443 | TCP      | MicroCloud                                    |
+| 9444 | UDP      | MicroCloud multicast discovery (during setup) |
+
+Ceph and OVN use additional ports for their own services.
+See the {ref}`MicroCeph attack surface <microceph:attack-surface>` and the {doc}`MicroOVN hardening guide <microovn:reference/hardening>` for details.
+
+```{note}
+The Ceph dashboard uses port 8443 for HTTPS by default, which conflicts with LXD.
+Visit the {ref}`Ceph dashboard documentation <ceph:mgr-dashboard>` for details about how to configure the dashboard to use a different port.
+```
+
 (reference-requirements-software)=
 ## Software requirements
 
