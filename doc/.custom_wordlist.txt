@@ -16,6 +16,7 @@ Cloudflare
 CMS
 CRUSH
 cryptographically
+CVEs
 DCO
 DHCP
 disaggregate
