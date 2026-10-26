@@ -440,6 +440,22 @@ test_interactive() {
   lxc exec micro01 -- tail -1 out | grep "User aborted" -q
   lxc exec micro04 -- tail -1 out | grep "Failed waiting during join: Initiator aborted the setup" -q
 
+  # Initiate a MicroCloud cluster with a session timeout and verify both initiator and joiner receive "Session timeout exceeded".
+  reset_systems 3 0 0
+  unset_interactive_vars
+
+  echo "Initiate a MicroCloud cluster with a short session timeout and verify both initiator and joiner receive the timeout error"
+  export MULTI_NODE="yes"
+  export LOOKUP_IFACE="enp5s0"
+  export EXPECT_PEERS=2
+  export SETUP_ZFS="no"
+  export SETUP_CEPH="no"
+  export OVN_WARNING="no"
+
+  ! join_session init micro01 micro02 || false
+  lxc exec micro01 -- tail -1 out | grep "Session timeout exceeded" -q
+  lxc exec micro02 -- tail -1 out | grep "Session timeout exceeded" -q
+
   echo "Try to initiate a MicroCloud with left over networking resources and check it fails to configure OVN"
   reset_systems 3 2 1
 
@@ -622,7 +638,6 @@ _test_case() {
       validate_system_microovn "${name}"
     done
 }
-
 
 test_interactive_combinations() {
   # Test with 2 systems, no disks, no interfaces.
