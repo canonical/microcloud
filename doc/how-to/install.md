@@ -86,17 +86,13 @@ For detailed information, refer to {ref}`reference-requirements`.
 ```{youtube} https://www.youtube.com/watch?v=M0y0hQ16YuE
 ```
 
-Install all required {ref}`snaps <reference-requirements-software-snaps>` on each machine intended as a MicroCloud cluster member. Enter the following commands on all machines:
+Install all required {ref}`snaps <reference-requirements-software-snaps>` on each machine intended as a MicroCloud cluster member. Enter the following commands on all machines to install the most recent {ref}`LTS release <ref-releases-microcloud-lts>` of MicroCloud and the {ref}`compatible releases <ref-releases-matrix>` of LXD, MicroCeph, and MicroOVN:
 
-```{admonition} Snap channels
-:class: note
-The snap channels shown below install the current {ref}`feature release <ref-releases-microcloud-feature>` of MicroCloud, along with the most recent compatible releases for its components. To install the {ref}`current LTS release <ref-releases-microcloud-lts>` of MicroCloud instead, refer to the [install guide for that version](https://canonical.com/microcloud/docs/default/how-to/install/).
-```
 
 ```bash
 sudo snap install lxd --channel=6/stable --cohort="+"
-sudo snap install microceph --channel=squid/stable --cohort="+"
-sudo snap install microovn --channel=24.03/stable --cohort="+"
+sudo snap install microceph --channel=tentacle/stable --cohort="+"
+sudo snap install microovn --channel=26.03/stable --cohort="+"
 sudo snap install microcloud --channel=3/stable --cohort="+"
 ```
 
