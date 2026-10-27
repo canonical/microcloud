@@ -12,6 +12,10 @@ inputs:
     description: 'Whether to collect Go coverage data for this test'
     required: false
     default: 'true'
+  sideload_debug_binaries:
+    description: 'Whether to sideload the MicroCloud debug binaries built from this checkout instead of using the installed snap as-is'
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -48,6 +52,7 @@ runs:
         go-version-file: 'go.mod'
 
     - name: Download system test dependencies
+      if: ${{ inputs.sideload_debug_binaries == 'true' }}
       uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: system-test-deps
@@ -63,6 +68,7 @@ runs:
       if: env.GOCOVERDIR != ''
 
     - name: Sideload debug binaries
+      if: ${{ inputs.sideload_debug_binaries == 'true' }}
       shell: bash
       run: | # zizmor: ignore[github-env]
         set -eux
@@ -75,7 +81,7 @@ runs:
         echo "MICROCLOUDD_DEBUG_PATH=${MICROCLOUDD_DEBUG_PATH}" >> "${GITHUB_ENV}"
 
     - name: Strip debug binaries
-      if: env.GOCOVERDIR == ''
+      if: ${{ inputs.sideload_debug_binaries == 'true' && env.GOCOVERDIR == '' }}
       shell: bash
       run: |
         set -eux
@@ -190,4 +196,4 @@ runs:
       with:
         name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
         path: ${{ env.GOCOVERDIR }}
-      if: env.GOCOVERDIR != '' && github.repository == 'canonical/microcloud'
+      if: env.GOCOVERDIR != '' && inputs.collect_coverage == 'true' && github.repository == 'canonical/microcloud'
