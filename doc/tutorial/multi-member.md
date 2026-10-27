@@ -16,7 +16,7 @@ This tutorial guides you through installing and initializing MicroCloud in a con
    However, you should make sure that you have a storage pool set up that is big enough to store four VMs. We recommend a minimum storage pool size of 40 GiB.
 ```
 
-MicroCloud requires LXD version 5.21:
+The MicroCloud tutorial with virtual machines requires an installation of LXD.
 
 1. Install `snapd`:
 
@@ -42,13 +42,13 @@ MicroCloud requires LXD version 5.21:
           sudo apt update
           sudo apt install snapd
 
-1. If LXD is already installed, enter the following command to update it:
+1. If LXD is already installed, enter the following command to update it to the most recent LTS release (LXD 6.10):
 
-       sudo snap refresh lxd --channel=5.21/stable
+       sudo snap refresh lxd --channel=6/stable
 
-   Otherwise, enter the following command to install LXD:
+   Otherwise, enter the following command to install LXD 6.10:
 
-       sudo snap install lxd
+       sudo snap install lxd --channel=6/stable
 
 1. Add the current user to the `lxd` group
 
@@ -185,10 +185,10 @@ Complete the following steps:
 
 1. Create the VMs, but don't start them yet:
 
-       lxc init ubuntu:24.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.10 -d eth0,ipv6.address=fd42:1:1234:1234::10
-       lxc init ubuntu:24.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.20 -d eth0,ipv6.address=fd42:1:1234:1234::20
-       lxc init ubuntu:24.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.30 -d eth0,ipv6.address=fd42:1:1234:1234::30
-       lxc init ubuntu:24.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.40 -d eth0,ipv6.address=fd42:1:1234:1234::40
+       lxc init ubuntu:26.04 micro1 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.10 -d eth0,ipv6.address=fd42:1:1234:1234::10
+       lxc init ubuntu:26.04 micro2 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.20 -d eth0,ipv6.address=fd42:1:1234:1234::20
+       lxc init ubuntu:26.04 micro3 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.30 -d eth0,ipv6.address=fd42:1:1234:1234::30
+       lxc init ubuntu:26.04 micro4 --vm --config limits.cpu=2 --config limits.memory=2GiB -d eth0,ipv4.address=10.1.123.40 -d eth0,ipv6.address=fd42:1:1234:1234::40
 
    ```{tip}
       Run these commands in sequence, not in parallel.
@@ -265,10 +265,10 @@ Complete the following steps on each VM (`micro1`, `micro2`, `micro3`, and `micr
 
 1. Install the required snaps:
 
-       sudo snap install lxd --channel=5.21/stable --cohort="+"
-       sudo snap install microceph --channel=squid/stable --cohort="+"
-       sudo snap install microovn --channel=24.03/stable --cohort="+"
-       sudo snap install microcloud --channel=2/stable --cohort="+"
+       sudo snap install lxd --channel=6/stable --cohort="+"
+       sudo snap install microceph --channel=tentacle/stable --cohort="+"
+       sudo snap install microovn --channel=26.03/stable --cohort="+"
+       sudo snap install microcloud --channel=3/stable --cohort="+"
 
    ```{note}
    The `--cohort="+"` flag in the command ensures that the same version of the snap is installed on all machines.
@@ -798,15 +798,15 @@ Now that your MicroCloud cluster is ready to use, let's launch a few instances:
 
 1. Launch an Ubuntu container with the default settings:
 
-       lxc launch ubuntu:24.04 u1
+       lxc launch ubuntu:26.04 u1
 
 1. Launch another Ubuntu container, but use local storage instead of the default remote storage:
 
-       lxc launch ubuntu:24.04 u2 --storage local
+       lxc launch ubuntu:26.04 u2 --storage local
 
 1. Launch an Ubuntu VM:
 
-       lxc launch ubuntu:24.04 u3 --vm
+       lxc launch ubuntu:26.04 u3 --vm
 
 1. Check the list of instances.
    Note that the instances are running on different cluster members.
@@ -1023,7 +1023,7 @@ You can, however, create a different network to isolate some instances from othe
 
 1. Launch an Ubuntu container that uses the new network:
 
-       lxc launch ubuntu:24.04 u4 --network isolated
+       lxc launch ubuntu:26.04 u4 --network isolated
 
 1. Access the shell in `u4`:
 
