@@ -46,6 +46,10 @@ Local storage is fast and convenient. It is commonly used in production and is t
 
 The default file system type for local storage is ZFS.
 
+When adding a cluster member, MicroCloud also offers unmounted disks that contain an existing local storage pool, for example after reinstalling a machine.
+If you select such a disk, MicroCloud asks whether to reuse the existing storage pool on it instead of wiping it.
+This requires the `storage_source_recover` LXD API extension.
+
 (reference-requirements-storage-distributed)=
 ### Distributed storage
 
