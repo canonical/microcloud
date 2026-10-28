@@ -189,8 +189,21 @@ jobs:
           # Both LXD 5.21 and 6 are supported.
           - "5.21/edge"
           - "6/edge"
-        microcloud: ["latest/edge"]
+        microcloud:
+          - "latest/edge"
+          - "3/edge"
+          - "2/edge"
         exclude:
+          # Unsupported: MicroCloud 3 and latest/edge require LXD >= 6.
+          - microcloud: "latest/edge"
+            lxd: "5.21/edge"
+          - microcloud: "3/edge"
+            lxd: "5.21/edge"
+          # Exclude the released MicroCloud 2 and 3 combinations for regular development pipelines.
+          # They test published snaps, not the code in this checkout, so they are only useful on
+          # the weekly schedule (or on-demand via manual workflow dispatch).
+          - microcloud: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && '2/edge' }}
+          - microcloud: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && '3/edge' }}
           # Exclude LXD 5.21 for regular development pipelines to speed up the result cycle.
           # MicroCloud edge tests should always run with LXD edge. The LTS edge is tested in the weekly schedule.
           # Launch the LXD 5.21 tests both for schedules and manual workflow dispatch.
@@ -206,7 +219,8 @@ jobs:
         with:
           setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
           setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
-          collect_coverage: ${{ matrix.suite != 'terraform_demo' }}
+          collect_coverage: ${{ matrix.suite != 'terraform_demo' && matrix.microcloud == 'latest/edge' }}
+          sideload_debug_binaries: ${{ matrix.microcloud == 'latest/edge' }}
 
   system-tests-upgrade:
     env:
