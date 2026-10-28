@@ -28,6 +28,10 @@ type SystemInformation struct {
 	// AvailableDisks is the list of disks available for use on the system.
 	AvailableDisks map[string]api.ResourcesStorageDisk
 
+	// ReusableDisks is the list of unmounted disks with existing partitions on the system.
+	// They are not pristine but might contain an existing storage pool which can be recovered.
+	ReusableDisks map[string]api.ResourcesStorageDisk
+
 	// AvailableUplinkInterfaces is the list of networks that can be used for the OVN uplink network.
 	AvailableUplinkInterfaces map[string]api.Network
 
@@ -81,6 +85,7 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 		ClusterName:                   connectInfo.Name,
 		ClusterAddress:                connectInfo.Address,
 		AvailableDisks:                map[string]api.ResourcesStorageDisk{},
+		ReusableDisks:                 map[string]api.ResourcesStorageDisk{},
 		AvailableUplinkInterfaces:     map[string]api.Network{},
 		AvailableCephInterfaces:       map[string]DedicatedInterface{},
 		AvailableOVNInterfaces:        map[string]DedicatedInterface{},
@@ -125,12 +130,6 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 
 	if allResources != nil {
 		for _, disk := range allResources.Storage.Disks {
-			// Exclude non-pristine disks with partitions.
-			// Disks already used for local storage (zfs) contain a partition and are therefore excluded by this check.
-			if len(disk.Partitions) != 0 {
-				continue
-			}
-
 			// Exclude cdrom drives as viable storage disk.
 			if disk.Type == "cdrom" {
 				continue
@@ -145,6 +144,17 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 			}
 
 			if diskUsed {
+				continue
+			}
+
+			// Exclude non-pristine disks with partitions.
+			// Disks already used for local storage (zfs) contain a partition and are therefore excluded by this check.
+			// Unmounted ones are kept separately as they might contain an existing storage pool that can be reused.
+			if len(disk.Partitions) != 0 {
+				if !isDiskMounted(disk) {
+					s.ReusableDisks[disk.ID] = disk
+				}
+
 				continue
 			}
 
@@ -393,6 +403,26 @@ func ClustersConflict(systems map[string]SystemInformation, services map[types.S
 	}
 
 	return false, ""
+}
+
+// IsPristineDisk returns true if the disk has neither partitions nor a filesystem.
+func IsPristineDisk(disk api.ResourcesStorageDisk) bool {
+	return disk.DeviceFSUUID == "" && len(disk.Partitions) == 0
+}
+
+// isDiskMounted returns true if the disk or any of its partitions is mounted.
+func isDiskMounted(disk api.ResourcesStorageDisk) bool {
+	if disk.Mounted {
+		return true
+	}
+
+	for _, partition := range disk.Partitions {
+		if partition.Mounted {
+			return true
+		}
+	}
+
+	return false
 }
 
 // FormatDiskPath returns a disk's path representation.
