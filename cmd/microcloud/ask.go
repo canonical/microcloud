@@ -468,10 +468,6 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		return nil
 	}
 
-	if wipeable {
-		toWipe = selectedDisks
-	}
-
 	var joinConfigs map[string][]api.ClusterMemberConfigKey
 	var finalConfigs []api.StoragePoolsPost
 	var targetConfigs map[string][]api.StoragePoolsPost
