@@ -322,6 +322,64 @@ func (s *preseedSuite) Test_preseedValidateInvalid() {
 	}
 }
 
+func (s *preseedSuite) Test_preseedValidateRecover() {
+	systems := func(n2 InitStorage) []System {
+		return []System{
+			{Name: "n1", Address: "1.0.0.1", Storage: InitStorage{Local: DirectStorage{Path: "/dev/sdb"}}},
+			{Name: "n2", Address: "1.0.0.2", Storage: n2},
+		}
+	}
+
+	cases := []struct {
+		desc      string
+		bootstrap bool
+		storage   InitStorage
+		err       error
+	}{
+		{
+			desc:    "Recover local disk when adding",
+			storage: InitStorage{Local: DirectStorage{Path: "/dev/sdb", Recover: true}},
+			err:     nil,
+		},
+		{
+			desc:      "Recover local disk when initializing",
+			bootstrap: true,
+			storage:   InitStorage{Local: DirectStorage{Path: "/dev/sdb", Recover: true}},
+			err:       errors.New(`Cannot recover the local storage disk of system "n2" when initializing`),
+		},
+		{
+			desc:    "Recover and wipe local disk",
+			storage: InitStorage{Local: DirectStorage{Path: "/dev/sdb", Recover: true, Wipe: true}},
+			err:     errors.New(`Cannot both wipe and recover the local storage disk of system "n2"`),
+		},
+		{
+			desc:    "Recover local disk without path",
+			storage: InitStorage{Local: DirectStorage{Recover: true}},
+			err:     errors.New(`Missing the local storage disk path to recover on system "n2"`),
+		},
+		{
+			desc: "Recover Ceph disk",
+			storage: InitStorage{
+				Local: DirectStorage{Path: "/dev/sdb"},
+				Ceph:  []DirectStorage{{Path: "/dev/sdc", Recover: true}},
+			},
+			err: errors.New(`Cannot recover Ceph disks of system "n2"`),
+		},
+	}
+
+	for _, c := range cases {
+		s.T().Log(c.desc)
+
+		p := Preseed{SessionPassphrase: "foo", InitiatorAddress: "1.0.0.1", Systems: systems(c.storage)}
+		err := p.validate("n1", c.bootstrap)
+		if c.err == nil {
+			s.NoError(err)
+		} else {
+			s.EqualError(err, c.err.Error())
+		}
+	}
+}
+
 func (s *preseedSuite) Test_preseedMatchDisksMemory() {
 	unit1, err := units.ParseByteSizeString("1MiB")
 	s.NoError(err)
