@@ -98,6 +98,8 @@ sudo snap install microcloud --channel=3/stable --cohort="+"
 
 The `--cohort` flag ensures that versions remain {ref}`synchronized during later updates <howto-update-sync>`.
 
+You can use the `--channel` flag to specify different channels, which correspond to different releases. If you install a different MicroCloud release, be sure to install compatible releases of LXD, MicroCeph, and MicroOVN, as detailed in {ref}`ref-releases-matrix`.
+
 Following installation, make sure to {ref}`hold updates <howto-update-hold>`.
 
 ### Previously installed snaps
