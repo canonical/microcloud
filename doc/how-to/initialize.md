@@ -51,6 +51,7 @@ Complete the following steps to initialize MicroCloud:
    MicroCloud automatically detects the available addresses (IPv4 and IPv6) on the existing network interfaces and displays them in a table.
 
    You must select exactly one address.
+   Each LXD cluster member also serves the LXD REST API on this address, so choose one that LXD users can reach.
 1. On all the other machines, enter the following command and repeat the address selection:
 
        sudo microcloud join
