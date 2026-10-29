@@ -64,6 +64,31 @@ sudo snap restart microcloud
 
 For more information about managing snap services, visit {ref}`snap:how-to-guides-manage-snaps-control-services` in the Snap documentation.
 
+(howto-snap-daemon-debug)=
+### Enable debug logging
+
+To enable debug logging for the MicroCloud daemon, set the `daemon.debug` option and restart the daemon:
+
+```bash
+sudo snap set microcloud daemon.debug=true
+sudo snap restart microcloud
+```
+
+To also enable tracing for MicroCloud's Dqlite database, set the `db.trace` option and restart the daemon:
+
+```bash
+sudo snap set microcloud db.trace=true
+sudo snap restart microcloud
+```
+
+To view the logs, run:
+
+```bash
+sudo snap logs microcloud
+```
+
+To disable debug logging or database tracing, set the respective option to `false` and restart the daemon.
+
 ## Related topics
 
 How-to guides:

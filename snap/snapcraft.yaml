@@ -30,6 +30,13 @@ description: |-
 
   Following the simple CLI prompts, a working MicroCloud will be ready within minutes.
 
+  Supported configuration options for the snap (snap set microcloud [<key>=<value>...]):
+
+   - daemon.debug: Increase logging to debug level [default=false]
+   - db.trace: Enable dqlite trace logging (very verbose) [default=false]
+
+  Restart the daemon to apply changes (snap restart microcloud).
+
 contact: lxd@lists.canonical.com
 issues: https://github.com/canonical/microcloud/issues
 source-code: https://github.com/canonical/microcloud
