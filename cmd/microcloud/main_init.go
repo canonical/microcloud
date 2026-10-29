@@ -480,7 +480,7 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 	}
 
 	// Concurrently issue a token for each joiner.
-	for peer := range c.systems {
+	issueTokens := func(peer string) error {
 		mut := sync.Mutex{}
 		err := sh.RunConcurrent("", "", func(s service.Service) error {
 			// Skip MicroCloud as the cluster is already formed.
@@ -527,13 +527,22 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
+
+		return nil
 	}
 
 	fmt.Println("Awaiting cluster formation ...")
 
+	// Peers join one at a time, so issue each peer's tokens right before its join.
+	// Issuing them all up front lets the tokens of the last peers expire on large clusters.
 	// If the local node needs to join an existing cluster, do it first so we can proceed as normal.
+	err := issueTokens(sh.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(joinConfig[sh.Name].Tokens) > 0 {
 		cfg := joinConfig[sh.Name]
 		err := waitForJoin(sh, clusterSize, sh.Name, nil, cfg)
@@ -544,13 +553,23 @@ func (c *initConfig) addPeers(sh *service.Handler) (revert.Hook, error) {
 		fmt.Println(tui.SummarizeResult("Peer %s has joined the cluster", sh.Name))
 	}
 
-	for peer, cfg := range joinConfig {
-		if len(cfg.Tokens) == 0 || peer == sh.Name {
+	for peer := range joinConfig {
+		if peer == sh.Name {
+			continue
+		}
+
+		err := issueTokens(peer)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg := joinConfig[peer]
+		if len(cfg.Tokens) == 0 {
 			continue
 		}
 
 		logger.Debug("Initiating sequential request for cluster join", logger.Ctx{"peer": peer})
-		err := waitForJoin(sh, clusterSize, peer, nil, cfg)
+		err = waitForJoin(sh, clusterSize, peer, nil, cfg)
 		if err != nil {
 			return nil, err
 		}
