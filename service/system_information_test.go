@@ -45,6 +45,21 @@ func (s *diskSuite) Test_IsPristineDisk() {
 			},
 			pristine: false,
 		},
+		{
+			desc:     "Mounted disk without filesystem or partitions",
+			disk:     api.ResourcesStorageDisk{ID: "sde", Mounted: true},
+			pristine: false,
+		},
+		{
+			desc: "Disk with a mounted partition",
+			disk: api.ResourcesStorageDisk{
+				ID: "sda",
+				Partitions: []api.ResourcesStorageDiskPartition{
+					{ID: "sda1", Mounted: true},
+				},
+			},
+			pristine: false,
+		},
 	}
 
 	for i, c := range cases {

@@ -28,8 +28,8 @@ type SystemInformation struct {
 	// AvailableDisks is the list of disks available for use on the system.
 	AvailableDisks map[string]api.ResourcesStorageDisk
 
-	// ReusableDisks is the list of unmounted disks with existing partitions on the system.
-	// They are not pristine but might contain an existing storage pool which can be recovered.
+	// ReusableDisks is the list of unmounted non-pristine disks on the system.
+	// They might contain an existing storage pool which can be recovered.
 	ReusableDisks map[string]api.ResourcesStorageDisk
 
 	// AvailableUplinkInterfaces is the list of networks that can be used for the OVN uplink network.
@@ -147,10 +147,10 @@ func (sh *Handler) CollectSystemInformation(ctx context.Context, connectInfo mul
 				continue
 			}
 
-			// Exclude non-pristine disks with partitions.
-			// Disks already used for local storage (zfs) contain a partition and are therefore excluded by this check.
-			// Unmounted ones are kept separately as they might contain an existing storage pool that can be reused.
-			if len(disk.Partitions) != 0 {
+			// Keep non-pristine disks separately as they might contain an existing storage pool that can be reused.
+			// Disks already used for local storage (zfs) contain a partition and are therefore non-pristine.
+			// Mounted non-pristine disks are in use and are excluded entirely.
+			if !IsPristineDisk(disk) {
 				if !isDiskMounted(disk) {
 					s.ReusableDisks[disk.ID] = disk
 				}
@@ -405,9 +405,9 @@ func ClustersConflict(systems map[string]SystemInformation, services map[types.S
 	return false, ""
 }
 
-// IsPristineDisk returns true if the disk has neither partitions nor a filesystem.
+// IsPristineDisk returns true if the disk has neither partitions nor a filesystem and is not mounted.
 func IsPristineDisk(disk api.ResourcesStorageDisk) bool {
-	return disk.DeviceFSUUID == "" && len(disk.Partitions) == 0
+	return disk.DeviceFSUUID == "" && len(disk.Partitions) == 0 && !isDiskMounted(disk)
 }
 
 // isDiskMounted returns true if the disk or any of its partitions is mounted.
