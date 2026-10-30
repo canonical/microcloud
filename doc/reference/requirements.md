@@ -125,6 +125,26 @@ To configure external connectivity, MicroCloud requires an uplink network that s
 
 The IP addresses of the cluster members must not change after installation, so they must be configured as static addresses.
 
+(reference-requirements-network-ports)=
+### Network ports
+
+MicroCloud and its components use the following ports on each cluster member.
+Make sure that no other services use these ports:
+
+| Port | Protocol | Used by                                       |
+| ---- | -------- | --------------------------------------------- |
+| 6443 | TCP      | MicroOVN                                      |
+| 7443 | TCP      | MicroCeph                                     |
+| 8443 | TCP      | LXD (API and UI)                              |
+| 9443 | TCP      | MicroCloud                                    |
+| 9444 | UDP      | MicroCloud multicast discovery                |
+
+The TCP ports must be reachable between all cluster members.
+Port 9444 is only used for multicast discovery while setting up the cluster or adding new members.
+It only needs to be reachable on the initiator, the cluster member on which you run {command}`microcloud init` or {command}`microcloud add`.
+
+Ceph and OVN use additional ports for their own services, as detailed in the {ref}`MicroCeph attack surface <microceph:attack-surface>` documentation and the {doc}`MicroOVN hardening guide <microovn:reference/hardening>`.
+
 (reference-requirements-software)=
 ## Software requirements
 
