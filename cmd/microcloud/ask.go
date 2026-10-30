@@ -336,14 +336,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	// Disks which might contain an existing storage pool are only offered when adding systems to an existing cluster.
 	// This allows a recovered system to rejoin the cluster using its existing local storage pool.
-	var err error
-	recoverable := false
-	if !c.bootstrap {
-		recoverable, err = lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "storage_source_recover")
-		if err != nil {
-			return fmt.Errorf("Failed to check for source.recover extension: %w", err)
-		}
-	}
+	recoverable := !c.bootstrap
 
 	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for name, state := range c.state {

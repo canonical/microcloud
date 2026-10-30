@@ -807,18 +807,6 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 
 	lxd := s.Services[types.LXD].(*service.LXDService)
 
-	recoverLocal := slices.ContainsFunc(p.Systems, func(system System) bool { return system.Storage.Local.Recover })
-	if recoverLocal {
-		recoverable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "storage_source_recover")
-		if err != nil {
-			return nil, fmt.Errorf("Failed to check for source.recover extension: %w", err)
-		}
-
-		if !recoverable {
-			return nil, errors.New("Cannot recover local storage disks: LXD is missing the storage_source_recover API extension")
-		}
-	}
-
 	// If an uplink interface was explicitly chosen, we will try to set up an OVN network.
 	explicitOVN := len(ifaceByPeer) > 0
 
