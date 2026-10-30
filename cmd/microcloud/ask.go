@@ -459,7 +459,7 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 				continue
 			}
 
-			reuse, err := c.asker.AskBool(fmt.Sprintf("Disk %q on %q is not empty. Reuse its existing local storage pool?", selected[target], target), true)
+			reuse, err := c.asker.AskBool(fmt.Sprintf("Disk %q on %q is non-pristine. Reuse its existing local storage pool?", selected[target], target), true)
 			if err != nil {
 				return err
 			}
