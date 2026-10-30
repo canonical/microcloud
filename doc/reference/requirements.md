@@ -46,6 +46,10 @@ Local storage is fast and convenient. It is commonly used in production and is t
 
 The default file system type for local storage is ZFS.
 
+MicroCloud also offers unmounted non-pristine disks for local storage.
+A non-pristine disk has existing partitions or a file system, for example a disk that still contains the local storage pool after reinstalling a machine.
+If you select a non-pristine disk, MicroCloud asks whether to reuse the existing local storage pool on it instead of creating a new one.
+
 (reference-requirements-storage-distributed)=
 ### Distributed storage
 

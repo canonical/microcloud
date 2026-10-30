@@ -63,6 +63,10 @@ type DirectStorage struct {
 	Path    string `yaml:"path"`
 	Wipe    bool   `yaml:"wipe"`
 	Encrypt bool   `yaml:"encrypt"`
+
+	// Recover reuses an existing local storage pool on the disk.
+	// It is only supported for local storage.
+	Recover bool `yaml:"recover"`
 }
 
 // InitNetwork represents the structure of the network config in the preseed yaml.
@@ -399,6 +403,22 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 		if len(system.Storage.Ceph) > 0 {
 			directCephCount++
+		}
+
+		for _, disk := range system.Storage.Ceph {
+			if disk.Recover {
+				return fmt.Errorf("Cannot recover Ceph disks of system %q", system.Name)
+			}
+		}
+
+		if system.Storage.Local.Recover {
+			if system.Storage.Local.Path == "" {
+				return fmt.Errorf("Missing the local storage disk path to recover on system %q", system.Name)
+			}
+
+			if system.Storage.Local.Wipe {
+				return fmt.Errorf("Cannot both wipe and recover the local storage disk of system %q", system.Name)
+			}
 		}
 
 		if system.Storage.Local.Path != "" {
@@ -923,12 +943,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 		// Setup directly specified disks for ZFS pool.
 		if directLocal.Path != "" {
 			if c.bootstrap {
-				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(directLocal.Wipe, directLocal.Path))
+				system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(directLocal.Wipe, directLocal.Recover, directLocal.Path))
 				if s.Name == peer {
 					system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
 				}
 			} else {
-				system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(directLocal.Wipe, directLocal.Path)...)
+				system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(directLocal.Wipe, directLocal.Recover, directLocal.Path)...)
 			}
 
 			directZFSMatches[peer] = directZFSMatches[peer] + 1
@@ -1102,12 +1122,12 @@ func (p *Preseed) Parse(s *service.Handler, c *initConfig, installedServices map
 			if len(matched) > 0 {
 				zfsMachines[peer] = true
 				if c.bootstrap {
-					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, service.FormatDiskPath(matched[0])))
+					system.TargetStoragePools = append(system.TargetStoragePools, lxd.DefaultPendingZFSStoragePool(filter.Wipe, false, service.FormatDiskPath(matched[0])))
 					if s.Name == peer {
 						system.StoragePools = append(system.StoragePools, lxd.DefaultZFSStoragePool())
 					}
 				} else {
-					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, service.FormatDiskPath(matched[0]))...)
+					system.JoinConfig = append(system.JoinConfig, lxd.DefaultZFSStoragePoolJoinConfig(filter.Wipe, false, service.FormatDiskPath(matched[0]))...)
 				}
 
 				zfsMatches[filter.Find] = zfsMatches[filter.Find] + 1
