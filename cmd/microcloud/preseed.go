@@ -65,7 +65,7 @@ type DirectStorage struct {
 	Encrypt bool   `yaml:"encrypt"`
 
 	// Recover reuses an existing local storage pool on the disk.
-	// It is only supported for local storage when adding systems to an existing cluster.
+	// It is only supported for local storage.
 	Recover bool `yaml:"recover"`
 }
 
@@ -418,10 +418,6 @@ func (p *Preseed) validate(name string, bootstrap bool) error {
 
 			if system.Storage.Local.Wipe {
 				return fmt.Errorf("Cannot both wipe and recover the local storage disk of system %q", system.Name)
-			}
-
-			if bootstrap {
-				return fmt.Errorf("Cannot recover the local storage disk of system %q when initializing", system.Name)
 			}
 		}
 

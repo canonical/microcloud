@@ -345,7 +345,7 @@ func (s *preseedSuite) Test_preseedValidateRecover() {
 			desc:      "Recover local disk when initializing",
 			bootstrap: true,
 			storage:   InitStorage{Local: DirectStorage{Path: "/dev/sdb", Recover: true}},
-			err:       errors.New(`Cannot recover the local storage disk of system "n2" when initializing`),
+			err:       nil,
 		},
 		{
 			desc:    "Recover and wipe local disk",

@@ -334,10 +334,6 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 
 	lxd := sh.Services[types.LXD].(*service.LXDService)
 
-	// Disks which might contain an existing storage pool are only offered when adding systems to an existing cluster.
-	// This allows a recovered system to rejoin the cluster using its existing local storage pool.
-	recoverable := !c.bootstrap
-
 	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for name, state := range c.state {
 		// Skip this system if it already has the local storage pool configured
@@ -348,11 +344,11 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			continue
 		}
 
+		// Also offer non-pristine disks as they might contain an existing local storage pool which can be reused.
+		// This allows recovered systems to set up local storage without wiping their existing storage pool.
 		disks := make(map[string]api.ResourcesStorageDisk, len(state.AvailableDisks)+len(state.ReusableDisks))
 		maps.Copy(disks, state.AvailableDisks)
-		if recoverable {
-			maps.Copy(disks, state.ReusableDisks)
-		}
+		maps.Copy(disks, state.ReusableDisks)
 
 		if len(disks) == 0 {
 			continue
@@ -458,19 +454,17 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 
 		reuseDisks := map[string]bool{}
-		if recoverable {
-			for _, target := range slices.Sorted(maps.Keys(selected)) {
-				if service.IsPristineDisk(selectedInfo[target]) {
-					continue
-				}
-
-				reuse, err := c.asker.AskBool(fmt.Sprintf("Disk %q on %q is not empty. Reuse its existing local storage pool?", selected[target], target), true)
-				if err != nil {
-					return err
-				}
-
-				reuseDisks[target] = reuse
+		for _, target := range slices.Sorted(maps.Keys(selected)) {
+			if service.IsPristineDisk(selectedInfo[target]) {
+				continue
 			}
+
+			reuse, err := c.asker.AskBool(fmt.Sprintf("Disk %q on %q is not empty. Reuse its existing local storage pool?", selected[target], target), true)
+			if err != nil {
+				return err
+			}
+
+			reuseDisks[target] = reuse
 		}
 
 		wipe := map[string]string{}
