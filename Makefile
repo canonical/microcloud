@@ -58,6 +58,7 @@ ifeq "$(GOCOVERDIR)" ""
 else
 	go test ./... -cover -test.gocoverdir="${GOCOVERDIR}"
 endif
+	$(MAKE) -C test/e2e check-unit GOCOVERDIR="${GOCOVERDIR}"
 
 .PHONY: check-system
 check-system:
@@ -74,6 +75,7 @@ endif
 	golangci-lint run --timeout 5m
 	revive -config revive.toml -exclude ./cmd/... -set_exit_status ./...
 	run-parts --exit-on-error --regex '.sh' test/lint
+	$(MAKE) -C test/e2e check-static
 
 # Update targets.
 .PHONY: update-gomod

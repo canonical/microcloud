@@ -197,3 +197,10 @@ runs:
         name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
         path: ${{ env.GOCOVERDIR }}
       if: env.GOCOVERDIR != '' && inputs.collect_coverage == 'true' && github.repository == 'canonical/microcloud'
+
+    - name: Upload e2e JUnit report
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: e2e-report-${{ env.TIMESTAMP }}
+        path: test/e2e/report.xml
+      if: always() && matrix.suite == 'e2e'
