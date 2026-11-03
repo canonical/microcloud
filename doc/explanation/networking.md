@@ -74,6 +74,7 @@ A dedicated underlay network serves as the physical infrastructure over which th
 - **Optimized performance**: Enables predictable latency and bandwidth for sensitive applications.
 - **Scalable design**: Allows the overlay network to scale independently of other networks.
 
+(exp-networking-ovn-alternatives)=
 ### Alternatives
 
 If you decide to not use MicroOVN, MicroCloud falls back on the [Ubuntu fan](https://github.com/ubuntu/wiki-archives/blob/main/UbuntuWiki/F/FanNetworking.wiki) for basic networking. MicroCloud will still be usable, but you will see some limitations, including:
