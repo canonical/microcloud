@@ -61,7 +61,10 @@ During the MicroCloud initialization process, you'll be asked for the IPv4 and I
 Install the required snaps:
 
 ```bash
-sudo snap install lxd microceph microovn microcloud --cohort="+"
+sudo snap install lxd --channel=6/stable --cohort="+"
+sudo snap install microceph --channel=tentacle/stable --cohort="+"
+sudo snap install microovn --channel=26.03/stable --cohort="+"
+sudo snap install microcloud --channel=3/stable --cohort="+"
 ```
 
 ```{admonition} About the cohort flag
