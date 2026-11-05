@@ -24,8 +24,12 @@ window.Scorer = {
 
     // Demote low-value reference pages that often match queries but are
     // rarely what the user is looking for.
-    if (docName.startsWith("reference/manpages/") ||
-        docName.startsWith("reference/release-notes/release-notes-") ||
+    if (docName.startsWith("reference/release-notes/release-notes-") ||
+        // MicroCeph command reference
+        docName.includes("microceph/snap/reference/commands/") ||
+        // LXD reference pages
+        docName.includes("lxd/reference/manpages/") ||
+        docName.includes("lxd/reference/release-notes/") ||
         docName.split("/").pop() === "api-extensions") {
       return score - 20;
     }
