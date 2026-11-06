@@ -1,0 +1,45 @@
+#!/bin/sh
+set -eu
+
+# Supported config keys.
+# All of them are booleans used when starting the daemon.
+supported_keys="daemon.debug db.trace"
+
+# Get the whole config document of the snap.
+# Passing the empty key twice makes snapctl return the document nested under the empty key,
+# which puts the top level keys on lines indented with two tabs and their children with three tabs.
+config="$(snapctl get "" "")"
+
+# Get the names of all config keys set on the snap (e.g. "daemon.debug").
+keys="$(echo "${config}" | awk -F '"' '
+    /: \{\},?$/ { next }
+    /^\t\t"[^"]*": \{$/ { parent = $2; next }
+    /^\t\t\t"/ { print parent "." $2; next }
+    /^\t\t"/ { print $2 }
+')"
+
+# Reject all config keys which are not supported.
+for key in ${keys}; do
+    case " ${supported_keys} " in
+        *" ${key} "*)
+            ;;
+        *)
+            echo "Unsupported config key \"${key}\"" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Validate the values of the supported config keys.
+# Changes only get applied after restarting the daemon.
+for key in ${supported_keys}; do
+    value="$(snapctl get "${key}")"
+    case "${value}" in
+        ""|true|false)
+            ;;
+        *)
+            echo "Invalid value \"${value}\" for \"${key}\": Must be either \"true\" or \"false\"" >&2
+            exit 1
+            ;;
+    esac
+done

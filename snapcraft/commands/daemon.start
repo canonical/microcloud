@@ -10,4 +10,14 @@ if [ -x "${SNAP_COMMON}/microcloudd.debug" ]; then
     mkdir -p "${GOCOVERDIR}"
 fi
 
-exec "${MICROCLOUDD}" --state-dir "${SNAP_COMMON}/state"
+set -- --state-dir "${SNAP_COMMON}/state"
+
+if [ "$(snapctl get daemon.debug)" = "true" ]; then
+    set -- "$@" --debug
+fi
+
+if [ "$(snapctl get db.trace)" = "true" ]; then
+    export LIBDQLITE_TRACE=1
+fi
+
+exec "${MICROCLOUDD}" "$@"
