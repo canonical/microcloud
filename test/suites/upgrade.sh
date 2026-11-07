@@ -250,13 +250,13 @@ ceph:
     if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
       echo "::warning::SKIPPING VM TESTS"
     else
-      lxc exec micro01 -- lxc exec v1 -- timeout 5 bash -cex "grep -qm1 ^SSH- < /dev/tcp/${gateway}/22"
+      lxc exec micro01 -- lxc exec v1 -- timeout 5 bash -cex "exec 3<>/dev/tcp/${gateway}/8443"
 
       # Compare the boot ids to verify the instances haven't been restarted.
       v1_boot_id_after_upgrade=$(lxc exec micro01 -- lxc exec v1 -- cat /proc/sys/kernel/random/boot_id)
       [ "${v1_boot_id}" = "${v1_boot_id_after_upgrade}" ]
     fi
-    lxc exec micro01 -- lxc exec c1 -- timeout 5 bash -cex "grep -qm1 ^SSH- < /dev/tcp/${gateway}/22"
+    lxc exec micro01 -- lxc exec c1 -- timeout 5 bash -cex "exec 3<>/dev/tcp/${gateway}/8443"
     c1_boot_id_after_upgrade=$(lxc exec micro01 -- lxc exec c1 -- cat /proc/sys/kernel/random/boot_id)
     [ "${c1_boot_id}" = "${c1_boot_id_after_upgrade}" ]
 
