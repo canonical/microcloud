@@ -117,6 +117,9 @@ type initConfig struct {
 	// systems is a map of system configuration to supply for cluster creation.
 	systems map[string]InitSystem
 
+	// preseedSystems holds the preseed configuration of all systems.
+	preseedSystems []*types.System
+
 	// state is the current state information for each system.
 	state map[string]service.SystemInformation
 }
@@ -224,7 +227,7 @@ func (c *initConfig) runInteractive(cmd *cobra.Command, args []string) error {
 	var reverter *revert.Reverter
 	if c.setupMany {
 		err = c.runSession(context.Background(), s, types.SessionInitiating, c.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-			return c.initiatingSession(gw, s, services, "", nil)
+			return c.initiatingSession(gw, s, services, "", 0)
 		})
 		if err != nil {
 			return err

@@ -46,6 +46,7 @@ func sessionJoinPost(sh *service.Handler) func(state microTypes.State, r *http.R
 			return microTypes.BadRequest(err)
 		}
 
+		var confirmation types.SessionJoinConfirmation
 		err = sh.SessionTransaction(true, func(session *service.Session) error {
 			// Only validate the intent (services) on the initiator.
 			// The joiner has to accept the services from the initiator.
@@ -77,13 +78,27 @@ func sessionJoinPost(sh *service.Handler) func(state microTypes.State, r *http.R
 
 			select {
 			case session.IntentCh() <- req:
-				return nil
 			case <-ctx.Done():
 				return errors.New("Timeout waiting for an active consumer of the join intent")
 			}
+
+			// Include the systems preseed configuration in the response.
+			// If not set (not in preseed mode), this is a noop.
+			if session.Role() == types.SessionJoining {
+				confirmation.System, err = session.System()
+				if err != nil {
+					return fmt.Errorf("Failed getting the sessions's system information: %w", err)
+				}
+			}
+
+			return nil
 		})
 
-		return microTypes.SmartError(err)
+		if err != nil {
+			return microTypes.SmartError(err)
+		}
+
+		return microTypes.SyncResponse(true, confirmation)
 	}
 }
 
