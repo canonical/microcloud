@@ -3,6 +3,8 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -266,6 +268,26 @@ func (c *cmdDaemon) run(cmd *cobra.Command, args []string) error {
 				}
 
 				return nil
+			},
+			OnAuthenticate: func(ctx context.Context, s microTypes.State, r *http.Request, trustedCerts map[string]x509.Certificate) (bool, error) {
+				peerCertificate, err := api.GetPeerCertificate(r)
+				if err != nil {
+					// During explicit trust establishment there is no peer certificate as the members use HMAC authentication.
+					// Therefore return false (unauthenticated) without an error.
+					// This gives MicroCloud's HMAC handler a chance to handle the request in the next step.
+					if errors.Is(err, api.ErrNoCertificate) {
+						return false, nil
+					}
+
+					return false, err
+				}
+
+				trusted, fingerprint := util.CheckMutualTLS(*peerCertificate, trustedCerts)
+				if trusted {
+					logger.Debug("Authenticated request", logger.Ctx{"fingerprint": fingerprint})
+				}
+
+				return trusted, nil
 			},
 		},
 
