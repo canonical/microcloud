@@ -1,12 +1,14 @@
 package api
 
 import (
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/lxd/shared/trust"
 	"github.com/canonical/microcluster/v2/state"
@@ -16,6 +18,12 @@ import (
 
 // endpointHandler is just a convenience for writing clean return types.
 type endpointHandler func(state.State, *http.Request) response.Response
+
+// ErrNoCertificate is returned if the request does not contain a certificate.
+var ErrNoCertificate = errors.New("No certificate present in request")
+
+// ErrNoTLS is returned if the request does not have a TLS connection.
+var ErrNoTLS = errors.New("No TLS connection state")
 
 // authHandlerMTLS ensures a request has been authenticated using mTLS.
 func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
@@ -27,22 +35,24 @@ func authHandlerMTLS(sh *service.Handler, f endpointHandler) endpointHandler {
 		}
 
 		// Use certificate based authentication between cluster members.
-		if r.TLS != nil {
-			trustedCerts := s.Remotes().CertificatesNative()
-			for _, cert := range r.TLS.PeerCertificates {
-				// First evaluate the permanent turst store.
-				trusted, _ := util.CheckMutualTLS(*cert, trustedCerts)
-				if trusted {
-					return f(s, r)
-				}
+		trustedCerts := s.Remotes().CertificatesNative()
 
-				// Second evaluate the temporary trust store.
-				// This is the fallback during the forming of the cluster.
-				trusted, _ = util.CheckMutualTLS(*cert, sh.TemporaryTrustStore())
-				if trusted {
-					return f(s, r)
-				}
-			}
+		peerCertificate, err := GetPeerCertificate(r)
+		if err != nil {
+			return response.BadRequest(err)
+		}
+
+		// First evaluate the permanent trust store.
+		trusted, _ := util.CheckMutualTLS(*peerCertificate, trustedCerts)
+		if trusted {
+			return f(s, r)
+		}
+
+		// Second evaluate the temporary trust store.
+		// This is the fallback during the forming of the cluster.
+		trusted, _ = util.CheckMutualTLS(*peerCertificate, sh.TemporaryTrustStore())
+		if trusted {
+			return f(s, r)
 		}
 
 		return response.Forbidden(errors.New("Failed to authenticate using mTLS"))
@@ -89,4 +99,17 @@ func authHandlerHMAC(sh *service.Handler, f endpointHandler) endpointHandler {
 
 		return f(s, r)
 	}
+}
+
+// GetPeerCertificate returns the first peer certificate in the request TLS connection states peer certificate list.
+func GetPeerCertificate(r *http.Request) (*x509.Certificate, error) {
+	if r.TLS == nil {
+		return nil, api.StatusErrorf(http.StatusBadRequest, "%w", ErrNoTLS)
+	}
+
+	if len(r.TLS.PeerCertificates) == 0 {
+		return nil, api.StatusErrorf(http.StatusBadRequest, "%w", ErrNoCertificate)
+	}
+
+	return r.TLS.PeerCertificates[0], nil
 }
