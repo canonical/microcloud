@@ -1,5 +1,102 @@
 #!/bin/bash
 
+# debug_tcp: Print OK/FAILED for a TCP connect from the given exec prefix to host:port.
+# Usage: debug_tcp <label> <host> <port> <cmd prefix...>
+debug_tcp() {
+  local label="${1}" dst="${2}" port="${3}"
+  shift 3
+  "$@" timeout 5 bash -c "exec 3<>/dev/tcp/${dst}/${port}" && echo "${label} tcp ${dst}:${port} OK" || echo "${label} tcp ${dst}:${port} FAILED"
+}
+
+# debug_host_ssh: Print state of SSH on the runner and connectivity from the runner, micro01 and c1 to the host's lxdbr0 address.
+debug_host_ssh() {
+  local label="${1}"
+  local gw c1gw uplinkgw ovnrouters r
+  gw="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
+  echo "::group::debug-host-ssh (${label})"
+  set +e
+
+  # Install tcpdump on the runner and micro01 if missing.
+  command -v tcpdump > /dev/null || { sudo apt-get update -qq; sudo apt-get install -y -qq tcpdump; }
+  lxc exec micro01 -- bash -c "command -v tcpdump > /dev/null || { apt-get update -qq; apt-get install -y -qq tcpdump; }"
+
+  systemctl is-active ssh.service ssh.socket sshd.service
+  systemctl is-enabled ssh.service ssh.socket
+  ss -tlnp | grep -E ':(22|8443)\b'
+  dpkg -l openssh-server | tail -1
+  ip -br addr show lxdbr0
+
+  echo "--- c1 network state"
+  lxc exec micro01 -- lxc exec c1 -- ip -br addr
+  lxc exec micro01 -- lxc exec c1 -- ip route
+  lxc exec micro01 -- lxc exec c1 -- ip -6 route
+  lxc exec micro01 -- lxc exec c1 -- ip neigh
+  c1gw="$(lxc exec micro01 -- lxc exec c1 -- ip -4 route show default | awk '/default/ {print $3; exit}')"
+  uplinkgw="$(lxc exec micro01 -- lxc network get UPLINK ipv4.gateway | cut -d/ -f1)"
+  echo "c1 default gateway: ${c1gw}, uplink gateway: ${uplinkgw}, host lxdbr0: ${gw}"
+
+  echo "--- LXD networks (micro01)"
+  lxc exec micro01 -- lxc network list
+  lxc exec micro01 -- lxc network list --format csv -c n | while read -r n; do lxc exec micro01 -- lxc network show "${n}"; done
+  lxc exec micro01 -- lxc config show c1 --expanded
+
+  echo "--- OVN (micro01)"
+  lxc exec micro01 -- microovn.ovn-nbctl show
+  ovnrouters="$(lxc exec micro01 -- microovn.ovn-nbctl lr-list | awk '{gsub(/[()]/,"",$2); print $2}')"
+  for r in ${ovnrouters}; do
+    echo "router ${r}"
+    lxc exec micro01 -- microovn.ovn-nbctl lr-route-list "${r}"
+    lxc exec micro01 -- microovn.ovn-nbctl lr-nat-list "${r}"
+    lxc exec micro01 -- microovn.ovn-nbctl lr-policy-list "${r}"
+  done
+  lxc exec micro01 -- microovn.ovn-nbctl list Gateway_Chassis
+  lxc exec micro01 -- microovn.ovn-sbctl show
+  lxc exec micro01 -- microovn.ovn-sbctl find Port_Binding type=chassisredirect
+  lxc exec micro01 -- microovn.ovn-nbctl list HA_Chassis_Group
+  lxc exec micro01 -- microovn.ovn-nbctl list HA_Chassis
+  lxc exec micro01 -- microovn.ovn-sbctl list Chassis
+  lxc exec micro01 -- microovn.ovn-nbctl --columns=_uuid,name,options,gateway_chassis,ha_chassis_group list Logical_Router_Port lxd-net2-lr-lrp-ext
+  lxc exec micro01 -- microovn.ovn-appctl -t ovn-controller ct-zone-list
+  echo "--- chassisredirect binding poll (30s)"
+  for _ in $(seq 1 30); do
+    echo "$(date +%T) chassis=$(lxc exec micro01 -- microovn.ovn-sbctl --bare --columns=chassis find Port_Binding type=chassisredirect | tr '\n' ' ')"
+    sleep 1
+  done
+  lxc exec micro01 -- bash -c "journalctl --no-pager -n 300 -u snap.microovn.chassis.service 2>/dev/null | grep -iE 'claim|release|cr-lxd|ha_chassis'"
+  lxc exec micro01 -- microovn.ovs-vsctl get open_vswitch . external_ids
+  lxc exec micro01 -- ip -br addr
+  lxc exec micro01 -- ip route
+
+  echo "--- host routing and filtering"
+  ip route
+  ip route get 10.1.123.100
+  ip route get "${gw}"
+  sysctl net.ipv4.ip_forward net.ipv4.conf.all.rp_filter net.ipv4.conf.default.rp_filter net.ipv4.conf.microbr0.rp_filter net.ipv4.conf.lxdbr0.rp_filter net.ipv4.conf.microbr0.forwarding net.ipv4.conf.lxdbr0.forwarding
+  nft list tables
+  nft list ruleset | grep -B2 -A10 microbr0
+  sudo iptables-save
+  conntrack -L 2> /dev/null | grep -E "10\.1\.123\.100|10\.95\." | head -20
+
+  echo "--- hop-by-hop tests"
+  debug_tcp "host->lxdbr0" "${gw}" 22
+  debug_tcp "micro01->lxdbr0" "${gw}" 22 lxc exec micro01 --
+  debug_tcp "c1->uplinkgw" "${uplinkgw}" 22 lxc exec micro01 -- lxc exec c1 --
+
+  echo "--- c1->lxdbr0:22 with packet captures"
+  sudo timeout 8 tcpdump -ni any -c 60 "(tcp port 22 or icmp) and (host ${gw} or host 10.1.123.100 or host ${uplinkgw})" 2>&1 | sudo tee /tmp/host-tcpdump.txt > /dev/null &
+  lxc exec micro01 -- timeout 8 tcpdump -ni any -c 60 "udp port 6081 or tcp port 22 or icmp" > /tmp/micro01-tcpdump.txt 2>&1 &
+  sleep 2
+  lxc exec micro01 -- lxc exec c1 -- timeout 5 bash -c "grep -qm1 ^SSH- < /dev/tcp/${gw}/22" && echo "c1->gateway:22 OK" || echo "c1->gateway:22 FAILED"
+  wait
+  echo "--- host tcpdump"
+  cat /tmp/host-tcpdump.txt
+  echo "--- micro01 tcpdump"
+  cat /tmp/micro01-tcpdump.txt
+
+  set -e
+  echo "::endgroup::"
+}
+
 test_upgrade() {
   reset_systems 4 3 5
 
@@ -128,6 +225,7 @@ ceph:
     lxc exec micro01 -- lxc launch ubuntu-minimal-daily:24.04 c1
     lxc exec micro01 -- sh -c "$(declare -f waitInstanceReady); waitInstanceReady c1"
     c1_boot_id="$(lxc exec micro01 -- lxc exec c1 -- cat /proc/sys/kernel/random/boot_id)"
+    debug_host_ssh "before-upgrade"
 
     # First upgrade MicroCeph.
     for m in micro01 micro02 micro03; do
@@ -247,6 +345,7 @@ ceph:
     # Check if the workload survived the upgrade.
     # Perform some pings to check the network.
     gateway="$(lxc network get lxdbr0 ipv4.address | cut -d/ -f1)"
+    debug_host_ssh "after-upgrade"
     if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
       echo "::warning::SKIPPING VM TESTS"
     else
