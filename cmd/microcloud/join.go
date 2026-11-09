@@ -114,6 +114,6 @@ func (c *cmdJoin) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return cfg.runSession(context.Background(), s, types.SessionJoining, cfg.sessionTimeout, func(gw *cloudClient.WebsocketGateway) error {
-		return cfg.joiningSession(gw, s, services, c.flagInitiatorAddress, passphrase)
+		return cfg.joiningSession(gw, s, services, c.flagInitiatorAddress, passphrase, nil)
 	})
 }
