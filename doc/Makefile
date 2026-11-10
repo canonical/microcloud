@@ -5,6 +5,7 @@ PATH_PREFIX      = /microcloud/latest/
 LXDVERSION       = origin/main
 MICROCEPHVERSION = origin/main
 MICROOVNVERSION  = origin/main
+CLUSTERMANAGERVERSION = origin/main
 
 SPHINX_DIR       ?= .sphinx
 SPHINX_OPTS      ?= -c . -d $(SPHINX_DIR)/.doctrees -j auto
@@ -99,6 +100,12 @@ integrate-pull:
 
 	cd integration/ && ( git -C microovn fetch || git clone https://github.com/canonical/microovn )
 	git -C integration/microovn reset --hard $(MICROOVNVERSION)
+
+	# Fetch the Cluster Manager API spec at the pinned version
+	cd integration/ && ( git -C microcloud-cluster-manager fetch --tags || git clone https://github.com/canonical/microcloud-cluster-manager )
+	git -C integration/microcloud-cluster-manager reset --hard $(CLUSTERMANAGERVERSION)
+	mkdir -p _extra
+	cp integration/microcloud-cluster-manager/doc/api/cluster-manager-api.yaml _extra/cluster-manager-api.yaml
 
 # Integration prechecks
 #
