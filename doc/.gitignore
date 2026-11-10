@@ -14,3 +14,4 @@ __pycache__
 integration/
 .sphinx/deps/
 _static/swagger-ui
+_extra/cluster-manager-api.yaml
