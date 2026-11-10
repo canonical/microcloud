@@ -174,10 +174,15 @@ func (s LXDService) DefaultOVNNetwork(ipv4Gateway string, ipv4Range string, ipv6
 
 // DefaultPendingZFSStoragePool returns the default local storage configuration when
 // creating a pending pool on a specific cluster member target.
-func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, path string) api.StoragePoolsPost {
+// If recoverSource is set, an existing storage pool on the source is reused instead of creating a new one.
+func (s LXDService) DefaultPendingZFSStoragePool(wipe bool, recoverSource bool, path string) api.StoragePoolsPost {
 	cfg := map[string]string{"source": path}
 	if wipe {
 		cfg["source.wipe"] = strconv.FormatBool(wipe)
+	}
+
+	if recoverSource {
+		cfg["source.recover"] = strconv.FormatBool(recoverSource)
 	}
 
 	return api.StoragePoolsPost{
@@ -204,11 +209,19 @@ func (s LXDService) DefaultZFSStoragePool() api.StoragePoolsPost {
 
 // DefaultZFSStoragePoolJoinConfig returns the default local storage configuration when
 // joining an existing cluster.
-func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []api.ClusterMemberConfigKey {
+// If recoverSource is set, an existing storage pool on the source is reused instead of creating a new one.
+func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, recoverSource bool, path string) []api.ClusterMemberConfigKey {
 	wipeDisk := api.ClusterMemberConfigKey{
 		Entity: "storage-pool",
 		Name:   DefaultZFSPool,
 		Key:    "source.wipe",
+		Value:  "true",
+	}
+
+	recoverDisk := api.ClusterMemberConfigKey{
+		Entity: "storage-pool",
+		Name:   DefaultZFSPool,
+		Key:    "source.recover",
 		Value:  "true",
 	}
 
@@ -222,6 +235,10 @@ func (s LXDService) DefaultZFSStoragePoolJoinConfig(wipe bool, path string) []ap
 	joinConfig := []api.ClusterMemberConfigKey{sourceTemplate}
 	if wipe {
 		joinConfig = append(joinConfig, wipeDisk)
+	}
+
+	if recoverSource {
+		joinConfig = append(joinConfig, recoverDisk)
 	}
 
 	return joinConfig
