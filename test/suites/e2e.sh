@@ -38,30 +38,17 @@ test_e2e() {
     validate_system_microovn "${m}"
   done
 
-  # e2e test with Terraform
+  # e2e test
   cd e2e || exit 1
   TOKEN="$(lxc exec micro01 -- lxc config trust add --quiet --name e2e)"
   MICRO01_IP="$(lxc list -f csv -c 4 micro01 | awk '/enp5s0/ {print $1}')"
   REMOTE_ADDRESS="https://${MICRO01_IP}:8443"
+  if lxc remote list -f csv | cut -d',' -f1 | grep -qxF mc; then
+    lxc remote remove mc
+  fi
   lxc remote add mc "${REMOTE_ADDRESS}" --token "${TOKEN}"
 
-  if [ -n "${GITHUB_ACTIONS:-}" ]; then
-    echo "==> Running in CI environment"
-    export DESTROY="no"
+  echo "==> Run microcloud E2E test"
 
-    # Since microcloud members are LXD VMs, use the example reboot script
-    ln -sf reboot.local-lxd-vm reboot
-
-    echo "containers_per_host = 1" > terraform.tfvars
-    if [ "${SKIP_VM_LAUNCH}" = "1" ]; then
-      echo "vms_per_host = 0" >> terraform.tfvars
-    fi
-  fi
-
-  echo "==> Initializing Terraform"
-  terraform init
-
-  echo "==> Run multiple cluster evacuation/restore cycles to find any race"
-  export EVACUATION_COUNTS=3
-  ./run mc
+  go run github.com/onsi/ginkgo/v2/ginkgo -v --junit-report=report.xml .
 }

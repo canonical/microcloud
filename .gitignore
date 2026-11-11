@@ -2,3 +2,6 @@
 .terraform*
 terraform.tfstate*
 terraform.tfvars
+
+# E2E test related
+report.xml
