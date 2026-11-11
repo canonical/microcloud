@@ -21,7 +21,7 @@ func TestE2E(t *testing.T) {
 // SynchronizedBeforeSuite runs once before any spec, in a single process; its second function then
 // runs in every parallel process (including the one that ran the first), since none of this
 // package's state is shared across ginkgo -p's separate OS processes.
-var _ = SynchronizedBeforeSuite(framework.SetupProcess, func(_ []byte) {})
+var _ = SynchronizedBeforeSuite(framework.SetupProcess, framework.ConnectProcess)
 
 // SynchronizedAfterSuite is the teardown counterpart: its first function
 // runs in every process, its second only once, after every process is done.

@@ -57,8 +57,8 @@ type Environment string
 // Controller resolves and caches the NodeController to use for the current MicroCloud deployment,
 // and runs cluster health checks/reboots through it.
 //
-// A Controller is constructed once by the test harness (e2e_suite_test.go) and exposed to scenario
-// packages via DefaultController.
+// A Controller is constructed once per Ginkgo process by framework.SetupProcess
+// (test/e2e/framework/framework.go) and exposed to scenario packages via DefaultController.
 type Controller struct {
 	conn    *lxd.Connection
 	cfg     testbed.Config
@@ -68,9 +68,8 @@ type Controller struct {
 	resolved NodeController
 }
 
-// DefaultController is the Controller constructed by the test harness, for scenario packages to
-// use. It is nil until the harness's SynchronizedBeforeSuite (or AttachToSuite-equivalent) assigns
-// it.
+// DefaultController is the Controller constructed by framework.SetupProcess, for scenario packages
+// to use. It is nil until SetupProcess (run via SynchronizedBeforeSuite) assigns it.
 var DefaultController *Controller
 
 // New returns a Controller operating on conn, using cfg to resolve which NodeController
@@ -200,14 +199,18 @@ func waitReady(c NodeController, member string, deadline time.Time, sudo bool) e
 
 	timeoutSeconds := strconv.Itoa(int(readinessWaitTimeout.Seconds()))
 
-	stdout, stderr, rc, execErr := c.Exec(member, append(prefix, "timeout", timeoutSeconds, "systemctl", "is-system-running", "--wait", "--quiet"), nil)
+	argv := append(prefix, "timeout", timeoutSeconds, "systemctl", "is-system-running", "--wait", "--quiet")
+
+	stdout, stderr, rc, execErr := c.Exec(member, argv, nil)
 	if execErr != nil || rc != 0 {
 		GinkgoWriter.Printf("waitReady: %q: systemctl is-system-running: rc=%d err=%v stdout=%s stderr=%s\n", member, rc, execErr, stdout, stderr)
 	}
 
 	time.Sleep(5 * time.Second)
 
-	stdout, stderr, rc, execErr = c.Exec(member, append(prefix, "microcloud", "waitready", "--timeout="+timeoutSeconds), map[string]string{"TEST_CONSOLE": "0"})
+	argv = append(prefix, "microcloud", "waitready", "--timeout="+timeoutSeconds)
+
+	stdout, stderr, rc, execErr = c.Exec(member, argv, map[string]string{"TEST_CONSOLE": "0"})
 	if execErr != nil || rc != 0 {
 		GinkgoWriter.Printf("waitReady: %q: microcloud waitready: rc=%d err=%v stdout=%s stderr=%s\n", member, rc, execErr, stdout, stderr)
 	}

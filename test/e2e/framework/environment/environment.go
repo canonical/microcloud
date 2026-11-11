@@ -12,31 +12,27 @@ import (
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 )
 
-// registryCandidates is the ordered list of public image remotes tried by
-// EnsureBaseImages, mirroring the remote the Terraform fixture used to pull
-// from (ubuntu-minimal-daily). Unlike the best-effort registry-import check
-// in the image-lifecycle scenario, this is not optional: the whole suite
-// needs at least one base image per type to exist, so failure to reach any
-// candidate is a fatal setup error.
-var registryCandidates = []string{"ubuntu-minimal-daily", "ubuntu-minimal", "images"}
+// registryCandidates returns the ordered list of public image remotes tried by EnsureBaseImages
+// (mirroring the registry the suite's former Terraform-based setup pulled images from,
+// ubuntu-minimal-daily). Unlike the best-effort registry-import check in the image-lifecycle
+// scenario, this is not optional: the whole suite needs at least one base image per type to exist,
+// so failure to reach any candidate is a fatal setup error. Returns a fresh slice on every call so
+// callers can't accidentally mutate shared state.
+func registryCandidates() []string {
+	return []string{"ubuntu-minimal-daily", "ubuntu-minimal", "images"}
+}
 
 // baseImageAlias is the alias looked up/pulled on the chosen registry remote.
 const baseImageAlias = "24.04"
 
-// Bootstrapper creates and tears down the "e2e-testing" project, profile,
-// and base images on a Connection.
-//
-// A Bootstrapper is constructed once by the test harness
-// (e2e_suite_test.go) and exposed to scenario packages (e.g. to look up
-// already-cached base image fingerprints via EnsureBaseImages, which is
-// idempotent) via DefaultBootstrapper.
+// Bootstrapper creates and tears down the "e2e-testing" project, profile, and base images on a
+// Connection.
 type Bootstrapper struct {
 	conn *lxd.Connection
 }
 
-// DefaultBootstrapper is the Bootstrapper constructed by the test harness,
-// for scenario packages to use. It is nil until the harness's
-// SynchronizedBeforeSuite assigns it.
+// DefaultBootstrapper is the Bootstrapper constructed by framework.SetupProcess, for scenario
+// packages to use. It is nil until SetupProcess (run via SynchronizedBeforeSuite) assigns it.
 var DefaultBootstrapper *Bootstrapper
 
 // New returns a Bootstrapper operating on conn.
@@ -44,9 +40,8 @@ func New(conn *lxd.Connection) *Bootstrapper {
 	return &Bootstrapper{conn: conn}
 }
 
-// EnsureProject creates the "e2e-testing" project if it doesn't already
-// exist. It is idempotent: an "already exists" error from the server is not
-// treated as a failure.
+// EnsureProject creates the "e2e-testing" project if it doesn't already exist. It is idempotent:
+// an "already exists" error from the server is not treated as a failure.
 func (b *Bootstrapper) EnsureProject(projectName string) error {
 	err := b.conn.Server().CreateProject(api.ProjectsPost{
 		Name: projectName,
@@ -66,10 +61,9 @@ func (b *Bootstrapper) EnsureProject(projectName string) error {
 	return nil
 }
 
-// EnsureProfile creates the e2e-testing profile (a root disk on the "remote"
-// pool and an eth0 NIC on the "default" network) in the "e2e-testing"
-// project if it doesn't already exist. Mirrors the profile that
-// test/e2e/terraform/main.tf used to create.
+// EnsureProfile creates the e2e-testing profile (a root disk on the "remote" pool and an eth0 NIC
+// on the "default" network) in the "e2e-testing" project if it doesn't already exist. Mirrors the
+// profile the suite's former Terraform-based setup used to create.
 func (b *Bootstrapper) EnsureProfile(profileName string) error {
 	err := b.conn.Server().CreateProfile(api.ProfilesPost{
 		Name: profileName,
@@ -99,9 +93,9 @@ func (b *Bootstrapper) EnsureProfile(profileName string) error {
 	return nil
 }
 
-// EnsureBaseImages ensures one container-type and one VM-type base image are
-// cached in the "e2e-testing" project, pulling from the first reachable
-// remote in registryCandidates. Returns their fingerprints.
+// EnsureBaseImages ensures one container-type and one VM-type base image are cached in the
+// "e2e-testing" project, pulling from the first reachable remote in registryCandidates. Returns
+// their fingerprints.
 func (b *Bootstrapper) EnsureBaseImages(projectName string) (containerFingerprint, vmFingerprint string, err error) {
 	remote, err := b.pickReachableRegistry()
 	if err != nil {
@@ -121,12 +115,14 @@ func (b *Bootstrapper) EnsureBaseImages(projectName string) (containerFingerprin
 	return containerFingerprint, vmFingerprint, nil
 }
 
-// pickReachableRegistry returns the first remote in registryCandidates that
-// responds to a GetImageAliases() call.
+// pickReachableRegistry returns the first remote in registryCandidates() that responds to a
+// GetImageAliases() call.
 func (b *Bootstrapper) pickReachableRegistry() (lxdclient.ImageServer, error) {
 	var lastErr error
 
-	for _, name := range registryCandidates {
+	candidates := registryCandidates()
+
+	for _, name := range candidates {
 		s, err := lxd.ConnectImageServer(name)
 		if err != nil {
 			lastErr = err
@@ -142,12 +138,11 @@ func (b *Bootstrapper) pickReachableRegistry() (lxdclient.ImageServer, error) {
 		return s, nil
 	}
 
-	return nil, fmt.Errorf("Cannot reach any candidate public image registry %v: %w", registryCandidates, lastErr)
+	return nil, fmt.Errorf("Cannot reach any candidate public image registry %v: %w", candidates, lastErr)
 }
 
-// ensureBaseImage copies baseImageAlias from remote into the "e2e-testing"
-// project for the given instance type, if an image of that type isn't
-// already cached there, and returns its fingerprint.
+// ensureBaseImage copies baseImageAlias from remote into the "e2e-testing" project for the given
+// instance type, if an image of that type isn't already cached there, and returns its fingerprint.
 func (b *Bootstrapper) ensureBaseImage(remote lxdclient.ImageServer, instanceType api.InstanceType, projectName string) (string, error) {
 	images, err := b.conn.Server().GetImages()
 	if err != nil {
@@ -183,28 +178,7 @@ func (b *Bootstrapper) ensureBaseImage(remote lxdclient.ImageServer, instanceTyp
 	return image.Fingerprint, nil
 }
 
-// TeardownEnvironment deletes the "e2e-testing" project and everything in
-// it, unconditionally.
-//
-// It deletes the profile and base images explicitly and then issues a plain
-// (non-force) DeleteProject, rather than a force-delete: a non-force project
-// delete only tolerates the implicit "default" profile and images that LXD
-// considers genuinely "cached" (auto-pulled-and-cleaned-up, an internal
-// distinction unrelated to whether the image happens to be used by any
-// instance) — our own non-default profile and the base images
-// EnsureBaseImages copies via CopyImage (which are not marked "cached" in
-// LXD's sense) both count as blocking entities otherwise. By deleting both
-// explicitly first, a plain delete succeeds without ever invoking the
-// force-delete code path: deleting entities one at a time here is a
-// narrower, sequential set of operations, as opposed to force-delete's bulk,
-// concurrent deletion of every remaining volume, which is specifically where
-// known-transient Ceph/LXD races (cluster members racing to clean up the
-// same storage volume) were previously observed.
-//
-// Any future scenario that creates custom storage volumes or networks at
-// the project level (rather than scenario-scoped resources that clean
-// themselves up) must fully delete them itself, or this plain delete will
-// fail outright rather than sweeping them away.
+// TeardownEnvironment deletes the "e2e-testing" project and everything in it, unconditionally.
 func (b *Bootstrapper) TeardownEnvironment(projectName, profileName string) error {
 	err := b.conn.Server().DeleteProfile(profileName)
 	if err != nil && !api.StatusErrorCheck(err, 404) {
@@ -239,8 +213,8 @@ func (b *Bootstrapper) TeardownEnvironment(projectName, profileName string) erro
 	return nil
 }
 
-// isAlreadyExists reports whether err looks like an LXD "already exists"
-// error, so setup helpers can be idempotent.
+// isAlreadyExists reports whether err looks like an LXD "already exists" error, so setup helpers
+// can be idempotent.
 func isAlreadyExists(err error) bool {
 	if err == nil {
 		return false

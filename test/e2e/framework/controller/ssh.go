@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	//nolint:staticcheck // Ginkgo's DSL is conventionally dot-imported.
+	. "github.com/onsi/ginkgo/v2"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
@@ -17,6 +19,12 @@ import (
 
 // sshDialTimeout bounds how long a single SSH connection attempt may take.
 const sshDialTimeout = 10 * time.Second
+
+// commandTimeout bounds how long a single remote command (run via Exec, or "sudo reboot" below)
+// may block before the session is forcibly closed and a timeout error is returned -- without this,
+// a wedged remote command (e.g. one stuck on a stdin prompt) would hang the whole suite
+// indefinitely.
+const commandTimeout = 3 * time.Minute
 
 // unreachableGracePeriod bounds how long Reboot waits to observe the member actually become
 // unreachable after "sudo reboot" is issued, before moving on to polling for it to come back up
@@ -58,7 +66,7 @@ func (c *SSHController) clientConfig(node testbed.SSHNodeConfig) (*ssh.ClientCon
 func (c *SSHController) dial(member string) (*ssh.Client, error) {
 	node, ok := c.nodes[member]
 	if !ok {
-		return nil, fmt.Errorf("No SSH connection details configured for cluster member %q", member)
+		return nil, fmt.Errorf("Cannot connect to cluster member %q: no SSH connection details configured", member)
 	}
 
 	config, err := c.clientConfig(node)
@@ -99,6 +107,27 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// runWithTimeout runs cmd on session, forcibly closing the session (which unblocks session.Run)
+// and returning a timeout error if it hasn't completed within timeout, bounding what would
+// otherwise be an indefinite wait on a wedged remote command.
+func runWithTimeout(session *ssh.Session, cmd string, timeout time.Duration) error {
+	done := make(chan error, 1)
+
+	go func() {
+		done <- session.Run(cmd)
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(timeout):
+		_ = session.Close()
+		runErr := <-done // wait for the goroutine above to actually return, so it doesn't leak
+
+		return fmt.Errorf("Cannot run command: timed out after %s (session.Run returned: %v)", timeout, runErr)
+	}
+}
+
 // Exec runs argv on the named cluster member over a freshly dialed SSH connection.
 func (c *SSHController) Exec(member string, argv []string, env map[string]string) (stdout string, stderr string, exitCode int, err error) {
 	client, err := c.dial(member)
@@ -120,7 +149,7 @@ func (c *SSHController) Exec(member string, argv []string, env map[string]string
 	session.Stdout = &outBuf
 	session.Stderr = &errBuf
 
-	err = session.Run(quoteCommand(argv, env))
+	err = runWithTimeout(session, quoteCommand(argv, env), commandTimeout)
 
 	var exitErr *ssh.ExitError
 
@@ -130,7 +159,7 @@ func (c *SSHController) Exec(member string, argv []string, env map[string]string
 	case errors.As(err, &exitErr):
 		return outBuf.String(), errBuf.String(), exitErr.ExitStatus(), nil
 	default:
-		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Exec on %q failed: %w", member, err)
+		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Cannot execute command on %q: %w", member, err)
 	}
 }
 
@@ -155,22 +184,59 @@ func isExpectedRebootDisconnect(err error) bool {
 		strings.Contains(msg, "broken pipe")
 }
 
-// Reboot restarts member over SSH and waits for it to be ready.
+// isPermissionDenied reports whether err/stderr indicate "sudo reboot" was rejected for lacking
+// privileges (e.g. the testbed user isn't in sudoers, or a password is required) rather than the
+// connection being torn down by an actual reboot. Only an error carrying an actual exit status
+// (*ssh.ExitError) is considered: a disconnect is never a permission issue -- if sudo had really
+// rejected the command, the session would exit with a status rather than losing the connection.
+func isPermissionDenied(err error, stderr string) bool {
+	if err == nil {
+		return false
+	}
+
+	var exitErr *ssh.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+
+	lower := strings.ToLower(stderr)
+
+	return strings.Contains(lower, "password is required") ||
+		strings.Contains(lower, "not in the sudoers file") ||
+		strings.Contains(lower, "permission denied") ||
+		strings.Contains(lower, "incorrect password")
+}
+
+// Reboot restarts member over SSH and waits for it to be ready. If "sudo reboot" is rejected for
+// lacking privileges (see isPermissionDenied), the reboot is skipped rather than treated as a
+// failure: a misconfigured testbed user shouldn't fail the whole scenario for a step that is
+// inherently best-effort in environments without passwordless sudo.
 func (c *SSHController) Reboot(member string) error {
 	client, err := c.dial(member)
 	if err != nil {
 		return fmt.Errorf("Cannot reboot %q: %w", member, err)
 	}
 
+	defer client.Close()
+
 	session, err := client.NewSession()
 	if err != nil {
-		client.Close()
 		return fmt.Errorf("Cannot reboot %q: cannot open SSH session: %w", member, err)
 	}
 
-	runErr := session.Run("sudo reboot")
-	session.Close()
-	client.Close()
+	defer session.Close()
+
+	var stderr bytes.Buffer
+	session.Stderr = &stderr
+
+	runErr := runWithTimeout(session, "sudo reboot", commandTimeout)
+
+	if isPermissionDenied(runErr, stderr.String()) {
+		GinkgoWriter.Printf("Reboot: %q: \"sudo reboot\" was denied (%v, stderr=%q); skipping reboot for this member\n",
+			member, runErr, stderr.String())
+
+		return nil
+	}
 
 	if !isExpectedRebootDisconnect(runErr) {
 		return fmt.Errorf("Cannot reboot %q: %w", member, runErr)

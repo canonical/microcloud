@@ -14,15 +14,14 @@ import (
 
 // Manager launches, controls, and tears down LXD instances on a Connection.
 //
-// A Manager is constructed once by the test harness (e2e_suite_test.go) and
-// exposed to scenario packages via DefaultManager.
+// A Manager is constructed once per Ginkgo process by framework.SetupProcess
+// (test/e2e/framework/framework.go) and exposed to scenario packages via DefaultManager.
 type Manager struct {
 	conn *lxd.Connection
 }
 
-// DefaultManager is the Manager constructed by the test harness, for scenario
-// packages to use. It is nil until the harness's SynchronizedBeforeSuite (or
-// AttachToSuite-equivalent) assigns it.
+// DefaultManager is the Manager constructed by framework.SetupProcess, for scenario packages to
+// use. It is nil until SetupProcess (run via SynchronizedBeforeSuite) assigns it.
 var DefaultManager *Manager
 
 // New returns a Manager operating on conn.
@@ -30,44 +29,56 @@ func New(conn *lxd.Connection) *Manager {
 	return &Manager{conn: conn}
 }
 
-// RandomInstanceName returns a random instance name prefixed with prefix,
-// safe to use concurrently across specs.
+// RandomInstanceName returns a random instance name prefixed with prefix, safe to use concurrently
+// across specs.
 func RandomInstanceName(prefix string) string {
 	return fmt.Sprintf("%s%06d", prefix, rand.Intn(1_000_000))
 }
 
-// LaunchInstance creates and starts an instance named name, of the given
-// type, from fingerprint, on the given cluster member, using profileName.
-func (m *Manager) LaunchInstance(name string, instanceType api.InstanceType, target string, fingerprint string, profileName string) error {
-	op, err := m.conn.Server().UseTarget(target).CreateInstance(api.InstancesPost{
-		Name: name,
-		Type: instanceType,
+// Spec describes the instance LaunchInstance should create.
+type Spec struct {
+	// Name is the instance's name.
+	Name string
+	// Type is the instance type (container or VM).
+	Type api.InstanceType
+	// Target is the cluster member to launch the instance on.
+	Target string
+	// Fingerprint is the source image's fingerprint.
+	Fingerprint string
+	// Profile is the single profile to apply to the instance.
+	Profile string
+}
+
+// LaunchInstance creates and starts an instance from spec.
+func (m *Manager) LaunchInstance(spec Spec) error {
+	op, err := m.conn.Server().UseTarget(spec.Target).CreateInstance(api.InstancesPost{
+		Name: spec.Name,
+		Type: spec.Type,
 		Source: api.InstanceSource{
 			Type:        "image",
-			Fingerprint: fingerprint,
+			Fingerprint: spec.Fingerprint,
 		},
 		InstancePut: api.InstancePut{
-			Profiles: []string{profileName},
+			Profiles: []string{spec.Profile},
 		},
 		Start: true,
 	})
 	if err != nil {
-		return fmt.Errorf("Cannot create instance %q on %q: %w", name, target, err)
+		return fmt.Errorf("Cannot create instance %q on %q: %w", spec.Name, spec.Target, err)
 	}
 
 	err = op.Wait()
 	if err != nil {
-		return fmt.Errorf("Cannot create instance %q on %q: %w", name, target, err)
+		return fmt.Errorf("Cannot create instance %q on %q: %w", spec.Name, spec.Target, err)
 	}
 
 	return nil
 }
 
-// LaunchMixedFleet launches one instance per cluster member, alternating
-// container/VM in member order, each named RandomInstanceName(prefix). It
-// uses the fingerprints returned by environment.Bootstrapper.EnsureBaseImages. If
-// any launch fails, any instances already launched are deleted before
-// returning the error.
+// LaunchMixedFleet launches one instance per cluster member, alternating container/VM in member
+// order, each named RandomInstanceName(prefix). It uses the fingerprints returned by
+// environment.Bootstrapper.EnsureBaseImages. If any launch fails, any instances already launched
+// are deleted before returning the error.
 func (m *Manager) LaunchMixedFleet(prefix string, containerFingerprint, vmFingerprint string, profileName string) ([]string, error) {
 	members, err := m.conn.Server().GetClusterMembers()
 	if err != nil {
@@ -85,8 +96,17 @@ func (m *Manager) LaunchMixedFleet(prefix string, containerFingerprint, vmFinger
 			fingerprint = vmFingerprint
 		}
 
-		err := m.LaunchInstance(name, instanceType, member.ServerName, fingerprint, profileName)
+		err := m.LaunchInstance(Spec{
+			Name:        name,
+			Type:        instanceType,
+			Target:      member.ServerName,
+			Fingerprint: fingerprint,
+			Profile:     profileName,
+		})
 		if err != nil {
+			// Best-effort cleanup of whatever was already launched: the original launch error
+			// above is what's returned/matters here, so each deletion's own error is discarded
+			// rather than masking it (DeleteInstance already tolerates "not found").
 			for _, n := range names {
 				_ = m.DeleteInstance(n)
 			}
@@ -100,9 +120,8 @@ func (m *Manager) LaunchMixedFleet(prefix string, containerFingerprint, vmFinger
 	return names, nil
 }
 
-// DeleteInstance stops (if running) and deletes the instance. It is safe to
-// call unconditionally from DeferCleanup: a "not found" error is not treated
-// as a failure.
+// DeleteInstance stops (if running) and deletes the instance. It is safe to call unconditionally
+// from DeferCleanup: a "not found" error is not treated as a failure.
 func (m *Manager) DeleteInstance(name string) error {
 	state, _, err := m.conn.Server().GetInstanceState(name)
 	if err != nil {
@@ -142,9 +161,8 @@ func (m *Manager) DeleteInstance(name string) error {
 	return nil
 }
 
-// connectionProject returns the project m.conn.Server() is scoped to, for use
-// in error messages. It falls back to "" if the connection info is
-// unavailable.
+// connectionProject returns the project m.conn.Server() is scoped to, for use in error messages.
+// It falls back to "" if the connection info is unavailable.
 func (m *Manager) connectionProject() string {
 	info, err := m.conn.Server().GetConnectionInfo()
 	if err != nil {
@@ -154,8 +172,7 @@ func (m *Manager) connectionProject() string {
 	return info.Project
 }
 
-// GetInstanceNames returns the names of all instances in the project
-// m.conn.Server() is scoped to.
+// GetInstanceNames returns the names of all instances in the project m.conn.Server() is scoped to.
 func (m *Manager) GetInstanceNames() ([]string, error) {
 	names, err := m.conn.Server().GetInstanceNames(api.InstanceTypeAny)
 	if err != nil {
@@ -165,15 +182,15 @@ func (m *Manager) GetInstanceNames() ([]string, error) {
 	return names, nil
 }
 
-// GetInstanceNamesByMember returns the names of instances located on member,
-// in the project m.conn.Server() is scoped to.
+// GetInstanceNamesByMember returns the names of instances located on member, in the project
+// m.conn.Server() is scoped to.
 func (m *Manager) GetInstanceNamesByMember(member string) ([]string, error) {
 	instances, err := m.conn.Server().GetInstances(lxdclient.GetInstancesArgs{})
 	if err != nil {
 		return nil, fmt.Errorf("Cannot list instances in member=%s project=%s: %w", member, m.connectionProject(), err)
 	}
 
-	var names []string
+	names := make([]string, 0, len(instances))
 	for _, i := range instances {
 		if i.Location != member {
 			continue
@@ -185,8 +202,8 @@ func (m *Manager) GetInstanceNamesByMember(member string) ([]string, error) {
 	return names, nil
 }
 
-// GetInstanceIPv4 returns the first global-scope IPv4 address reported for the
-// instance, or "" if it has none yet.
+// GetInstanceIPv4 returns the first global-scope IPv4 address reported for the instance, or "" if
+// it has none yet.
 func (m *Manager) GetInstanceIPv4(name string) (string, error) {
 	state, _, err := m.conn.Server().GetInstanceState(name)
 	if err != nil {
@@ -204,8 +221,7 @@ func (m *Manager) GetInstanceIPv4(name string) (string, error) {
 	return "", nil
 }
 
-// GetInstanceStatus returns the instance's current status (e.g. "Running",
-// "Stopped").
+// GetInstanceStatus returns the instance's current status (e.g. "Running", "Stopped").
 func (m *Manager) GetInstanceStatus(name string) (string, error) {
 	state, _, err := m.conn.Server().GetInstanceState(name)
 	if err != nil {
@@ -239,10 +255,10 @@ func (m *Manager) EnsureInstanceRunning(name string) error {
 	return nil
 }
 
-// ExecInInstance runs argv inside the named instance on m.conn.Server() and
-// waits for it to complete. A non-zero exit status is not an error: it is
-// returned as exitCode along with the captured output. err is only set when
-// the command could not be started or its result could not be determined.
+// ExecInInstance runs argv inside the named instance on m.conn.Server() and waits for it to
+// complete. A non-zero exit status is not an error: it is returned as exitCode along with the
+// captured output. err is only set when the command could not be started or its result could not
+// be determined.
 func (m *Manager) ExecInInstance(instance string, argv []string, env map[string]string) (stdout string, stderr string, exitCode int, err error) {
 	return lxd.ExecInInstanceOn(m.conn.Server(), instance, argv, env)
 }

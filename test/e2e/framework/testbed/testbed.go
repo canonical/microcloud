@@ -38,9 +38,7 @@ type Config struct {
 	SSH *SSHConfig `yaml:"ssh"`
 }
 
-// Load reads and parses the file at path, if any. An empty, zero-value
-// Config is returned (with a nil error) if path is "" (e.g. FilePath()
-// returned "" because E2E_TESTBED_FILE is not set).
+// Load reads and parses the file at path, if any.
 func Load(path string) (Config, error) {
 	if path == "" {
 		return Config{}, nil
@@ -59,11 +57,11 @@ func Load(path string) (Config, error) {
 	}
 
 	if cfg.LXD != nil && cfg.LXD.Project == "" {
-		return Config{}, fmt.Errorf("Testbed file %q: lxd: project is required", path)
+		return Config{}, fmt.Errorf("Cannot load testbed file %q: lxd.project is required", path)
 	}
 
 	if cfg.SSH != nil && len(cfg.SSH.Nodes) == 0 {
-		return Config{}, fmt.Errorf("Testbed file %q: ssh: at least one node under ssh.nodes is required", path)
+		return Config{}, fmt.Errorf("Cannot load testbed file %q: at least one node under ssh.nodes is required", path)
 	}
 
 	if cfg.SSH != nil {
@@ -80,8 +78,8 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
-// validateSSHNode requires every mandatory field on node, resolves and
-// parses its private_key_file, and defaults its port.
+// validateSSHNode requires every mandatory field on node, resolves and parses its
+// private_key_file, and defaults its port.
 func validateSSHNode(path, member string, node SSHNodeConfig) (SSHNodeConfig, error) {
 	err := requireField(path, member, "address", node.Address)
 	if err != nil {
@@ -100,19 +98,19 @@ func validateSSHNode(path, member string, node SSHNodeConfig) (SSHNodeConfig, er
 
 	keyFile, err := expandHome(node.PrivateKeyFile)
 	if err != nil {
-		return SSHNodeConfig{}, fmt.Errorf("Testbed file %q: ssh.nodes.%s: cannot resolve private_key_file %q: %w", path, member, node.PrivateKeyFile, err)
+		return SSHNodeConfig{}, fmt.Errorf("Cannot resolve ssh.nodes.%s.private_key_file %q in testbed file %q: %w", member, node.PrivateKeyFile, path, err)
 	}
 
 	node.PrivateKeyFile = keyFile
 
 	keyData, err := os.ReadFile(node.PrivateKeyFile)
 	if err != nil {
-		return SSHNodeConfig{}, fmt.Errorf("Testbed file %q: ssh.nodes.%s: cannot read private_key_file %q: %w", path, member, node.PrivateKeyFile, err)
+		return SSHNodeConfig{}, fmt.Errorf("Cannot read ssh.nodes.%s.private_key_file %q in testbed file %q: %w", member, node.PrivateKeyFile, path, err)
 	}
 
 	_, err = ssh.ParsePrivateKey(keyData)
 	if err != nil {
-		return SSHNodeConfig{}, fmt.Errorf("Testbed file %q: ssh.nodes.%s: cannot parse private_key_file %q: %w", path, member, node.PrivateKeyFile, err)
+		return SSHNodeConfig{}, fmt.Errorf("Cannot parse ssh.nodes.%s.private_key_file %q in testbed file %q: %w", member, node.PrivateKeyFile, path, err)
 	}
 
 	if node.Port == 0 {
@@ -122,19 +120,19 @@ func validateSSHNode(path, member string, node SSHNodeConfig) (SSHNodeConfig, er
 	return node, nil
 }
 
-// requireField returns an error if value is empty, naming the missing field by
-// its testbed file path, member, and field name.
+// requireField returns an error if value is empty, naming the missing field by its testbed file
+// path, member, and field name.
 func requireField(path, member, field, value string) error {
 	if value == "" {
-		return fmt.Errorf("Testbed file %q: ssh.nodes.%s: %s is required", path, member, field)
+		return fmt.Errorf("Cannot load testbed file %q: ssh.nodes.%s.%s is required", path, member, field)
 	}
 
 	return nil
 }
 
-// expandHome replaces a leading "~" (or "~/...") in path with the current
-// user's home directory, since paths in a YAML testbed file (e.g.
-// private_key_file: ~/.ssh/id_ed25519) are not shell-expanded for us.
+// expandHome replaces a leading "~" (or "~/...") in path with the current user's home directory,
+// since paths in a YAML testbed file (e.g. private_key_file: ~/.ssh/id_ed25519) are not
+// shell-expanded for us.
 func expandHome(path string) (string, error) {
 	if path != "~" && !strings.HasPrefix(path, "~/") {
 		return path, nil
@@ -152,9 +150,8 @@ func expandHome(path string) (string, error) {
 	return filepath.Join(home, path[2:]), nil
 }
 
-// homeDir returns the current user's home directory. Deliberately a private
-// copy independent of the one in the lxd package: this package must stay a
-// zero-dependency leaf.
+// homeDir returns the current user's home directory. Deliberately a private copy independent of
+// the one in the lxd package: this package must stay a zero-dependency leaf.
 func homeDir() (string, error) {
 	home := os.Getenv("HOME")
 	if home != "" {

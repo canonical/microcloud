@@ -13,12 +13,12 @@ import (
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
 )
 
-// SetupProcess runs setup steps that only need to be done once, in a single process, before any
-// specs are run.
-func SetupProcess() []byte {
-	Expect(Remote()).NotTo(Equal("local"), "This suite is not meant to be run against the local LXD server")
-	Expect(Remote()).NotTo(BeEmpty(), "Please set the REMOTE environment variable to the name of the remote LXD server")
-
+// connectDefaults connects to Remote() and (re)builds the package-level Default* values scenario
+// packages use (controller.DefaultController, environment.DefaultBootstrapper,
+// instance.DefaultManager). Called once per Ginkgo process -- by SetupProcess in process 1, and by
+// ConnectProcess in every process (including process 1 again) -- since ginkgo -p spawns separate
+// OS processes and none of this package's state is shared between them.
+func connectDefaults() {
 	conn, err := lxd.Connect(Remote(), ProjectName)
 	Expect(err).NotTo(HaveOccurred(), "The %q remote is not usable", Remote())
 
@@ -40,24 +40,42 @@ func SetupProcess() []byte {
 
 	controller.DefaultController = controller.New(conn, cfg)
 	controller.DefaultController.Prepare(names)
+
+	environment.DefaultBootstrapper = environment.New(conn)
+	instance.DefaultManager = instance.New(conn)
+}
+
+// SetupProcess runs setup steps that only need to be done once, in a single process, before any
+// specs are run.
+func SetupProcess() []byte {
+	Expect(Remote()).NotTo(Equal("local"), "This suite is not meant to be run against the local LXD server")
+	Expect(Remote()).NotTo(BeEmpty(), "Please set the REMOTE environment variable to the name of the remote LXD server")
+
+	connectDefaults()
+
 	controller.DefaultController.CheckClusterHealth()
 
 	By("Setting up the e2e environment on " + Remote())
 
-	environment.DefaultBootstrapper = environment.New(conn)
 	Expect(environment.DefaultBootstrapper.EnsureProject(ProjectName)).To(Succeed())
 	Expect(environment.DefaultBootstrapper.EnsureProfile(ProfileName)).To(Succeed())
 
-	_, _, err = environment.DefaultBootstrapper.EnsureBaseImages(ProjectName)
+	_, _, err := environment.DefaultBootstrapper.EnsureBaseImages(ProjectName)
 	Expect(err).NotTo(HaveOccurred())
-
-	instance.DefaultManager = instance.New(conn)
 
 	return nil
 }
 
-// TeardownProcess runs in every parallel Ginkgo process (ginkgo -p runs
-// separate OS processes, so there is nothing shared to clean up here).
+// ConnectProcess runs in every parallel Ginkgo process (including the one that ran SetupProcess),
+// re-deriving the same Default* values SetupProcess already validated in process 1, without
+// repeating the expensive/mutating steps (cluster health check, project/profile/image bootstrap)
+// that only need to happen once.
+func ConnectProcess(_ []byte) {
+	connectDefaults()
+}
+
+// TeardownProcess runs once, after every parallel Ginkgo process has finished (it is the second
+// function passed to SynchronizedAfterSuite).
 func TeardownProcess() {
 	if environment.DefaultBootstrapper == nil {
 		// SynchronizedBeforeSuite failed before setting this up (e.g. the

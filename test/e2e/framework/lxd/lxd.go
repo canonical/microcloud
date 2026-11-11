@@ -67,12 +67,12 @@ func ExecInInstanceOn(s lxdclient.InstanceServer, instance string, argv []string
 
 	err = op.Wait()
 	if err != nil {
-		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Exec in instance %q failed: %w (output: %s)", instance, err, outBuf.String()+errBuf.String())
+		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Cannot exec in instance %q: %w (output: %s)", instance, err, outBuf.String()+errBuf.String())
 	}
 
 	rc, ok := op.Get().Metadata["return"].(float64)
 	if !ok {
-		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Exec in instance %q returned no exit code", instance)
+		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Cannot determine exit code for instance %q", instance)
 	}
 
 	return outBuf.String(), errBuf.String(), int(rc), nil

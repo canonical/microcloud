@@ -73,7 +73,8 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 					const offlineErr = "Target cluster member is offline"
 					const ovnTimeoutErr = "signal: alarm clock"
 
-					if err != nil && !strings.Contains(err.Error(), offlineErr) && !strings.Contains(err.Error(), ovnTimeoutErr) {
+					nonRetryable := err != nil && !strings.Contains(err.Error(), offlineErr) && !strings.Contains(err.Error(), ovnTimeoutErr)
+					if nonRetryable {
 						StopTrying(fmt.Sprintf("Restoring %q failed with a non-retryable error", member)).Wrap(err).Now()
 					}
 

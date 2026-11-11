@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/pem"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -48,8 +49,11 @@ func generateTestKeyPair(t *testing.T) (ssh.Signer, []byte) {
 // network/hardware dependency. It can also simulate a reboot: when it sees the exact command "sudo
 // reboot" (as issued by SSHController.Reboot), it stays reachable for rebootStaleWindow (mirroring
 // how real sshd keeps serving the still-running pre-reboot system for a moment), then refuses new
-// connections for rebootDownWindow (mirroring real downtime), then resumes normal service -- see
-// TestSSHControllerRebootDoesNotReturnEarly.
+// connections for rebootDownWindow (mirroring real downtime), then resumes normal service. Not
+// currently exercised by a Reboot-level test: Reboot's own tail end (waitReady) shells out to real
+// sudo/systemctl/microcloud on the test-running host, which isn't safe to depend on from a
+// portable unit test; rebootStaleWindow/rebootDownWindow remain available for a narrower,
+// dial-level test of the reconnect timing if one is added later.
 type testSSHServer struct {
 	listener net.Listener
 	addr     string
@@ -370,5 +374,63 @@ func TestIsExpectedRebootDisconnect(t *testing.T) {
 
 	if !isExpectedRebootDisconnect(&ssh.ExitMissingError{}) {
 		t.Error("expected ExitMissingError to be treated as an expected disconnect")
+	}
+}
+
+func TestIsPermissionDenied(t *testing.T) {
+	cases := []struct {
+		name   string
+		err    error
+		stderr string
+		want   bool
+	}{
+		{name: "nil error", err: nil, stderr: "", want: false},
+		{name: "disconnect (not an exit error) is never a permission issue", err: io.EOF, stderr: "permission denied", want: false},
+		{name: "exit error with unrelated stderr", err: &ssh.ExitError{}, stderr: "some other failure", want: false},
+		{name: "exit error, password required", err: &ssh.ExitError{}, stderr: "sudo: a password is required", want: true},
+		{name: "exit error, not in sudoers", err: &ssh.ExitError{}, stderr: "test is not in the sudoers file.  This incident will be reported.", want: true},
+		{name: "exit error, permission denied (any case)", err: &ssh.ExitError{}, stderr: "Permission Denied", want: true},
+		{name: "exit error, incorrect password", err: &ssh.ExitError{}, stderr: "Sorry, try again.\nsudo: 1 incorrect password attempt", want: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isPermissionDenied(tc.err, tc.stderr)
+			if got != tc.want {
+				t.Errorf("isPermissionDenied(%v, %q) = %v, want %v", tc.err, tc.stderr, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRunWithTimeout confirms a wedged remote command is bounded by timeout rather than blocking
+// indefinitely: "sleep 5" run with a 200ms timeout must return promptly with an error, not hang.
+func TestRunWithTimeout(t *testing.T) {
+	c := newTestSSHController(t, "micro1")
+
+	client, err := c.dial("micro1")
+	if err != nil {
+		t.Fatalf("Cannot dial: %v", err)
+	}
+
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		t.Fatalf("Cannot open session: %v", err)
+	}
+
+	defer session.Close()
+
+	start := time.Now()
+	err = runWithTimeout(session, "sleep 5", 200*time.Millisecond)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected a timeout error, got nil")
+	}
+
+	if elapsed > 2*time.Second {
+		t.Fatalf("runWithTimeout did not return promptly after its timeout: took %s", elapsed)
 	}
 }
