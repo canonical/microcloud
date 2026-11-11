@@ -50,5 +50,13 @@ test_e2e() {
 
   echo "==> Run microcloud E2E test"
 
+  e2e_testbed_file="$(pwd)/testbed.yaml"
+  cat > testbed.yaml <<-EOF
+lxd:
+  project: microcloud-test
+EOF
+
+  export REMOTE="mc"
+  export E2E_TESTBED_FILE=${e2e_testbed_file}
   go run github.com/onsi/ginkgo/v2/ginkgo -v --junit-report=report.xml .
 }

@@ -1,0 +1,26 @@
+# Example testbed config file for the MicroCloud e2e suite. 
+
+# Use this if the cluster is backed by local LXD VMs (e.g. a demos/terraform
+# deployment), each member a local LXD instance of the same name in the given
+# project.
+lxd:
+  project: my-project
+
+# Use this otherwise (physical hardware, MAAS, ...). Every cluster member name
+# must have a corresponding entry below so the suite can health-check/reboot it
+# over SSH.
+ssh:
+  nodes:
+    micro1:
+      address: 10.0.0.11
+      # port: 22  # optional, defaults to 22
+      user: ubuntu
+      private_key_file: ~/.ssh/id_ed25519
+    micro2:
+      address: 10.0.0.12
+      user: ubuntu
+      private_key_file: ~/.ssh/id_ed25519
+    micro3:
+      address: 10.0.0.13
+      user: ubuntu
+      private_key_file: ~/.ssh/id_ed25519
