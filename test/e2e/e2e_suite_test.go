@@ -22,5 +22,6 @@ func TestE2E(t *testing.T) {
 // package's state is shared across ginkgo -p's separate OS processes.
 var _ = SynchronizedBeforeSuite(framework.SetupProcess, func(_ []byte) {})
 
-// SynchronizedAfterSuite runs in every process; there is nothing to tear down yet.
-var _ = SynchronizedAfterSuite(framework.TeardownProcess, func() {})
+// SynchronizedAfterSuite is the teardown counterpart: its first function
+// runs in every process, its second only once, after every process is done.
+var _ = SynchronizedAfterSuite(func() {}, framework.TeardownProcess)

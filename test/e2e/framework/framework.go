@@ -2,9 +2,12 @@ package framework
 
 import (
 	//nolint:staticcheck // Ginkgo/Gomega's DSL is conventionally dot-imported.
+	. "github.com/onsi/ginkgo/v2"
+	//nolint:staticcheck // Ginkgo/Gomega's DSL is conventionally dot-imported.
 	. "github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
+	"github.com/canonical/microcloud/microcloud/test/e2e/framework/environment"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
 )
@@ -38,9 +41,27 @@ func SetupProcess() []byte {
 	controller.DefaultController.Prepare(names)
 	controller.DefaultController.CheckClusterHealth()
 
+	By("Setting up the e2e environment on " + Remote())
+
+	environment.DefaultBootstrapper = environment.New(conn)
+	Expect(environment.DefaultBootstrapper.EnsureProject(ProjectName)).To(Succeed())
+	Expect(environment.DefaultBootstrapper.EnsureProfile(ProfileName)).To(Succeed())
+
+	_, _, err = environment.DefaultBootstrapper.EnsureBaseImages(ProjectName)
+	Expect(err).NotTo(HaveOccurred())
+
 	return nil
 }
 
 // TeardownProcess runs in every parallel Ginkgo process (ginkgo -p runs
 // separate OS processes, so there is nothing shared to clean up here).
-func TeardownProcess() {}
+func TeardownProcess() {
+	if environment.DefaultBootstrapper == nil {
+		// SynchronizedBeforeSuite failed before setting this up (e.g. the
+		// cluster health check failed): nothing to tear down.
+		return
+	}
+
+	By("Tearing down the e2e environment")
+	Expect(environment.DefaultBootstrapper.TeardownEnvironment(ProjectName, ProfileName)).To(Succeed())
+}

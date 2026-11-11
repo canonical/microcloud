@@ -17,7 +17,9 @@ of a MicroCloud deployment before deploying production workloads to it.
 ## Overview
 
 This suite is a [Ginkgo](https://onsi.github.io/ginkgo/)/[Gomega](https://onsi.github.io/gomega/)
-Go test suite.
+Go test suite. It sets up a dedicated project directly through the LXD API: an "e2e-testing"
+project, a profile, and a cached base image per instance type (container and virtual-machine).
+Individual scenarios deploy and delete their own instances as needed.
 
 ## Prerequisites
 

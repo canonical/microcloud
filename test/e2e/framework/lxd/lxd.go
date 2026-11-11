@@ -14,23 +14,21 @@ import (
 	"github.com/canonical/lxd/shared/api"
 )
 
-// DefaultRetryInterval is the wait time between retries of flaky operations
-// (instance readiness polling, etc).
+// DefaultRetryInterval is the wait time between retries of flaky operations (instance readiness
+// polling, etc).
 const DefaultRetryInterval = 5 * time.Second
 
-// DefaultEventuallyTimeout bounds how long specs wait for eventually-
-// consistent conditions (e.g. an instance acquiring an IPv4 address after
-// being evacuated/restored) before failing.
+// DefaultEventuallyTimeout bounds how long specs wait for eventually- consistent conditions (e.g.
+// an instance acquiring an IPv4 address after being evacuated/restored) before failing.
 const DefaultEventuallyTimeout = 30 * time.Second
 
-// Connection is a connection to the remote MicroCloud deployment under test,
-// scoped to ProjectName.
+// Connection is a connection to the remote MicroCloud deployment under test, scoped to the
+// project passed to Connect.
 type Connection struct {
 	server lxdclient.InstanceServer
 }
 
-// Connect connects to remoteName (as configured via `lxc remote add`),
-// scoped to ProjectName.
+// Connect connects to remoteName (as configured via `lxc remote add`), scoped to projectName.
 func Connect(remoteName string, projectName string) (*Connection, error) {
 	s, err := connectNamedRemote(remoteName, projectName)
 	if err != nil {
@@ -45,18 +43,16 @@ func (c *Connection) Server() lxdclient.InstanceServer {
 	return c.server
 }
 
-// ConnectLocal connects to the special "local" remote (the LXD daemon
-// running on this test host, reached over its unix socket, independent of
-// REMOTE), scoped to project.
+// ConnectLocal connects to the special "local" remote (the LXD daemon running on this test host,
+// reached over its unix socket, independent of REMOTE), scoped to project.
 func ConnectLocal(project string) (lxdclient.InstanceServer, error) {
 	return connectNamedRemote("local", project)
 }
 
-// ExecInInstanceOn runs argv inside the named instance on the given server
-// and waits for it to complete. A non-zero exit status is not an error: it
-// is returned as exitCode along with the captured output. err is only set
-// when the command could not be started or its result could not be
-// determined.
+// ExecInInstanceOn runs argv inside the named instance on the given server and waits for it to
+// complete. A non-zero exit status is not an error: it is returned as exitCode along with the
+// captured output. err is only set when the command could not be started or its result could not
+// be determined.
 func ExecInInstanceOn(s lxdclient.InstanceServer, instance string, argv []string, env map[string]string) (stdout string, stderr string, exitCode int, err error) {
 	var outBuf, errBuf bytes.Buffer
 
@@ -82,9 +78,9 @@ func ExecInInstanceOn(s lxdclient.InstanceServer, instance string, argv []string
 	return outBuf.String(), errBuf.String(), int(rc), nil
 }
 
-// ConnectImageServer connects to a public, unauthenticated image remote
-// (e.g. "ubuntu-minimal-daily") as configured via `lxc remote add --protocol
-// simplestreams` (or LXD's own built-in defaults).
+// ConnectImageServer connects to a public, unauthenticated image remote (e.g.
+// "ubuntu-minimal-daily") as configured via `lxc remote add --protocol simplestreams` (or LXD's
+// own built-in defaults).
 func ConnectImageServer(name string) (lxdclient.ImageServer, error) {
 	configDir, err := lxcConfigDir()
 	if err != nil {
@@ -110,8 +106,8 @@ func ConnectImageServer(name string) (lxdclient.ImageServer, error) {
 	return s, nil
 }
 
-// connectNamedRemote connects to remoteName (as configured via `lxc remote
-// add`, or the special "local" remote), scoped to project.
+// connectNamedRemote connects to remoteName (as configured via `lxc remote add`, or the special
+// "local" remote), scoped to project.
 func connectNamedRemote(remoteName, project string) (lxdclient.InstanceServer, error) {
 	configDir, err := lxcConfigDir()
 	if err != nil {
