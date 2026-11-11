@@ -21,6 +21,8 @@ Go test suite. It sets up a dedicated project directly through the LXD API: an "
 project, a profile, and a cached base image per instance type (container and virtual-machine).
 Individual scenarios deploy and delete their own instances as needed.
 
+MicroCloud's own built-in test scenarios all carry the Ginkgo label `builtin`.
+
 ## Prerequisites
 
 - A Go toolchain.
@@ -114,6 +116,16 @@ ssh:
 ```
 
 Point the suite at it with the `E2E_TESTBED_FILE` environment variable. It's a required environment variable.
+
+## Filtering scenarios
+
+Specs are tagged with Ginkgo labels, matching risk tiers (`risk-low`, `risk-medium`, `risk-high`).
+MicroCloud's own built-in specs additionally carry the `builtin` label. Use `--label-filter` (via
+the [`ginkgo` CLI](https://onsi.github.io/ginkgo/#the-ginkgo-cli)) to select a subset:
+
+```sh
+cd test/e2e && REMOTE=mc E2E_TESTBED_FILE=testbed.yaml go run github.com/onsi/ginkgo/v2/ginkgo -v --junit-report=report.xml --label-filter=risk-low .
+```
 
 ## JUnit report
 

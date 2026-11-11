@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/environment"
+	"github.com/canonical/microcloud/microcloud/test/e2e/framework/instance"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
 )
@@ -49,6 +50,8 @@ func SetupProcess() []byte {
 
 	_, _, err = environment.DefaultBootstrapper.EnsureBaseImages(ProjectName)
 	Expect(err).NotTo(HaveOccurred())
+
+	instance.DefaultManager = instance.New(conn)
 
 	return nil
 }

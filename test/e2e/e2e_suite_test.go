@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework"
+	_ "github.com/canonical/microcloud/microcloud/test/e2e/scenarios"
 )
 
 // TestE2E is the single Go test entrypoint that Ginkgo hooks into.
