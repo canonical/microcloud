@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,13 +10,14 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework"
+	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 )
 
-var _ = ginkgo.Describe("Evacuate and Restore", ginkgo.Label("risk-medium", "builtin"), ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Evacuate, Reboot, and Restore", ginkgo.Label("risk-medium", "builtin"), ginkgo.Ordered, func() {
 	// instances holds the names of the instances deployed for this spec group,
 	// declared here (tree-construction time) but only populated in
-	// BeforeAll (run time), independent of connectivity.go's own fleet.
+	// BeforeAll (run time), independent of connectivity.go's own instances.
 	var instances []string
 
 	ginkgo.BeforeAll(func() {
@@ -37,8 +39,8 @@ var _ = ginkgo.Describe("Evacuate and Restore", ginkgo.Label("risk-medium", "bui
 		}
 	})
 
-	ginkgo.When("each cluster member in turn is evacuated and restored", func() {
-		ginkgo.It("every member's instances come back online and the full instance set remains fully reachable", func() {
+	ginkgo.When("each cluster member is in turn evacuated, rebooted, and restored", func() {
+		ginkgo.It("all instance in the cluster remains fully reachable after the process ", func() {
 			tc, err := framework.GetTestbedController()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -51,6 +53,14 @@ var _ = ginkgo.Describe("Evacuate and Restore", ginkgo.Label("risk-medium", "bui
 			for _, member := range names {
 				ginkgo.By("Evacuating " + member)
 				gomega.Expect(lxd.EvacuateMember(conn, member)).To(gomega.Succeed())
+
+				ginkgo.By("Rebooting " + member)
+				err = tc.Reboot(member)
+				if errors.Is(err, controller.ErrSudoPermissionDenied) {
+					ginkgo.GinkgoWriter.Printf("Reboot of %q skipped: passwordless sudo is not configured on this testbed (%v)\n", member, err)
+				} else {
+					gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				}
 
 				ginkgo.By("Restoring " + member)
 				// Retries on known-transient errors:
