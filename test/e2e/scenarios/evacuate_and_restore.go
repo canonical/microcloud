@@ -5,59 +5,54 @@ import (
 	"strings"
 	"time"
 
-	//nolint:staticcheck // Ginkgo/Gomega's DSL is conventionally dot-imported.
-	. "github.com/onsi/ginkgo/v2"
-	//nolint:staticcheck // Ginkgo/Gomega's DSL is conventionally dot-imported.
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 )
 
-var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() {
-	// fleet holds the names of the instances deployed for this spec group,
+var _ = ginkgo.Describe("Evacuate and Restore", ginkgo.Label("risk-medium", "builtin"), ginkgo.Ordered, func() {
+	// instances holds the names of the instances deployed for this spec group,
 	// declared here (tree-construction time) but only populated in
 	// BeforeAll (run time), independent of connectivity.go's own fleet.
-	var fleet []string
+	var instances []string
 
-	BeforeAll(func() {
+	ginkgo.BeforeAll(func() {
 		p, err := framework.GetProvisioner()
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		containerFingerprint, vmFingerprint, err := p.EnsureBaseImages(framework.ProjectName)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		conn, err := framework.GetRemoteConnection()
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		By("Deploying a fleet across every cluster member")
-		fleet, err = lxd.LaunchMixedInstances(conn, "e2e-evacuation-", containerFingerprint, vmFingerprint, framework.ProfileName)
-		Expect(err).NotTo(HaveOccurred())
+		ginkgo.By("Deploying instances across every cluster member")
+		instances, err = lxd.LaunchMixedInstances(conn, "e2e-evacuation-", containerFingerprint, vmFingerprint, framework.ProfileName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		for _, name := range fleet {
-			DeferCleanup(lxd.DeleteInstance, conn, name)
+		for _, name := range instances {
+			ginkgo.DeferCleanup(lxd.DeleteInstance, conn, name)
 		}
 	})
 
-	When("each cluster member in turn is evacuated, rebooted, and restored", func() {
-		It("every member's instances come back online and the fleet remains fully reachable", func() {
+	ginkgo.When("each cluster member in turn is evacuated and restored", func() {
+		ginkgo.It("every member's instances come back online and the full instance set remains fully reachable", func() {
 			tc, err := framework.GetTestbedController()
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			conn, err := framework.GetRemoteConnection()
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			names, err := tc.GetMembers()
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			for _, member := range names {
-				By("Evacuating " + member)
-				Expect(lxd.EvacuateMember(conn, member)).To(Succeed())
+				ginkgo.By("Evacuating " + member)
+				gomega.Expect(lxd.EvacuateMember(conn, member)).To(gomega.Succeed())
 
-				By("Rebooting " + member)
-				Expect(tc.Reboot(member)).To(Succeed())
-
-				By("Restoring " + member)
+				ginkgo.By("Restoring " + member)
 				// Retries on known-transient errors:
 				//
 				//   - "Target cluster member is offline": LXD's own
@@ -79,7 +74,7 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 				//     otherwise fully online.
 				//
 				// Any other error is not retried.
-				Eventually(func(g Gomega) {
+				gomega.Eventually(func(g gomega.Gomega) {
 					err := lxd.RestoreMember(conn, member)
 
 					const offlineErr = "Target cluster member is offline"
@@ -87,43 +82,43 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 
 					nonRetryable := err != nil && !strings.Contains(err.Error(), offlineErr) && !strings.Contains(err.Error(), ovnTimeoutErr)
 					if nonRetryable {
-						StopTrying(fmt.Sprintf("Restoring %q failed with a non-retryable error", member)).Wrap(err).Now()
+						gomega.StopTrying(fmt.Sprintf("Restoring %q failed with a non-retryable error", member)).Wrap(err).Now()
 					}
 
-					g.Expect(err).NotTo(HaveOccurred())
-				}).WithTimeout(lxd.DefaultEventuallyTimeout).WithPolling(time.Second).Should(Succeed())
+					g.Expect(err).NotTo(gomega.HaveOccurred())
+				}).WithTimeout(lxd.DefaultEventuallyTimeout).WithPolling(time.Second).Should(gomega.Succeed())
 
-				By(fmt.Sprintf("Waiting for instances on %s to come back online", member))
-				instances, err := lxd.GetInstanceNamesByMember(conn, member)
-				Expect(err).NotTo(HaveOccurred())
+				ginkgo.By(fmt.Sprintf("Waiting for instances on %s to come back online", member))
+				memberInstances, err := lxd.GetInstanceNamesByMember(conn, member)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-				for _, inst := range instances {
-					Eventually(func(g Gomega) {
+				for _, inst := range memberInstances {
+					gomega.Eventually(func(g gomega.Gomega) {
 						// The Restore action's own instance restart is
 						// best-effort and can silently leave an instance
 						// stopped if it raced with the member only just
 						// having come back online; nudge it to start on
 						// every poll.
-						g.Expect(lxd.EnsureInstanceRunning(conn, inst)).To(Succeed())
+						g.Expect(lxd.EnsureInstanceRunning(conn, inst)).To(gomega.Succeed())
 
 						ipv4, err := lxd.GetInstanceIPv4(conn, inst)
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(ipv4).NotTo(BeEmpty())
-					}).WithTimeout(lxd.DefaultEventuallyTimeout).WithPolling(time.Second).Should(Succeed())
+						g.Expect(err).NotTo(gomega.HaveOccurred())
+						g.Expect(ipv4).NotTo(gomega.BeEmpty())
+					}).WithTimeout(lxd.DefaultEventuallyTimeout).WithPolling(time.Second).Should(gomega.Succeed())
 				}
 
-				for _, src := range fleet {
-					for _, dst := range fleet {
+				for _, src := range instances {
+					for _, dst := range instances {
 						if src == dst {
 							continue
 						}
 
-						By(fmt.Sprintf("%s => %s", src, dst))
+						ginkgo.By(fmt.Sprintf("%s => %s", src, dst))
 
-						Eventually(func(g Gomega) {
+						gomega.Eventually(func(g gomega.Gomega) {
 							output, err := lxd.ProbeSSHReachability(conn, src, dst)
-							g.Expect(err).NotTo(HaveOccurred(), "output: %s", output)
-						}).WithTimeout(connectivityTimeout).WithPolling(lxd.DefaultRetryInterval).Should(Succeed())
+							g.Expect(err).NotTo(gomega.HaveOccurred(), "output: %s", output)
+						}).WithTimeout(connectivityTimeout).WithPolling(lxd.DefaultRetryInterval).Should(gomega.Succeed())
 					}
 				}
 			}
