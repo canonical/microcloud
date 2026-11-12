@@ -40,7 +40,10 @@ func SetupProcess() []byte {
 
 	nc := connectDefaults()
 
-	health.CheckClusterStatus(nc)
+	conn, err := GetRemoteConnection()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	health.CheckClusterStatus(nc, conn)
 
 	ginkgo.By("Setting up the e2e environment on " + Remote())
 

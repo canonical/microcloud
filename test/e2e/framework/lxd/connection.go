@@ -67,3 +67,22 @@ func (c *Connection) Server() lxdclient.InstanceServer {
 func (c *Connection) Project() string {
 	return c.project
 }
+
+// GetClusterMembers returns the names of every member of the MicroCloud cluster this connection
+// is connected to, as reported by its own clustering API. This is the authoritative source of
+// which members really belong to the cluster, unlike a Controller's GetMembers (testbed config or
+// a local LXD project's instance list, which is not guaranteed to match 1:1 with real cluster
+// membership -- e.g. a stray/orphaned instance in that project).
+func (c *Connection) GetClusterMembers() ([]string, error) {
+	members, err := c.server.GetClusterMembers()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list cluster members: %w", err)
+	}
+
+	names := make([]string, 0, len(members))
+	for _, m := range members {
+		names = append(names, m.ServerName)
+	}
+
+	return names, nil
+}

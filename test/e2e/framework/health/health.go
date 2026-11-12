@@ -8,6 +8,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
+	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 )
 
 // reportEntryName is the name AddReportEntry attaches the accumulated health-check log.
@@ -95,10 +96,10 @@ func (h *healthChecker) done() {
 }
 
 // CheckClusterStatus verifies the cluster is healthy by running a fixed set of status checks via c
-// against its member names (see controller.Controller.GetMembers), stopping at the first failure.
-// Output is always attached to the Ginkgo report.
-func CheckClusterStatus(c controller.Controller) {
-	names, err := c.GetMembers()
+// against the cluster's member names (see lxd.Connection.GetClusterMembers), stopping at the first
+// failure. Output is always attached to the Ginkgo report.
+func CheckClusterStatus(c controller.Controller, conn *lxd.Connection) {
+	names, err := conn.GetClusterMembers()
 	if err != nil {
 		ginkgo.Fail(err.Error())
 	}

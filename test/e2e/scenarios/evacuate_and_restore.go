@@ -47,7 +47,7 @@ var _ = ginkgo.Describe("Evacuate, Reboot, and Restore", ginkgo.Label("risk-medi
 			conn, err := framework.GetRemoteConnection()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			names, err := tc.GetMembers()
+			names, err := conn.GetClusterMembers()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			for _, member := range names {
