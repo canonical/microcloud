@@ -24,6 +24,14 @@ const (
 	DefaultRebootTimeout = 15 * time.Minute
 )
 
+// ErrSudoPermissionDenied is wrapped by the error Reboot returns when the remote command could
+// not run because sudo rejected it for lacking privileges (e.g. the testbed user isn't in
+// sudoers, a password is required, or sudo refused to prompt for one since Reboot runs over a
+// plain SSH exec channel with no PTY/stdin attached), rather than a genuine reboot/connectivity
+// failure. Callers that want to treat this as a soft testbed-configuration issue (e.g. skipping
+// rather than failing) can check for it with errors.Is.
+var ErrSudoPermissionDenied = errors.New("sudo denied permission")
+
 // Controller abstracts how to reach and control a MicroCloud deployment's cluster members'
 // underlying hosts. LXDController and SSHController are its two implementations, selected by New
 // based on which section (lxd or ssh) a testbed file configures.

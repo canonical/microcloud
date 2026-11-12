@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework"
+	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 )
 
@@ -49,7 +51,12 @@ var _ = ginkgo.Describe("Reboot", ginkgo.Label("risk-medium", "builtin"), ginkgo
 
 			for _, member := range names {
 				ginkgo.By("Rebooting " + member)
-				gomega.Expect(tc.Reboot(member)).To(gomega.Succeed())
+				err = tc.Reboot(member)
+				if errors.Is(err, controller.ErrSudoPermissionDenied) {
+					ginkgo.Skip(fmt.Sprintf("Skipping reboot: %q requires passwordless sudo, which is not configured on this testbed (%v)", member, err))
+				}
+
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 				ginkgo.By(fmt.Sprintf("Waiting for instances on %s to come back online", member))
 				memberInstances, err := lxd.GetInstanceNamesByMember(conn, member)

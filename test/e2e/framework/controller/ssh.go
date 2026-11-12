@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
@@ -208,10 +207,7 @@ func (c *SSHController) Reboot(member string) error {
 	runErr := runWithTimeout(session, "sudo reboot", commandTimeout)
 
 	if isPermissionDenied(runErr, stderr.String()) {
-		ginkgo.GinkgoWriter.Printf("Reboot: %q: \"sudo reboot\" was denied (%v, stderr=%q); skipping reboot for this member\n",
-			member, runErr, stderr.String())
-
-		return nil
+		return fmt.Errorf("Cannot reboot %q: %w (stderr=%q)", member, ErrSudoPermissionDenied, stderr.String())
 	}
 
 	if !isExpectedRebootDisconnect(runErr) {

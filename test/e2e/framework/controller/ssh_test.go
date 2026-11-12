@@ -50,18 +50,21 @@ func generateTestKeyPair(t *testing.T) (ssh.Signer, []byte) {
 // reboot" (as issued by SSHController.Reboot), it stays reachable for rebootStaleWindow (mirroring
 // how real sshd keeps serving the still-running pre-reboot system for a moment), then refuses new
 // connections for rebootDownWindow (mirroring real downtime), then resumes normal service. Not
-// currently exercised by a Reboot-level test: Reboot's own tail end (waitReady) shells out to real
-// sudo/systemctl/microcloud on the test-running host, which isn't safe to depend on from a
+// currently exercised by a full-reboot-cycle test: Reboot's own tail end (waitReady) shells out to
+// real sudo/systemctl/microcloud on the test-running host, which isn't safe to depend on from a
 // portable unit test; rebootStaleWindow/rebootDownWindow remain available for a narrower,
-// dial-level test of the reconnect timing if one is added later.
+// dial-level test of the reconnect timing if one is added later. If denyRebootPermission is set,
+// "sudo reboot" instead immediately fails as if sudo rejected it for lacking privileges, without
+// touching up/rebootStaleWindow/rebootDownWindow.
 type testSSHServer struct {
 	listener net.Listener
 	addr     string
 
-	mu                sync.Mutex
-	up                bool
-	rebootStaleWindow time.Duration
-	rebootDownWindow  time.Duration
+	mu                   sync.Mutex
+	up                   bool
+	rebootStaleWindow    time.Duration
+	rebootDownWindow     time.Duration
+	denyRebootPermission bool
 }
 
 // startTestSSHServer starts a server on 127.0.0.1:0 (a random free port), authorizing only
@@ -108,6 +111,13 @@ func (s *testSSHServer) setUp(up bool) {
 	s.mu.Lock()
 	s.up = up
 	s.mu.Unlock()
+}
+
+func (s *testSSHServer) isDenyRebootPermission() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.denyRebootPermission
 }
 
 // simulateReboot schedules the up -> stale -> down -> up transition
@@ -165,9 +175,11 @@ func (s *testSSHServer) handleConn(t *testing.T, conn net.Conn, config *ssh.Serv
 
 // handleTestSessionRequests handles "exec" requests on an accepted session channel by running the
 // command via the local shell and reporting its exit status, mirroring (a minimal subset of) real
-// sshd behavior. A literal "sudo reboot" command triggers srv.simulateReboot instead of actually
-// running anything, then closes the channel without reporting an exit status (mirroring a real
-// reboot dropping the connection).
+// sshd behavior. A literal "sudo reboot" command either triggers srv.simulateReboot instead of
+// actually running anything, then closes the channel without reporting an exit status (mirroring a
+// real reboot dropping the connection), or -- if srv.denyRebootPermission is set -- reports a
+// non-zero exit status with permission-denied-style stderr output (mirroring sudo rejecting the
+// command for lacking privileges), without touching reachability.
 func handleTestSessionRequests(srv *testSSHServer, channel ssh.Channel, reqs <-chan *ssh.Request) {
 	defer channel.Close()
 
@@ -191,6 +203,13 @@ func handleTestSessionRequests(srv *testSSHServer, channel ssh.Channel, reqs <-c
 		_ = req.Reply(true, nil)
 
 		if payload.Command == "sudo reboot" {
+			if srv.isDenyRebootPermission() {
+				_, _ = channel.Stderr().Write([]byte("sudo: a password is required\n"))
+				_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
+
+				return
+			}
+
 			srv.simulateReboot()
 			return
 		}
@@ -380,6 +399,19 @@ func TestIsExpectedRebootDisconnect(t *testing.T) {
 
 	if !isExpectedRebootDisconnect(&ssh.ExitMissingError{}) {
 		t.Error("expected ExitMissingError to be treated as an expected disconnect")
+	}
+}
+
+// TestSSHControllerRebootPermissionDenied confirms Reboot returns an error wrapping
+// ErrSudoPermissionDenied, rather than succeeding or hanging, when "sudo reboot" is rejected for
+// lacking privileges.
+func TestSSHControllerRebootPermissionDenied(t *testing.T) {
+	c, srv := newTestSSHControllerAndServer(t, "micro1")
+	srv.denyRebootPermission = true
+
+	err := c.Reboot("micro1")
+	if !errors.Is(err, ErrSudoPermissionDenied) {
+		t.Fatalf("expected Reboot to return an error wrapping ErrSudoPermissionDenied, got: %v", err)
 	}
 }
 
