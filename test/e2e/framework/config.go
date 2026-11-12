@@ -2,6 +2,8 @@ package framework
 
 import (
 	"os"
+
+	"github.com/onsi/gomega"
 )
 
 const (
@@ -20,4 +22,10 @@ func Remote() string {
 // E2ETestbedFile returns the path to the testbed config file.
 func E2ETestbedFile() string {
 	return os.Getenv("E2E_TESTBED_FILE")
+}
+
+// CheckEnvVars checks that the required environment variables are set and valid.
+func CheckEnvVars() {
+	gomega.Expect(Remote()).NotTo(gomega.Equal("local"), "This suite is not meant to be run against the local LXD server")
+	gomega.Expect(Remote()).NotTo(gomega.BeEmpty(), "Please set the REMOTE environment variable to the name of the remote LXD server")
 }

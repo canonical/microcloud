@@ -10,78 +10,29 @@ import (
 	"strings"
 	"time"
 
-	//nolint:staticcheck // Ginkgo's DSL is conventionally dot-imported.
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
 )
 
-// sshDialTimeout bounds how long a single SSH connection attempt may take.
-const sshDialTimeout = 10 * time.Second
+const (
+	// sshDialTimeout bounds how long a single SSH connection attempt may take.
+	sshDialTimeout = 10 * time.Second
 
-// commandTimeout bounds how long a single remote command (run via Exec, or "sudo reboot" below)
-// may block before the session is forcibly closed and a timeout error is returned -- without this,
-// a wedged remote command (e.g. one stuck on a stdin prompt) would hang the whole suite
-// indefinitely.
-const commandTimeout = 3 * time.Minute
+	// commandTimeout bounds how long a single remote command may block before the session is
+	// forcibly closed and a timeout error is returned.
+	commandTimeout = 3 * time.Minute
 
-// unreachableGracePeriod bounds how long Reboot waits to observe the member actually become
-// unreachable after "sudo reboot" is issued, before moving on to polling for it to come back up
-// (see the comment in Reboot).
-const unreachableGracePeriod = 30 * time.Second
+	// unreachableGracePeriod bounds how long Reboot waits to observe the member actually become
+	// unreachable after "sudo reboot" is issued.
+	unreachableGracePeriod = 30 * time.Second
+)
 
-// SSHController controls cluster members reached over SSH, using the connection details configured
-// in a testbed file.
-type SSHController struct {
-	nodes map[string]testbed.SSHNodeConfig
-}
-
-// newSSHController returns an SSHController for the given per-member SSH connection details.
-func newSSHController(nodes map[string]testbed.SSHNodeConfig) *SSHController {
-	return &SSHController{nodes: nodes}
-}
-
-// clientConfig builds an *ssh.ClientConfig for node, loading and parsing its private key file.
-func (c *SSHController) clientConfig(node testbed.SSHNodeConfig) (*ssh.ClientConfig, error) {
-	keyData, err := os.ReadFile(node.PrivateKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot read private_key_file %q: %w", node.PrivateKeyFile, err)
-	}
-
-	signer, err := ssh.ParsePrivateKey(keyData)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot parse private_key_file %q: %w", node.PrivateKeyFile, err)
-	}
-
-	return &ssh.ClientConfig{
-		User:            node.User,
-		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec // test tool, not production
-		Timeout:         sshDialTimeout,
-	}, nil
-}
-
-// dial connects to the named member.
-func (c *SSHController) dial(member string) (*ssh.Client, error) {
-	node, ok := c.nodes[member]
-	if !ok {
-		return nil, fmt.Errorf("Cannot connect to cluster member %q: no SSH connection details configured", member)
-	}
-
-	config, err := c.clientConfig(node)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot build SSH client config for %q: %w", member, err)
-	}
-
-	addr := net.JoinHostPort(node.Address, strconv.Itoa(node.Port))
-
-	client, err := ssh.Dial("tcp", addr, config)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot connect to %q over SSH (%s): %w", member, addr, err)
-	}
-
-	return client, nil
+// shellQuote single-quotes s for use in a POSIX shell command line, escaping any embedded single
+// quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // quoteCommand builds a single shell command line from argv and env, suitable for ssh.Session.Run,
@@ -99,12 +50,6 @@ func quoteCommand(argv []string, env map[string]string) string {
 	}
 
 	return strings.Join(parts, " ")
-}
-
-// shellQuote single-quotes s for use in a POSIX shell command line, escaping any embedded single
-// quotes.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // runWithTimeout runs cmd on session, forcibly closing the session (which unblocks session.Run)
@@ -126,6 +71,84 @@ func runWithTimeout(session *ssh.Session, cmd string, timeout time.Duration) err
 
 		return fmt.Errorf("Cannot run command: timed out after %s (session.Run returned: %v)", timeout, runErr)
 	}
+}
+
+// isExpectedRebootDisconnect reports whether err is one of the errors expected when a command that
+// kills the SSH session/connection (e.g. "sudo reboot") is run -- the server tears down the
+// connection before it can report a clean exit status or any status at all.
+func isExpectedRebootDisconnect(err error) bool {
+	if err == nil {
+		return true
+	}
+
+	var exitMissing *ssh.ExitMissingError
+	if errors.As(err, &exitMissing) {
+		return true
+	}
+
+	msg := err.Error()
+
+	return strings.Contains(msg, "EOF") ||
+		strings.Contains(msg, "closed") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "broken pipe")
+}
+
+// IsSudoPermissionDenied reports whether output (e.g. a command's combined stdout+stderr) looks
+// like sudo rejected a command for lacking privileges -- a password is required and no
+// TTY/askpass is available, the user isn't in the sudoers file, an incorrect password was
+// supplied, etc.
+func IsSudoPermissionDenied(output string) bool {
+	lower := strings.ToLower(output)
+
+	return strings.Contains(lower, "password is required") ||
+		strings.Contains(lower, "not in the sudoers file") ||
+		strings.Contains(lower, "permission denied") ||
+		strings.Contains(lower, "incorrect password") ||
+		strings.Contains(lower, "no tty present and no askpass program specified")
+}
+
+// isPermissionDenied reports whether err/stderr indicate "sudo reboot" was rejected for lacking
+// privileges (e.g. the testbed user isn't in sudoers, a password is required, or sudo refused to
+// prompt for one since Exec/Reboot run over a plain SSH exec channel with no PTY/stdin attached)
+// rather than the connection being torn down by an actual reboot. Only an error carrying an actual
+// exit status (*ssh.ExitError) is considered: a disconnect is never a permission issue -- if sudo
+// had really rejected the command, the session would exit with a status rather than losing the
+// connection.
+func isPermissionDenied(err error, stderr string) bool {
+	if err == nil {
+		return false
+	}
+
+	var exitErr *ssh.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+
+	return IsSudoPermissionDenied(stderr)
+}
+
+// SSHController controls cluster members reached over SSH, using the connection details configured
+// in a testbed file.
+type SSHController struct {
+	nodes map[string]testbed.SSHNodeConfig
+}
+
+// newSSHController returns an SSHController for the given per-member SSH connection details,
+// failing fast if any configured node cannot actually be dialed.
+func newSSHController(nodes map[string]testbed.SSHNodeConfig) (*SSHController, error) {
+	c := &SSHController{nodes: nodes}
+
+	for member := range nodes {
+		client, err := c.dial(member)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot control cluster members via ssh: %w", err)
+		}
+
+		client.Close()
+	}
+
+	return c, nil
 }
 
 // Exec runs argv on the named cluster member over a freshly dialed SSH connection.
@@ -163,54 +186,7 @@ func (c *SSHController) Exec(member string, argv []string, env map[string]string
 	}
 }
 
-// isExpectedRebootDisconnect reports whether err is one of the errors expected when a command that
-// kills the SSH session/connection (e.g. "sudo reboot") is run -- the server tears down the
-// connection before it can report a clean exit status or any status at all.
-func isExpectedRebootDisconnect(err error) bool {
-	if err == nil {
-		return true
-	}
-
-	var exitMissing *ssh.ExitMissingError
-	if errors.As(err, &exitMissing) {
-		return true
-	}
-
-	msg := err.Error()
-
-	return strings.Contains(msg, "EOF") ||
-		strings.Contains(msg, "closed") ||
-		strings.Contains(msg, "connection reset") ||
-		strings.Contains(msg, "broken pipe")
-}
-
-// isPermissionDenied reports whether err/stderr indicate "sudo reboot" was rejected for lacking
-// privileges (e.g. the testbed user isn't in sudoers, or a password is required) rather than the
-// connection being torn down by an actual reboot. Only an error carrying an actual exit status
-// (*ssh.ExitError) is considered: a disconnect is never a permission issue -- if sudo had really
-// rejected the command, the session would exit with a status rather than losing the connection.
-func isPermissionDenied(err error, stderr string) bool {
-	if err == nil {
-		return false
-	}
-
-	var exitErr *ssh.ExitError
-	if !errors.As(err, &exitErr) {
-		return false
-	}
-
-	lower := strings.ToLower(stderr)
-
-	return strings.Contains(lower, "password is required") ||
-		strings.Contains(lower, "not in the sudoers file") ||
-		strings.Contains(lower, "permission denied") ||
-		strings.Contains(lower, "incorrect password")
-}
-
-// Reboot restarts member over SSH and waits for it to be ready. If "sudo reboot" is rejected for
-// lacking privileges (see isPermissionDenied), the reboot is skipped rather than treated as a
-// failure: a misconfigured testbed user shouldn't fail the whole scenario for a step that is
-// inherently best-effort in environments without passwordless sudo.
+// Reboot restarts member over SSH and waits for it to be ready.
 func (c *SSHController) Reboot(member string) error {
 	client, err := c.dial(member)
 	if err != nil {
@@ -232,7 +208,7 @@ func (c *SSHController) Reboot(member string) error {
 	runErr := runWithTimeout(session, "sudo reboot", commandTimeout)
 
 	if isPermissionDenied(runErr, stderr.String()) {
-		GinkgoWriter.Printf("Reboot: %q: \"sudo reboot\" was denied (%v, stderr=%q); skipping reboot for this member\n",
+		ginkgo.GinkgoWriter.Printf("Reboot: %q: \"sudo reboot\" was denied (%v, stderr=%q); skipping reboot for this member\n",
 			member, runErr, stderr.String())
 
 		return nil
@@ -262,7 +238,58 @@ func (c *SSHController) Reboot(member string) error {
 		time.Sleep(rebootPollInterval)
 	}
 
-	// SSHController connects as whatever user the testbed file configures, which is expected to
-	// require sudo for these commands (see README.md).
+	// Wait for the member to come back up, bounded by a timeout.
 	return waitReady(c, member, deadline, true)
+}
+
+// GetMembers returns the cluster member names configured under the testbed file's ssh.nodes.
+func (c *SSHController) GetMembers() ([]string, error) {
+	members := make([]string, 0, len(c.nodes))
+	for member := range c.nodes {
+		members = append(members, member)
+	}
+
+	return members, nil
+}
+
+// dial connects to the named member.
+func (c *SSHController) dial(member string) (*ssh.Client, error) {
+	node, ok := c.nodes[member]
+	if !ok {
+		return nil, fmt.Errorf("Cannot connect to cluster member %q: no SSH connection details configured", member)
+	}
+
+	config, err := c.clientConfig(node)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot build SSH client config for %q: %w", member, err)
+	}
+
+	addr := net.JoinHostPort(node.Address, strconv.Itoa(node.Port))
+
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot connect to %q over SSH (%s): %w", member, addr, err)
+	}
+
+	return client, nil
+}
+
+// clientConfig builds an *ssh.ClientConfig for node, loading and parsing its private key file.
+func (c *SSHController) clientConfig(node testbed.SSHNodeConfig) (*ssh.ClientConfig, error) {
+	keyData, err := os.ReadFile(node.PrivateKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot read private_key_file %q: %w", node.PrivateKeyFile, err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(keyData)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse private_key_file %q: %w", node.PrivateKeyFile, err)
+	}
+
+	return &ssh.ClientConfig{
+		User:            node.User,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec // test tool, not production
+		Timeout:         sshDialTimeout,
+	}, nil
 }

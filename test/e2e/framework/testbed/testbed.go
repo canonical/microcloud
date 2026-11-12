@@ -3,9 +3,6 @@ package testbed
 import (
 	"fmt"
 	"os"
-	"os/user"
-	"path/filepath"
-	"strings"
 
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
@@ -36,6 +33,16 @@ type LXDConfig struct {
 type Config struct {
 	LXD *LXDConfig `yaml:"lxd"`
 	SSH *SSHConfig `yaml:"ssh"`
+}
+
+// requireField returns an error if value is empty, naming the missing field by its testbed file
+// path, member, and field name.
+func requireField(path, member, field, value string) error {
+	if value == "" {
+		return fmt.Errorf("Cannot load testbed file %q: ssh.nodes.%s.%s is required", path, member, field)
+	}
+
+	return nil
 }
 
 // Load reads and parses the file at path, if any.
@@ -118,50 +125,4 @@ func validateSSHNode(path, member string, node SSHNodeConfig) (SSHNodeConfig, er
 	}
 
 	return node, nil
-}
-
-// requireField returns an error if value is empty, naming the missing field by its testbed file
-// path, member, and field name.
-func requireField(path, member, field, value string) error {
-	if value == "" {
-		return fmt.Errorf("Cannot load testbed file %q: ssh.nodes.%s.%s is required", path, member, field)
-	}
-
-	return nil
-}
-
-// expandHome replaces a leading "~" (or "~/...") in path with the current user's home directory,
-// since paths in a YAML testbed file (e.g. private_key_file: ~/.ssh/id_ed25519) are not
-// shell-expanded for us.
-func expandHome(path string) (string, error) {
-	if path != "~" && !strings.HasPrefix(path, "~/") {
-		return path, nil
-	}
-
-	home, err := homeDir()
-	if err != nil {
-		return "", err
-	}
-
-	if path == "~" {
-		return home, nil
-	}
-
-	return filepath.Join(home, path[2:]), nil
-}
-
-// homeDir returns the current user's home directory. Deliberately a private copy independent of
-// the one in the lxd package: this package must stay a zero-dependency leaf.
-func homeDir() (string, error) {
-	home := os.Getenv("HOME")
-	if home != "" {
-		return home, nil
-	}
-
-	u, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("Cannot determine the current user: %w", err)
-	}
-
-	return u.HomeDir, nil
 }

@@ -11,9 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework"
-	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
-	"github.com/canonical/microcloud/microcloud/test/e2e/framework/environment"
-	"github.com/canonical/microcloud/microcloud/test/e2e/framework/instance"
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/lxd"
 )
 
@@ -24,26 +21,41 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 	var fleet []string
 
 	BeforeAll(func() {
-		containerFingerprint, vmFingerprint, err := environment.DefaultBootstrapper.EnsureBaseImages(framework.ProjectName)
+		p, err := framework.GetProvisioner()
+		Expect(err).NotTo(HaveOccurred())
+
+		containerFingerprint, vmFingerprint, err := p.EnsureBaseImages(framework.ProjectName)
+		Expect(err).NotTo(HaveOccurred())
+
+		conn, err := framework.GetRemoteConnection()
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deploying a fleet across every cluster member")
-		fleet, err = instance.DefaultManager.LaunchMixedFleet("e2e-evacuation-", containerFingerprint, vmFingerprint, framework.ProfileName)
+		fleet, err = lxd.LaunchMixedInstances(conn, "e2e-evacuation-", containerFingerprint, vmFingerprint, framework.ProfileName)
 		Expect(err).NotTo(HaveOccurred())
 
 		for _, name := range fleet {
-			DeferCleanup(instance.DefaultManager.DeleteInstance, name)
+			DeferCleanup(lxd.DeleteInstance, conn, name)
 		}
 	})
 
 	When("each cluster member in turn is evacuated, rebooted, and restored", func() {
 		It("every member's instances come back online and the fleet remains fully reachable", func() {
-			for _, member := range controller.DefaultController.MemberNames() {
+			tc, err := framework.GetTestbedController()
+			Expect(err).NotTo(HaveOccurred())
+
+			conn, err := framework.GetRemoteConnection()
+			Expect(err).NotTo(HaveOccurred())
+
+			names, err := tc.GetMembers()
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, member := range names {
 				By("Evacuating " + member)
-				Expect(controller.DefaultController.EvacuateMember(member)).To(Succeed())
+				Expect(lxd.EvacuateMember(conn, member)).To(Succeed())
 
 				By("Rebooting " + member)
-				Expect(controller.DefaultController.RebootMember(member)).To(Succeed())
+				Expect(tc.Reboot(member)).To(Succeed())
 
 				By("Restoring " + member)
 				// Retries on known-transient errors:
@@ -68,7 +80,7 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 				//
 				// Any other error is not retried.
 				Eventually(func(g Gomega) {
-					err := controller.DefaultController.RestoreMember(member)
+					err := lxd.RestoreMember(conn, member)
 
 					const offlineErr = "Target cluster member is offline"
 					const ovnTimeoutErr = "signal: alarm clock"
@@ -82,7 +94,7 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 				}).WithTimeout(lxd.DefaultEventuallyTimeout).WithPolling(time.Second).Should(Succeed())
 
 				By(fmt.Sprintf("Waiting for instances on %s to come back online", member))
-				instances, err := instance.DefaultManager.GetInstanceNamesByMember(member)
+				instances, err := lxd.GetInstanceNamesByMember(conn, member)
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, inst := range instances {
@@ -92,15 +104,28 @@ var _ = Describe("Evacuation", Label("risk-medium", "builtin"), Ordered, func() 
 						// stopped if it raced with the member only just
 						// having come back online; nudge it to start on
 						// every poll.
-						g.Expect(instance.DefaultManager.EnsureInstanceRunning(inst)).To(Succeed())
+						g.Expect(lxd.EnsureInstanceRunning(conn, inst)).To(Succeed())
 
-						ipv4, err := instance.DefaultManager.GetInstanceIPv4(inst)
+						ipv4, err := lxd.GetInstanceIPv4(conn, inst)
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(ipv4).NotTo(BeEmpty())
 					}).WithTimeout(lxd.DefaultEventuallyTimeout).WithPolling(time.Second).Should(Succeed())
 				}
 
-				instance.DefaultManager.CheckFleetConnectivity(fleet)
+				for _, src := range fleet {
+					for _, dst := range fleet {
+						if src == dst {
+							continue
+						}
+
+						By(fmt.Sprintf("%s => %s", src, dst))
+
+						Eventually(func(g Gomega) {
+							output, err := lxd.ProbeSSHReachability(conn, src, dst)
+							g.Expect(err).NotTo(HaveOccurred(), "output: %s", output)
+						}).WithTimeout(connectivityTimeout).WithPolling(lxd.DefaultRetryInterval).Should(Succeed())
+					}
+				}
 			}
 		})
 	})

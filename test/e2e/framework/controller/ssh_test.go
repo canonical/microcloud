@@ -263,7 +263,7 @@ func newTestSSHControllerAndServer(t *testing.T, member string) (*SSHController,
 		t.Fatalf("Cannot parse port %q: %v", port, err)
 	}
 
-	c := newSSHController(map[string]testbed.SSHNodeConfig{
+	c, err := newSSHController(map[string]testbed.SSHNodeConfig{
 		member: {
 			Address:        host,
 			Port:           portNum,
@@ -271,28 +271,34 @@ func newTestSSHControllerAndServer(t *testing.T, member string) (*SSHController,
 			PrivateKeyFile: keyPath,
 		},
 	})
+	if err != nil {
+		t.Fatalf("Cannot create SSHController: %v", err)
+	}
 
 	return c, srv
 }
 
-func TestValidateSSHNodesSuccess(t *testing.T) {
+func TestNewSSHControllerSuccess(t *testing.T) {
 	c := newTestSSHController(t, "micro1")
-	ctl := New(nil, testbed.Config{})
 
-	if !ctl.validateSSHNodes(c.nodes) {
-		t.Fatal("expected validateSSHNodes to succeed")
+	members, err := c.GetMembers()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(members) != 1 || members[0] != "micro1" {
+		t.Fatalf("expected [micro1], got %v", members)
 	}
 }
 
-func TestValidateSSHNodesUnreachable(t *testing.T) {
+func TestNewSSHControllerUnreachable(t *testing.T) {
 	nodes := map[string]testbed.SSHNodeConfig{
 		"micro1": {Address: "10.0.0.11", User: "ubuntu", PrivateKeyFile: "/nonexistent"},
 	}
 
-	ctl := New(nil, testbed.Config{})
-
-	if ctl.validateSSHNodes(nodes) {
-		t.Fatal("expected validateSSHNodes to fail for a bad private key file")
+	_, err := newSSHController(nodes)
+	if err == nil {
+		t.Fatal("expected newSSHController to fail for a bad private key file")
 	}
 }
 
@@ -391,6 +397,7 @@ func TestIsPermissionDenied(t *testing.T) {
 		{name: "exit error, not in sudoers", err: &ssh.ExitError{}, stderr: "test is not in the sudoers file.  This incident will be reported.", want: true},
 		{name: "exit error, permission denied (any case)", err: &ssh.ExitError{}, stderr: "Permission Denied", want: true},
 		{name: "exit error, incorrect password", err: &ssh.ExitError{}, stderr: "Sorry, try again.\nsudo: 1 incorrect password attempt", want: true},
+		{name: "exit error, no tty/askpass", err: &ssh.ExitError{}, stderr: "sudo: no tty present and no askpass program specified", want: true},
 	}
 
 	for _, tc := range cases {
@@ -398,6 +405,31 @@ func TestIsPermissionDenied(t *testing.T) {
 			got := isPermissionDenied(tc.err, tc.stderr)
 			if got != tc.want {
 				t.Errorf("isPermissionDenied(%v, %q) = %v, want %v", tc.err, tc.stderr, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsSudoPermissionDenied(t *testing.T) {
+	cases := []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{name: "empty", output: "", want: false},
+		{name: "unrelated failure", output: "some other failure", want: false},
+		{name: "password required", output: "sudo: a password is required", want: true},
+		{name: "not in sudoers", output: "test is not in the sudoers file.  This incident will be reported.", want: true},
+		{name: "permission denied (any case)", output: "Permission Denied", want: true},
+		{name: "incorrect password", output: "Sorry, try again.\nsudo: 1 incorrect password attempt", want: true},
+		{name: "no tty/askpass", output: "sudo: no tty present and no askpass program specified", want: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := IsSudoPermissionDenied(tc.output)
+			if got != tc.want {
+				t.Errorf("IsSudoPermissionDenied(%q) = %v, want %v", tc.output, got, tc.want)
 			}
 		})
 	}

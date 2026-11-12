@@ -18,14 +18,21 @@ type LXDController struct {
 }
 
 // newLXDController returns an LXDController connected to the local LXD daemon, scoped to
-// cfg.LXD.Project.
+// cfg.LXD.Project, failing fast if the daemon isn't actually reachable.
 func newLXDController(cfg testbed.Config) (*LXDController, error) {
-	local, err := lxdframework.ConnectLocal(cfg.LXD.Project)
+	conn, err := lxdframework.Connect("local", cfg.LXD.Project)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot control cluster members via local LXD: %w", err)
 	}
 
-	return &LXDController{local: local}, nil
+	c := &LXDController{local: conn.Server()}
+
+	_, err = c.GetMembers()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot control cluster members via local LXD: %w", err)
+	}
+
+	return c, nil
 }
 
 // Exec runs argv inside the local LXD instance named member.
@@ -55,7 +62,18 @@ func (c *LXDController) Reboot(member string) error {
 		return err
 	}
 
-	// ExecInInstanceOn already runs as root inside the instance, so no
-	// sudo prefix is needed for the readiness commands.
+	// ExecInInstanceOn already runs as root inside the instance, so no sudo prefix is needed for
+	// the readiness commands.
 	return waitReady(c, member, deadline, false)
+}
+
+// GetMembers returns the names of every local LXD instance in the project this LXDController is
+// scoped to.
+func (c *LXDController) GetMembers() ([]string, error) {
+	names, err := c.local.GetInstanceNames(api.InstanceTypeAny)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list local LXD instances: %w", err)
+	}
+
+	return names, nil
 }
