@@ -4,6 +4,12 @@ GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
 DQLITE_BRANCH=main
 
+# The top-level test/e2e package is the Ginkgo harness that expects a live,
+# already-deployed MicroCloud cluster (see test/e2e/README.md); it must not
+# run as part of `go test ./...`. Its framework/scenarios packages have no
+# such requirement and are covered like any other package.
+UNIT_TEST_PACKAGES=$(shell go list ./... | grep -v '^github.com/canonical/microcloud/microcloud/test/e2e$$')
+
 .PHONY: default
 default: build
 
@@ -54,9 +60,9 @@ check: check-static check-unit check-system
 .PHONY: check-unit
 check-unit:
 ifeq "$(GOCOVERDIR)" ""
-	go test ./...
+	go test $(UNIT_TEST_PACKAGES)
 else
-	go test ./... -cover -test.gocoverdir="${GOCOVERDIR}"
+	go test $(UNIT_TEST_PACKAGES) -cover -test.gocoverdir="${GOCOVERDIR}"
 endif
 
 .PHONY: check-system

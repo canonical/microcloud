@@ -218,7 +218,7 @@ jobs:
         uses: $/.github/actions/system-test
         with:
           setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
-          setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
+          setup_terraform: ${{ matrix.suite == 'terraform_demo' }}
           collect_coverage: ${{ matrix.suite != 'terraform_demo' && matrix.microcloud == 'latest/edge' }}
           sideload_debug_binaries: ${{ matrix.microcloud == 'latest/edge' }}
 

@@ -14,25 +14,28 @@ As such, these end to end tests are best used to ascertain the working condition
 of a MicroCloud deployment before deploying production workloads to it.
 ```
 
-## Testing
+## Overview
 
-The [`run`](run) script will setup a dedicated project using the [Terraform provider for LXD](https://github.com/terraform-lxd/terraform-provider-lxd) and deploy a number of instances on the MicroCloud. Those instances will be a mix of containers and virtual machines.
+This suite is a [Ginkgo](https://onsi.github.io/ginkgo/)/[Gomega](https://onsi.github.io/gomega/)
+Go test suite. It sets up a dedicated project directly through the LXD API: an "e2e-testing"
+project, a profile, and a cached base image per instance type (container and virtual-machine).
+Individual scenarios deploy and delete their own instances as needed.
 
-It is possible to override the variables defined in [`variables.tf`](variables.tf) by creating a file named `terraform.tfvars`:
+MicroCloud's own built-in test scenarios all carry the Ginkgo label `builtin`.
 
-```sh
-# terraform.tfvars
-containers_per_host = 25
-vms_per_host = 5
-```
+## Prerequisites
 
-Then execute the script and provide it the name of the LXD remote corresponding to the MicroCloud deployment to test (`mc` here):
+- A Go toolchain.
+- An LXD remote reachable to the already-deployed MicroCloud cluster to test.
+- A testbed file describing how to reach/control cluster members (see ["Node control"](#node-control)).
 
-```sh
-./run mc
-```
+### Setting up an LXD remote
 
-If the LXD remote to test is not configured yet, it's possible to add it with an identity token issued from a MicroCloud cluster member (`micro1` here):
+Set the `REMOTE` environment variable to the name of the LXD remote corresponding to the MicroCloud
+deployment to test (`mc` here).
+
+If the LXD remote to test is not configured yet, it's possible to add it with an identity token
+issued from a MicroCloud cluster member (`micro1` here):
 
 ```sh
 # Create the needed group
@@ -51,65 +54,79 @@ eyJjbGllbnRfbmFtZSI6ImUyZS10ZXN0aW5nIiwiZmluZ2VycHJpbnQiOiIyNzY1OGNjYmRlNmRkZDcw
 root@micro1:~# lxc auth identity group add tls/e2e-testing e2e-testing
 ```
 
-This token can be used on the machine where the `run` script will be used:
+This token can be used on the machine where the suite will be run:
 
 ```sh
 lxc remote add mc https://microcloud.lxd:8443 --token eyJjbGllbnRfbmFtZSI6ImUyZS10ZXN0aW5nIiwiZmluZ2VycHJpbnQiOiIyNzY1OGNjYmRlNmRkZDcwNDliMzliNmY5NzA1MWIzMWVkMWQ0NDM2OTFjZGFjMWIxNmI1ODBjNmI4NzFiNmM2IiwiYWRkcmVzc2VzIjpbIjE3Mi4yNC4yNi4xODo4NDQzIiwiWzIwMDE6NDcwOmIxYzM6Nzk0Njo4NWYzOmQzYTg6ZDcxZTo3YjA1XTo4NDQzIl0sInNlY3JldCI6ImJjNjlmOTM4YzM5NjRhNTI1ZDI3OTlmMTEyM2Q2NWE5ZGExZDE1ZGFmNjVjZjlmNTViYjQ1ZDdmZjBiMjg1YmYiLCJleHBpcmVzX2F0IjoiMDAwMS0wMS0wMVQwMDowMDowMFoiLCJ0eXBlIjoiQ2xpZW50IGNlcnRpZmljYXRlIn0=
 
-./run mc
-```
-
-Upon successful completion, a confirmation prompt will be displayed before destroying the testing environment. This behavior can be changed by setting the `DESTROY` variable accordingly:
-
-```sh
-# Leave the environment in place
-DESTROY=no ./run mc
-
-# or automatically destroy it without prompting
-DESTROY=yes ./run mc
-```
-
-If for some reason, the environment only needs to be destroyed, setting `DESTROY=only` will do:
-
-```sh
-# Only destroy the environment
-DESTROY=only ./run mc
+REMOTE=mc ginkgo -v .
 ```
 
 ```{important}
-The client credentials used during tests are not removed from the tested MicroCloud environment at the end. This part of the cleanup needs to be done manually.
+The client credentials used during tests are not removed from the tested MicroCloud environment at
+the end. This part of the cleanup needs to be done manually.
 ```
 
-### Rolling reboots
+## Running the suite
 
-During the test execution, each cluster member will be evacuated, rebooted and restored into the cluster. The evacuation and restoration is done by the test script itself but the machine reboot needs to be done externally.
-
-The script will pause and ask the operator to proceed with rebooting the evacuated cluster member and wait for it to come back online before resuming the script execution.
-
-````{note}
-If desired and possible, the evacuated cluster member reboot can be automated by creating an executable file in the same directory as the `run` script. That executable needs to be named `reboot` and will be invoked:
+Run the suite with the `ginkgo` CLI:
 
 ```sh
-# REMOTE: the name of the LXD remote used (i.e: the MicroCloud being tested)
-# member: the name of the evacuated cluster member that needs to be rebooted
-./reboot "${REMOTE}" "${member}"
+cd test/e2e && REMOTE=mc E2E_TESTBED_FILE=testbed.yaml go run github.com/onsi/ginkgo/v2/ginkgo -v --junit-report=report.xml .
 ```
-````
 
-It is possible to influence how many rolling reboots are performed:
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `REMOTE` | *(none, required)* | Name of the LXD remote corresponding to the MicroCloud deployment to test |
+| `E2E_TESTBED_FILE` | *(none)* | Path to a YAML testbed file (lxd/ssh node control config), see ["Node control"](#node-control) |
+
+## Node control
+
+There are two built-in ways to reach a cluster member, resolved from a testbed file (see below) as
+follows:
+
+1. If the testbed file configures an `lxd` section, members are reached via local LXD daemon.
+2. If the testbed file configures an `ssh` section, members are reached over SSH.
+3. If the testbed file configures both `lxd` and `ssh`, the `lxd` section takes precedence and the
+   `ssh` section is ignored.
+
+### Testbed file
+
+A YAML file (see [`testbed.example.yaml`](testbed.example.yaml)) configuring how to reach/control cluster members.
+
+```yaml
+# Either lxd or ssh. If both lxd and ssh exist, lxd always takes precedence.
+
+lxd:
+  project: my-project
+
+ssh:
+  nodes:
+    micro1:
+      address: 10.0.0.11
+      # port: 22  # optional, defaults to 22
+      user: ubuntu
+      private_key_file: ~/.ssh/id_ed25519
+    micro2:
+      address: 10.0.0.12
+      user: ubuntu
+      private_key_file: ~/.ssh/id_ed25519
+```
+
+Point the suite at it with the `E2E_TESTBED_FILE` environment variable. It's a required environment variable.
+
+## Filtering scenarios
+
+Specs are tagged with Ginkgo labels, matching risk tiers (`risk-low`, `risk-medium`, `risk-high`).
+MicroCloud's own built-in specs additionally carry the `builtin` label. Use `--label-filter` (via
+the [`ginkgo` CLI](https://onsi.github.io/ginkgo/#the-ginkgo-cli)) to select a subset:
 
 ```sh
-# don't do any rolling reboot/evacuation test
-EVACUATION_COUNTS=0 ./run mc
-
-# do multuple rolling reboots/evacuation tests:
-EVACUATION_COUNTS=5 ./run mc
+cd test/e2e && REMOTE=mc E2E_TESTBED_FILE=testbed.yaml go run github.com/onsi/ginkgo/v2/ginkgo -v --junit-report=report.xml --label-filter=risk-low .
 ```
 
-### HTML report
+## JUnit report
 
-Passing `--report` to the `run` script will generate a brief HTML report upon completion (whether the tests pass or fail). The report file is created in the current directory.
-
-```sh
-./run --report mc
-```
+The example invocation above already includes `--junit-report=report.xml`, so a JUnit XML report will be generated upon completion (whether the tests pass or fail), consumable by most CI systems.
