@@ -19,6 +19,12 @@ with open('../version/version.go') as f:
     match = re.search(r'RawVersion = "([^"]+)"', f.read())
     version = match.group(1) if match else ''
 
+# Published docs of the MicroCloud components
+component_docs_urls = {
+    "lxd": "https://canonical.com/lxd/docs/latest/",
+    "microceph": "https://canonical.com/ceph/docs/latest/",
+    "microovn": "https://ubuntu.com/docs/microovn/latest/",
+}
 
 #######################
 # Project information #
@@ -216,6 +222,7 @@ extensions = [
     'sphinx_sitemap',
     'myst_parser',
     'sphinx_structured_toc',
+    'sphinx_unified_search',
 ]
 
 # Excludes files or directories from processing
@@ -266,6 +273,28 @@ if os.path.exists('./reuse/substitutions.yaml'):
     with open('./reuse/substitutions.yaml', 'r') as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
+# MicroCloud custom: Unified search
+# Search indexes are fetched from component docs; result links point to the
+# components in the integrated docs.
+unified_search_projects = [
+    {
+        "name": name,
+        "base_url": html_baseurl + key + "/",
+        "searchindex_url": component_docs_urls[key] + "searchindex.js",
+    }
+    for name, key in [
+        ("LXD", "lxd"),
+        ("MicroCeph", "microceph"),
+        ("MicroOVN", "microovn")
+    ]
+]
+
+unified_search_project_filter = True
+
+# Download each remote index only once per sphinx-autobuild session (with `make
+# run`) and reuse it for later rebuilds
+unified_search_cache_remote_indexes = True
+
 ############################################################
 ### Styling
 ############################################################
@@ -295,9 +324,9 @@ notfound_context = {
 # Intersphinx setup differs for different builds to optimize use with integrated docs  
 if ('SINGLE_BUILD' in os.environ and os.environ['SINGLE_BUILD'] == 'True'):
     intersphinx_mapping = {
-        'lxd': ('https://canonical.com/lxd/docs/latest/', None),
-        'microceph': ('https://canonical.com/ceph/docs/latest/', None),
-        'microovn': ('https://ubuntu.com/docs/microovn/latest/', None),
+        'lxd': (component_docs_urls['lxd'], None),
+        'microceph': (component_docs_urls['microceph'], None),
+        'microovn': (component_docs_urls['microovn'], None),
     }
 elif ('READTHEDOCS' in os.environ) and (os.environ['READTHEDOCS'] == 'True'):
     intersphinx_mapping = {
