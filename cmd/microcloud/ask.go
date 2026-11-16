@@ -332,6 +332,8 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
+	lxd := sh.Services[types.LXD].(*service.LXDService)
+
 	availableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for name, state := range c.state {
 		// Skip this system if it already has the local storage pool configured
@@ -342,11 +344,17 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			continue
 		}
 
-		if len(state.AvailableDisks) == 0 {
+		// Also offer non-pristine disks as they might contain an existing local storage pool which can be reused.
+		// This allows recovered systems to set up local storage without wiping their existing storage pool.
+		disks := make(map[string]api.ResourcesStorageDisk, len(state.AvailableDisks)+len(state.ReusableDisks))
+		maps.Copy(disks, state.AvailableDisks)
+		maps.Copy(disks, state.ReusableDisks)
+
+		if len(disks) == 0 {
 			continue
 		}
 
-		availableDisks[name] = state.AvailableDisks
+		availableDisks[name] = disks
 	}
 
 	// When adding new systems to a cluster which already has the local storage pool,
@@ -398,8 +406,8 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		}
 	}
 
-	lxd := sh.Services[types.LXD].(*service.LXDService)
 	toWipe := map[string]string{}
+	toRecover := map[string]bool{}
 	wipeable, err := lxd.HasExtension(context.Background(), lxd.Name(), lxd.Address(), nil, "storage_pool_source_wipe")
 	if err != nil {
 		return fmt.Errorf("Failed to check for source.wipe extension: %w", err)
@@ -435,28 +443,74 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 			return errors.New("Failed to add local storage pool: Some peers don't have an available disk")
 		}
 
-		if wipeable {
-			newRows := make([][]string, len(answers))
-			for row := range answers {
-				newRows[row] = make([]string, len(header))
-				for j, h := range header {
-					newRows[row][j] = answers[row][h]
+		selectedInfo := map[string]api.ResourcesStorageDisk{}
+		for target, path := range selected {
+			for _, disk := range availableDisks[target] {
+				if service.FormatDiskPath(disk) == path {
+					selectedInfo[target] = disk
+					break
 				}
 			}
+		}
 
-			answers, err := table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
-			if err != nil {
-				return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
+		reuseDisks := map[string]bool{}
+		for _, target := range slices.Sorted(maps.Keys(selected)) {
+			if service.IsPristineDisk(selectedInfo[target]) {
+				continue
 			}
 
+			reuse, err := c.asker.AskBool(fmt.Sprintf("Disk %q on %q is non-pristine. Reuse its existing local storage pool?", selected[target], target), true)
+			if err != nil {
+				return err
+			}
+
+			reuseDisks[target] = reuse
+		}
+
+		wipe := map[string]string{}
+		if wipeable {
+			newRows := make([][]string, 0, len(answers))
 			for _, entry := range answers {
-				target := entry["LOCATION"]
-				path := entry["PATH"]
-				toWipe[target] = path
+				// Disks whose existing storage pool is reused must not be wiped.
+				if reuseDisks[entry["LOCATION"]] {
+					continue
+				}
+
+				row := make([]string, len(header))
+				for j, h := range header {
+					row[j] = entry[h]
+				}
+
+				newRows = append(newRows, row)
+			}
+
+			if len(newRows) > 0 {
+				answers, err := table.Render(context.Background(), c.asker, "Select which disks to wipe:", newRows...)
+				if err != nil {
+					return fmt.Errorf("Failed to confirm which disks to wipe: %w", err)
+				}
+
+				for _, entry := range answers {
+					target := entry["LOCATION"]
+					path := entry["PATH"]
+					wipe[target] = path
+				}
+			}
+		}
+
+		for _, target := range slices.Sorted(maps.Keys(selected)) {
+			if reuseDisks[target] || wipe[target] != "" {
+				continue
+			}
+
+			if len(selectedInfo[target].Partitions) != 0 {
+				return fmt.Errorf("Disk %q on %q has existing partitions. Either reuse its existing local storage pool or wipe it", selected[target], target)
 			}
 		}
 
 		selectedDisks = selected
+		toWipe = wipe
+		toRecover = reuseDisks
 
 		return nil
 	})
@@ -468,22 +522,18 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 		return nil
 	}
 
-	if wipeable {
-		toWipe = selectedDisks
-	}
-
 	var joinConfigs map[string][]api.ClusterMemberConfigKey
 	var finalConfigs []api.StoragePoolsPost
 	var targetConfigs map[string][]api.StoragePoolsPost
 	if useJoinConfig {
 		joinConfigs = map[string][]api.ClusterMemberConfigKey{}
 		for target, path := range selectedDisks {
-			joinConfigs[target] = lxd.DefaultZFSStoragePoolJoinConfig(wipeable && toWipe[target] != "", path)
+			joinConfigs[target] = lxd.DefaultZFSStoragePoolJoinConfig(wipeable && toWipe[target] != "", toRecover[target], path)
 		}
 	} else {
 		targetConfigs = map[string][]api.StoragePoolsPost{}
 		for target, path := range selectedDisks {
-			targetConfigs[target] = []api.StoragePoolsPost{lxd.DefaultPendingZFSStoragePool(wipeable && toWipe[target] != "", path)}
+			targetConfigs[target] = []api.StoragePoolsPost{lxd.DefaultPendingZFSStoragePool(wipeable && toWipe[target] != "", toRecover[target], path)}
 		}
 
 		if len(targetConfigs) > 0 {
@@ -497,6 +547,11 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	}
 
 	for target, path := range selectedDisks {
+		if toRecover[target] {
+			fmt.Println(tui.SummarizeResult("Reusing existing local storage pool on %s on %s", path, target))
+			continue
+		}
+
 		fmt.Println(tui.SummarizeResult("Using %s on %s for local storage pool", path, target))
 	}
 
@@ -508,7 +563,8 @@ func (c *initConfig) askLocalPool(sh *service.Handler) error {
 	newAvailableDisks := map[string]map[string]api.ResourcesStorageDisk{}
 	for target, path := range selectedDisks {
 		newAvailableDisks[target] = map[string]api.ResourcesStorageDisk{}
-		for id, disk := range availableDisks[target] {
+		// Only pass on the available disks so that reusable disks are not offered for remote storage.
+		for id, disk := range c.state[target].AvailableDisks {
 			if service.FormatDiskPath(disk) != path {
 				newAvailableDisks[target][id] = disk
 			}
