@@ -2,6 +2,8 @@ package controller
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -9,9 +11,30 @@ import (
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
 )
 
-// DefaultCommandTimeout bounds how long a single Exec call may block before being cancelled and a
-// timeout error is returned.
-const DefaultCommandTimeout = 3 * time.Minute
+const (
+	// rebootPollInterval is the polling interval used while waiting for a member to come back up
+	// after a reboot.
+	rebootPollInterval = time.Second
+
+	// readinessWaitTimeout bounds how long waitReady should wait for.
+	readinessWaitTimeout = 90 * time.Second
+
+	// DefaultRebootTimeout bounds how long Reboot waits for a cluster member to become reachable
+	// and ready again after being restarted.
+	DefaultRebootTimeout = 15 * time.Minute
+
+	// DefaultCommandTimeout bounds how long a single Exec call (or the LXD restart operation
+	// backing Reboot) may block before being cancelled and a timeout error is returned.
+	DefaultCommandTimeout = 3 * time.Minute
+)
+
+// ErrSudoPermissionDenied is wrapped by the error Reboot returns when the remote command could
+// not run because sudo rejected it for lacking privileges (e.g. the testbed user isn't in
+// sudoers, a password is required, or sudo refused to prompt for one since Reboot runs over a
+// plain SSH exec channel with no PTY/stdin attached), rather than a genuine reboot/connectivity
+// failure. Callers that want to treat this as a soft testbed-configuration issue (e.g. skipping
+// rather than failing) can check for it with errors.Is.
+var ErrSudoPermissionDenied = errors.New("sudo denied permission")
 
 // Controller abstracts how to reach and control a MicroCloud deployment's cluster members'
 // underlying hosts. LXDController and SSHController are its two implementations, selected by New
@@ -22,6 +45,10 @@ type Controller interface {
 	// when the command could not be started or its result could not be determined, including when
 	// it does not complete within timeout.
 	Exec(member string, argv []string, env map[string]string, timeout time.Duration) (stdout string, stderr string, exitCode int, err error)
+
+	// Reboot restarts the named cluster member and blocks until it is reachable and ready again,
+	// or DefaultRebootTimeout elapses.
+	Reboot(member string) error
 
 	// GetMembers returns the cluster member names this Controller is configured to control (the
 	// local LXD project's instance names for an LXDController, or the testbed file's ssh.nodes
@@ -64,4 +91,59 @@ func New(cfg testbed.Config) (Controller, error) {
 	default:
 		return nil, errors.New("Cannot determine how to control this MicroCloud deployment's members: No valid lxd/ssh testbed config 'E2E_TESTBED_FILE'")
 	}
+}
+
+// pollUntil calls condition every rebootPollInterval until it returns true, or returns an error
+// wrapping timeoutMsg once deadline passes.
+func pollUntil(deadline time.Time, timeoutMsg string, condition func() bool) error {
+	for {
+		if condition() {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return errors.New(timeoutMsg)
+		}
+
+		time.Sleep(rebootPollInterval)
+	}
+}
+
+// waitReady waits for member to become reachable again, then best-effort waits for systemd and
+// MicroCloud's own readiness signals to settle -- tolerating their own errors/timeouts, since a
+// reboot is still considered successful even if they don't fully settle within budget. sudo is
+// prefixed for controllers that don't already run as root (e.g. SSHController).
+func waitReady(c Controller, member string, deadline time.Time, sudo bool) error {
+	err := pollUntil(deadline, fmt.Sprintf("Timed out waiting for %q to become reachable after reboot", member), func() bool {
+		_, _, rc, err := c.Exec(member, []string{"true"}, nil, DefaultCommandTimeout)
+		return err == nil && rc == 0
+	})
+	if err != nil {
+		return err
+	}
+
+	var prefix []string
+	if sudo {
+		prefix = []string{"sudo"}
+	}
+
+	timeoutSeconds := strconv.Itoa(int(readinessWaitTimeout.Seconds()))
+
+	argv := append(prefix, "timeout", timeoutSeconds, "systemctl", "is-system-running", "--wait", "--quiet")
+
+	stdout, stderr, rc, execErr := c.Exec(member, argv, nil, DefaultCommandTimeout)
+	if execErr != nil || rc != 0 {
+		ginkgo.GinkgoWriter.Printf("waitReady: %q: systemctl is-system-running: rc=%d err=%v stdout=%s stderr=%s\n", member, rc, execErr, stdout, stderr)
+	}
+
+	time.Sleep(5 * time.Second)
+
+	argv = append(prefix, "microcloud", "waitready", "--timeout="+timeoutSeconds)
+
+	stdout, stderr, rc, execErr = c.Exec(member, argv, map[string]string{"TEST_CONSOLE": "0"}, DefaultCommandTimeout)
+	if execErr != nil || rc != 0 {
+		ginkgo.GinkgoWriter.Printf("waitReady: %q: microcloud waitready: rc=%d err=%v stdout=%s stderr=%s\n", member, rc, execErr, stdout, stderr)
+	}
+
+	return nil
 }

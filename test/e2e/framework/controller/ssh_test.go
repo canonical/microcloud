@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/pem"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -45,13 +46,25 @@ func generateTestKeyPair(t *testing.T) (ssh.Signer, []byte) {
 
 // testSSHServer is a minimal in-process SSH server accepting a single authorized public key and
 // running "exec" requests via the local shell, used to exercise SSHController without any real
-// network/hardware dependency.
+// network/hardware dependency. It can also simulate a reboot: when it sees the exact command "sudo
+// reboot" (as issued by SSHController.Reboot), it stays reachable for rebootStaleWindow (mirroring
+// how real sshd keeps serving the still-running pre-reboot system for a moment), then refuses new
+// connections for rebootDownWindow (mirroring real downtime), then resumes normal service. Not
+// currently exercised by a full-reboot-cycle test: Reboot's own tail end (waitReady) shells out to
+// real sudo/systemctl/microcloud on the test-running host, which isn't safe to depend on from a
+// portable unit test; rebootStaleWindow/rebootDownWindow remain available for a narrower,
+// dial-level test of the reconnect timing if one is added later. If denyRebootPermission is set,
+// "sudo reboot" instead immediately fails as if sudo rejected it for lacking privileges, without
+// touching up/rebootStaleWindow/rebootDownWindow.
 type testSSHServer struct {
 	listener net.Listener
 	addr     string
 
-	mu sync.Mutex
-	up bool
+	mu                   sync.Mutex
+	up                   bool
+	rebootStaleWindow    time.Duration
+	rebootDownWindow     time.Duration
+	denyRebootPermission bool
 }
 
 // startTestSSHServer starts a server on 127.0.0.1:0 (a random free port), authorizing only
@@ -76,7 +89,13 @@ func startTestSSHServer(t *testing.T, authorizedKey ssh.PublicKey, hostSigner ss
 
 	config.AddHostKey(hostSigner)
 
-	srv := &testSSHServer{listener: listener, addr: listener.Addr().String(), up: true}
+	srv := &testSSHServer{
+		listener:          listener,
+		addr:              listener.Addr().String(),
+		up:                true,
+		rebootStaleWindow: 10 * time.Millisecond,
+		rebootDownWindow:  10 * time.Millisecond,
+	}
 
 	go srv.serve(t, config)
 
@@ -92,6 +111,31 @@ func (s *testSSHServer) isUp() bool {
 	defer s.mu.Unlock()
 
 	return s.up
+}
+
+func (s *testSSHServer) setUp(up bool) {
+	s.mu.Lock()
+	s.up = up
+	s.mu.Unlock()
+}
+
+func (s *testSSHServer) isDenyRebootPermission() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.denyRebootPermission
+}
+
+// simulateReboot schedules the up -> stale -> down -> up transition
+// described in testSSHServer's doc comment, starting immediately (called
+// right when a "sudo reboot" exec is observed).
+func (s *testSSHServer) simulateReboot() {
+	go func() {
+		time.Sleep(s.rebootStaleWindow)
+		s.setUp(false)
+		time.Sleep(s.rebootDownWindow)
+		s.setUp(true)
+	}()
 }
 
 func (s *testSSHServer) serve(t *testing.T, config *ssh.ServerConfig) {
@@ -137,7 +181,11 @@ func (s *testSSHServer) handleConn(t *testing.T, conn net.Conn, config *ssh.Serv
 
 // handleTestSessionRequests handles "exec" requests on an accepted session channel by running the
 // command via the local shell and reporting its exit status, mirroring (a minimal subset of) real
-// sshd behavior.
+// sshd behavior. A literal "sudo reboot" command either triggers srv.simulateReboot instead of
+// actually running anything, then closes the channel without reporting an exit status (mirroring a
+// real reboot dropping the connection), or -- if srv.denyRebootPermission is set -- reports a
+// non-zero exit status with permission-denied-style stderr output (mirroring sudo rejecting the
+// command for lacking privileges), without touching reachability.
 func handleTestSessionRequests(srv *testSSHServer, channel ssh.Channel, reqs <-chan *ssh.Request) {
 	defer channel.Close()
 
@@ -159,6 +207,18 @@ func handleTestSessionRequests(srv *testSSHServer, channel ssh.Channel, reqs <-c
 		}
 
 		_ = req.Reply(true, nil)
+
+		if payload.Command == "sudo reboot" {
+			if srv.isDenyRebootPermission() {
+				_, _ = channel.Stderr().Write([]byte("sudo: a password is required\n"))
+				_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
+
+				return
+			}
+
+			srv.simulateReboot()
+			return
+		}
 
 		cmd := exec.Command("sh", "-c", payload.Command)
 		cmd.Stdout = channel
@@ -206,7 +266,7 @@ func newTestSSHController(t *testing.T, member string) *SSHController {
 }
 
 // newTestSSHControllerAndServer is like newTestSSHController but also returns the underlying
-// testSSHServer.
+// testSSHServer, for tests that need to drive its simulated-reboot behavior.
 func newTestSSHControllerAndServer(t *testing.T, member string) (*SSHController, *testSSHServer) {
 	t.Helper()
 
@@ -335,6 +395,56 @@ func TestShellQuote(t *testing.T) {
 		if got != want {
 			t.Errorf("shellQuote(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestIsExpectedRebootDisconnect(t *testing.T) {
+	if !isExpectedRebootDisconnect(nil) {
+		t.Error("expected nil to be treated as an expected disconnect")
+	}
+
+	if !isExpectedRebootDisconnect(&ssh.ExitMissingError{}) {
+		t.Error("expected ExitMissingError to be treated as an expected disconnect")
+	}
+}
+
+// TestSSHControllerRebootPermissionDenied confirms Reboot returns an error wrapping
+// ErrSudoPermissionDenied, rather than succeeding or hanging, when "sudo reboot" is rejected for
+// lacking privileges.
+func TestSSHControllerRebootPermissionDenied(t *testing.T) {
+	c, srv := newTestSSHControllerAndServer(t, "micro1")
+	srv.denyRebootPermission = true
+
+	err := c.Reboot("micro1")
+	if !errors.Is(err, ErrSudoPermissionDenied) {
+		t.Fatalf("expected Reboot to return an error wrapping ErrSudoPermissionDenied, got: %v", err)
+	}
+}
+
+func TestIsPermissionDenied(t *testing.T) {
+	cases := []struct {
+		name   string
+		err    error
+		stderr string
+		want   bool
+	}{
+		{name: "nil error", err: nil, stderr: "", want: false},
+		{name: "disconnect (not an exit error) is never a permission issue", err: io.EOF, stderr: "permission denied", want: false},
+		{name: "exit error with unrelated stderr", err: &ssh.ExitError{}, stderr: "some other failure", want: false},
+		{name: "exit error, password required", err: &ssh.ExitError{}, stderr: "sudo: a password is required", want: true},
+		{name: "exit error, not in sudoers", err: &ssh.ExitError{}, stderr: "test is not in the sudoers file.  This incident will be reported.", want: true},
+		{name: "exit error, permission denied (any case)", err: &ssh.ExitError{}, stderr: "Permission Denied", want: true},
+		{name: "exit error, incorrect password", err: &ssh.ExitError{}, stderr: "Sorry, try again.\nsudo: 1 incorrect password attempt", want: true},
+		{name: "exit error, no tty/askpass", err: &ssh.ExitError{}, stderr: "sudo: no tty present and no askpass program specified", want: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isPermissionDenied(tc.err, tc.stderr)
+			if got != tc.want {
+				t.Errorf("isPermissionDenied(%v, %q) = %v, want %v", tc.err, tc.stderr, got, tc.want)
+			}
+		})
 	}
 }
 

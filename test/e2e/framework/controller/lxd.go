@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,6 +40,40 @@ func newLXDController(cfg testbed.Config) (*LXDController, error) {
 // Exec runs argv inside the local LXD instance named member.
 func (c *LXDController) Exec(member string, argv []string, env map[string]string, timeout time.Duration) (stdout string, stderr string, exitCode int, err error) {
 	return lxd.ExecInInstanceOn(c.local, member, argv, env, timeout)
+}
+
+// Reboot restarts the local LXD instance named member and waits for it to be ready.
+func (c *LXDController) Reboot(member string) error {
+	op, err := c.local.UpdateInstanceState(member, api.InstanceStatePut{Action: "restart", Force: true}, "")
+	if err != nil {
+		return fmt.Errorf("Cannot restart local LXD instance %q: %w", member, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultCommandTimeout)
+	defer cancel()
+
+	err = op.WaitContext(ctx)
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("Cannot restart local LXD instance %q: timed out after %s", member, DefaultCommandTimeout)
+	}
+
+	if err != nil {
+		return fmt.Errorf("Cannot restart local LXD instance %q: %w", member, err)
+	}
+
+	deadline := time.Now().Add(DefaultRebootTimeout)
+
+	err = pollUntil(deadline, fmt.Sprintf("Timed out waiting for %q to boot (no running processes reported)", member), func() bool {
+		state, _, err := c.local.GetInstanceState(member)
+		return err == nil && state.Processes >= 1
+	})
+	if err != nil {
+		return err
+	}
+
+	// ExecInInstanceOn already runs as root inside the instance, so no sudo prefix is needed for
+	// the readiness commands.
+	return waitReady(c, member, deadline, false)
 }
 
 // GetMembers returns the names of every local LXD instance in the project this LXDController is

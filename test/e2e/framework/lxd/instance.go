@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/revert"
 )
 
 // sshProbePort is the TCP port probed by ProbeSSHReachability to check reachability between
@@ -57,6 +59,57 @@ func LaunchInstance(conn *Connection, spec Spec) error {
 	}
 
 	return nil
+}
+
+// LaunchMixedInstances launches one instance per cluster member on conn, alternating container/VM
+// in member order, each named RandomInstanceName(prefix). It uses the fingerprints returned by
+// environment.Provisioner.EnsureBaseImages. If any launch fails, any instances already launched
+// are deleted before returning the error. If skipVMs is true, every instance is a container
+// (vmFingerprint is ignored).
+func LaunchMixedInstances(conn *Connection, prefix string, containerFingerprint, vmFingerprint string, profileName string, skipVMs bool) ([]string, error) {
+	members, err := conn.Server().GetClusterMembers()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list cluster members: %w", err)
+	}
+
+	reverter := revert.New()
+	defer reverter.Fail()
+
+	names := make([]string, 0, len(members))
+	for i, member := range members {
+		name := RandomInstanceName(prefix)
+
+		instanceType := api.InstanceTypeContainer
+		fingerprint := containerFingerprint
+		if !skipVMs && i%2 == 1 {
+			instanceType = api.InstanceTypeVM
+			fingerprint = vmFingerprint
+		}
+
+		err := LaunchInstance(conn, Spec{
+			Name:        name,
+			Type:        instanceType,
+			Target:      member.ServerName,
+			Fingerprint: fingerprint,
+			Profile:     profileName,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		reverter.Add(func() {
+			// Best-effort cleanup of whatever was already launched: the original launch error
+			// above is what's returned/matters here, so this deletion's own error is discarded
+			// rather than masking it (DeleteInstance already tolerates "not found").
+			_ = DeleteInstance(conn, name)
+		})
+
+		names = append(names, name)
+	}
+
+	reverter.Success()
+
+	return names, nil
 }
 
 // DeleteInstance stops (if running) and deletes the instance on conn. It is safe to call
@@ -110,47 +163,20 @@ func GetInstanceNames(conn *Connection) ([]string, error) {
 	return names, nil
 }
 
-// LaunchMixedInstances launches one instance per cluster member on conn, alternating container/VM
-// in member order, each named RandomInstanceName(prefix). It uses the fingerprints returned by
-// environment.Provisioner.EnsureBaseImages. If any launch fails, any instances already launched
-// are deleted before returning the error. If skipVMs is true, every instance is a container
-// (vmFingerprint is ignored).
-func LaunchMixedInstances(conn *Connection, prefix string, containerFingerprint, vmFingerprint string, profileName string, skipVMs bool) ([]string, error) {
-	members, err := conn.Server().GetClusterMembers()
+// GetInstanceNamesByMember returns the names of instances located on member, in conn's project.
+func GetInstanceNamesByMember(conn *Connection, member string) ([]string, error) {
+	instances, err := conn.Server().GetInstances(lxdclient.GetInstancesArgs{})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot list cluster members: %w", err)
+		return nil, fmt.Errorf("Cannot list instances in member=%s project=%s: %w", member, conn.Project(), err)
 	}
 
-	names := make([]string, 0, len(members))
-	for i, member := range members {
-		name := RandomInstanceName(prefix)
-
-		instanceType := api.InstanceTypeContainer
-		fingerprint := containerFingerprint
-		if !skipVMs && i%2 == 1 {
-			instanceType = api.InstanceTypeVM
-			fingerprint = vmFingerprint
+	names := make([]string, 0, len(instances))
+	for _, i := range instances {
+		if i.Location != member {
+			continue
 		}
 
-		err := LaunchInstance(conn, Spec{
-			Name:        name,
-			Type:        instanceType,
-			Target:      member.ServerName,
-			Fingerprint: fingerprint,
-			Profile:     profileName,
-		})
-		if err != nil {
-			// Best-effort cleanup of whatever was already launched: the original launch error
-			// above is what's returned/matters here, so each deletion's own error is discarded
-			// rather than masking it (DeleteInstance already tolerates "not found").
-			for _, n := range names {
-				_ = DeleteInstance(conn, n)
-			}
-
-			return nil, err
-		}
-
-		names = append(names, name)
+		names = append(names, i.Name)
 	}
 
 	return names, nil
@@ -183,6 +209,30 @@ func GetInstanceStatus(conn *Connection, name string) (string, error) {
 	}
 
 	return state.Status, nil
+}
+
+// EnsureInstanceRunning starts the instance on conn if it's currently stopped.
+func EnsureInstanceRunning(conn *Connection, name string) error {
+	state, _, err := conn.Server().GetInstanceState(name)
+	if err != nil {
+		return fmt.Errorf("Cannot get state of instance %q: %w", name, err)
+	}
+
+	if state.Status == api.Running.String() {
+		return nil
+	}
+
+	op, err := conn.Server().UpdateInstanceState(name, api.InstanceStatePut{Action: "start"}, "")
+	if err != nil {
+		return fmt.Errorf("Cannot start instance %q: %w", name, err)
+	}
+
+	err = op.Wait()
+	if err != nil {
+		return fmt.Errorf("Cannot start instance %q: %w", name, err)
+	}
+
+	return nil
 }
 
 // ProbeSSHReachability attempts, once, to open a TCP connection from inside src to dst's SSH port,

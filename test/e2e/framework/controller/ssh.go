@@ -15,8 +15,14 @@ import (
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/testbed"
 )
 
-// sshDialTimeout bounds how long a single SSH connection attempt may take.
-const sshDialTimeout = 10 * time.Second
+const (
+	// sshDialTimeout bounds how long a single SSH connection attempt may take.
+	sshDialTimeout = 10 * time.Second
+
+	// unreachableGracePeriod bounds how long Reboot waits to observe the member actually become
+	// unreachable after "sudo reboot" is issued.
+	unreachableGracePeriod = 30 * time.Second
+)
 
 // shellQuote single-quotes s for use in a POSIX shell command line, escaping any embedded single
 // quotes.
@@ -62,6 +68,27 @@ func runWithTimeout(session *ssh.Session, cmd string, timeout time.Duration) err
 	}
 }
 
+// isExpectedRebootDisconnect reports whether err is one of the errors expected when a command that
+// kills the SSH session/connection (e.g. "sudo reboot") is run -- the server tears down the
+// connection before it can report a clean exit status or any status at all.
+func isExpectedRebootDisconnect(err error) bool {
+	if err == nil {
+		return true
+	}
+
+	var exitMissing *ssh.ExitMissingError
+	if errors.As(err, &exitMissing) {
+		return true
+	}
+
+	msg := err.Error()
+
+	return strings.Contains(msg, "EOF") ||
+		strings.Contains(msg, "closed") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "broken pipe")
+}
+
 // IsSudoPermissionDenied reports whether output (e.g. a command's combined stdout+stderr) looks
 // like sudo rejected a command for lacking privileges -- a password is required and no
 // TTY/askpass is available, the user isn't in the sudoers file, an incorrect password was
@@ -74,6 +101,26 @@ func IsSudoPermissionDenied(output string) bool {
 		strings.Contains(lower, "permission denied") ||
 		strings.Contains(lower, "incorrect password") ||
 		strings.Contains(lower, "no tty present and no askpass program specified")
+}
+
+// isPermissionDenied reports whether err/stderr indicate "sudo reboot" was rejected for lacking
+// privileges (e.g. the testbed user isn't in sudoers, a password is required, or sudo refused to
+// prompt for one since Exec/Reboot run over a plain SSH exec channel with no PTY/stdin attached)
+// rather than the connection being torn down by an actual reboot. Only an error carrying an actual
+// exit status (*ssh.ExitError) is considered: a disconnect is never a permission issue -- if sudo
+// had really rejected the command, the session would exit with a status rather than losing the
+// connection.
+func isPermissionDenied(err error, stderr string) bool {
+	if err == nil {
+		return false
+	}
+
+	var exitErr *ssh.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+
+	return IsSudoPermissionDenied(stderr)
 }
 
 // SSHController controls cluster members reached over SSH, using the connection details configured
@@ -132,6 +179,59 @@ func (c *SSHController) Exec(member string, argv []string, env map[string]string
 	default:
 		return outBuf.String(), errBuf.String(), -1, fmt.Errorf("Cannot execute command on %q: %w", member, err)
 	}
+}
+
+// Reboot restarts member over SSH and waits for it to be ready.
+func (c *SSHController) Reboot(member string) error {
+	client, err := c.dial(member)
+	if err != nil {
+		return fmt.Errorf("Cannot reboot %q: %w", member, err)
+	}
+
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("Cannot reboot %q: Cannot open SSH session: %w", member, err)
+	}
+
+	defer session.Close()
+
+	var stderr bytes.Buffer
+	session.Stderr = &stderr
+
+	runErr := runWithTimeout(session, "sudo reboot", DefaultCommandTimeout)
+
+	if isPermissionDenied(runErr, stderr.String()) {
+		return fmt.Errorf("Cannot reboot %q: %w (stderr=%q)", member, ErrSudoPermissionDenied, stderr.String())
+	}
+
+	if !isExpectedRebootDisconnect(runErr) {
+		return fmt.Errorf("Cannot reboot %q: %w", member, runErr)
+	}
+
+	deadline := time.Now().Add(DefaultRebootTimeout)
+
+	// "sudo reboot" only asynchronously initiates the shutdown: sshd can stay responsive for a few
+	// more seconds afterward, serving the still-running pre-reboot system. Without first
+	// confirming the member actually became unreachable, the very next reconnect-poll could
+	// succeed against that same stale session, falsely reporting the reboot as complete before the
+	// system has actually gone down. Wait for that disconnection (bounded by a grace period, in
+	// case the shutdown is fast enough that it's already happened) before polling for the member
+	// to come back up.
+	unreachableDeadline := time.Now().Add(unreachableGracePeriod)
+	for time.Now().Before(unreachableDeadline) {
+		probe, dialErr := c.dial(member)
+		if dialErr != nil {
+			break
+		}
+
+		probe.Close()
+		time.Sleep(rebootPollInterval)
+	}
+
+	// Wait for the member to come back up, bounded by a timeout.
+	return waitReady(c, member, deadline, true)
 }
 
 // GetMembers returns the cluster member names configured under the testbed file's ssh.nodes.
