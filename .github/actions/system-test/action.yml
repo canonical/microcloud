@@ -62,6 +62,17 @@ runs:
         # The path intput supports expansion.
         path: ~/go/bin
 
+    - name: Download microcloud.e2e test harness
+      if: ${{ matrix.suite == 'e2e' }}
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: microcloud-e2e
+        merge-multiple: true
+        # Pick the right home path of the runner user.
+        # The GitHub runners use /home/runner and the Canonical ones use /home/ubuntu.
+        # The path intput supports expansion.
+        path: ~/go/bin
+
     - name: Make GOCOVERDIR
       shell: bash
       run: mkdir -p "${GOCOVERDIR}"
@@ -186,8 +197,8 @@ runs:
         fi
 
         cd test
-        sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
         echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S_%N)" >> "${GITHUB_ENV}"
+        sudo --preserve-env=GOCOVERDIR,DEBUG,GITHUB_ACTIONS,MICROCLOUD_DEBUG_PATH,MICROCLOUDD_DEBUG_PATH,SKIP_VM_LAUNCH,SNAPSHOT_RESTORE,TEST_STORAGE_SOURCE,TESTBED_READY,BASE_OS,LXD_SNAP_CHANNEL,MICROCEPH_SNAP_CHANNEL,MICROOVN_SNAP_CHANNEL,MICROCLOUD_SNAP_CHANNEL ./main.sh ${{ matrix.suite }}
       env:
         INPUTS_COLLECT_COVERAGE: ${{ inputs.collect_coverage }}
 
@@ -197,3 +208,17 @@ runs:
         name: coverage-${{ matrix.suite }}-${{ env.TIMESTAMP }}
         path: ${{ env.GOCOVERDIR }}
       if: env.GOCOVERDIR != '' && inputs.collect_coverage == 'true' && github.repository == 'canonical/microcloud'
+
+    - name: Upload e2e JUnit report
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: e2e-report-${{ env.TIMESTAMP }}
+        path: test/e2e/report.xml
+      if: always() && matrix.suite == 'e2e'
+
+    - name: Upload microcloud.e2e binary
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: microcloud-e2e-binary-${{ env.TIMESTAMP }}
+        path: ~/go/bin/microcloud.e2e
+      if: matrix.suite == 'e2e' && github.repository == 'canonical/microcloud'

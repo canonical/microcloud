@@ -4,6 +4,12 @@ GOPATH ?= $(shell go env GOPATH)
 DQLITE_PATH=$(GOPATH)/deps/dqlite
 DQLITE_BRANCH=main
 
+# The cmd/microcloud-e2e package is the Ginkgo harness entrypoint that expects
+# a live, already-deployed MicroCloud cluster (see test/e2e/README.md); it must
+# not run as part of `go test ./...`. The test/e2e framework/scenarios packages
+# it depends on have no such requirement and are covered like any other package.
+UNIT_TEST_PACKAGES=$(shell go list ./... | grep -v '^github.com/canonical/microcloud/microcloud/cmd/microcloud-e2e$$')
+
 .PHONY: default
 default: build
 
@@ -47,6 +53,15 @@ else
 	go install -tags=test -v -cover ./cmd/microcloudd
 endif
 
+# Build MicroCloud e2e test harness.
+.PHONY: build-microcloud-e2e
+build-microcloud-e2e:
+ifeq "$(GOCOVERDIR)" ""
+	go run github.com/onsi/ginkgo/v2/ginkgo build -o $(GOPATH)/bin/microcloud-e2e ./cmd/microcloud-e2e
+else
+	go run github.com/onsi/ginkgo/v2/ginkgo build --cover -o $(GOPATH)/bin/microcloud-e2e ./cmd/microcloud-e2e
+endif
+
 # Testing targets.
 .PHONY: check
 check: check-static check-unit check-system
@@ -54,9 +69,9 @@ check: check-static check-unit check-system
 .PHONY: check-unit
 check-unit:
 ifeq "$(GOCOVERDIR)" ""
-	go test ./...
+	go test $(UNIT_TEST_PACKAGES)
 else
-	go test ./... -cover -test.gocoverdir="${GOCOVERDIR}"
+	go test $(UNIT_TEST_PACKAGES) -cover -test.gocoverdir="${GOCOVERDIR}"
 endif
 
 .PHONY: check-system
