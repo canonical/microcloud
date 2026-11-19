@@ -4,6 +4,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
+	"github.com/canonical/microcloud/microcloud/test/e2e/framework/health"
 )
 
 // connectDefaults connects to Remote() and validates the testbed/cluster are usable, returning the
@@ -36,7 +37,12 @@ func connectDefaults() controller.Controller {
 func SetupProcess() []byte {
 	CheckEnvVars()
 
-	connectDefaults()
+	nc := connectDefaults()
+
+	conn, err := GetRemoteConnection()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	health.CheckClusterStatus(nc, conn)
 
 	return nil
 }
