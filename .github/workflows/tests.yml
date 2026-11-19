@@ -104,6 +104,7 @@ jobs:
         run: |
           make deps
           make build-test
+          make build-microcloud-e2e
 
       - name: Run static analysis
         run: make check-static
@@ -139,6 +140,14 @@ jobs:
             /home/runner/go/bin/microcloud
             /home/runner/go/bin/microcloudd
             /home/runner/go/bin/dqlite
+          retention-days: 1
+
+      - name: Upload microcloud-e2e test harness
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: microcloud-e2e
+          path: |
+            /home/runner/go/bin/microcloud-e2e
           retention-days: 1
 
       - name: Select runner
@@ -218,7 +227,7 @@ jobs:
         uses: $/.github/actions/system-test
         with:
           setup_testbed: ${{ matrix.suite != 'terraform_demo' }}
-          setup_terraform: ${{ matrix.suite == 'e2e' || matrix.suite == 'terraform_demo' }}
+          setup_terraform: ${{ matrix.suite == 'terraform_demo' }}
           collect_coverage: ${{ matrix.suite != 'terraform_demo' && matrix.microcloud == 'latest/edge' }}
           sideload_debug_binaries: ${{ matrix.microcloud == 'latest/edge' }}
 
