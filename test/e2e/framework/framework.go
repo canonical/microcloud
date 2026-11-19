@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
 	"github.com/canonical/microcloud/microcloud/test/e2e/framework/controller"
@@ -44,6 +45,14 @@ func SetupProcess() []byte {
 
 	health.CheckClusterStatus(nc, conn)
 
+	ginkgo.By("Setting up the e2e environment on " + Remote())
+
+	p, err := GetProvisioner()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	_, _, err = p.SetupEnvironment(ProjectName, ProfileName, SkipLaunchVMs())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	return nil
 }
 
@@ -58,4 +67,10 @@ func ConnectProcess(_ []byte) {
 // TeardownProcess runs once, after every parallel Ginkgo process has finished (it is the second
 // function passed to SynchronizedAfterSuite).
 func TeardownProcess() {
+	ginkgo.By("Tearing down the e2e environment")
+
+	p, err := GetProvisioner()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	gomega.Expect(p.TeardownEnvironment(ProjectName, ProfileName)).To(gomega.Succeed())
 }
