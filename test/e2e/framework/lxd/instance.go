@@ -3,9 +3,15 @@ package lxd
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
+	"time"
 
 	"github.com/canonical/lxd/shared/api"
 )
+
+// sshProbePort is the TCP port probed by ProbeSSHReachability to check reachability between
+// instances.
+const sshProbePort = 22
 
 // RandomInstanceName returns a random instance name prefixed with prefix, safe to use concurrently
 // across specs.
@@ -102,4 +108,120 @@ func GetInstanceNames(conn *Connection) ([]string, error) {
 	}
 
 	return names, nil
+}
+
+// LaunchMixedInstances launches one instance per cluster member on conn, alternating container/VM
+// in member order, each named RandomInstanceName(prefix). It uses the fingerprints returned by
+// environment.Provisioner.EnsureBaseImages. If any launch fails, any instances already launched
+// are deleted before returning the error. If skipVMs is true, every instance is a container
+// (vmFingerprint is ignored).
+func LaunchMixedInstances(conn *Connection, prefix string, containerFingerprint, vmFingerprint string, profileName string, skipVMs bool) ([]string, error) {
+	members, err := conn.Server().GetClusterMembers()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list cluster members: %w", err)
+	}
+
+	names := make([]string, 0, len(members))
+	for i, member := range members {
+		name := RandomInstanceName(prefix)
+
+		instanceType := api.InstanceTypeContainer
+		fingerprint := containerFingerprint
+		if !skipVMs && i%2 == 1 {
+			instanceType = api.InstanceTypeVM
+			fingerprint = vmFingerprint
+		}
+
+		err := LaunchInstance(conn, Spec{
+			Name:        name,
+			Type:        instanceType,
+			Target:      member.ServerName,
+			Fingerprint: fingerprint,
+			Profile:     profileName,
+		})
+		if err != nil {
+			// Best-effort cleanup of whatever was already launched: the original launch error
+			// above is what's returned/matters here, so each deletion's own error is discarded
+			// rather than masking it (DeleteInstance already tolerates "not found").
+			for _, n := range names {
+				_ = DeleteInstance(conn, n)
+			}
+
+			return nil, err
+		}
+
+		names = append(names, name)
+	}
+
+	return names, nil
+}
+
+// GetInstanceIPv4 returns the first global-scope IPv4 address reported for the instance on conn,
+// or "" if it has none yet.
+func GetInstanceIPv4(conn *Connection, name string) (string, error) {
+	state, _, err := conn.Server().GetInstanceState(name)
+	if err != nil {
+		return "", fmt.Errorf("Cannot get state of instance %q: %w", name, err)
+	}
+
+	for _, net := range state.Network {
+		for _, addr := range net.Addresses {
+			if addr.Family == "inet" && addr.Scope == "global" {
+				return addr.Address, nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
+// GetInstanceStatus returns the instance's current status (e.g. "Running", "Stopped") on conn.
+func GetInstanceStatus(conn *Connection, name string) (string, error) {
+	state, _, err := conn.Server().GetInstanceState(name)
+	if err != nil {
+		return "", fmt.Errorf("Cannot get state of instance %q: %w", name, err)
+	}
+
+	return state.Status, nil
+}
+
+// ProbeSSHReachability attempts, once, to open a TCP connection from inside src to dst's SSH port,
+// returning the combined stdout/stderr output. It returns an error if dst has no IPv4 address yet,
+// the probe could not be started, or it exited non-zero -- callers are expected to wrap this in
+// their own retry logic (e.g. Gomega's Eventually) while dst is still booting.
+func ProbeSSHReachability(conn *Connection, src, dst string) (output string, err error) {
+	dstIPv4, err := GetInstanceIPv4(conn, dst)
+	if err != nil {
+		return "", err
+	}
+
+	if dstIPv4 == "" {
+		return "", fmt.Errorf("Instance %q has no IPv4 address yet", dst)
+	}
+
+	// The connection attempt is bounded to probeTimeout: bash's /dev/tcp has no timeout of its
+	// own, and a genuinely unreachable destination (as opposed to one that actively refuses the
+	// connection) would otherwise block for the kernel's default TCP SYN-retry duration (commonly
+	// ~2 minutes), which would blow through a caller's retry budget in a single attempt.
+	const probeTimeout = 5 * time.Second
+
+	// execTimeout bounds how long the exec itself (as opposed to the inner "timeout" command
+	// wrapping the probe) may block, comfortably larger than probeTimeout so it only ever acts as
+	// a backstop against the exec operation itself getting stuck.
+	const execTimeout = 10 * time.Second
+
+	command := []string{"timeout", strconv.Itoa(int(probeTimeout.Seconds())), "bash", "-c",
+		fmt.Sprintf("grep -qm1 ^SSH- < /dev/tcp/%s/%d", dstIPv4, sshProbePort)}
+
+	stdout, stderr, rc, err := ExecInInstanceOn(conn.Server(), src, command, nil, execTimeout)
+	output = stdout + stderr
+	if err != nil {
+		return output, fmt.Errorf("Cannot probe from %q to %s:%d: %w", src, dstIPv4, sshProbePort, err)
+	}
+
+	if rc != 0 {
+		return output, fmt.Errorf("Cannot probe from %q to %s:%d: exited with code %d", src, dstIPv4, sshProbePort, rc)
+	}
+
+	return output, nil
 }
