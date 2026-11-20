@@ -3,17 +3,31 @@ data "lxd_info" "cluster" {
   remote = var.remote
 }
 
-# Project
+# Check whether the project already exists
+data "external" "project_exists" {
+  program = ["bash", "-c", "lxc project list \"${var.remote}:\" -f csv | awk -F, '{gsub(/ \\(current\\)$/, \"\", $1); print $1}' | grep -qxF \"${var.project}\" && echo '{\"exists\": \"true\"}' || echo '{\"exists\": \"false\"}'"]
+}
+
+# Check whether the profile already exists
+data "external" "profile_exists" {
+  program = ["bash", "-c", "lxc profile list --project \"${var.project}\" \"${var.remote}:\" -f csv 2>/dev/null | awk -F, '{gsub(/ \\(current\\)$/, \"\", $1); print $1}' | grep -qxF \"${var.profile}\" && echo '{\"exists\": \"true\"}' || echo '{\"exists\": \"false\"}'"]
+}
+
+# Project - created only when it does not already exist
 resource "lxd_project" "e2e" {
-  name   = "e2e-testing"
+  count  = data.external.project_exists.result["exists"] == "true" ? 0 : 1
+  name   = var.project
   remote = var.remote
 }
 
-# Profile
+# Profile - created only when it does not already exist
 resource "lxd_profile" "e2e" {
-  name    = "e2e-testing"
-  project = lxd_project.e2e.name
-  remote  = lxd_project.e2e.remote
+  count   = data.external.profile_exists.result["exists"] == "true" ? 0 : 1
+  name    = var.profile
+  project = var.project
+  remote  = var.remote
+
+  depends_on = [lxd_project.e2e]
 
   # Configuration
   config = {
@@ -44,20 +58,24 @@ resource "lxd_profile" "e2e" {
 # Images
 resource "lxd_cached_image" "ctn" {
   count         = var.containers_per_host > 0 ? 1 : 0
-  project       = lxd_project.e2e.name
-  remote        = lxd_project.e2e.remote
-  source_remote = "ubuntu-minimal-daily"
+  project       = coalesce(var.image_project, var.project)
+  remote        = var.remote
+  source_remote = var.image_remote
   source_image  = "24.04"
   type          = "container"
+  copy_aliases  = var.copy_image_aliases
+  depends_on    = [lxd_project.e2e]
 }
 
 resource "lxd_cached_image" "vm" {
   count         = var.vms_per_host > 0 ? 1 : 0
-  project       = lxd_project.e2e.name
-  remote        = lxd_project.e2e.remote
-  source_remote = "ubuntu-minimal-daily"
+  project       = coalesce(var.image_project, var.project)
+  remote        = var.remote
+  source_remote = var.image_remote
   source_image  = "24.04"
   type          = "virtual-machine"
+  copy_aliases  = var.copy_image_aliases
+  depends_on    = [lxd_project.e2e]
 }
 
 # Containers
@@ -69,11 +87,12 @@ resource "lxd_instance" "e2e-ctn" {
   name             = each.key
   target           = each.value
   type             = "container"
-  remote           = lxd_project.e2e.remote
-  project          = lxd_project.e2e.name
-  profiles         = [lxd_profile.e2e.name]
+  remote           = var.remote
+  project          = var.project
+  profiles         = [var.profile]
   image            = lxd_cached_image.ctn[0].fingerprint
   wait_for_network = true
+  depends_on       = [lxd_project.e2e, lxd_profile.e2e]
 }
 
 # VMs
@@ -85,12 +104,13 @@ resource "lxd_instance" "e2e-vm" {
   name             = each.key
   target           = each.value
   type             = "virtual-machine"
-  remote           = lxd_project.e2e.remote
-  project          = lxd_project.e2e.name
-  profiles         = [lxd_profile.e2e.name]
+  remote           = var.remote
+  project          = var.project
+  profiles         = [var.profile]
   image            = lxd_cached_image.vm[0].fingerprint
   wait_for_network = true
   allow_restart    = true
+  depends_on       = [lxd_project.e2e, lxd_profile.e2e]
 
   config = {
     "migration.stateful" = "true"
