@@ -186,7 +186,9 @@ func handleInitiatingSession(state microTypes.State, sh *service.Handler, gw *cl
 	g, ctx := errgroup.WithContext(context.Background())
 
 	// Add systems to temporary truststore.
-	for _, intent := range confirmedIntents {
+	for i := range confirmedIntents {
+		intent := confirmedIntents[i]
+
 		remoteCert, err := shared.ParseCert([]byte(intent.Certificate))
 		if err != nil {
 			return fmt.Errorf("Failed to parse certificate of confirmed intent: %w", err)
@@ -228,9 +230,15 @@ func handleInitiatingSession(state microTypes.State, sh *service.Handler, gw *cl
 				TLSServerCertificate: remoteCert,
 			}
 
-			_, err := cloud.RequestJoinIntent(ctx, intent.Address, conf, joinIntent)
+			_, confirmation, err := cloud.RequestJoinIntent(ctx, intent.Address, conf, joinIntent)
 			if err != nil {
 				return fmt.Errorf("Failed to confirm join intent of %q: %w", intent.Address, err)
+			}
+
+			// Attach the joiners own preseed configuration if sent in response.
+			// This is only happening in preseed mode.
+			if confirmation.System != nil {
+				confirmedIntents[i].System = confirmation.System
 			}
 
 			return nil
@@ -244,6 +252,8 @@ func handleInitiatingSession(state microTypes.State, sh *service.Handler, gw *cl
 
 	err = gw.Write(types.Session{
 		Accepted: true,
+		// Pass the confirmed intents back to the CLI for preseed processing.
+		ConfirmedIntents: confirmedIntents,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to send confirmation: %w", err)
@@ -263,6 +273,9 @@ func handleJoiningSession(state microTypes.State, sh *service.Handler, gw *cloud
 	if err != nil {
 		return fmt.Errorf("Failed to start session: %w", err)
 	}
+
+	// Record our own preseed configuration (if any) so it can be handed back to the initiator.
+	sh.Session.SetSystem(session.System)
 
 	defer func() {
 		err := sh.StopSession(nil)
@@ -316,7 +329,7 @@ func handleJoiningSession(state microTypes.State, sh *service.Handler, gw *cloud
 		InsecureSkipVerify: true,
 	}
 
-	peerCert, err := cloud.RequestJoinIntent(context.Background(), session.InitiatorAddress, conf, joinIntent)
+	peerCert, _, err := cloud.RequestJoinIntent(context.Background(), session.InitiatorAddress, conf, joinIntent)
 	if err != nil {
 		// If the HMAC of the request is invalid, a generic error is returned by the API.
 		// It's likely that the user provided the wrong passphrase.

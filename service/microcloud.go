@@ -194,16 +194,16 @@ func (s CloudService) RequestJoin(ctx context.Context, name string, cert *x509.C
 	return cloudClient.JoinServices(ctx, c, joinConfig)
 }
 
-// RequestJoinIntent send the intent to join the remote cluster.
-func (s CloudService) RequestJoinIntent(ctx context.Context, clusterAddress string, conf cloudClient.AuthConfig, intent types.SessionJoinPost) (*x509.Certificate, error) {
+// RequestJoinIntent sends the intent to join the remote cluster.
+func (s CloudService) RequestJoinIntent(ctx context.Context, clusterAddress string, conf cloudClient.AuthConfig, intent types.SessionJoinPost) (*x509.Certificate, *types.SessionJoinConfirmation, error) {
 	c, err := s.client.RemoteClientWithCert(util.CanonicalNetworkAddress(clusterAddress, CloudPort), conf.TLSServerCertificate)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	c, err = cloudClient.UseAuthProxy(c, types.MicroCloud, conf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return cloudClient.JoinIntent(ctx, c, intent)

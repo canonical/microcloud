@@ -482,4 +482,112 @@ EOF
     validate_system_microceph ${m} 1 disk2
     validate_system_microovn ${m}
   done
+
+  reset_systems 3 3 2
+
+  # Prepare networks for Ceph and OVN.
+  for n in $(seq 2 4); do
+    cluster_ip="${ceph_cluster_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- ip addr add "${cluster_ip}" dev "${ceph_cluster_subnet_iface}"
+  done
+
+  ovn_underlay_subnet_prefix="10.3.123"
+  ovn_underlay_subnet_iface="enp8s0"
+
+  for n in $(seq 2 4); do
+    ovn_underlay_ip="${ovn_underlay_subnet_prefix}.${n}/24"
+    lxc exec "micro0$((n-1))" -- sh -c "ip addr add ${ovn_underlay_ip} dev ${ovn_underlay_subnet_iface} && ip link set ${ovn_underlay_subnet_iface} up"
+  done
+
+  # Create a MicroCloud using the lightweight preseed format.
+preseed_micro01="$(cat << EOF
+lookup_subnet: ${lookup_gateway}
+initiator: micro01
+session_passphrase: foo
+session_systems: 3
+system:
+  name: micro01
+  ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.3.123.2
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+      wipe: true
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+        wipe: true
+        encrypt: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+        encrypt: true
+
+ovn:
+  ipv4_gateway: 10.1.123.1/24
+  ipv4_range: 10.1.123.100-10.1.123.254
+  ipv6_gateway: fd42:1:1234:1234::1/64
+  dns_servers: 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
+
+ceph:
+  internal_network: ${ceph_cluster_subnet_prefix}.0/24
+  cephfs: true
+EOF
+  )"
+
+  preseed_micro02="$(cat << EOF
+lookup_subnet: ${lookup_gateway}
+initiator: micro01
+session_passphrase: foo
+system:
+  name: micro02
+  ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.3.123.3
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+      wipe: true
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+        wipe: true
+        encrypt: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+        encrypt: true
+EOF
+  )"
+
+  preseed_micro03="$(cat << EOF
+lookup_subnet: ${lookup_gateway}
+initiator: micro01
+session_passphrase: foo
+system:
+  name: micro03
+  ovn_uplink_interface: enp6s0
+  ovn_underlay_ip: 10.3.123.4
+  storage:
+    local:
+      path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk2
+      wipe: true
+    ceph:
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk1
+        wipe: true
+        encrypt: true
+      - path: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_lxd_disk3
+        wipe: true
+        encrypt: true
+EOF
+  )"
+
+  lxc exec micro02 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed_micro02" &
+  lxc exec micro03 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed_micro03" &
+  lxc exec micro01 --env TEST_CONSOLE=0 -- sh -c 'microcloud preseed > out' <<< "$preseed_micro01"
+
+  lxc exec micro01 -- tail -1 out | grep "MicroCloud is ready" -q
+  lxc exec micro02 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+  lxc exec micro03 -- tail -2 out | head -1 | grep "Successfully joined the MicroCloud cluster and closing the session" -q
+
+  for m in micro01 micro02 micro03 ; do
+    validate_system_lxd ${m} 3 disk2 2 1 enp6s0 10.1.123.1/24 10.1.123.100-10.1.123.254 fd42:1:1234:1234::1/64 10.1.123.1,8.8.8.8,fd42:1:1234:1234::1
+    validate_system_microceph ${m} 1 1 "${ceph_cluster_subnet_prefix}.0/24" disk1,disk3 disk1 disk3
+    validate_system_microovn ${m}  "${ovn_underlay_subnet_prefix}"
+  done
 }
