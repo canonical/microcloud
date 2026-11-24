@@ -2,3 +2,8 @@
 .terraform*
 terraform.tfstate*
 terraform.tfvars
+
+# E2E test related
+microcloud.e2e
+report.xml
+testbed.yaml

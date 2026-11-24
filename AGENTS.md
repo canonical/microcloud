@@ -31,7 +31,7 @@ test/
   suites/       System test suites (bash)
   includes/     Shared shell helper functions
   lint/         Shell lint scripts
-  e2e/          Post-deployment end-to-end tests (Terraform)
+  e2e/          Post-deployment end-to-end tests (Ginkgo)
 version/        Single source of truth for the version string
 doc/            Sphinx documentation
 ```
