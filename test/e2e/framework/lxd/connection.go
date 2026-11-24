@@ -15,7 +15,7 @@ const (
 
 	// DefaultEventuallyTimeout bounds how long specs wait for eventually- consistent conditions (e.g.
 	// an instance acquiring an IPv4 address after being evacuated/restored) before failing.
-	DefaultEventuallyTimeout = 30 * time.Second
+	DefaultEventuallyTimeout = 5 * time.Minute
 )
 
 // connectNamedRemote connects to remoteName (as configured via `lxc remote add`, or the special

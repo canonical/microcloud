@@ -14,10 +14,7 @@ import (
 // connectivityTimeout bounds how long the connectivity probes below wait for a just-launched
 // instance to become reachable. This needs to be generous: a VM reports Running and acquires its
 // DHCP-visible IPv4 address well before its guest OS has actually finished booting (cloud-init,
-// network stack, sshd) -- measured live in this environment at ~205s from launch to the guest
-// agent/sshd actually responding, compared to ~45s for the IP alone. This is on top of
-// lxd.DefaultEventuallyTimeout, which is tuned for already-running instances (e.g. post-restore
-// reachability, where the instance was already fully booted before being stopped/restarted).
+// network stack, sshd).
 const connectivityTimeout = 6 * time.Minute
 
 var _ = ginkgo.Describe("Connectivity", ginkgo.Label("risk-low", "builtin"), ginkgo.Ordered, func() {
