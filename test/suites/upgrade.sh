@@ -186,6 +186,10 @@ ceph:
         sleep 1
         retries=$((retries+1))
       done
+
+      # Workaround for https://github.com/canonical/microcloud/issues/1687 (https://bugs.launchpad.net/cloud-archive/+bug/2169282).
+      # Can be removed once microovn 26.03/edge includes OVN >= 26.03.3.
+      lxc exec "${m}" -- microovn.ovs-vsctl remove Open_vSwitch . other_config flow-restore-wait
     done
 
     for m in micro01 micro02 micro03; do
