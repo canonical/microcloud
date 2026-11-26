@@ -2,6 +2,10 @@
 MICROCLOUD="microcloud"
 if [ -x "${SNAP_COMMON}/microcloud.debug" ]; then
     MICROCLOUD="${SNAP_COMMON}/microcloud.debug"
+    if [ -d "${SNAP_COMMON}/lib.debug" ]; then
+        LD_LIBRARY_PATH="${SNAP_COMMON}/lib.debug${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+        export LD_LIBRARY_PATH
+    fi
     GOCOVERDIR="${SNAP_COMMON}/data/cover"
     export GOCOVERDIR
     mkdir -p "${GOCOVERDIR}"
