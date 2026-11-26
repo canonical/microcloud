@@ -198,6 +198,10 @@ if [ -z "${MICROCLOUDD_DEBUG_PATH}" ] || ! [ -e "${MICROCLOUDD_DEBUG_PATH}" ]; t
   MICROCLOUDD_DEBUG_PATH=""
 fi
 
+if [ -z "${MICROCLOUD_DEBUG_LIB_PATH}" ] || ! [ -d "${MICROCLOUD_DEBUG_LIB_PATH}" ]; then
+  MICROCLOUD_DEBUG_LIB_PATH=""
+fi
+
 if [ -z "${LXD_DEBUG_PATH}" ] || ! [ -e "${LXD_DEBUG_PATH}" ]; then
   LXD_DEBUG_PATH=""
 fi

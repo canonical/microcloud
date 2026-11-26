@@ -9,6 +9,7 @@ test_upgrade() {
     if [ -n "${MICROCLOUD_DEBUG_PATH}" ] || [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
       lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug || true
       lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug || true
+      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/lib.debug || true
       lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
     fi
 
