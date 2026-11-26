@@ -82,8 +82,15 @@ func NewWebsocketGateway(ctx context.Context, conn *websocket.Conn) *WebsocketGa
 			decoder.DisallowUnknownFields()
 			err = decoder.Decode(&controlClose)
 			if err == nil {
-				// Cancel the inner context with the respective error.
-				defer gwCancel(errors.New(controlClose.ControlMessage))
+				var closeErr error
+				// If the remote peer provided an error message in the control close payload,
+				// cancel the context with that specific cause so callers know why the session was terminated.
+				if controlClose.ControlMessage != "" {
+					closeErr = errors.New(controlClose.ControlMessage)
+				}
+
+				// Cancel the inner context too with the respective error.
+				defer gwCancel(closeErr)
 				return
 			}
 
@@ -109,8 +116,18 @@ func (w *WebsocketGateway) Receive() <-chan []byte {
 func (w *WebsocketGateway) ReceiveWithContext(ctx context.Context, v any) error {
 	var err error
 	select {
-	case bytes := <-w.Receive():
-		err = json.Unmarshal(bytes, v)
+	case data, ok := <-w.Receive():
+		if !ok {
+			// If the connection was closed due to context cancellation (such as a timeout
+			// or a peer control close message), return the specific cause rather than a generic error.
+			if w.ctx.Err() != nil {
+				return context.Cause(w.ctx)
+			}
+
+			return errors.New("WebSocket connection closed")
+		}
+
+		err = json.Unmarshal(data, v)
 	case <-w.ctx.Done():
 		err = context.Cause(w.ctx)
 	case <-ctx.Done():
@@ -139,13 +156,23 @@ func (w *WebsocketGateway) Write(v any) error {
 }
 
 // WriteClose sends our websocket control close message.
-// Unlike the actual websocket control close message this supports message longer than 125 bytes
+// Unlike the actual websocket control close message this supports messages longer than 125 bytes
 // as well as special characters.
 // It waits for the other side to hang up or the gateway's context being cancelled.
 func (w *WebsocketGateway) WriteClose(err error) error {
-	writeErr := w.Write(ControlClose{
-		ControlMessage: err.Error(),
+	var msg string
+	if err != nil {
+		msg = err.Error()
+	}
+
+	// Write directly under writeLock to bypass the w.ctx.Err() check in Write(),
+	// since WriteClose is called during shutdown when w.ctx is already canceled.
+	w.writeLock.Lock()
+	writeErr := w.conn.WriteJSON(ControlClose{
+		ControlMessage: msg,
 	})
+	w.writeLock.Unlock()
+
 	if writeErr != nil {
 		return fmt.Errorf("Failed to write control message: %w", writeErr)
 	}
