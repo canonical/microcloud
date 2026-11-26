@@ -33,6 +33,8 @@ session_timeout: 300
 #   `ovn_uplink_interface` is optional and represents the name of the interface reserved for use with OVN.
 #   `ovn_underlay_ip` is optional and represents the Geneve Encap IP for each system.
 #   `storage` is optional and represents explicit paths to disks for each system.
+#     `local.recover` is optional and reuses the existing local storage pool on a non-pristine disk instead of creating a new one.
+#     It cannot be combined with `wipe`.
 systems:
 - name: micro01
   address: 10.0.0.1
