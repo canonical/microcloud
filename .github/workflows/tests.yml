@@ -67,7 +67,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: 'go.mod'
 
@@ -78,7 +78,7 @@ jobs:
           go mod tidy -go="${GOMIN}"
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         if: github.event_name == 'pull_request' && github.repository == 'canonical/microcloud'
 
       - id: ShellCheck
@@ -253,7 +253,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: 'go.mod'
 
@@ -294,7 +294,7 @@ jobs:
           go tool covdata percent -i="${GOCOVERDIR}"
 
       - name: Run TICS
-        uses: tiobe/tics-github-action@48afe561ae55edd1e1ec484505dba636e90ba0a6 # v4.1.0
+        uses: tiobe/tics-github-action@ef5606b61f5cf77831ea000680ed1dfad34ceff3 # v4.2.0
         with:
           mode: qserver
           project: microcloud
