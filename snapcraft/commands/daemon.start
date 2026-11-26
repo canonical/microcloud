@@ -5,6 +5,10 @@ MICROCLOUDD="microcloudd"
 if [ -x "${SNAP_COMMON}/microcloudd.debug" ]; then
     MICROCLOUDD="${SNAP_COMMON}/microcloudd.debug"
     echo "==> WARNING: Using a custom debug MicroCloud binary!"
+    if [ -d "${SNAP_COMMON}/lib.debug" ]; then
+        LD_LIBRARY_PATH="${SNAP_COMMON}/lib.debug${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+        export LD_LIBRARY_PATH
+    fi
     GOCOVERDIR="${SNAP_COMMON}/data/cover"
     export GOCOVERDIR
     mkdir -p "${GOCOVERDIR}"
