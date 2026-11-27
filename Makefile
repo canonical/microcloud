@@ -40,11 +40,11 @@ endif
 .PHONY: build-test
 build-test:
 ifeq "$(GOCOVERDIR)" ""
-	go install -tags=test -v ./cmd/microcloud
-	go install -tags=test -v ./cmd/microcloudd
+	go install -tags=test -ldflags='-extldflags "-Wl,-rpath,$$ORIGIN/lib.debug"' -v ./cmd/microcloud
+	go install -tags=test -ldflags='-extldflags "-Wl,-rpath,$$ORIGIN/lib.debug"' -v ./cmd/microcloudd
 else
-	go install -tags=test -v -cover ./cmd/microcloud
-	go install -tags=test -v -cover ./cmd/microcloudd
+	go install -tags=test -ldflags='-extldflags "-Wl,-rpath,$$ORIGIN/lib.debug"' -v -cover ./cmd/microcloud
+	go install -tags=test -ldflags='-extldflags "-Wl,-rpath,$$ORIGIN/lib.debug"' -v -cover ./cmd/microcloudd
 endif
 
 # Testing targets.
