@@ -9,6 +9,7 @@ test_upgrade() {
     if [ -n "${MICROCLOUD_DEBUG_PATH}" ] || [ -n "${MICROCLOUDD_DEBUG_PATH}" ]; then
       lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloud.debug || true
       lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug || true
+      lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/lib.debug || true
       lxc exec "${name}" -- systemctl restart snap.microcloud.daemon || true
     fi
 
@@ -186,6 +187,10 @@ ceph:
         sleep 1
         retries=$((retries+1))
       done
+
+      # Workaround for https://github.com/canonical/microcloud/issues/1687 (https://bugs.launchpad.net/cloud-archive/+bug/2169282).
+      # Can be removed once microovn 26.03/edge includes OVN >= 26.03.3.
+      lxc exec "${m}" -- microovn.ovs-vsctl remove Open_vSwitch . other_config flow-restore-wait
     done
 
     for m in micro01 micro02 micro03; do

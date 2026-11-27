@@ -313,10 +313,15 @@ set_debug_binaries() {
     # Therefore shut it down to exit the loop and ensure it can cleanly come up (with the right version) after injecting the binaries.
     lxc exec "${name}" -- systemctl stop snap.microcloud.daemon || true
 
-    lxc exec "${name}" -- rm -f /var/snap/microcloud/common/microcloudd.debug /var/snap/microcloud/common/microcloud.debug
+    lxc exec "${name}" -- rm -rf /var/snap/microcloud/common/microcloudd.debug /var/snap/microcloud/common/microcloud.debug /var/snap/microcloud/common/lib.debug
 
     lxc file push --quiet "${MICROCLOUDD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloudd.debug --mode 0755
     lxc file push --quiet "${MICROCLOUD_DEBUG_PATH}" "${name}"/var/snap/microcloud/common/microcloud.debug --mode 0755
+
+    if [ -n "${MICROCLOUD_DEBUG_LIB_PATH}" ]; then
+      lxc exec "${name}" -- mkdir -p /var/snap/microcloud/common/lib.debug
+      lxc file push --quiet "${MICROCLOUD_DEBUG_LIB_PATH}"/libdqlite.so* "${name}"/var/snap/microcloud/common/lib.debug/
+    fi
 
     lxc exec "${name}" -- systemctl start snap.microcloud.daemon || true
   fi
@@ -730,6 +735,7 @@ reset_snaps() {
       rm -f /var/snap/lxd/common/lxd.debug
       rm -f /var/snap/microcloud/common/microcloudd.debug
       rm -f /var/snap/microcloud/common/microcloud.debug
+      rm -rf /var/snap/microcloud/common/lib.debug
 
       for app in lxd lxd.debug microcloud microcloud.debug microcloudd microcloudd.debug ; do
         if pidof -q \${app} > /dev/null; then
